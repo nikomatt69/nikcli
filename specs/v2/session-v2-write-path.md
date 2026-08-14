@@ -2,19 +2,19 @@
 
 | Field  | Value                                                                                          |
 | ------ | ---------------------------------------------------------------------------------------------- |
-| Status | **Slices 1–2 implemented.** Slice 3 remains.                                                   |
+| Status | **Implemented.** Slices 1–3 landed.                                                            |
 | Scope  | `src/session/v2/*`, `src/session/projectors.ts`, `MessageV2` stays the LLM layer               |
 | Buys   | One conversation write: entries are first-class; a projection throw rolls back the turn        |
 
 ## Principle
 
-The durable log is already `sync_event`. Two row projections sit under it: `session_entry` (the flat client model, written first) and `message_info` / `message_part` (what the LLM layer reads, now derived from the entries just written).
+The durable log is already `sync_event`. Two row projections sit under it: `session_entry` (the flat client model, written first) and `message_info` / `message_part` (what the LLM layer reads, derived from the entries just written).
 
 S4 inverts the old relationship without replacing `SessionPrompt`, tool execution, or `MessageV2.toModelMessages`.
 
 ## Current Behavior
 
-`SessionV2.create` / `SessionV2.prompt` still delegate to `Session` / `SessionPrompt`. HTTP prompt does the same. The engine authors `MessageV2` values and runs `SessionSync` events.
+HTTP `session.create`, `POST /session/:id/message`, and `POST /session/:id/prompt_async` go through `SessionV2.create` / `prompt` / `admit` / `loop`. `SessionPrompt.loop` still runs the step engine. Admission and pending promotion persist through `SessionV2.persist` (`session/v2/write.ts`), which runs the existing message/part sync events.
 
 Each message/part event projector:
 
@@ -24,15 +24,18 @@ Each message/part event projector:
 
 A throw from projection or `toV1*` aborts the transaction. Live `session.entry.updated` is still a third path: `SessionProjector` translates the v1 bus after commit. Entry ids stay derived, so the two paths agree without coordinating.
 
+Pending promotion still prepares the ordered rows, then uses one `Database.transaction` to persist every message and part (via `SessionV2.persist`, whose `SyncEvent.run` calls join that transaction), update the session once, and delete the pending rows. The loop still resets `step` to `0` once after a non-empty batch (S1).
+
 ## Contract
 
 ### What stays
 
 - `sync_event` remains the ordered log. Event payloads stay `MessageV2` shapes so existing rows replay.
 - `MessageV2` remains what `toModelMessages`, tools, compaction, pending promotion, and HTTP message routes use.
-- `SessionPrompt.loop` stays the step engine. `SessionV2.prompt` stays a pass-through until slice 3.
+- `SessionPrompt.loop` stays the step engine.
 - Token-level `message.part.updated` stays `log: false`.
 - Entry ids stay derived (`idForPart` / `idForMessage`) so live and persisted rows still agree without coordinating.
+- The HTTP wire is unchanged: prompt bodies are still `SessionPrompt.PromptInput`, create payloads are still `SessionCreateInput`.
 
 ### Slice 1 (landed)
 
@@ -63,17 +66,17 @@ The TUI turn model absorbs `snapshot` / `patch` / `step-start` / `step-finish` t
 - **`prompt_data`** stays on `message_info`. It is the canonical admission payload for retry identity (S1), not conversation content. The projector copies it from the event after `toV1Message`.
 - User messages have no `parentID` on `MessageV2.User`; that gap in the pre-slice-2 table was a misread of the v1 schema.
 
-### Slice 3 (not this change)
+### Slice 3 (landed)
 
-`SessionV2.prompt` / `create` become the public write API HTTP uses. `SessionPrompt` still runs the loop, but persistence goes through the entry write. Pending promotion must still batch into messages and parts in one transaction and still reset `step` once (S1).
+`SessionV2.prompt` / `create` / `admit` / `loop` are the public write API HTTP uses. `SessionPrompt` still runs the loop. Persistence of admitted user messages goes through `SessionV2.persist`. `{ text, files, agents }` remains a convenience shape for `SessionV2.prompt` and is folded into `parts`.
 
 ## Migration
 
 1. Make projection payload-pure. Invert projector order. Stop swallowing throws. Add `toV1Part`. **Landed.**
-2. Close the lossless gap. v1 projector becomes `toV1*`. **Landed.** No HTTP change.
-3. Point HTTP and `SessionV2.prompt` at one write helper (slice 3).
+2. Close the lossless gap. v1 projector becomes `toV1*`. **Landed.**
+3. Point HTTP and `SessionV2.prompt` at one write helper. **Landed.** No HTTP contract change.
 
-Slice 2 is revertible: restore writing `data.info` / `data.part` as v1 and drop the new entry fields. Existing `sync_event` payloads are unchanged.
+Slice 3 is revertible: restore HTTP handlers to `Session.Service.create` / `SessionPrompt.Service.prompt` and inline `persistPrepared`. Existing `sync_event` payloads are unchanged.
 
 ## Invariants (testable)
 
@@ -83,10 +86,12 @@ Slice 2 is revertible: restore writing `data.info` / `data.part` as v1 and drop 
 4. A throw inside `SessionEntryProjection.message` leaves no `message_info` row.
 5. Unchanged snapshots still emit no extra `session.entry.updated` identity churn: entry ids stay derived.
 6. After a message/part commit, the v1 row equals `toV1*` of the stored entries (JSON round-trip), except `prompt_data` which remains a `message_info` column.
+7. `SessionV2.persist` stores the user entry and `prompt_data` together; HTTP prompt/create source goes through `SessionV2.*Effect`.
+8. Pending promotion still persists every message in one transaction and the loop still resets `step` once after a non-empty batch.
 
 ## Non-Goals
 
 - Rewriting `SessionProcessor`, tool execution, or `toModelMessages` to consume entries.
-- Changing `SessionV2.prompt` from a pass-through (slice 3).
 - A second durable log. `session_v2_event` stays gone.
 - Clustered writers or hard-crash replay of in-flight tokens.
+- Changing the HTTP OpenAPI contract (no codegen).

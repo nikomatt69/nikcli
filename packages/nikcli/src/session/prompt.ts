@@ -51,6 +51,7 @@ import { SessionRepo } from "./repo"
 import { SessionSync } from "./projectors"
 import { SyncEvent } from "@/sync/sync-event"
 import { SessionPending } from "./pending"
+import { SessionV2Write } from "./v2/write"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -382,23 +383,11 @@ export namespace SessionPrompt {
   }
 
   function persistPrepared(ctx: InstanceContext, prepared: MessageV2.WithParts, promptData: string): void {
-    SessionSync.install()
-    SyncEvent.run(
-      SessionSync.MessageUpdated,
-      {
-        sessionID: prepared.info.sessionID,
-        info: prepared.info,
-        promptData,
-      },
-      { projectID: ctx.project.id },
-    )
-    for (const part of prepared.parts) {
-      SyncEvent.run(
-        SessionSync.PartUpdated,
-        { sessionID: prepared.info.sessionID, part },
-        { projectID: ctx.project.id },
-      )
-    }
+    SessionV2Write.persist({
+      prepared,
+      promptData,
+      projectID: ctx.project.id,
+    })
   }
 
   function touchForBatch(ctx: InstanceContext, session: Session.Info, inputs: PromptInput[]): void {

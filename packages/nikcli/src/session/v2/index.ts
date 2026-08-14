@@ -7,24 +7,27 @@ import { SessionEntry } from "./entry"
 import { SessionEntryRepo } from "./entry-repo"
 import { SyncEvent } from "@/sync/sync-event"
 import { SessionEntryProjection } from "./projection"
+import { SessionV2Write } from "./write"
 import { Database } from "@/database/database"
 import { SessionProjector } from "./projector"
 import { SessionPrompt } from "../prompt"
 import { Stepper } from "./stepper"
 import { Log } from "@/util/log"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { zodObject } from "@/util/effect-zod"
 
 /**
- * STATUS: v2 read model live; write path slice 2 — entries are lossless,
- * v1 is derived from them.
+ * STATUS: v2 read model live; write path slices 1–3 — entries persist first,
+ * v1 is derived from them, HTTP create/prompt share this write API.
  *
  * SessionV2 is the entry/event/stepper redesign, migrated by strangler:
  *
  * - reads (`entries`, `state`, `pending`) are first-class
  * - message/part projectors write `session_entry` from the event payload
  *   before the v1 row; v1 is `toV1*` of those entries
- * - `create` / `prompt` still delegate to Session / SessionPrompt (slice 3)
+ * - `create` / `prompt` / `admit` / `loop` are the public write API HTTP uses
+ * - `SessionPrompt.loop` still runs the step engine
  *
  * See specs/v2/session-v2-write-path.md.
  */
@@ -46,19 +49,33 @@ export namespace SessionV2 {
   // ============================================================================
 
   /**
-   * Input for creating a new v2 session
+   * Input for creating a new v2 session. Same fields HTTP `session.create`
+   * accepts, plus an optional `sessionID` for callers that mint the id.
    */
-  export const CreateInput = z.object({
-    sessionID: Identifier.schema("session").optional(),
-    parentID: Identifier.schema("session").optional(),
-    title: z.string().optional(),
-  })
+  export const CreateInput = z
+    .object({
+      sessionID: Identifier.schema("session").optional(),
+      parentID: Identifier.schema("session").optional(),
+      title: z.string().optional(),
+      permission: Session.Info.shape.permission,
+      skills: z.array(z.string()).optional(),
+      disabledInstructions: z.array(z.string()).optional(),
+      disabledTools: z.record(z.string(), z.boolean()).optional(),
+      workspaceID: Session.Info.shape.workspaceID,
+      github: zodObject(Session.GithubInfoSchema).optional(),
+      worktree: zodObject(Session.WorktreeInfoSchema).optional(),
+    })
   export type CreateInput = z.infer<typeof CreateInput>
 
   /**
-   * Input for prompting a v2 session
+   * Input for prompting a v2 session. This is the HTTP prompt body (parts,
+   * delivery, noReply, …). `{ text, files, agents }` is still accepted and
+   * folded into `parts`.
    */
-  export const PromptInput = z.object({
+  export const PromptInput = SessionPrompt.PromptInput
+  export type PromptInput = SessionPrompt.PromptInput
+
+  const LegacyPromptInput = z.object({
     sessionID: Identifier.schema("session"),
     text: z.string(),
     files: MessageV2.FilePart.array().optional(),
@@ -70,8 +87,27 @@ export namespace SessionV2 {
         modelID: z.string(),
       })
       .optional(),
+    noReply: z.boolean().optional(),
   })
-  export type PromptInput = z.infer<typeof PromptInput>
+  export type LegacyPromptInput = z.infer<typeof LegacyPromptInput>
+
+  export type PromptRequest = PromptInput | LegacyPromptInput
+
+  function normalizePrompt(input: PromptRequest): PromptInput {
+    if ("parts" in input && Array.isArray(input.parts)) return PromptInput.parse(input)
+    const legacy = LegacyPromptInput.parse(input)
+    return PromptInput.parse({
+      sessionID: legacy.sessionID,
+      agent: legacy.agent,
+      model: legacy.model,
+      noReply: legacy.noReply,
+      parts: [
+        { type: "text" as const, text: legacy.text },
+        ...(legacy.files ?? []).map(({ messageID: _messageID, sessionID: _sessionID, ...file }) => file),
+        ...(legacy.agents ?? []).map(({ messageID: _messageID, sessionID: _sessionID, ...agent }) => agent),
+      ],
+    })
+  }
 
   // ============================================================================
   // Public API
@@ -83,24 +119,40 @@ export namespace SessionV2 {
   }
 
   /**
-   * Create a new v2 session.
-   * Delegates to the v1 Session service for storage.
+   * Persist a prepared user message through the entry write.
+   *
+   * Safe to call inside an outer `Database.transaction` — `SyncEvent.run`
+   * joins it, so pending promotion still batches into one transaction.
    */
+  export const persist = SessionV2Write.persist
+
+  /**
+   * Create a new session. Uses the current instance directory (HTTP create
+   * used to call `Session.create` for that; this is that call).
+   */
+  export function createEffect(input: CreateInput = {}) {
+    return Effect.gen(function* () {
+      const session = yield* Session.Service
+      const ctx = yield* InstanceState.context
+      return yield* session.createNext({
+        id: input.sessionID,
+        parentID: input.parentID,
+        directory: ctx.directory,
+        title: input.title,
+        permission: input.permission,
+        skills: input.skills,
+        disabledInstructions: input.disabledInstructions,
+        disabledTools: input.disabledTools,
+        workspaceID: input.workspaceID,
+        github: input.github,
+        worktree: input.worktree,
+      })
+    })
+  }
+
   export async function create(input: CreateInput = {}): Promise<Session.Info> {
-    const info = await runSession(
-      Effect.gen(function* () {
-        const session = yield* Session.Service
-        return yield* session.createNext({
-          id: input.sessionID,
-          parentID: input.parentID,
-          directory: "",
-          title: input.title,
-        })
-      }),
-    )
-
+    const info = await runSession(createEffect(CreateInput.parse(input)))
     log.info("created", { sessionID: info.id })
-
     return info
   }
 
@@ -188,28 +240,60 @@ export namespace SessionV2 {
   }
 
   /**
-   * Prompt a v2 session.
-   * Delegates to the v1 prompt engine — retries, aborts, tool execution,
-   * permissions and snapshots behave exactly like a v1 prompt.
+   * Prompt a session. `SessionPrompt.loop` still runs the step engine;
+   * persistence goes through `persist` (entry-first).
    */
-  export async function prompt(input: PromptInput) {
-    const parsed = PromptInput.parse(input)
+  export function promptEffect(input: PromptRequest) {
+    const parsed = normalizePrompt(input)
+    return Effect.gen(function* () {
+      const sessionPrompt = yield* SessionPrompt.Service
+      return yield* sessionPrompt.prompt(parsed)
+    })
+  }
+
+  export async function prompt(input: PromptRequest) {
+    const parsed = normalizePrompt(input)
     log.info("prompting", { sessionID: parsed.sessionID })
-    return runPrompt(
-      Effect.gen(function* () {
-        const sessionPrompt = yield* SessionPrompt.Service
-        return yield* sessionPrompt.prompt({
-          sessionID: parsed.sessionID,
-          model: parsed.model,
-          agent: parsed.agent,
-          parts: [
-            { type: "text" as const, text: parsed.text },
-            ...(parsed.files ?? []).map(({ messageID: _messageID, sessionID: _sessionID, ...file }) => file),
-            ...(parsed.agents ?? []).map(({ messageID: _messageID, sessionID: _sessionID, ...agent }) => agent),
-          ],
-        })
-      }),
-    )
+    return runPrompt(promptEffect(parsed))
+  }
+
+  /** Admit without starting the model loop — `prompt_async` waits on this. */
+  export function admitEffect(input: PromptRequest) {
+    const parsed = normalizePrompt(input)
+    return Effect.gen(function* () {
+      const sessionPrompt = yield* SessionPrompt.Service
+      return yield* sessionPrompt.admit(parsed)
+    })
+  }
+
+  export async function admit(input: PromptRequest) {
+    return runPrompt(admitEffect(input))
+  }
+
+  /** Run the model loop. Used by `prompt_async` after admission. */
+  export function loopEffect(
+    sessionID: string,
+    options?: {
+      controller?: AbortController
+      messageID?: string
+      waitFor?: "reply" | "promotion"
+    },
+  ) {
+    return Effect.gen(function* () {
+      const sessionPrompt = yield* SessionPrompt.Service
+      return yield* sessionPrompt.loop(sessionID, options)
+    })
+  }
+
+  export async function loop(
+    sessionID: string,
+    options?: {
+      controller?: AbortController
+      messageID?: string
+      waitFor?: "reply" | "promotion"
+    },
+  ) {
+    return runPrompt(loopEffect(sessionID, options))
   }
 
   /**

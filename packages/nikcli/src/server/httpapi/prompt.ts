@@ -1,8 +1,8 @@
-import { Effect } from "effect"
 import { locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { Instance } from "@/project/instance"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
+import { SessionV2 } from "@/session/v2"
 import { SessionPending } from "@/session/pending"
 import { SessionError } from "@/session/error"
 import { Log } from "@/util/log"
@@ -19,12 +19,13 @@ import { Log } from "@/util/log"
  *   204 so clients can read the submitted message immediately.
  *
  * Payload validation failures return `{ data, error, success: false }` with
- * status 400.
+ * status 400. Both routes go through `SessionV2` so persistence shares the
+ * entry write helper with `SessionV2.prompt`.
  */
 export namespace HttpApiPrompt {
   const log = Log.create({ service: "httpapi.prompt" })
 
-  const PromptBody = SessionPrompt.PromptInput.omit({ sessionID: true })
+  const PromptBody = SessionV2.PromptInput.omit({ sessionID: true })
 
   function captureContext(): InstanceContext {
     return {
@@ -39,13 +40,10 @@ export namespace HttpApiPrompt {
       SessionPrompt.defaultLayer,
       locallyInstance(
         ctx,
-        Effect.gen(function* () {
-          const sessionPrompt = yield* SessionPrompt.Service
-          return yield* sessionPrompt.prompt({
-            ...body,
-            sessionID,
-          } as SessionPrompt.PromptInput)
-        }),
+        SessionV2.promptEffect({
+          ...body,
+          sessionID,
+        } as SessionV2.PromptInput),
       ),
     )
   }
@@ -55,13 +53,10 @@ export namespace HttpApiPrompt {
       SessionPrompt.defaultLayer,
       locallyInstance(
         ctx,
-        Effect.gen(function* () {
-          const sessionPrompt = yield* SessionPrompt.Service
-          return yield* sessionPrompt.admit({
-            ...body,
-            sessionID,
-          } as SessionPrompt.PromptInput)
-        }),
+        SessionV2.admitEffect({
+          ...body,
+          sessionID,
+        } as SessionV2.PromptInput),
       ),
     )
   }
@@ -71,12 +66,9 @@ export namespace HttpApiPrompt {
       SessionPrompt.defaultLayer,
       locallyInstance(
         ctx,
-        Effect.gen(function* () {
-          const sessionPrompt = yield* SessionPrompt.Service
-          return yield* sessionPrompt.loop(sessionID, {
-            controller: admission?.controller,
-            messageID: admission?.messageID,
-          })
+        SessionV2.loopEffect(sessionID, {
+          controller: admission?.controller,
+          messageID: admission?.messageID,
         }),
       ),
     )

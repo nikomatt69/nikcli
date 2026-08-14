@@ -2,6 +2,7 @@ import { preserveTestEnv } from "../helpers/env"
 import { afterAll, describe, expect, it } from "bun:test"
 import type { MessageV2 as MessageV2Types } from "@/session/message-v2"
 import type { SessionEntry as SessionEntryTypes } from "@/session/v2/entry"
+import { fileURLToPath } from "node:url"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -190,6 +191,148 @@ describe("SessionV2.events", () => {
         // message.part.updated is defined `log: false` — its state lives in
         // `entries()`, not in the log
         expect(events.some((e) => e.type.startsWith("message.part.updated"))).toBe(false)
+      },
+    })
+  })
+})
+
+describe("SessionV2 write API", () => {
+  it("HTTP prompt and create go through SessionV2", async () => {
+    const root = fileURLToPath(new URL("../../src/", import.meta.url))
+    const prompt = await Bun.file(root + "server/httpapi/prompt.ts").text()
+    const session = await Bun.file(root + "server/httpapi/session.ts").text()
+    const engine = await Bun.file(root + "session/prompt.ts").text()
+    expect(prompt).toContain("SessionV2.promptEffect")
+    expect(prompt).toContain("SessionV2.admitEffect")
+    expect(prompt).toContain("SessionV2.loopEffect")
+    expect(session).toContain("SessionV2.createEffect")
+    expect(engine).toContain("SessionV2Write.persist")
+  })
+
+  it("create uses the instance directory", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const session = await SessionV2.create({ title: "write-api" })
+        expect(session.directory).toBe(projectDir)
+        expect(session.title).toBe("write-api")
+      },
+    })
+  })
+
+  it("persist writes entries first and keeps prompt_data on message_info", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const [{ MessageRepo }, { SessionEntryRepo }, { SessionEntry }] = await Promise.all([
+          import("@/session/message-repo"),
+          import("@/session/v2/entry-repo"),
+          import("@/session/v2/entry"),
+        ])
+        const session = await SessionV2.create({ title: "persist" })
+        const messageID = Identifier.ascending("message")
+        const partID = Identifier.ascending("part")
+        const prepared = {
+          info: {
+            id: messageID,
+            sessionID: session.id,
+            role: "user" as const,
+            time: { created: 1 },
+            agent: "build",
+            model: { providerID: "p", modelID: "m" },
+          },
+          parts: [
+            {
+              id: partID,
+              sessionID: session.id,
+              messageID,
+              type: "text" as const,
+              text: "from persist",
+            },
+          ],
+        }
+        const promptData = JSON.stringify({ sessionID: session.id, parts: [{ type: "text", text: "from persist" }] })
+        SessionV2.persist({
+          prepared,
+          promptData,
+          projectID: Instance.project.id,
+        })
+
+        const user = SessionEntryRepo.list(session.id).find((entry) => entry.type === "user") as SessionEntryTypes.User
+        expect(user.text).toBe("from persist")
+        expect(MessageRepo.getMessage(session.id, messageID)).toEqual(
+          JSON.parse(JSON.stringify(SessionEntry.toV1Message([user]))),
+        )
+        expect(MessageRepo.getPromptData(session.id, messageID)).toBe(promptData)
+      },
+    })
+  })
+
+  it("persist joins an outer transaction so a later throw rolls the turn back", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const [{ MessageRepo }, { SessionEntryRepo }, { Database }] = await Promise.all([
+          import("@/session/message-repo"),
+          import("@/session/v2/entry-repo"),
+          import("@/database/database"),
+        ])
+        const session = await SessionV2.create({ title: "persist-tx" })
+        const messageID = Identifier.ascending("message")
+        const partID = Identifier.ascending("part")
+        expect(() => {
+          Database.transaction(() => {
+            SessionV2.persist({
+              prepared: {
+                info: {
+                  id: messageID,
+                  sessionID: session.id,
+                  role: "user" as const,
+                  time: { created: 1 },
+                  agent: "build",
+                  model: { providerID: "p", modelID: "m" },
+                },
+                parts: [
+                  {
+                    id: partID,
+                    sessionID: session.id,
+                    messageID,
+                    type: "text" as const,
+                    text: "rolled back",
+                  },
+                ],
+              },
+              promptData: JSON.stringify({
+                sessionID: session.id,
+                parts: [{ type: "text", text: "rolled back" }],
+              }),
+              projectID: Instance.project.id,
+            })
+            throw new Error("boom")
+          })
+        }).toThrow("boom")
+        expect(SessionEntryRepo.list(session.id).some((entry) => entry.type === "user")).toBe(false)
+        expect(MessageRepo.getMessage(session.id, messageID)).toBeUndefined()
+      },
+    })
+  })
+
+  it("admit with noReply persists a user entry through the write helper", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const session = await SessionV2.create({ title: "admit" })
+        const admission = await SessionV2.admit({
+          sessionID: session.id,
+          noReply: true,
+          agent: "build",
+          model: { providerID: "test", modelID: "test" },
+          parts: [{ type: "text", text: "hello from v2" }],
+        })
+        expect(admission.message).toBeDefined()
+        const entries = await SessionV2.entries(session.id)
+        const user = entries.find((entry) => entry.type === "user") as SessionEntryTypes.User
+        expect(user.text).toBe("hello from v2")
       },
     })
   })

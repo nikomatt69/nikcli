@@ -119,11 +119,11 @@ The result is assembled from the instruction fold (see [instruction sync](./inst
 `SessionV2` (`src/session/v2/*`) is the flat entry redesign, landed by strangler:
 
 - **Reads are native v2.** Completed messages come from SQL and convert losslessly through `SessionEntry.fromV1Part`; the in-flight tail comes from `SessionProjector`, which translates live v1 bus events into `SessionEvent`s reduced by `Stepper.stepWith`.
-- **Writes (slice 2).** Message/part events persist `session_entry` from the payload before the v1 row; v1 is `toV1*` of those entries. `prompt_data` stays on `message_info`. `SessionV2.create` and `SessionV2.prompt` still delegate to `Session` / `SessionPrompt`. Remaining slice: one write API. See [session v2 write path](./session-v2-write-path.md).
+- **Writes.** HTTP create/prompt go through `SessionV2`. Message/part events persist `session_entry` from the payload before the v1 row; v1 is `toV1*` of those entries. `prompt_data` stays on `message_info`. `SessionPrompt.loop` still runs the step engine. See [session v2 write path](./session-v2-write-path.md).
 
 Entries persist in `session_entry`. Since `20260805130000_session_entry_id_order`, entry ids are derived so lexicographic id order **is** conversation order (`SessionEntry.idForPart`) — the `sort_key` column is gone and neither server nor clients re-sort. The parallel `session_v2_event` table was dropped in `20260805120000`; the durable log is `sync_event`.
 
-Adopting the v2 API today changes no behavior. Swapping the engine underneath is the isolated later step.
+`MessageV2` remains the LLM layer. Rewriting `SessionProcessor` or `toModelMessages` to consume entries is out of scope.
 
 ---
 

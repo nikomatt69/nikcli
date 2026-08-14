@@ -645,8 +645,7 @@ export namespace SessionHttpApi {
       }).pipe(Effect.orDie),
     create: ({ payload }: { payload: typeof CreatePayload.Type | void }) =>
       Effect.gen(function* () {
-        const session = yield* Session.Service
-        const created = yield* session.create((payload ?? {}) as Session.CreateInput)
+        const created = yield* SessionV2.createEffect((payload ?? {}) as SessionV2.CreateInput)
         return jsonSafe(created)
       }).pipe(Effect.orDie),
     remove: ({ params }: { params: typeof SessionIDPath.Type }) =>
