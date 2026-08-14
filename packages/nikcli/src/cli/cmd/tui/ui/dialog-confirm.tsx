@@ -50,13 +50,13 @@ export function DialogConfirm(props: DialogConfirmProps) {
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           {props.title}
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <text fg={theme.foreground.muted}>esc</text>
       </box>
       <box paddingBottom={1}>
-        <text fg={theme.textMuted}>{props.message}</text>
+        <text fg={theme.foreground.muted}>{props.message}</text>
       </box>
       <box flexDirection="row" justifyContent="flex-end" paddingBottom={1} gap={2}>
         <For each={["cancel", "confirm"]}>
@@ -67,15 +67,15 @@ export function DialogConfirm(props: DialogConfirmProps) {
               paddingTop={1}
               paddingBottom={1}
               border={true}
-              borderColor={key === store.active ? theme.borderActive : theme.border}
-              backgroundColor={key === store.active ? theme.primary : undefined}
+              borderColor={key === store.active ? theme.border.focus : theme.border.default}
+              backgroundColor={key === store.active ? theme.badge.bg : undefined}
               onMouseUp={() => {
                 if (key === "confirm") props.onConfirm?.()
                 if (key === "cancel") props.onCancel?.()
                 dialog.clear()
               }}
             >
-              <text fg={key === store.active ? theme.selectedListItemText : theme.textMuted}>
+              <text fg={key === store.active ? theme.badge.fg : theme.foreground.muted}>
                 {Locale.titlecase(key)}
               </text>
             </box>
@@ -83,8 +83,8 @@ export function DialogConfirm(props: DialogConfirmProps) {
         </For>
       </box>
       <box flexDirection="row" justifyContent="flex-end" paddingBottom={1}>
-        <text fg={theme.textMuted}>
-          Y/N or <span style={{ fg: theme.text }}>←→</span> to switch, <span style={{ fg: theme.text }}>enter</span> to
+        <text fg={theme.foreground.muted}>
+          Y/N or <span style={{ fg: theme.foreground.default }}>←→</span> to switch, <span style={{ fg: theme.foreground.default }}>enter</span> to
           confirm
         </text>
       </box>

@@ -1,33 +1,31 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test"
+import { preserveTestEnv } from "../helpers/env"
+import { afterAll, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { MonitorTool } from "@/tool/monitor"
-import { Monitor } from "@/monitor/manager"
-import { Instance } from "@/project/instance"
 import { makeToolContext, withProjectDirectory } from "../helpers/tool-context"
 
+const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-monitor-home-"))
+process.env.NIKCLI_TEST_HOME = testHome
+process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+process.env.NIKCLI_DB = path.join(testHome, "data", "nikcli.db")
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG", "NIKCLI_DB"])
+
+const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-monitor-proj-"))
+
+const { MonitorTool } = await import("@/tool/monitor")
+const { Monitor } = await import("@/monitor/manager")
+const { SessionError } = await import("@/session/error")
+const { Instance } = await import("@/project/instance")
+const { Database } = await import("@/database/database")
+
+const def = await withProjectDirectory(projectDir, () => MonitorTool.init())
+
 describe("MonitorTool", () => {
-  let projectDir: string
-  let testHome: string
-  let def: Awaited<ReturnType<typeof MonitorTool.init>>
-  const previousHome = process.env.NIKCLI_TEST_HOME
-  const previousDisable = process.env.NIKCLI_DISABLE_PROJECT_CONFIG
-
-  beforeAll(async () => {
-    testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-monitor-home-"))
-    process.env.NIKCLI_TEST_HOME = testHome
-    process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
-    projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-monitor-proj-"))
-    def = await withProjectDirectory(projectDir, () => MonitorTool.init())
-  })
-
   afterAll(async () => {
     await Instance.disposeAll().catch(() => undefined)
-    if (previousHome === undefined) delete process.env.NIKCLI_TEST_HOME
-    else process.env.NIKCLI_TEST_HOME = previousHome
-    if (previousDisable === undefined) delete process.env.NIKCLI_DISABLE_PROJECT_CONFIG
-    else process.env.NIKCLI_DISABLE_PROJECT_CONFIG = previousDisable
+    Database.close(path.join(testHome, "data", "nikcli.db"))
     await fs.rm(projectDir, { recursive: true, force: true }).catch(() => {})
     await fs.rm(testHome, { recursive: true, force: true }).catch(() => {})
   })
@@ -90,5 +88,11 @@ describe("MonitorTool", () => {
     await withProjectDirectory(projectDir, async () => {
       await Monitor.cancel(ctx.sessionID, result.metadata.monitorId).catch(() => undefined)
     })
+  })
+
+  it("throws SessionNotFoundError for a missing monitor", async () => {
+    await expect(
+      withProjectDirectory(projectDir, () => Monitor.get("ses_missing", "mon_missing")),
+    ).rejects.toBeInstanceOf(SessionError.NotFoundError)
   })
 })

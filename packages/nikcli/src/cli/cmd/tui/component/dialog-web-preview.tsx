@@ -561,20 +561,20 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
       <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
-        <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+        <text fg={theme.accent.fg} attributes={TextAttributes.BOLD}>
           ⊕ Web Preview
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <text fg={theme.foreground.muted}>esc</text>
       </box>
 
       <box flexDirection="row" gap={1} alignItems="center" flexShrink={0}>
-        <text fg={canGoBack() ? theme.text : theme.textMuted} onMouseUp={() => goBack()} flexShrink={0}>
+        <text fg={canGoBack() ? theme.foreground.default : theme.foreground.muted} onMouseUp={() => goBack()} flexShrink={0}>
           ←
         </text>
-        <text fg={canGoForward() ? theme.text : theme.textMuted} onMouseUp={() => goForward()} flexShrink={0}>
+        <text fg={canGoForward() ? theme.foreground.default : theme.foreground.muted} onMouseUp={() => goForward()} flexShrink={0}>
           →
         </text>
-        <text fg={live() || page().url ? theme.text : theme.textMuted} onMouseUp={() => reload()} flexShrink={0}>
+        <text fg={live() || page().url ? theme.foreground.default : theme.foreground.muted} onMouseUp={() => reload()} flexShrink={0}>
           ↺
         </text>
 
@@ -582,7 +582,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
           when={focusArea() === "url"}
           fallback={
             <text
-              fg={address() ? theme.text : theme.textMuted}
+              fg={address() ? theme.foreground.default : theme.foreground.muted}
               flexGrow={1}
               wrapMode="char"
               onMouseUp={() => focusUrlBar()}
@@ -617,14 +617,14 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
               }
             }}
             placeholder="https://example.com"
-            textColor={theme.text}
-            focusedTextColor={theme.text}
-            cursorColor={theme.primary}
+            textColor={theme.foreground.default}
+            focusedTextColor={theme.foreground.default}
+            cursorColor={theme.accent.fg}
           />
         </Show>
 
         <box
-          backgroundColor={theme.primary}
+          backgroundColor={theme.accent.fg}
           paddingLeft={1}
           paddingRight={1}
           flexShrink={0}
@@ -633,33 +633,33 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
             if (v) void navigate(v)
           }}
         >
-          <text fg={theme.background}>Go</text>
+          <text fg={theme.surface.base}>Go</text>
         </box>
 
         {/* Names where it takes you, not where you are — the mode you are in is
             already spelled out in the status line under this row. Greyed out,
             it means this terminal cannot paint a page at all. */}
         <box
-          backgroundColor={liveRenderer ? (live() ? theme.backgroundElement : theme.secondary) : undefined}
+          backgroundColor={liveRenderer ? (live() ? theme.surface.offset : theme.accent.secondary) : undefined}
           paddingLeft={1}
           paddingRight={1}
           flexShrink={0}
           onMouseUp={() => toggleMode()}
         >
-          <text fg={!liveRenderer ? theme.textMuted : live() ? theme.text : theme.background}>
+          <text fg={!liveRenderer ? theme.foreground.muted : live() ? theme.foreground.default : theme.surface.base}>
             {live() ? "Markdown" : "Chromium"}
           </text>
         </box>
       </box>
 
       <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
-        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="char">
+        <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="char">
           {live() ? surface()?.title || surface()?.url || "" : page().title || (page().loading ? "Loading..." : "")}
         </text>
         <Show
           when={live()}
           fallback={
-            <text fg={page().loading ? theme.primary : page().error ? theme.error : theme.textMuted}>
+            <text fg={page().loading ? theme.accent.fg : page().error ? theme.status.error.fg : theme.foreground.muted}>
               {page().loading ? "loading" : page().error ? "error" : page().markdown ? "reader" : ""}
             </text>
           }
@@ -667,10 +667,10 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
           <text
             fg={
               surface()?.status === "error"
-                ? theme.error
+                ? theme.status.error.fg
                 : surface()?.status === "live"
-                  ? theme.primary
-                  : theme.textMuted
+                  ? theme.accent.fg
+                  : theme.foreground.muted
             }
           >
             {surface()?.status === "live"
@@ -682,13 +682,13 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
 
       <Show when={live() ? surface()?.error : page().error}>
         <box flexShrink={0}>
-          <text fg={theme.error}>✗ {live() ? surface()?.error : page().error}</text>
+          <text fg={theme.status.error.fg}>✗ {live() ? surface()?.error : page().error}</text>
         </box>
       </Show>
 
       <Show when={!liveRenderer}>
         <box flexShrink={0}>
-          <text fg={theme.textMuted} wrapMode="word">
+          <text fg={theme.foreground.muted} wrapMode="word">
             ⓘ {noGraphicsNote()}
           </text>
         </box>
@@ -696,8 +696,8 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
 
       <box
         border
-        borderColor={focusArea() === "content" ? theme.primary : theme.border}
-        focusedBorderColor={theme.primary}
+        borderColor={focusArea() === "content" ? theme.accent.fg : theme.border.default}
+        focusedBorderColor={theme.border.focus}
         height={contentHeight()}
         flexShrink={0}
         onMouseUp={() => focusContent()}
@@ -708,7 +708,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
               when={address()}
               fallback={
                 <box paddingLeft={1} paddingTop={1}>
-                  <text fg={theme.textMuted} wrapMode="word">
+                  <text fg={theme.foreground.muted} wrapMode="word">
                     Enter a URL above and press Go — live mode starts Chromium for that page.
                     {"\n"}
                     ^⇧R switches to reader mode (fetch + markdown, no browser).
@@ -746,22 +746,22 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
             <scrollbox height={innerHeight()} focused={focusArea() === "content"} flexGrow={1} flexShrink={1}>
               <box gap={1} paddingTop={1} paddingBottom={1}>
                 <Show when={page().description}>
-                  <text fg={theme.textMuted} wrapMode="word">
+                  <text fg={theme.foreground.muted} wrapMode="word">
                     {page().description}
                   </text>
                 </Show>
                 <Show when={sectionData()}>
                   <box
-                    backgroundColor={theme.backgroundElement}
+                    backgroundColor={theme.surface.offset}
                     paddingLeft={1}
                     paddingRight={1}
                     paddingTop={1}
                     paddingBottom={1}
                   >
-                    <text fg={theme.secondary} attributes={TextAttributes.BOLD}>
+                    <text fg={theme.accent.secondary} attributes={TextAttributes.BOLD}>
                       {sectionData()!.title}
                     </text>
-                    <text fg={theme.primary} onMouseUp={() => setSelectedSection(null)}>
+                    <text fg={theme.accent.fg} onMouseUp={() => setSelectedSection(null)}>
                       show full page
                     </text>
                   </box>
@@ -778,7 +778,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
                 <Show
                   when={displayedMarkdown()}
                   fallback={
-                    <text fg={page().loading ? theme.secondary : theme.textMuted} wrapMode="word">
+                    <text fg={page().loading ? theme.accent.secondary : theme.foreground.muted} wrapMode="word">
                       {page().loading ? "Fetching and formatting page..." : "Enter a URL above to preview a website."}
                     </text>
                   }
@@ -786,7 +786,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
                   <markdown
                     content={displayedMarkdown()}
                     syntaxStyle={syntax()}
-                    fg={theme.text}
+                    fg={theme.foreground.default}
                     conceal={true}
                     tableOptions={{
                       widthMode: "full",
@@ -794,7 +794,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
                       cellPadding: tight() ? 0 : 1,
                       borders: !tight(),
                       outerBorder: false,
-                      borderColor: theme.borderSubtle,
+                      borderColor: theme.border.subtle,
                     }}
                   />
                 </Show>
@@ -823,31 +823,31 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
         flexShrink={0}
         gap={tight() ? 1 : 0}
       >
-        <text fg={theme.textMuted} wrapMode="char">
+        <text fg={theme.foreground.muted} wrapMode="char">
           {(live() ? surface()?.url : "") || address() || ""}
         </text>
         <Show
           when={live()}
           fallback={
             <box flexDirection="row" gap={2}>
-              <text fg={theme.textMuted}>⌥← back</text>
-              <text fg={theme.textMuted}>⌥→ fwd</text>
-              <text fg={theme.textMuted}>r reload</text>
-              <text fg={theme.textMuted}>/ url</text>
+              <text fg={theme.foreground.muted}>⌥← back</text>
+              <text fg={theme.foreground.muted}>⌥→ fwd</text>
+              <text fg={theme.foreground.muted}>r reload</text>
+              <text fg={theme.foreground.muted}>/ url</text>
               <Show when={liveRenderer}>
-                <text fg={theme.textMuted}>^⇧R live</text>
+                <text fg={theme.foreground.muted}>^⇧R live</text>
               </Show>
             </box>
           }
         >
           <box flexDirection="row" gap={2}>
-            <text fg={theme.textMuted}>^L url</text>
-            <text fg={theme.textMuted}>⌥← back</text>
-            <text fg={theme.textMuted}>⌥→ fwd</text>
+            <text fg={theme.foreground.muted}>^L url</text>
+            <text fg={theme.foreground.muted}>⌥← back</text>
+            <text fg={theme.foreground.muted}>⌥→ fwd</text>
             <Show when={liveRenderer === "kitty"}>
-              <text fg={theme.textMuted}>^⇧T transport</text>
+              <text fg={theme.foreground.muted}>^⇧T transport</text>
             </Show>
-            <text fg={theme.textMuted}>^⇧R reader</text>
+            <text fg={theme.foreground.muted}>^⇧R reader</text>
           </box>
         </Show>
       </box>
@@ -868,13 +868,13 @@ function Sidebar(props: {
       <Show when={props.headings.length > 0}>
         <box
           gap={0}
-          backgroundColor={theme.backgroundElement}
+          backgroundColor={theme.surface.offset}
           paddingLeft={1}
           paddingRight={1}
           paddingTop={1}
           paddingBottom={1}
         >
-          <text fg={theme.secondary} attributes={TextAttributes.BOLD}>
+          <text fg={theme.accent.secondary} attributes={TextAttributes.BOLD}>
             On This Page
           </text>
           <For each={props.headings.slice(0, 16)}>
@@ -884,13 +884,13 @@ function Sidebar(props: {
               const label = h.text.length > maxLen ? h.text.slice(0, maxLen - 2) + ".." : h.text
               return (
                 <box paddingLeft={indent} onMouseUp={() => props.onSelectSection(h.slug)}>
-                  <text fg={props.selectedSection === h.slug ? theme.primary : theme.text}>{label}</text>
+                  <text fg={props.selectedSection === h.slug ? theme.accent.fg : theme.foreground.default}>{label}</text>
                 </box>
               )
             }}
           </For>
           <Show when={props.selectedSection}>
-            <text fg={theme.primary} onMouseUp={() => props.onSelectSection(null)}>
+            <text fg={theme.accent.fg} onMouseUp={() => props.onSelectSection(null)}>
               show full page
             </text>
           </Show>
@@ -899,20 +899,20 @@ function Sidebar(props: {
       <Show when={props.links.length > 0}>
         <box
           gap={0}
-          backgroundColor={theme.backgroundElement}
+          backgroundColor={theme.surface.offset}
           paddingLeft={1}
           paddingRight={1}
           paddingTop={1}
           paddingBottom={1}
         >
-          <text fg={theme.secondary} attributes={TextAttributes.BOLD}>
+          <text fg={theme.accent.secondary} attributes={TextAttributes.BOLD}>
             Links
           </text>
           <For each={props.links.slice(0, 10)}>
             {(link) => {
               const label = link.text.length > 26 ? link.text.slice(0, 24) + ".." : link.text
               return (
-                <text fg={theme.primary} wrapMode="char" onMouseUp={() => props.onNavigate(link.href)}>
+                <text fg={theme.accent.fg} wrapMode="char" onMouseUp={() => props.onNavigate(link.href)}>
                   {label}
                 </text>
               )

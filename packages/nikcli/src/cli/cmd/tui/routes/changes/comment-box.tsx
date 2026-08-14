@@ -37,16 +37,16 @@ export interface Comment {
 }
 
 function borderColor(theme: ReturnType<typeof useTheme>["theme"], lineType: LineType | undefined) {
-  if (lineType === "add") return theme.diffHighlightAdded
-  if (lineType === "remove") return theme.diffHighlightRemoved
-  return theme.primary
+  if (lineType === "add") return theme.diff.highlightAdded
+  if (lineType === "remove") return theme.diff.highlightRemoved
+  return theme.accent.fg
 }
 
 function typeColor(theme: ReturnType<typeof useTheme>["theme"], type: CommentType) {
-  if (type === "bug") return theme.error
-  if (type === "style") return theme.info
-  if (type === "question") return theme.warning
-  return theme.primary
+  if (type === "bug") return theme.status.error.fg
+  if (type === "style") return theme.status.info.fg
+  if (type === "question") return theme.status.warning.fg
+  return theme.accent.fg
 }
 
 export function makeKey(anchor: string) {
@@ -198,26 +198,26 @@ export function CommentInput(props: {
 
   return (
     <box
-      backgroundColor={theme.backgroundPanel}
+      backgroundColor={theme.surface.panel}
       border={["left"]}
       borderColor={color()}
       customBorderChars={SplitBorder.customBorderChars}
       width="100%"
     >
       <box paddingLeft={2} paddingTop={1} paddingBottom={1}>
-        <text fg={theme.text}>Comment on {lineLabel(props.row)}</text>
+        <text fg={theme.foreground.default}>Comment on {lineLabel(props.row)}</text>
       </box>
 
       <Show when={phase() === "type"}>
         <box paddingLeft={2} paddingBottom={1} gap={1}>
-          <text fg={theme.textMuted} wrapMode="word">
+          <text fg={theme.foreground.muted} wrapMode="word">
             Pick type | 1-4 | ←/→ or tab | enter to write
           </text>
           <box flexDirection="row" gap={1}>
             <For each={COMMENT_TYPES}>
               {(item) => (
                 <box
-                  backgroundColor={commentType() === item.type ? typeColor(theme, item.type) : theme.backgroundElement}
+                  backgroundColor={commentType() === item.type ? typeColor(theme, item.type) : theme.surface.offset}
                   paddingLeft={1}
                   paddingRight={1}
                   onMouseDown={() => {
@@ -225,7 +225,7 @@ export function CommentInput(props: {
                     setPhase("text")
                   }}
                 >
-                  <text fg={commentType() === item.type ? theme.background : theme.textMuted}>
+                  <text fg={commentType() === item.type ? theme.surface.base : theme.foreground.muted}>
                     {item.key} {item.label}
                   </text>
                 </box>
@@ -238,16 +238,16 @@ export function CommentInput(props: {
       <Show when={phase() === "text"}>
         <box paddingLeft={2} paddingBottom={1} flexDirection="row" gap={2} alignItems="center">
           <box backgroundColor={typeColor(theme, commentType())} paddingLeft={1} paddingRight={1}>
-            <text fg={theme.background}>{commentType()}</text>
+            <text fg={theme.surface.base}>{commentType()}</text>
           </box>
-          <text fg={theme.textMuted}>ctrl+1-4 change type</text>
+          <text fg={theme.foreground.muted}>ctrl+1-4 change type</text>
         </box>
         <box
           paddingLeft={2}
           paddingRight={3}
           paddingTop={1}
           paddingBottom={1}
-          backgroundColor={theme.backgroundElement}
+          backgroundColor={theme.surface.offset}
         >
           <textarea
             ref={(val: TextareaRenderable) => (input = val)}
@@ -255,9 +255,9 @@ export function CommentInput(props: {
             height={4}
             initialValue={props.initialValue}
             placeholder="Write feedback for this line"
-            textColor={theme.text}
-            focusedTextColor={theme.text}
-            cursorColor={theme.primary}
+            textColor={theme.foreground.default}
+            focusedTextColor={theme.foreground.default}
+            cursorColor={theme.accent.fg}
             keyBindings={[
               { name: "s", ctrl: true, action: "submit" },
               { name: "s", super: true, action: "submit" },
@@ -276,17 +276,17 @@ export function CommentInput(props: {
           />
         </box>
         <box flexDirection="row" gap={2} paddingLeft={2} paddingBottom={1} flexWrap="wrap">
-          <text fg={theme.text}>
-            {process.platform === "darwin" ? "ctrl+s" : "ctrl+s"} <span style={{ fg: theme.textMuted }}>save</span>
+          <text fg={theme.foreground.default}>
+            {process.platform === "darwin" ? "ctrl+s" : "ctrl+s"} <span style={{ fg: theme.foreground.muted }}>save</span>
           </text>
-          <text fg={theme.textMuted} wrapMode="word">
+          <text fg={theme.foreground.muted} wrapMode="word">
             ({process.platform === "darwin" ? "cmd" : "ctrl"}+enter if terminal supports)
           </text>
-          <text fg={theme.text}>
-            opt+enter <span style={{ fg: theme.textMuted }}>newline</span>
+          <text fg={theme.foreground.default}>
+            opt+enter <span style={{ fg: theme.foreground.muted }}>newline</span>
           </text>
-          <text fg={theme.text}>
-            esc <span style={{ fg: theme.textMuted }}>cancel</span>
+          <text fg={theme.foreground.default}>
+            esc <span style={{ fg: theme.foreground.muted }}>cancel</span>
           </text>
         </box>
       </Show>
@@ -320,7 +320,7 @@ export function CommentDisplay(props: {
 
   return (
     <box
-      backgroundColor={props.focused ? theme.backgroundElement : theme.backgroundPanel}
+      backgroundColor={props.focused ? theme.surface.offset : theme.surface.panel}
       border={["left"]}
       borderColor={color()}
       customBorderChars={SplitBorder.customBorderChars}
@@ -328,23 +328,23 @@ export function CommentDisplay(props: {
       onMouseDown={props.onFocus}
     >
       <box paddingLeft={2} paddingTop={1} paddingBottom={1} flexDirection="row" gap={2} alignItems="center">
-        <text fg={theme.text}>{props.comment.label}</text>
+        <text fg={theme.foreground.default}>{props.comment.label}</text>
         <box backgroundColor={tColor()} paddingLeft={1} paddingRight={1}>
-          <text fg={theme.background}>{props.comment.type ?? "suggestion"}</text>
+          <text fg={theme.surface.base}>{props.comment.type ?? "suggestion"}</text>
         </box>
       </box>
       <box paddingLeft={2} paddingRight={2} paddingBottom={1}>
-        <text fg={theme.text} wrapMode="word">
+        <text fg={theme.foreground.default} wrapMode="word">
           {props.comment.text}
         </text>
       </box>
       <Show when={props.focused}>
         <box flexDirection="row" gap={2} paddingLeft={2} paddingRight={2} paddingBottom={1}>
-          <box backgroundColor={theme.primary} paddingLeft={1} paddingRight={1} onMouseDown={props.onEdit}>
-            <text fg={theme.background}>Edit (e)</text>
+          <box backgroundColor={theme.accent.fg} paddingLeft={1} paddingRight={1} onMouseDown={props.onEdit}>
+            <text fg={theme.surface.base}>Edit (e)</text>
           </box>
-          <box backgroundColor={theme.error} paddingLeft={1} paddingRight={1} onMouseDown={props.onDelete}>
-            <text fg={theme.background}>Delete (d)</text>
+          <box backgroundColor={theme.status.error.fg} paddingLeft={1} paddingRight={1} onMouseDown={props.onDelete}>
+            <text fg={theme.surface.base}>Delete (d)</text>
           </box>
         </box>
       </Show>

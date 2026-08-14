@@ -8,7 +8,7 @@ import { createStore } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
 import { useSync } from "@tui/context/sync"
 import type { Command } from "@nikcli-ai/sdk/httpapi"
-import { useTheme, selectedForeground } from "@tui/context/theme"
+import { useTheme } from "@tui/context/theme"
 import { SplitBorder } from "@tui/component/border"
 import { useCommandDialog } from "@tui/component/dialog-command"
 import { useTerminalDimensions } from "@opentui/solid"
@@ -733,11 +733,11 @@ export function Autocomplete(props: {
       width={position().width}
       zIndex={100}
       {...SplitBorder}
-      borderColor={theme.border}
+      borderColor={theme.border.default}
     >
       <scrollbox
         ref={(r: ScrollBoxRenderable) => (scroll = r)}
-        backgroundColor={theme.backgroundMenu}
+        backgroundColor={theme.surface.overlay}
         height={height()}
         scrollbarOptions={{ visible: false }}
       >
@@ -745,7 +745,7 @@ export function Autocomplete(props: {
           each={options()}
           fallback={
             <box paddingLeft={1} paddingRight={1}>
-              <text fg={theme.textMuted}>No matching items</text>
+              <text fg={theme.foreground.muted}>No matching items</text>
             </box>
           }
         >
@@ -753,7 +753,7 @@ export function Autocomplete(props: {
             <box
               paddingLeft={1}
               paddingRight={1}
-              backgroundColor={index === store.selected ? theme.primary : undefined}
+              backgroundColor={index === store.selected ? theme.badge.bg : undefined}
               flexDirection="row"
               onMouseMove={() => {
                 setStore("input", "mouse")
@@ -768,11 +768,11 @@ export function Autocomplete(props: {
               }}
               onMouseUp={() => select()}
             >
-              <text fg={index === store.selected ? selectedForeground(theme) : theme.text} flexShrink={0}>
+              <text fg={index === store.selected ? theme.badge.fg : theme.foreground.default} flexShrink={0}>
                 {option().display}
               </text>
               <Show when={option().description}>
-                <text fg={index === store.selected ? selectedForeground(theme) : theme.textMuted} wrapMode="none">
+                <text fg={index === store.selected ? theme.badge.fg : theme.foreground.muted} wrapMode="none">
                   {option().description}
                 </text>
               </Show>

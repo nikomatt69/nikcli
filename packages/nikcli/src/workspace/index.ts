@@ -7,9 +7,9 @@ import { InstanceBootstrap } from "@/project/bootstrap"
 import { Instance } from "@/project/instance"
 import { Vcs } from "@/project/vcs"
 import { Session } from "@/session"
+import { SessionError } from "@/session/error"
 import { SessionPrompt } from "@/session/prompt"
 import { SessionRepo } from "@/session/repo"
-import { Storage } from "@/storage/storage"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
 import { getAdaptor, listAdaptors } from "./adaptors"
@@ -87,6 +87,16 @@ export namespace Workspace {
   }).annotate({ identifier: "Workspace" })
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
+
+  /**
+   * A workspace was addressed by an ID that does not exist.
+   *
+   * The HTTP wire name stays the literal `"NotFoundError"` — boundaries must
+   * emit that string rather than forwarding `_tag` (`WorkspaceNotFoundError`).
+   */
+  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("WorkspaceNotFoundError", {
+    message: Schema.String,
+  }) {}
 
   const RestoreSchema = Schema.Struct({
     workspaceID: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
@@ -215,7 +225,6 @@ export namespace Workspace {
 
       try {
         await init()
-        await WorkspaceDB.migrateFromStorage()
         previousInfo = WorkspaceDB.get(id)
         await WorkspaceProjection.emitLifecycle(input.projectID, id, "workspace.created", {
           config: info.config,
@@ -261,7 +270,6 @@ export namespace Workspace {
   )
 
   export async function list(project: Project.Info) {
-    await WorkspaceDB.migrateFromStorage()
     // Phase 0: ensure pre-existing workspaces are seeded into the
     // unified event log so the projector can replay them.
     await SyncUnifyMigration.run(project.id).catch((error) => {
@@ -377,7 +385,6 @@ export namespace Workspace {
   }
 
   export const get = fn(Identifier.schema("workspace"), async (id) => {
-    await WorkspaceDB.migrateFromStorage()
     const row = WorkspaceDB.get(id)
     return row ? fromRow(row) : undefined
   })
@@ -408,7 +415,7 @@ export namespace Workspace {
             yield* session.remove(sessionID)
           }),
         ).catch((error) => {
-          if (error instanceof Storage.NotFoundError) return
+          if (SessionError.isNotFound(error)) return
           throw error
         })
       }
@@ -485,7 +492,7 @@ export namespace Workspace {
     async ({ workspaceID, from }): Promise<JournalEvent[]> => {
       const info = await get(workspaceID)
       if (!info)
-        throw new Storage.NotFoundError({
+        throw new NotFoundError({
           message: `Workspace not found: ${workspaceID}`,
         })
       const { SyncStorage } = await import("@/sync")
@@ -518,7 +525,7 @@ export namespace Workspace {
     async ({ workspaceID, timeoutMs, signal }) => {
       const info = await get(workspaceID)
       if (!info)
-        throw new Storage.NotFoundError({
+        throw new NotFoundError({
           message: `Workspace not found: ${workspaceID}`,
         })
       if (info.config.type === "worktree") {
@@ -789,7 +796,7 @@ export namespace Workspace {
   async function targetWorkspace(workspaceID: string) {
     const info = await get(workspaceID)
     if (!info)
-      throw new Storage.NotFoundError({
+      throw new NotFoundError({
         message: `Workspace not found: ${workspaceID}`,
       })
     return Workspace.target(info.id)

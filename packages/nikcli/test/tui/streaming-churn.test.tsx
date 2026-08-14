@@ -1,10 +1,24 @@
-import { describe, expect, test } from "bun:test"
+import { afterAll, describe, expect, test } from "bun:test"
 import { Renderable, RGBA, SyntaxStyle, type CapturedFrame } from "@opentui/core"
 import { testRender } from "@opentui/solid"
 import { createSignal } from "solid-js"
-import { KVProvider } from "@tui/context/kv"
-import { MessageMarkdown } from "@tui/feature-plugins/math/markdown"
-import { liveMarkdown } from "@tui/routes/session/diagram"
+import fs from "fs/promises"
+import os from "os"
+import path from "path"
+import { preserveTestEnv } from "../helpers/env"
+
+const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-streaming-churn-"))
+const testDatabase = path.join(testHome, "data", "nikcli.db")
+process.env.NIKCLI_TEST_HOME = testHome
+process.env.NIKCLI_DB = testDatabase
+process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DB", "NIKCLI_DISABLE_PROJECT_CONFIG"])
+
+const [{ KVProvider }, { MessageMarkdown }, { liveMarkdown }] = await Promise.all([
+  import("@tui/context/kv"),
+  import("@tui/feature-plugins/math/markdown"),
+  import("@tui/routes/session/diagram"),
+])
 
 const FG = RGBA.fromInts(255, 255, 255, 255)
 
@@ -109,7 +123,12 @@ describe("streaming churn", () => {
               conceal={true}
               concealCode={false}
               fg={FG}
-              tableOptions={{ widthMode: "full", wrapMode: "word", cellPadding: 1, borders: true }}
+              tableOptions={{
+                widthMode: "full",
+                wrapMode: "word",
+                cellPadding: 1,
+                borders: true,
+              }}
             />
           </box>
         </KVProvider>
@@ -148,7 +167,12 @@ describe("streaming churn", () => {
               conceal={true}
               concealCode={false}
               fg={FG}
-              tableOptions={{ widthMode: "full", wrapMode: "word", cellPadding: 1, borders: true }}
+              tableOptions={{
+                widthMode: "full",
+                wrapMode: "word",
+                cellPadding: 1,
+                borders: true,
+              }}
             />
           </box>
         </KVProvider>
@@ -174,11 +198,19 @@ describe("streaming churn", () => {
 
     const first = frames.findIndex((frame) => frame.includes("Live projector"))
     if (first < 0) {
-      throw new Error(`heading never painted; frames:\n${frames.map((frame, i) => `[${i}]\n${frame || "(empty)"}`).join("\n")}`)
+      throw new Error(
+        `heading never painted; frames:\n${frames.map((frame, i) => `[${i}]\n${frame || "(empty)"}`).join("\n")}`,
+      )
     }
     for (const frame of frames.slice(first)) {
       expect(frame).toContain("Live projector")
     }
     expect(frames.at(-1)).toContain("Index + read API")
   })
+})
+
+afterAll(async () => {
+  const { Database } = await import("@/database/database")
+  Database.close(testDatabase)
+  await fs.rm(testHome, { recursive: true, force: true })
 })

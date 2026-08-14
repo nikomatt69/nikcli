@@ -69,12 +69,10 @@ type CallEntry = {
   input?: Record<string, unknown>
 }
 
-function renderSchema(parameters: z.ZodType): ConfinedTool.JsonSchema {
+function renderSchema(schema: z.ZodType, io: "input" | "output" = "input"): ConfinedTool.JsonSchema {
   // Render-only signature for the program; real validation stays in the tool's own zod parse.
   try {
-    return z.toJSONSchema(parameters, {
-      io: "input",
-    }) as ConfinedTool.JsonSchema
+    return z.toJSONSchema(schema, { io }) as ConfinedTool.JsonSchema
   } catch {
     return { type: "object" }
   }
@@ -98,6 +96,7 @@ export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_
     catalogTree[tool.id] = ConfinedTool.make({
       description: tool.description.split("\n", 1)[0] ?? "",
       input: renderSchema(tool.parameters),
+      output: tool.output ? renderSchema(tool.output, "output") : undefined,
       pinned: PINNED.has(tool.id),
       run: () => Effect.die("Catalog-only Code Mode tool cannot execute"),
     })
@@ -123,9 +122,10 @@ export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_
         tree[t.id] = ConfinedTool.make({
           description: t.description.split("\n", 1)[0] ?? "",
           input: renderSchema(t.parameters),
+          output: t.output ? renderSchema(t.output, "output") : undefined,
           run: (input) =>
             t.execute((input ?? {}) as z.infer<typeof t.parameters>, ctx).pipe(
-              Effect.map((result) => result.output),
+              Effect.map((result) => Tool.encoded(result, t.output)),
               Effect.catchCause((cause) => {
                 if (Cause.hasInterruptsOnly(cause)) return Effect.interrupt
                 const error = Cause.squash(cause)

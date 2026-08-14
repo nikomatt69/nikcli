@@ -15,9 +15,9 @@ function View(props: { sessionID: string }) {
       <box>
         <box flexDirection="row" gap={1} onMouseDown={() => list().length > 2 && setOpen((value) => !value)}>
           <Show when={list().length > 2}>
-            <text fg={theme.text}>{open() ? "▼" : "▶"}</text>
+            <text fg={theme.foreground.default}>{open() ? "▼" : "▶"}</text>
           </Show>
-          <text fg={theme.text}>
+          <text fg={theme.foreground.default}>
             <b>Todo</b>
           </text>
         </box>

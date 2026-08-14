@@ -296,41 +296,41 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
     }
   })
 
-  const accent = () => theme.accent ?? theme.primary
+  const accent = () => theme.accent.alt
 
   function colorOf(c?: InteractionColor) {
     switch (c) {
       case "primary":
-        return theme.primary
+        return theme.accent.fg
       case "secondary":
-        return theme.secondary
+        return theme.accent.secondary
       case "accent":
         return accent()
       case "success":
-        return theme.success
+        return theme.status.success.fg
       case "warning":
-        return theme.warning
+        return theme.status.warning.fg
       case "error":
-        return theme.error
+        return theme.status.error.fg
       case "info":
-        return theme.info ?? theme.primary
+        return theme.status.info.fg ?? theme.accent.fg
       case "muted":
-        return theme.textMuted
+        return theme.foreground.muted
       default:
-        return theme.text
+        return theme.foreground.default
     }
   }
 
   const Field = (p: { label: string; help?: string; focused: boolean; children: JSX.Element }) => (
     <box paddingLeft={1} flexDirection="column">
       <box flexDirection="row" gap={1}>
-        <text fg={p.focused ? accent() : theme.textMuted}>{p.focused ? "›" : " "}</text>
-        <text fg={p.focused ? theme.text : theme.textMuted}>{p.label}</text>
+        <text fg={p.focused ? accent() : theme.foreground.muted}>{p.focused ? "›" : " "}</text>
+        <text fg={p.focused ? theme.foreground.default : theme.foreground.muted}>{p.label}</text>
       </box>
       <box paddingLeft={2}>{p.children}</box>
       <Show when={p.help}>
         <box paddingLeft={2}>
-          <text fg={theme.textMuted}>{p.help}</text>
+          <text fg={theme.foreground.muted}>{p.help}</text>
         </box>
       </Show>
     </box>
@@ -355,7 +355,7 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
         </Match>
         <Match when={w.type === "markdown"}>
           <box paddingLeft={1}>
-            <text fg={theme.text}>{interpolate(w.content)}</text>
+            <text fg={theme.foreground.default}>{interpolate(w.content)}</text>
           </box>
         </Match>
         <Match when={w.type === "alert"}>
@@ -365,13 +365,13 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
               <Show when={w.title}>
                 <text fg={colorOf(w.severity)}>{w.title}</text>
               </Show>
-              <text fg={theme.text}>{interpolate(w.message)}</text>
+              <text fg={theme.foreground.default}>{interpolate(w.message)}</text>
             </box>
           </box>
         </Match>
         <Match when={w.type === "divider"}>
           <box paddingLeft={1}>
-            <text fg={theme.textMuted}>{w.label ? `── ${w.label} ──` : "──────────"}</text>
+            <text fg={theme.foreground.muted}>{w.label ? `── ${w.label} ──` : "──────────"}</text>
           </box>
         </Match>
 
@@ -380,7 +380,7 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
             <Show
               when={isFocused() && store.editing}
               fallback={
-                <text fg={isFocused() ? theme.text : theme.textMuted}>
+                <text fg={isFocused() ? theme.foreground.default : theme.foreground.muted}>
                   {String(getVal(w.id) ?? "") || (w.placeholder ?? "—")}
                 </text>
               }
@@ -395,9 +395,9 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
                 }}
                 initialValue={String(getVal(w.id) ?? "")}
                 placeholder={w.placeholder ?? ""}
-                textColor={theme.text}
-                focusedTextColor={theme.text}
-                cursorColor={theme.primary}
+                textColor={theme.foreground.default}
+                focusedTextColor={theme.foreground.default}
+                cursorColor={theme.accent.fg}
                 keyBindings={bindings()}
               />
             </Show>
@@ -411,7 +411,7 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
                 {(opt: any) => {
                   const sel = () => getVal(w.id) === opt.value
                   return (
-                    <text fg={sel() ? theme.success : isFocused() ? theme.text : theme.textMuted}>
+                    <text fg={sel() ? theme.status.success.fg : isFocused() ? theme.foreground.default : theme.foreground.muted}>
                       {sel() ? "◉" : "○"} {opt.label ?? opt.value}
                     </text>
                   )
@@ -432,7 +432,7 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
                   return (
                     <text
                       fg={
-                        onCursor() ? accent() : checked() ? theme.success : isFocused() ? theme.text : theme.textMuted
+                        onCursor() ? accent() : checked() ? theme.status.success.fg : isFocused() ? theme.foreground.default : theme.foreground.muted
                       }
                     >
                       {onCursor() ? "›" : " "} [{checked() ? "✓" : " "}] {opt.label ?? opt.value}
@@ -446,8 +446,8 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
 
         <Match when={w.type === "checkbox"}>
           <box paddingLeft={1} flexDirection="row" gap={1}>
-            <text fg={isFocused() ? accent() : theme.textMuted}>{isFocused() ? "›" : " "}</text>
-            <text fg={getVal(w.id) ? theme.success : isFocused() ? theme.text : theme.textMuted}>
+            <text fg={isFocused() ? accent() : theme.foreground.muted}>{isFocused() ? "›" : " "}</text>
+            <text fg={getVal(w.id) ? theme.status.success.fg : isFocused() ? theme.foreground.default : theme.foreground.muted}>
               [{getVal(w.id) ? "✓" : " "}] {w.label}
             </text>
           </box>
@@ -456,7 +456,7 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
         <Match when={w.type === "slider"}>
           <Field label={w.label} help={w.help} focused={isFocused()}>
             <box flexDirection="row" gap={1}>
-              <text fg={isFocused() ? theme.text : theme.textMuted}>
+              <text fg={isFocused() ? theme.foreground.default : theme.foreground.muted}>
                 {sliderBar(w, Number(getVal(w.id) ?? w.min ?? 0))}
               </text>
               <text fg={accent()}>
@@ -472,9 +472,9 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
             <box
               paddingLeft={2}
               paddingRight={2}
-              backgroundColor={isFocused() ? buttonBg(w.variant) : theme.backgroundElement}
+              backgroundColor={isFocused() ? buttonBg(w.variant) : theme.surface.offset}
             >
-              <text fg={isFocused() ? theme.selectedListItemText : buttonFg(w.variant)}>{w.label}</text>
+              <text fg={isFocused() ? theme.badge.fg : buttonFg(w.variant)}>{w.label}</text>
             </box>
           </box>
         </Match>
@@ -486,13 +486,13 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
     return sev === "success" ? "✓" : sev === "warning" ? "⚠" : sev === "error" ? "✗" : "ℹ"
   }
   function buttonFg(variant?: string) {
-    if (variant === "primary") return theme.primary
-    if (variant === "danger") return theme.error
-    return theme.text
+    if (variant === "primary") return theme.accent.fg
+    if (variant === "danger") return theme.status.error.fg
+    return theme.foreground.default
   }
   function buttonBg(variant?: string) {
-    if (variant === "danger") return theme.error
-    if (variant === "secondary") return theme.backgroundElement
+    if (variant === "danger") return theme.status.error.fg
+    if (variant === "secondary") return theme.surface.offset
     return accent()
   }
   function sliderBar(w: any, value: number): string {
@@ -521,15 +521,15 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
             paddingTop={1}
             paddingBottom={1}
             border={["left"]}
-            borderColor={theme.border ?? theme.textMuted}
+            borderColor={theme.border.default ?? theme.foreground.muted}
           >
             <Show when={c.title}>
-              <text fg={theme.text} attributes={1}>
+              <text fg={theme.foreground.default} attributes={1}>
                 {c.title}
               </text>
             </Show>
             <Show when={c.description}>
-              <text fg={theme.textMuted}>{c.description}</text>
+              <text fg={theme.foreground.muted}>{c.description}</text>
             </Show>
             <For each={c.children}>{(child: BodyComponentType) => <Container comp={child} />}</For>
           </box>
@@ -554,18 +554,18 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
             ◈ {spec().title}
           </text>
           <Show when={spec().subtitle}>
-            <text fg={theme.textMuted}>{spec().subtitle}</text>
+            <text fg={theme.foreground.muted}>{spec().subtitle}</text>
           </Show>
         </box>
-        <Show when={spec().screens.length > 1} fallback={<text fg={theme.textMuted}>esc cancel</text>}>
-          <text fg={theme.textMuted}>
+        <Show when={spec().screens.length > 1} fallback={<text fg={theme.foreground.muted}>esc cancel</text>}>
+          <text fg={theme.foreground.muted}>
             {currentScreen()?.title ?? store.screen} ({spec().screens.findIndex((s) => s.id === store.screen) + 1}/
             {spec().screens.length}) · esc
           </text>
         </Show>
       </box>
 
-      <box border borderColor={theme.border} height={contentHeight()} flexShrink={0}>
+      <box border borderColor={theme.border.default} height={contentHeight()} flexShrink={0}>
         <scrollbox height={contentHeight() - 2} focused={true}>
           <box paddingTop={1} paddingBottom={1} paddingLeft={1} paddingRight={1} gap={1}>
             <For each={currentScreen()?.body ?? []}>{(comp) => <Container comp={comp} />}</For>
@@ -575,13 +575,13 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
 
       <box flexDirection="row" gap={2} flexShrink={0} justifyContent="space-between">
         <box flexDirection="row" gap={2}>
-          <text fg={theme.textMuted}>⇆ focus</text>
-          <text fg={theme.textMuted}>↑↓/←→ adjust</text>
-          <text fg={theme.textMuted}>space toggle</text>
-          <text fg={theme.textMuted}>enter edit/activate</text>
+          <text fg={theme.foreground.muted}>⇆ focus</text>
+          <text fg={theme.foreground.muted}>↑↓/←→ adjust</text>
+          <text fg={theme.foreground.muted}>space toggle</text>
+          <text fg={theme.foreground.muted}>enter edit/activate</text>
         </box>
         <Show when={focused()}>
-          <text fg={tint(theme.textMuted, accent(), 0.5)}>{(focused() as any)?.type}</text>
+          <text fg={tint(theme.foreground.muted, accent(), 0.5)}>{(focused() as any)?.type}</text>
         </Show>
       </box>
     </box>

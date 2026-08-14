@@ -43,6 +43,10 @@ export namespace Config {
     if (target.instructions && source.instructions) {
       merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
     }
+    if (target.experimental?.policies && source.experimental?.policies) {
+      merged.experimental ??= {}
+      merged.experimental.policies = [...target.experimental.policies, ...source.experimental.policies]
+    }
     return merged
   }
 
@@ -754,7 +758,9 @@ export namespace Config {
   })
   const PermissionRuleEffect = Schema.Union([
     PermissionActionEffect,
-    Schema.Record(Schema.String, PermissionActionEffect).annotate({ identifier: "PermissionObjectConfig" }),
+    Schema.Record(Schema.String, PermissionActionEffect).annotate({
+      identifier: "PermissionObjectConfig",
+    }),
   ]).annotate({ identifier: "PermissionRuleConfig" })
   overrideZod(
     Permission,
@@ -1383,6 +1389,26 @@ export namespace Config {
     })
   export type Provider = z.infer<typeof Provider>
 
+  export const PolicyStatement = z
+    .object({
+      effect: z.enum(["allow", "deny"]),
+      action: z
+        .string()
+        .min(1)
+        .regex(/^[^*]+\*?$|^\*$/, "Use either '*' or one trailing prefix wildcard")
+        .describe("Operation name. Supports '*' and a trailing prefix wildcard."),
+      resource: z
+        .string()
+        .min(1)
+        .regex(/^[^*]+\*?$|^\*$/, "Use either '*' or one trailing prefix wildcard")
+        .describe("Resource name. Supports '*' and a trailing prefix wildcard."),
+    })
+    .strict()
+    .meta({
+      ref: "PolicyStatementConfig",
+    })
+  export type PolicyStatement = z.infer<typeof PolicyStatement>
+
   export const Info = z
     .object({
       $schema: z.string().optional().describe("JSON schema reference for configuration validation"),
@@ -1478,11 +1504,14 @@ export namespace Config {
         .describe(
           "Automatically update to the latest version. Set to true to auto-update, false to disable, or 'notify' to show update notifications",
         ),
-      disabled_providers: z.array(z.string()).optional().describe("Disable providers that are loaded automatically"),
+      disabled_providers: z
+        .array(z.string())
+        .optional()
+        .describe("@deprecated Use experimental.policies. Disable providers that are loaded automatically"),
       enabled_providers: z
         .array(z.string())
         .optional()
-        .describe("When set, ONLY these providers will be enabled. All other providers will be ignored"),
+        .describe("@deprecated Use experimental.policies. When set, ONLY these providers will be enabled"),
       model: z.string().describe("Model to use in the format of provider/model, eg anthropic/claude-2").optional(),
       small_model: z
         .string()
@@ -1666,6 +1695,10 @@ export namespace Config {
         .optional(),
       experimental: z
         .object({
+          policies: z
+            .array(PolicyStatement)
+            .optional()
+            .describe("Ordered resource policy statements. Matching statements apply in order; the last match wins."),
           hook: z
             .object({
               file_edited: z

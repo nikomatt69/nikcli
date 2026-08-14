@@ -148,7 +148,7 @@ Suggested order:
 
 ### Group 3: Session, Message, Todo, Permission JSON Storage
 
-Status: Done. `SessionRepo`, `MessageRepo`, `TodoRepo`, and `PermissionRepo` back sessions, messages/parts, todos, and permission rulesets with SQL tables from `20260611000000_session_message_todo_permission`. Existing JSON records are backfilled by `20260611030000_import_json_storage` and left in place as the rollout fallback. Auxiliary records (diffs, goals, question, revert, summary) remain on `Storage.Service`, and `Storage.NotFoundError` semantics are preserved at service boundaries.
+Status: Done. `SessionRepo`, `MessageRepo`, `TodoRepo`, `PermissionRepo`, and `GoalRepo` back sessions, messages/parts, todos, permission rulesets, and session goals with SQL tables. Existing JSON records are backfilled by `20260611030000_import_json_storage` (sessions/messages/todos/permissions) and `20260814050000_session_goal` (goals) and left in place as the rollout fallback. Auxiliary records (diffs, question, revert, summary) remain on `Storage.Service`, and `Storage.NotFoundError` semantics are preserved at service boundaries.
 
 Files:
 

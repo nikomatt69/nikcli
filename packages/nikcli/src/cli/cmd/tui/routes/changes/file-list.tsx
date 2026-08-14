@@ -110,28 +110,28 @@ export function FileList(props: {
   })
 
   return (
-    <box width={props.width} height="100%" border={["right"]} borderColor={theme.borderSubtle}>
+    <box width={props.width} height="100%" border={["right"]} borderColor={theme.border.subtle}>
       <scrollbox flexGrow={1} paddingLeft={2} paddingRight={1} paddingTop={1} scrollbarOptions={{ visible: false }}>
         <box gap={0}>
           <Show when={props.filterActive || props.filterText.length > 0}>
             <box flexDirection="row" gap={0} paddingBottom={1}>
-              <text fg={theme.primary}>{"/"}</text>
-              <text fg={theme.text}>{props.filterActive ? `${props.filterText}▊` : props.filterText}</text>
+              <text fg={theme.accent.fg}>{"/"}</text>
+              <text fg={theme.foreground.default}>{props.filterActive ? `${props.filterText}▊` : props.filterText}</text>
             </box>
           </Show>
-          <text fg={theme.text}>
+          <text fg={theme.foreground.default}>
             <b>Modified Files</b> ({filteredItems().length}
             {props.filterText ? `/${props.files.length}` : ""})
           </text>
           <box height={1} />
           <Show
             when={filteredItems().length > 0}
-            fallback={<text fg={theme.textMuted}>{props.filterText ? "No matches" : "No files modified"}</text>}
+            fallback={<text fg={theme.foreground.muted}>{props.filterText ? "No matches" : "No files modified"}</text>}
           >
             <For each={grouped()}>
               {(group) => (
                 <box gap={0}>
-                  <text fg={theme.textMuted}>{group.directory}/</text>
+                  <text fg={theme.foreground.muted}>{group.directory}/</text>
                   <For each={group.files}>
                     {(item) => {
                       const commentCount = () => props.comments.get(item.file.file) ?? 0
@@ -140,23 +140,23 @@ export function FileList(props: {
                           flexDirection="row"
                           gap={1}
                           justifyContent="space-between"
-                          backgroundColor={item.index === props.selected ? theme.backgroundElement : undefined}
+                          backgroundColor={item.index === props.selected ? theme.surface.offset : undefined}
                           paddingLeft={2}
                           paddingRight={1}
                           onMouseDown={() => props.onSelect(item.index)}
                         >
-                          <text fg={theme.text} wrapMode="none" flexShrink={1}>
+                          <text fg={theme.foreground.default} wrapMode="none" flexShrink={1}>
                             {item.name}
                           </text>
                           <box flexDirection="row" gap={1} flexShrink={0}>
                             <Show when={commentCount() > 0}>
-                              <text fg={theme.primary}>{`@${commentCount()}`}</text>
+                              <text fg={theme.accent.fg}>{`@${commentCount()}`}</text>
                             </Show>
                             <Show when={item.file.additions}>
-                              <text fg={theme.diffAdded}>{`+${item.file.additions}`}</text>
+                              <text fg={theme.diff.added}>{`+${item.file.additions}`}</text>
                             </Show>
                             <Show when={item.file.deletions}>
-                              <text fg={theme.diffRemoved}>{`-${item.file.deletions}`}</text>
+                              <text fg={theme.diff.removed}>{`-${item.file.deletions}`}</text>
                             </Show>
                           </box>
                         </box>

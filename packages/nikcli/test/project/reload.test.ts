@@ -16,6 +16,9 @@ const { InstanceReload } = await import("@/project/reload")
 const { Bus } = await import("@/bus")
 const { Agent } = await import("@/agent/agent")
 const { Command } = await import("@/command")
+const { ToolRegistry } = await import("@/tool/registry")
+const { Tool } = await import("@/tool/tool")
+const z = (await import("zod")).default
 
 afterAll(async () => {
   await fs.rm(testHome, { recursive: true, force: true })
@@ -159,6 +162,64 @@ describe("config-derived services join hot reload", () => {
       expect(result.before).not.toContain("beta")
       expect(result.after).toContain("beta")
       expect(result.after).not.toContain("alpha")
+    } finally {
+      await Instance.provide({ directory, fn: () => Instance.dispose() })
+      await fs.rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it("rebuilds config-dir tools after a reload without dropping runtime registrations", async () => {
+    const directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-reload-tool-")))
+    const configDir = path.join(directory, ".nikcli")
+    const toolDir = path.join(configDir, "tool")
+    const writeTool = async (name: string) => {
+      await fs.writeFile(
+        path.join(toolDir, `${name}.ts`),
+        `export default {
+  description: ${JSON.stringify(`${name} tool`)},
+  args: {},
+  async execute() { return ${JSON.stringify(name)} },
+}
+`,
+      )
+    }
+
+    try {
+      await fs.mkdir(toolDir, { recursive: true })
+      await fs.writeFile(path.join(directory, "nikcli.json"), JSON.stringify({ tool: { allow: ["alpha", "beta"] } }))
+      await writeTool("alpha")
+
+      const sticky = Tool.define("sticky_runtime", {
+        description: "runtime",
+        parameters: z.object({}),
+        async execute() {
+          return { title: "", output: "ok", metadata: {} }
+        },
+      })
+
+      const result = await Effect.runPromise(
+        InstanceScope.with(
+          { directory },
+          Effect.gen(function* () {
+            const registry = yield* ToolRegistry.Service
+            yield* registry.register(sticky)
+            const before = yield* registry.ids()
+
+            yield* Effect.promise(() => writeTool("beta"))
+            yield* InstanceState.invalidateReloadable(directory)
+
+            const after = yield* registry.ids()
+            return { before, after }
+          }).pipe(Effect.provide(ToolRegistry.defaultLayer)),
+        ),
+      )
+
+      expect(result.before).toContain("alpha")
+      expect(result.before).not.toContain("beta")
+      expect(result.before).toContain("sticky_runtime")
+      expect(result.after).toContain("alpha")
+      expect(result.after).toContain("beta")
+      expect(result.after).toContain("sticky_runtime")
     } finally {
       await Instance.provide({ directory, fn: () => Instance.dispose() })
       await fs.rm(directory, { recursive: true, force: true })

@@ -55,6 +55,16 @@ describe("Database.Service", () => {
       { id: "20260805120000_drop_session_v2_event" },
       { id: "20260805130000_session_entry_id_order" },
       { id: "20260811000000_analytics_stat" },
+      { id: "20260814000000_loop_sql" },
+      { id: "20260814010000_session_time_suspended" },
+      { id: "20260814020000_domain_sql" },
+      { id: "20260814030000_project_sql" },
+      { id: "20260814040000_analytics_share" },
+      { id: "20260814050000_session_goal" },
+      { id: "20260814060000_background_run" },
+      { id: "20260814070000_routine" },
+      { id: "20260814080000_session_diff" },
+      { id: "20260814090000_workspace_json" },
     ])
     expect(result.tables.map((table) => table.name)).toEqual([
       "account",

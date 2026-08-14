@@ -21,7 +21,7 @@ export function Footer(props: {
   const reviewKeys = () => props.reviewSubmitKeys ?? "ctrl+s"
   const theme = useTheme()
   const label = () => (props.mode === "list" ? "Files" : props.inputOpen ? "Comment" : "Diff")
-  const accent = () => (props.mode === "list" ? theme.theme.primary : theme.theme.diffHighlightAdded)
+  const accent = () => (props.mode === "list" ? theme.theme.accent.fg : theme.theme.diff.highlightAdded)
   const escLabel = () => {
     if (props.filterActive) return "clear"
     if (props.filterHasText) return "clear search"
@@ -31,8 +31,8 @@ export function Footer(props: {
   return (
     <box
       border={["top"]}
-      borderColor={theme.theme.borderSubtle}
-      backgroundColor={theme.theme.backgroundPanel}
+      borderColor={theme.theme.border.subtle}
+      backgroundColor={theme.theme.surface.panel}
       width="100%"
       flexShrink={0}
       margin={0}
@@ -104,31 +104,31 @@ export function Footer(props: {
 
         <box flexDirection="row" gap={2} alignItems="center" flexShrink={0} flexWrap="wrap">
           <Show when={props.totalFiles > 0}>
-            <text fg={theme.theme.textMuted} wrapMode="none">
+            <text fg={theme.theme.foreground.muted} wrapMode="none">
               {`${props.totalFiles} files`}
             </text>
           </Show>
           <Show when={props.totalAdditions > 0}>
-            <text fg={theme.theme.diffAdded} wrapMode="none">
+            <text fg={theme.theme.diff.added} wrapMode="none">
               {`+${props.totalAdditions}`}
             </text>
           </Show>
           <Show when={props.totalDeletions > 0}>
-            <text fg={theme.theme.diffRemoved} wrapMode="none">
+            <text fg={theme.theme.diff.removed} wrapMode="none">
               {`-${props.totalDeletions}`}
             </text>
           </Show>
           <Show when={props.totalComments > 0}>
-            <text fg={theme.theme.primary} wrapMode="none">
+            <text fg={theme.theme.accent.fg} wrapMode="none">
               {`${props.totalComments} note${props.totalComments === 1 ? "" : "s"}`}
             </text>
           </Show>
           <Show when={props.mode === "diff" && props.hasComments && !props.inputOpen}>
-            <box flexDirection="row" gap={0} paddingLeft={1} border={["left"]} borderColor={theme.theme.borderSubtle}>
-              <text fg={theme.theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+            <box flexDirection="row" gap={0} paddingLeft={1} border={["left"]} borderColor={theme.theme.border.subtle}>
+              <text fg={theme.theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
                 {reviewKeys()}
               </text>
-              <text fg={theme.theme.textMuted} wrapMode="none">
+              <text fg={theme.theme.foreground.muted} wrapMode="none">
                 {" "}
                 submit
               </text>

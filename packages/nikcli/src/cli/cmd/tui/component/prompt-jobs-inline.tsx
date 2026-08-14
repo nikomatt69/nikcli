@@ -113,30 +113,30 @@ export function PromptJobsInlineCompact(props: PromptJobsInlineProps) {
           <Spinner />
         </Show>
         <Show when={visibleJobs().length > 0}>
-          <text fg={hasActiveJobs() ? theme.accent : theme.textMuted} wrapMode="none">
+          <text fg={hasActiveJobs() ? theme.accent.alt : theme.foreground.muted} wrapMode="none">
             <span style={{ bold: hasActiveJobs() }}>bg</span> {jobsLabel()}
           </text>
           <Show when={jobSummary()}>
-            <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
+            <text fg={theme.foreground.muted} wrapMode="none" overflow="hidden">
               {jobSummary()}
             </text>
           </Show>
         </Show>
         <Show when={visibleJobs().length > 0 && props.monitors.length > 0}>
-          <text fg={theme.borderSubtle}>|</text>
+          <text fg={theme.border.subtle}>|</text>
         </Show>
         <Show when={props.monitors.length > 0}>
-          <text fg={hasActiveMonitors() ? theme.accent : theme.textMuted} wrapMode="none">
+          <text fg={hasActiveMonitors() ? theme.accent.alt : theme.foreground.muted} wrapMode="none">
             <span style={{ bold: hasActiveMonitors() }}>mon</span> {monitorsLabel()}
           </text>
           <Show when={monitorSummary()}>
-            <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
+            <text fg={theme.foreground.muted} wrapMode="none" overflow="hidden">
               {monitorSummary()}
             </text>
           </Show>
         </Show>
         <Show when={tight()}>
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             open
           </text>
         </Show>

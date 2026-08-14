@@ -13,7 +13,7 @@ import { SessionContext } from "@/session/context-breakdown"
 import { SessionGoal } from "@/session/goal"
 import { ShareNext } from "@/share/share-next"
 import { Snapshot } from "@/snapshot"
-import { Storage } from "@/storage/storage"
+import { SessionError } from "@/session/error"
 import { MessageV2 } from "@/session/message-v2"
 import { SessionCompaction } from "@/session/compaction"
 import { SessionPrompt } from "@/session/prompt"
@@ -262,7 +262,7 @@ export namespace SessionHttpApi {
 
   /** Expected boundary failures → declared errors; everything else is a defect. */
   function asSessionError(cause: unknown): Effect.Effect<never, DeclaredError> {
-    if (cause instanceof Storage.NotFoundError) {
+    if (SessionError.isNotFound(cause)) {
       return Effect.fail({
         name: "NotFoundError" as const,
         data: { message: cause.message } as Record<string, unknown>,

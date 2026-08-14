@@ -163,52 +163,52 @@ export function PromptFrames(props: PromptFramesProps) {
       case "synthesizing":
         return theme.accent.toString()
       case "complete":
-        return theme.success.toString()
+        return theme.status.success.fg.toString()
       case "error":
-        return theme.error.toString()
+        return theme.status.error.fg.toString()
       case "timeout":
-        return theme.warning.toString()
+        return theme.status.warning.fg.toString()
       default:
-        return theme.textMuted.toString()
+        return theme.foreground.muted.toString()
     }
   }
 
   return (
     <box
       border={["top"]}
-      borderColor={theme.border}
+      borderColor={theme.border.default}
       paddingTop={1}
       paddingBottom={1}
       paddingLeft={2}
       paddingRight={2}
-      backgroundColor={theme.backgroundPanel}
+      backgroundColor={theme.surface.panel}
       flexShrink={0}
     >
       {/* Header */}
       <box flexDirection="row" justifyContent="space-between" marginBottom={1}>
         <box flexDirection="row" gap={2}>
           <box onMouseUp={() => setJobsCollapsed(!jobsCollapsed())}>
-            <text fg={theme.text}>{jobsCollapsed() ? "▶ " : "▼ "}</text>
-            <text fg={theme.text} attributes={TextAttributes.BOLD}>
+            <text fg={theme.foreground.default}>{jobsCollapsed() ? "▶ " : "▼ "}</text>
+            <text fg={theme.foreground.default} attributes={TextAttributes.BOLD}>
               Jobs
             </text>
-            <text fg={theme.textMuted}>{` (${visibleJobs().length})`}</text>
+            <text fg={theme.foreground.muted}>{` (${visibleJobs().length})`}</text>
           </box>
-          <text fg={theme.textMuted}>·</text>
+          <text fg={theme.foreground.muted}>·</text>
           <box onMouseUp={() => setMonitorsCollapsed(!monitorsCollapsed())}>
-            <text fg={theme.text}>{monitorsCollapsed() ? "▶ " : "▼ "}</text>
-            <text fg={theme.text} attributes={TextAttributes.BOLD}>
+            <text fg={theme.foreground.default}>{monitorsCollapsed() ? "▶ " : "▼ "}</text>
+            <text fg={theme.foreground.default} attributes={TextAttributes.BOLD}>
               Monitors
             </text>
-            <text fg={theme.textMuted}>{` (${monitors().length})`}</text>
+            <text fg={theme.foreground.muted}>{` (${monitors().length})`}</text>
           </box>
         </box>
-        <text fg={theme.textMuted}>
+        <text fg={theme.foreground.muted}>
           <Show when={activeCount() > 0}>
-            <text fg={theme.accent}>{String(activeCount())}</text>
-            <text fg={theme.textMuted}>{" active · "}</text>
+            <text fg={theme.accent.alt}>{String(activeCount())}</text>
+            <text fg={theme.foreground.muted}>{" active · "}</text>
           </Show>
-          <text fg={theme.textMuted}>click to open</text>
+          <text fg={theme.foreground.muted}>click to open</text>
         </text>
       </box>
 
@@ -218,7 +218,7 @@ export function PromptFrames(props: PromptFramesProps) {
           <For each={visibleJobs()}>
             {(job) => {
               const active = isActiveStatus(job.status)
-              const agentColor = theme.accent
+              const agentColor = theme.accent.alt
               return (
                 <box
                   flexDirection="row"
@@ -234,10 +234,10 @@ export function PromptFrames(props: PromptFramesProps) {
                       <Spinner />
                     </text>
                   </Show>
-                  <text fg={theme.text} flexGrow={1}>
+                  <text fg={theme.foreground.default} flexGrow={1}>
                     {Locale.truncateMiddle(job.title, 40)}
                   </text>
-                  <text fg={theme.textMuted}>@{job.agent.split("-")[0]}</text>
+                  <text fg={theme.foreground.muted}>@{job.agent.split("-")[0]}</text>
                   <text fg={getStatusColor(job.status)}>{formatJobStatus(job.status)}</text>
                 </box>
               )
@@ -262,17 +262,17 @@ export function PromptFrames(props: PromptFramesProps) {
                 >
                   <text fg={getStatusColor(monitor.status)}>{getStatusIcon(monitor.status)}</text>
                   <Show when={monitor.status === "running"}>
-                    <text fg={theme.accent}>
+                    <text fg={theme.accent.alt}>
                       <Spinner />
                     </text>
                   </Show>
-                  <text fg={theme.text} flexGrow={1}>
+                  <text fg={theme.foreground.default} flexGrow={1}>
                     {Locale.truncateMiddle(monitor.title, 35)}
                   </text>
-                  <text fg={theme.textMuted}>{Locale.truncateMiddle(monitor.command, 30)}</text>
+                  <text fg={theme.foreground.muted}>{Locale.truncateMiddle(monitor.command, 30)}</text>
                   <text fg={getStatusColor(monitor.status)}>{formatMonitorStatus(monitor.status)}</text>
                   <Show when={monitor.exitCode !== undefined}>
-                    <text fg={theme.textMuted}>{`(${monitor.exitCode})`}</text>
+                    <text fg={theme.foreground.muted}>{`(${monitor.exitCode})`}</text>
                   </Show>
                 </box>
               )
@@ -283,7 +283,7 @@ export function PromptFrames(props: PromptFramesProps) {
 
       {/* Empty state */}
       <Show when={visibleJobs().length === 0 && monitors().length === 0}>
-        <text fg={theme.textMuted}>No active background tasks</text>
+        <text fg={theme.foreground.muted}>No active background tasks</text>
       </Show>
     </box>
   )

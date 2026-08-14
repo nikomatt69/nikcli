@@ -1,5 +1,5 @@
 import type { ParsedKey } from "@opentui/core"
-import type { TuiDialogSelectOption, TuiPluginApi, TuiRouteDefinition } from "@nikcli-ai/plugin/tui"
+import type { TuiDialogSelectOption, TuiPluginApi, TuiRouteDefinition, TuiThemeCurrent } from "@nikcli-ai/plugin/tui"
 import type { useCommandDialog } from "@tui/component/dialog-command"
 import type { useKeybind } from "@tui/context/keybind"
 import type { useRoute } from "@tui/context/route"
@@ -500,7 +500,7 @@ export function createTuiApi(input: Input): TuiPluginApi {
     lifecycle,
     theme: {
       get current() {
-        return input.theme.theme
+        return input.theme.theme as unknown as TuiThemeCurrent
       },
       get selected() {
         return input.theme.selected

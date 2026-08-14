@@ -20,14 +20,21 @@ function rgba(r: number, g: number, b: number): RGBA {
 }
 
 function fakeTheme(): Theme {
+  const accentFg = rgba(1, 0, 0)
+  const accentAlt = rgba(0, 1, 0)
+  const accentSecondary = rgba(0, 1, 1)
   return {
-    primary: rgba(1, 0, 0),
-    accent: rgba(0, 1, 0),
-    success: rgba(0, 0, 1),
-    info: rgba(1, 1, 0),
-    warning: rgba(1, 0, 1),
-    secondary: rgba(0, 1, 1),
-    error: rgba(2, 2, 2),
+    accent: {
+      fg: accentFg,
+      alt: accentAlt,
+      secondary: accentSecondary,
+    },
+    status: {
+      success: { fg: rgba(0, 0, 1) },
+      info: { fg: rgba(1, 1, 0) },
+      warning: { fg: rgba(1, 0, 1) },
+      error: { fg: rgba(2, 2, 2) },
+    },
   } as unknown as Theme
 }
 
@@ -41,13 +48,13 @@ describe("context-usage / categoryColor", () => {
 
   test("keeps category → color mapping stable across calls", () => {
     const theme = fakeTheme()
-    expect(categoryColor(theme, "system")).toBe(theme.primary)
-    expect(categoryColor(theme, "instructions")).toBe(theme.accent)
-    expect(categoryColor(theme, "skills")).toBe(theme.success)
-    expect(categoryColor(theme, "mcp")).toBe(theme.info)
-    expect(categoryColor(theme, "tools")).toBe(theme.warning)
-    expect(categoryColor(theme, "agents")).toBe(theme.secondary)
-    expect(categoryColor(theme, "messages")).toBe(theme.error)
+    expect(categoryColor(theme, "system")).toBe(theme.accent.fg)
+    expect(categoryColor(theme, "instructions")).toBe(theme.accent.alt)
+    expect(categoryColor(theme, "skills")).toBe(theme.status.success.fg)
+    expect(categoryColor(theme, "mcp")).toBe(theme.status.info.fg)
+    expect(categoryColor(theme, "tools")).toBe(theme.status.warning.fg)
+    expect(categoryColor(theme, "agents")).toBe(theme.accent.secondary)
+    expect(categoryColor(theme, "messages")).toBe(theme.status.error.fg)
   })
 
   test("CATEGORY_ORDER is the canonical ordering used by the stacked chart", () => {

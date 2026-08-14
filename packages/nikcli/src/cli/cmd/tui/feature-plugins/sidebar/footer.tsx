@@ -27,7 +27,7 @@ function View() {
     <box gap={1}>
       <Show when={showGettingStarted()}>
         <box
-          backgroundColor={theme.backgroundElement}
+          backgroundColor={theme.surface.offset}
           paddingTop={1}
           paddingBottom={1}
           paddingLeft={2}
@@ -35,36 +35,36 @@ function View() {
           flexDirection="row"
           gap={1}
         >
-          <text flexShrink={0} fg={theme.text}>
+          <text flexShrink={0} fg={theme.foreground.default}>
             ⬖
           </text>
           <box flexGrow={1} gap={1}>
             <box flexDirection="row" justifyContent="space-between">
-              <text fg={theme.text}>
+              <text fg={theme.foreground.default}>
                 <b>Getting started</b>
               </text>
-              <text fg={theme.textMuted} onMouseDown={() => kv.set("dismissed_getting_started", true)}>
+              <text fg={theme.foreground.muted} onMouseDown={() => kv.set("dismissed_getting_started", true)}>
                 ✕
               </text>
             </box>
-            <text fg={theme.textMuted}>Nikcli includes free models so you can start immediately.</text>
-            <text fg={theme.textMuted}>
+            <text fg={theme.foreground.muted}>Nikcli includes free models so you can start immediately.</text>
+            <text fg={theme.foreground.muted}>
               Connect from 75+ providers to use other models, including Claude, GPT, Gemini etc
             </text>
             <box flexDirection="row" gap={1} justifyContent="space-between">
-              <text fg={theme.text}>Connect provider</text>
-              <text fg={theme.textMuted}>/connect</text>
+              <text fg={theme.foreground.default}>Connect provider</text>
+              <text fg={theme.foreground.muted}>/connect</text>
             </box>
           </box>
         </box>
       </Show>
       <text>
-        <span style={{ fg: theme.textMuted }}>{path().parent}/</span>
-        <span style={{ fg: theme.text }}>{path().name}</span>
+        <span style={{ fg: theme.foreground.muted }}>{path().parent}/</span>
+        <span style={{ fg: theme.foreground.default }}>{path().name}</span>
       </text>
-      <text fg={theme.textMuted}>
-        <span style={{ fg: theme.success }}>•</span> <b>NIK</b>
-        <span style={{ fg: theme.text }}>
+      <text fg={theme.foreground.muted}>
+        <span style={{ fg: theme.status.success.fg }}>•</span> <b>NIK</b>
+        <span style={{ fg: theme.foreground.default }}>
           <b>CLI</b>
         </span>{" "}
         <span>{Installation.VERSION}</span>

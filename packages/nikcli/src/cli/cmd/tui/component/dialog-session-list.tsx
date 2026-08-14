@@ -234,14 +234,14 @@ export function DialogSessionList(
         const gutter = isWorking ? (
           <Spinner />
         ) : workspaceStatus ? (
-          <text fg={workspaceStatus === "connected" ? theme.success : theme.textMuted}>■</text>
+          <text fg={workspaceStatus === "connected" ? theme.status.success.fg : theme.foreground.muted}>■</text>
         ) : pinned ? (
-          <text fg={theme.warning}>★</text>
+          <text fg={theme.status.warning.fg}>★</text>
         ) : undefined
 
         return {
           title: isDeleting ? `Press ${keybind.print("session_delete")} again to confirm` : x.title,
-          bg: isDeleting ? theme.error : undefined,
+          bg: isDeleting ? theme.status.error.fg : undefined,
           value: x.id,
           category,
           footer,

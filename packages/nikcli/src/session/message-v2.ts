@@ -16,7 +16,7 @@ import { Identifier } from "../id/id"
 import { LSP } from "../lsp"
 import { Snapshot } from "@/snapshot"
 import { fn } from "@/util/fn"
-import { Storage } from "@/storage/storage"
+import { SessionError } from "./error"
 import { ProviderError } from "@/provider/error"
 import { ProviderTransform } from "@/provider/transform"
 import { STATUS_CODES } from "http"
@@ -24,31 +24,7 @@ import { iife } from "@/util/iife"
 import { type SystemError } from "bun"
 import type { Provider } from "@/provider/provider"
 import { workMap } from "@/util/queue"
-import { Effect } from "effect"
-import { runPromiseWithLayer } from "@/effect"
 import { MessageRepo } from "./message-repo"
-
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
-function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.list(prefix)
-    }),
-  )
-}
-
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
 
 export namespace MessageV2 {
   // Legacy callers depend on z.object's default "strip" behavior (extra keys on
@@ -1053,7 +1029,7 @@ export namespace MessageV2 {
     async (input): Promise<WithParts> => {
       const withParts = await MessageRepo.getMessageWithParts(input.sessionID, input.messageID)
       if (!withParts) {
-        throw new Storage.NotFoundError({
+        throw new SessionError.NotFoundError({
           message: `Message not found: ${input.messageID}`,
         })
       }

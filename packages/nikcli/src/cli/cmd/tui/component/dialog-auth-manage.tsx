@@ -219,14 +219,14 @@ function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice 
   return (
     <box gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           Profile
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <text fg={theme.foreground.muted}>esc</text>
       </box>
 
       <box
-        backgroundColor={theme.backgroundElement}
+        backgroundColor={theme.surface.offset}
         paddingLeft={1}
         paddingRight={1}
         paddingTop={1}
@@ -235,25 +235,25 @@ function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice 
       >
         <box flexDirection="row" justifyContent="space-between" gap={2}>
           <box gap={0}>
-            <text fg={theme.text} attributes={TextAttributes.BOLD}>
+            <text fg={theme.foreground.default} attributes={TextAttributes.BOLD}>
               {displayName()}
             </text>
-            <text fg={theme.textMuted}>{subtitle()}</text>
+            <text fg={theme.foreground.muted}>{subtitle()}</text>
           </box>
-          <box backgroundColor={theme.backgroundPanel} paddingLeft={1} paddingRight={1} alignSelf="flex-start">
-            <text fg={props.user.role === "admin" ? theme.warning : theme.accent}>{getRoleLabel(props.user.role)}</text>
+          <box backgroundColor={theme.surface.panel} paddingLeft={1} paddingRight={1} alignSelf="flex-start">
+            <text fg={props.user.role === "admin" ? theme.status.warning.fg : theme.accent.alt}>{getRoleLabel(props.user.role)}</text>
           </box>
         </box>
-        <text fg={theme.text}>{props.user.email}</text>
+        <text fg={theme.foreground.default}>{props.user.email}</text>
         <Show
           when={props.user.display_name?.trim()}
           fallback={
-            <text fg={theme.textMuted}>
+            <text fg={theme.foreground.muted}>
               Set a display name to make your local identity easier to recognize in chat.
             </text>
           }
         >
-          <text fg={theme.textMuted}>
+          <text fg={theme.foreground.muted}>
             Your display name is already configured and shown wherever this profile appears.
           </text>
         </Show>
@@ -268,11 +268,11 @@ function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice 
       </box>
 
       <box gap={1}>
-        <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+        <text fg={theme.accent.alt} attributes={TextAttributes.BOLD}>
           Details
         </text>
         <box
-          backgroundColor={theme.backgroundElement}
+          backgroundColor={theme.surface.offset}
           paddingLeft={1}
           paddingRight={1}
           paddingTop={1}
@@ -289,7 +289,7 @@ function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice 
       </box>
 
       <box gap={1}>
-        <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+        <text fg={theme.accent.alt} attributes={TextAttributes.BOLD}>
           Quick Actions
         </text>
         <box gap={1}>
@@ -297,9 +297,9 @@ function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice 
         </box>
       </box>
 
-      <text fg={theme.textMuted}>
-        <span style={{ fg: theme.primary }}>enter</span> back to account menu ·{" "}
-        <span style={{ fg: theme.primary }}>esc</span> close
+      <text fg={theme.foreground.muted}>
+        <span style={{ fg: theme.accent.fg }}>enter</span> back to account menu ·{" "}
+        <span style={{ fg: theme.accent.fg }}>esc</span> close
       </text>
     </box>
   )
@@ -309,13 +309,13 @@ function ProfileNoticeBox(props: { notice: ProfileNotice }) {
   const { theme } = useTheme()
 
   const color = createMemo(() => {
-    if (props.notice.tone === "success") return theme.success
-    if (props.notice.tone === "warning") return theme.warning
-    return theme.info
+    if (props.notice.tone === "success") return theme.status.success.fg
+    if (props.notice.tone === "warning") return theme.status.warning.fg
+    return theme.status.info.fg
   })
 
   return (
-    <box backgroundColor={theme.backgroundElement} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1}>
+    <box backgroundColor={theme.surface.offset} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1}>
       <text fg={color()}>{props.notice.message}</text>
     </box>
   )
@@ -325,23 +325,23 @@ function ProfileStat(props: { label: string; value: string; tone: "default" | "a
   const { theme } = useTheme()
 
   const color = createMemo(() => {
-    if (props.tone === "accent") return theme.accent
-    if (props.tone === "warning") return theme.warning
-    if (props.tone === "success") return theme.success
-    return theme.text
+    if (props.tone === "accent") return theme.accent.alt
+    if (props.tone === "warning") return theme.status.warning.fg
+    if (props.tone === "success") return theme.status.success.fg
+    return theme.foreground.default
   })
 
   return (
     <box
       flexGrow={1}
-      backgroundColor={theme.backgroundElement}
+      backgroundColor={theme.surface.offset}
       paddingLeft={1}
       paddingRight={1}
       paddingTop={1}
       paddingBottom={1}
     >
       <box gap={0}>
-        <text fg={theme.textMuted}>{props.label}</text>
+        <text fg={theme.foreground.muted}>{props.label}</text>
         <text fg={color()} attributes={TextAttributes.BOLD}>
           {props.value}
         </text>
@@ -356,9 +356,9 @@ function ProfileField(props: { label: string; value: string }) {
   return (
     <box flexDirection="row" gap={2}>
       <box width={12} flexShrink={0}>
-        <text fg={theme.textMuted}>{props.label}</text>
+        <text fg={theme.foreground.muted}>{props.label}</text>
       </box>
-      <text fg={theme.text} wrapMode="word">
+      <text fg={theme.foreground.default} wrapMode="word">
         {props.value}
       </text>
     </box>
@@ -375,16 +375,16 @@ function ProfileActionRow(props: {
   const { theme } = useTheme()
 
   const color = createMemo(() => {
-    if (props.tone === "accent") return theme.accent
-    if (props.tone === "info") return theme.info
-    if (props.tone === "warning") return theme.warning
-    if (props.tone === "error") return theme.error
-    return theme.text
+    if (props.tone === "accent") return theme.accent.alt
+    if (props.tone === "info") return theme.status.info.fg
+    if (props.tone === "warning") return theme.status.warning.fg
+    if (props.tone === "error") return theme.status.error.fg
+    return theme.foreground.default
   })
 
   return (
     <box
-      backgroundColor={theme.backgroundElement}
+      backgroundColor={theme.surface.offset}
       paddingLeft={1}
       paddingRight={1}
       paddingTop={1}
@@ -392,10 +392,10 @@ function ProfileActionRow(props: {
       onMouseUp={() => props.onSelect()}
     >
       <box gap={0}>
-        <text fg={theme.text}>
+        <text fg={theme.foreground.default}>
           <span style={{ fg: color(), attributes: TextAttributes.BOLD }}>{props.shortcut}</span> {props.title}
         </text>
-        <text fg={theme.textMuted} wrapMode="word">
+        <text fg={theme.foreground.muted} wrapMode="word">
           {props.description}
         </text>
       </box>

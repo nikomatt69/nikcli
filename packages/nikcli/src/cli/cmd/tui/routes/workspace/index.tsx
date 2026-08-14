@@ -122,7 +122,7 @@ function TabBar(props: { active: Tab; onSelect: (tab: Tab) => void }) {
       paddingRight={1}
       gap={2}
       border={["bottom"]}
-      borderColor={theme.borderSubtle}
+      borderColor={theme.border.subtle}
     >
       {TABS.map((tab) => {
         const isActive = () => props.active === tab.id
@@ -131,20 +131,20 @@ function TabBar(props: { active: Tab; onSelect: (tab: Tab) => void }) {
             paddingLeft={1}
             paddingRight={1}
             onMouseDown={() => props.onSelect(tab.id)}
-            backgroundColor={isActive() ? theme.backgroundElement : undefined}
+            backgroundColor={isActive() ? theme.surface.offset : undefined}
           >
             <text
-              fg={isActive() ? theme.text : theme.textMuted}
+              fg={isActive() ? theme.foreground.default : theme.foreground.muted}
               attributes={isActive() ? TextAttributes.BOLD : undefined}
             >
               {tab.label}
-              <span style={{ fg: theme.textMuted }}>{` ${tab.key}`}</span>
+              <span style={{ fg: theme.foreground.muted }}>{` ${tab.key}`}</span>
             </text>
           </box>
         )
       })}
       <box flexGrow={1} />
-      <text fg={theme.textMuted}>tab · cycle · esc · back</text>
+      <text fg={theme.foreground.muted}>tab · cycle · esc · back</text>
     </box>
   )
 }

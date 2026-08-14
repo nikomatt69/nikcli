@@ -12,12 +12,13 @@ import { createNikcliClient, type NikcliClient } from "@nikcli-ai/sdk/httpapi"
 import { Server } from "../../server/server"
 import { Provider } from "../../provider/provider"
 import { Agent } from "../../agent/agent"
-import { Storage } from "../../storage/storage"
 import { SessionRepo } from "../../session/repo"
 import { MessageRepo } from "../../session/message-repo"
+import { SessionDiffRepo } from "../../session/diff-repo"
 import { SessionEntryProjection } from "../../session/v2/projection"
 import type { Session } from "../../session"
 import type { MessageV2 } from "../../session/message-v2"
+import type { Snapshot } from "../../snapshot"
 import { Instance } from "../../project/instance"
 import { Config } from "../../config/config"
 import { ShareNext } from "../../share/share-next"
@@ -84,19 +85,6 @@ function commandGet(name: string) {
         return yield* command.get(name)
       }),
     ),
-  )
-}
-
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>): Promise<A> {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
-function storageWrite<T>(key: string[], content: T) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(key, content)
-    }),
   )
 }
 
@@ -340,7 +328,7 @@ async function importShareReference(input: string): Promise<string | undefined> 
   })
 
   if (normalized.diff) {
-    await storageWrite(["session_diff", info.id as string], normalized.diff)
+    SessionDiffRepo.upsert(info.id as string, normalized.diff as Snapshot.FileDiff[])
   }
 
   const imported: MessageV2.WithParts[] = []

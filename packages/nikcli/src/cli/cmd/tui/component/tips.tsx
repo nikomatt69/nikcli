@@ -1,5 +1,5 @@
 import { createMemo, For } from "solid-js"
-import { DEFAULT_THEMES, useTheme } from "@tui/context/theme"
+import { BUILT_IN_THEME_IDS, useTheme } from "@tui/context/theme"
 import type { Config } from "@nikcli-ai/sdk/httpapi"
 
 type TipPart = { text: string; highlight: boolean }
@@ -42,15 +42,15 @@ export function Tips(props: { ads?: AdsConfig }) {
   const label = createMemo(() => (entry().type === "ad" ? "Sponsored" : "Tip"))
   const themeTip = createMemo(
     () =>
-      `Use {highlight}/themes{/highlight} or {highlight}Ctrl+X T{/highlight} to switch between ${Object.keys(DEFAULT_THEMES).length} built-in themes`,
+      `Use {highlight}/themes{/highlight} or {highlight}Ctrl+X T{/highlight} to switch between ${BUILT_IN_THEME_IDS.length} built-in themes`,
   )
 
   return (
     <box flexDirection="row" maxWidth="100%">
-      <text flexShrink={0} style={{ fg: theme.warning }}>{`● ${label()} `}</text>
+      <text flexShrink={0} style={{ fg: theme.status.warning.fg }}>{`● ${label()} `}</text>
       <text flexShrink={1}>
         <For each={parts()}>
-          {(part) => <span style={{ fg: part.highlight ? theme.text : theme.textMuted }}>{part.text}</span>}
+          {(part) => <span style={{ fg: part.highlight ? theme.foreground.default : theme.foreground.muted }}>{part.text}</span>}
         </For>
       </text>
     </box>

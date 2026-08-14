@@ -312,17 +312,17 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
       {/* Header: title + live summary on the left, controls hint on the right */}
       <box flexDirection="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
         <box flexDirection="column" gap={0}>
-          <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
+          <text fg={theme.accent.alt} attributes={TextAttributes.BOLD} wrapMode="none">
             ◈ ANALYTICS
           </text>
           <Show when={headerSummary()}>
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               {headerSummary()!.range} · {headerSummary()!.sessions} sessions · {formatTokens(headerSummary()!.tokens)}{" "}
               tokens · {money.format(headerSummary()!.cost)}
             </text>
           </Show>
         </box>
-        <text fg={theme.textMuted} wrapMode="none">
+        <text fg={theme.foreground.muted} wrapMode="none">
           tab/1-6 · ↑↓ scroll · esc
         </text>
       </box>
@@ -331,10 +331,10 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
       <Show when={loading()}>
         <box height={contentHeight()} alignItems="center" justifyContent="center" flexShrink={0}>
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.accent} wrapMode="none">
+            <text fg={theme.accent.alt} wrapMode="none">
               {SPINNER_FRAMES[spinner()]}
             </text>
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               Crunching analytics…
             </text>
           </box>
@@ -345,19 +345,19 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
         <box
           height={contentHeight()}
           border
-          borderColor={theme.error}
+          borderColor={theme.status.error.fg}
           alignItems="center"
           justifyContent="center"
           flexShrink={0}
         >
           <box flexDirection="column" gap={1} alignItems="center" paddingLeft={2} paddingRight={2}>
-            <text fg={theme.error} attributes={TextAttributes.BOLD} wrapMode="none">
+            <text fg={theme.status.error.fg} attributes={TextAttributes.BOLD} wrapMode="none">
               ✗ Analytics unavailable
             </text>
-            <text fg={theme.textMuted} wrapMode="word">
+            <text fg={theme.foreground.muted} wrapMode="word">
               {loadError() ?? "No analytics data was returned"}
             </text>
-            <text fg={theme.primary} onMouseUp={() => void loadAnalytics()} wrapMode="none">
+            <text fg={theme.accent.fg} onMouseUp={() => void loadAnalytics()} wrapMode="none">
               [r / click to retry]
             </text>
           </box>
@@ -368,16 +368,16 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
         <box
           height={contentHeight()}
           border
-          borderColor={theme.warning}
+          borderColor={theme.status.warning.fg}
           alignItems="center"
           justifyContent="center"
           flexShrink={0}
         >
           <box flexDirection="column" gap={1} alignItems="center" paddingLeft={1} paddingRight={1}>
-            <text fg={theme.warning} attributes={TextAttributes.BOLD} wrapMode="none">
+            <text fg={theme.status.warning.fg} attributes={TextAttributes.BOLD} wrapMode="none">
               ⚠ Terminal too narrow
             </text>
-            <text fg={theme.textMuted} wrapMode="word">
+            <text fg={theme.foreground.muted} wrapMode="word">
               Resize to at least 50 columns and 16 rows to render analytics charts without clipping.
             </text>
           </box>
@@ -400,17 +400,17 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
                     alignItems="center"
                     paddingLeft={1}
                     paddingRight={1}
-                    backgroundColor={isActive() ? theme.backgroundElement : undefined}
+                    backgroundColor={isActive() ? theme.surface.offset : undefined}
                   >
                     <text
-                      fg={isActive() ? theme.accent : theme.textMuted}
+                      fg={isActive() ? theme.accent.alt : theme.foreground.muted}
                       attributes={isActive() ? TextAttributes.BOLD : undefined}
                       wrapMode="none"
                     >
                       {tab.icon}
                     </text>
                     <text
-                      fg={isActive() ? theme.primary : theme.textMuted}
+                      fg={isActive() ? theme.accent.fg : theme.foreground.muted}
                       attributes={isActive() ? TextAttributes.BOLD : undefined}
                       wrapMode="none"
                     >
@@ -419,7 +419,7 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
                   </box>
                   {/* active underline — matches the chip's inner width
                       (padding 2 + icon 1 + gap 1 + "N "(2) + label). */}
-                  <text fg={isActive() ? theme.accent : theme.backgroundPanel} wrapMode="none">
+                  <text fg={isActive() ? theme.accent.alt : theme.surface.panel} wrapMode="none">
                     {"─".repeat(tab.label.length + 6)}
                   </text>
                 </box>
@@ -434,7 +434,7 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
             scroll the active tab; tab/1-6 switch tabs and section headers
             toggle on click. `keyed` on the tab id remounts content per tab so
             scroll offset resets when you switch. */}
-        <box border borderColor={theme.border} height={contentHeight()} flexShrink={0}>
+        <box border borderColor={theme.border.default} height={contentHeight()} flexShrink={0}>
           <scrollbox
             ref={(r: ScrollBoxRenderable) => (scrollRef = r)}
             height={contentHeight() - 2}
@@ -478,18 +478,18 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
         {/* Scroll indicator — shows there's more above/below and how far
             through the tab you are. Only when the content overflows. */}
         <box flexDirection="row" justifyContent="space-between" alignItems="center" flexShrink={0}>
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             {TABS.find((t) => t.id === activeTab())?.label} · {tabIndex() + 1}/{TABS.length}
           </text>
           <Show when={scrollInfo().scrollable}>
             <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={scrollInfo().up ? theme.accent : theme.borderSubtle} wrapMode="none">
+              <text fg={scrollInfo().up ? theme.accent.alt : theme.border.subtle} wrapMode="none">
                 ▲
               </text>
-              <text fg={theme.textMuted} wrapMode="none">
+              <text fg={theme.foreground.muted} wrapMode="none">
                 {scrollInfo().pct}%
               </text>
-              <text fg={scrollInfo().down ? theme.accent : theme.borderSubtle} wrapMode="none">
+              <text fg={scrollInfo().down ? theme.accent.alt : theme.border.subtle} wrapMode="none">
                 ▼
               </text>
             </box>
@@ -508,10 +508,10 @@ function EmptyState(props: { icon?: string; message: string }) {
   const { theme } = useTheme()
   return (
     <box flexDirection="row" gap={1} alignItems="center" paddingTop={1} paddingBottom={1} justifyContent="center">
-      <text fg={theme.borderSubtle} wrapMode="none">
+      <text fg={theme.border.subtle} wrapMode="none">
         {props.icon ?? "○"}
       </text>
-      <text fg={theme.textMuted} wrapMode="none">
+      <text fg={theme.foreground.muted} wrapMode="none">
         {props.message}
       </text>
     </box>
@@ -536,7 +536,7 @@ function DataSourceBanner(props: { stats: AggregatedStats; source: AnalyticsSour
   return (
     <box
       border
-      borderColor={props.source === "live+history" ? theme.info : theme.borderSubtle}
+      borderColor={props.source === "live+history" ? theme.status.info.fg : theme.border.subtle}
       paddingLeft={1}
       paddingRight={1}
       flexDirection="row"
@@ -546,17 +546,17 @@ function DataSourceBanner(props: { stats: AggregatedStats; source: AnalyticsSour
       gap={1}
     >
       <box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
-        <text fg={theme.info} attributes={TextAttributes.BOLD} wrapMode="none">
+        <text fg={theme.status.info.fg} attributes={TextAttributes.BOLD} wrapMode="none">
           ℹ DATA SOURCE
         </text>
-        <text fg={theme.text} wrapMode="word">
+        <text fg={theme.foreground.default} wrapMode="word">
           {sourceLabel()}
         </text>
-        <text fg={theme.textMuted} wrapMode="word">
+        <text fg={theme.foreground.muted} wrapMode="word">
           · {range()}
         </text>
       </box>
-      <text fg={theme.textMuted} wrapMode="none">
+      <text fg={theme.foreground.muted} wrapMode="none">
         refreshed {refreshed()}
       </text>
     </box>
@@ -569,19 +569,19 @@ function TabHeading(props: { icon: string; title: string; description: string; m
     <box flexDirection="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
       <box flexDirection="column" gap={0}>
         <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
+          <text fg={theme.accent.alt} attributes={TextAttributes.BOLD} wrapMode="none">
             {props.icon}
           </text>
-          <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+          <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
             {props.title}
           </text>
         </box>
-        <text fg={theme.textMuted} wrapMode="word">
+        <text fg={theme.foreground.muted} wrapMode="word">
           {props.description}
         </text>
       </box>
       <Show when={props.meta}>
-        <text fg={theme.secondary} wrapMode="none">
+        <text fg={theme.accent.secondary} wrapMode="none">
           {props.meta}
         </text>
       </Show>
@@ -590,10 +590,10 @@ function TabHeading(props: { icon: string; title: string; description: string; m
 }
 
 function dashboardStatusColor(theme: Theme, status: DashboardStatus): RGBA {
-  if (status === "success") return theme.success
-  if (status === "warning") return theme.warning
-  if (status === "error") return theme.error
-  return theme.info
+  if (status === "success") return theme.status.success.fg
+  if (status === "warning") return theme.status.warning.fg
+  if (status === "error") return theme.status.error.fg
+  return theme.status.info.fg
 }
 
 const DASHBOARD_STATUS_ICON: Record<DashboardStatus, string> = {
@@ -635,11 +635,11 @@ function AnalyticsStatusGrid(props: { items: Array<{ label: string; detail: stri
                       <text fg={color()} attributes={TextAttributes.BOLD} wrapMode="none">
                         {DASHBOARD_STATUS_ICON[item.status]}
                       </text>
-                      <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+                      <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
                         {item.label}
                       </text>
                     </box>
-                    <text fg={theme.textMuted} wrapMode="word">
+                    <text fg={theme.foreground.muted} wrapMode="word">
                       {item.detail}
                     </text>
                   </box>
@@ -665,16 +665,16 @@ function AnalyticsHistogram(props: { bins: Array<{ label: string; count: number 
           const filled = () => Math.round((bin.count / max()) * barWidth())
           return (
             <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={theme.textMuted} width={7} wrapMode="none">
+              <text fg={theme.foreground.muted} width={7} wrapMode="none">
                 {bin.label.padEnd(7)}
               </text>
               <text fg={props.color} wrapMode="none">
                 {"▆".repeat(filled())}
               </text>
-              <text fg={theme.borderSubtle} wrapMode="none">
+              <text fg={theme.border.subtle} wrapMode="none">
                 {"·".repeat(Math.max(0, barWidth() - filled()))}
               </text>
-              <text fg={theme.text} width={4} wrapMode="none">
+              <text fg={theme.foreground.default} width={4} wrapMode="none">
                 {String(bin.count).padStart(4)}
               </text>
             </box>
@@ -701,24 +701,24 @@ function RecentSessionTimeline(props: { sessions: AggregatedStats["sessions"] })
             return (
               <box flexDirection="column" gap={0}>
                 <box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
-                  <text fg={theme.success} attributes={TextAttributes.BOLD} wrapMode="none">
+                  <text fg={theme.status.success.fg} attributes={TextAttributes.BOLD} wrapMode="none">
                     ✓
                   </text>
-                  <text fg={theme.text} attributes={TextAttributes.BOLD} width={titleW()} wrapMode="none">
+                  <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} width={titleW()} wrapMode="none">
                     {(session.title || "Untitled session").slice(0, titleW())}
                   </text>
-                  <text fg={theme.primary} wrapMode="none">
+                  <text fg={theme.accent.fg} wrapMode="none">
                     {formatTokens(tokens())}
                   </text>
-                  <text fg={theme.success} wrapMode="none">
+                  <text fg={theme.status.success.fg} wrapMode="none">
                     {money.format(session.cost)}
                   </text>
-                  <text fg={theme.textMuted} wrapMode="none">
+                  <text fg={theme.foreground.muted} wrapMode="none">
                     {formatRelativeTime(session.updated)}
                   </text>
                 </box>
                 <Show when={!isLast()}>
-                  <text fg={theme.borderSubtle} wrapMode="none">
+                  <text fg={theme.border.subtle} wrapMode="none">
                     │
                   </text>
                 </Show>
@@ -738,7 +738,7 @@ function LegendDot(props: { color: ReturnType<typeof getChartColors>["input"]; l
       <text fg={props.color} wrapMode="none">
         ■
       </text>
-      <text fg={theme.textMuted} wrapMode="none">
+      <text fg={theme.foreground.muted} wrapMode="none">
         {props.label}
       </text>
     </box>
@@ -759,19 +759,19 @@ function CollapsibleSection(
       flexDirection="column"
       gap={1}
       border={["left"]}
-      borderColor={props.open ? theme.borderActive : theme.borderSubtle}
+      borderColor={props.open ? theme.border.active : theme.border.subtle}
       paddingLeft={1}
     >
       <box flexDirection="row" gap={1} alignItems="center" onMouseUp={() => props.onToggle()}>
         {/* Accent chevron = the clickable affordance for the section. */}
-        <text fg={theme.accent} wrapMode="none">
+        <text fg={theme.accent.alt} wrapMode="none">
           {props.open ? "▾" : "▶"}
         </text>
-        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+        <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
           {props.title}
         </text>
         <Show when={props.hint}>
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             {props.hint}
           </text>
         </Show>
@@ -833,14 +833,14 @@ function activityPalette(theme: Theme): [RGBA, RGBA, RGBA, RGBA, RGBA] {
   // Make the empty level ~20% brighter than backgroundElement so empty cells
   // form a visible grid. backgroundElement alone (≈25/255 on a black bg) is
   // invisible against most terminal backgrounds.
-  const base = theme.backgroundElement
-  const bright = lerpRgba(base, theme.text, 0.18)
+  const base = theme.surface.offset
+  const bright = lerpRgba(base, theme.foreground.default, 0.18)
   return [
     bright, // 0 — empty
-    lerpRgba(bright, theme.primary, 0.35),
-    lerpRgba(bright, theme.primary, 0.6),
-    lerpRgba(bright, theme.primary, 0.85),
-    theme.primary,
+    lerpRgba(bright, theme.accent.fg, 0.35),
+    lerpRgba(bright, theme.accent.fg, 0.6),
+    lerpRgba(bright, theme.accent.fg, 0.85),
+    theme.accent.fg,
   ]
 }
 
@@ -858,15 +858,15 @@ function ActivityStat(props: { label: string; value: string; hint?: string }) {
   const { theme } = useTheme()
   return (
     <box flexDirection="column" gap={0}>
-      <text fg={theme.textMuted} wrapMode="none">
+      <text fg={theme.foreground.muted} wrapMode="none">
         {props.label}
       </text>
       <box flexDirection="row" gap={1} alignItems="baseline">
-        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+        <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
           {props.value}
         </text>
         <Show when={props.hint}>
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             {props.hint}
           </text>
         </Show>
@@ -944,19 +944,19 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
           flexDirection="row"
           gap={1}
           alignItems="baseline"
-          backgroundColor={theme.backgroundElement}
+          backgroundColor={theme.surface.offset}
           paddingLeft={1}
           paddingRight={1}
           onMouseUp={() => cycleMetric()}
         >
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             metric:
           </text>
-          <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
+          <text fg={theme.accent.fg} attributes={TextAttributes.BOLD} wrapMode="none">
             {metricLabel()}
           </text>
           <Show when={chartW() >= 36}>
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               [tap to cycle]
             </text>
           </Show>
@@ -974,7 +974,7 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
             <text> </text>
             <For each={dowLabels}>
               {(label) => (
-                <text fg={theme.textMuted} wrapMode="none">
+                <text fg={theme.foreground.muted} wrapMode="none">
                   {(label || " ").padEnd(3, " ")}
                 </text>
               )}
@@ -991,7 +991,7 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
                     return m ? monthInitial(m.label) : ""
                   })
                   return (
-                    <text fg={theme.textMuted} width={1} wrapMode="none">
+                    <text fg={theme.foreground.muted} width={1} wrapMode="none">
                       {label() || " "}
                     </text>
                   )
@@ -1019,7 +1019,7 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
 
         {/* Legend: Less ─ ▢▢▢▢▢ ─ More */}
         <box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             Less
           </text>
           <For each={legendStops()}>
@@ -1029,14 +1029,14 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
               </box>
             )}
           </For>
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             More
           </text>
-          <text fg={theme.border} wrapMode="none">
+          <text fg={theme.border.default} wrapMode="none">
             {" "}
             ·{" "}
           </text>
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             peak {metric() === "cost" ? money.format(grid().maxValue) : formatTokens(grid().maxValue)} {metricLabel()}
             /day
           </text>
@@ -1245,7 +1245,7 @@ function OverviewTab(props: {
           graphical summary above the collapsible deep-dives. */}
       <Show when={volumeBars().length > 1 && volumeBars().some((bar) => bar.value > 0)}>
         <box flexDirection="column" gap={1}>
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             Tokens / day · last {volumeBars().length} days
           </text>
           <VerticalBarChart bars={volumeBars()} height={6} color={viz().input} highlightMax showAxis />
@@ -1253,7 +1253,7 @@ function OverviewTab(props: {
       </Show>
       <Show when={props.last30Days.some((day) => day.cost > 0)}>
         <box flexDirection="column" gap={1}>
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             Cost / day · last {props.last30Days.length} days
           </text>
           <BrailleAreaChart
@@ -1266,13 +1266,13 @@ function OverviewTab(props: {
       </Show>
 
       <box flexDirection="column" gap={1}>
-        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+        <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
           Usage composition
         </text>
         <StackedBarChartV2 segments={tokenMix()} width={chartW()} showLabels />
       </box>
 
-      <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+      <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
         Efficiency gauges
       </text>
       <box flexDirection="row" gap={4} flexWrap="wrap">
@@ -1323,7 +1323,7 @@ function OverviewTab(props: {
       </box>
 
       <box flexDirection="column" gap={1}>
-        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+        <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
           Operational health
         </text>
         <AnalyticsStatusGrid items={operationalStatus()} />
@@ -1413,13 +1413,13 @@ function OverviewTab(props: {
                     <box flexDirection="column" gap={0}>
                       <box flexDirection="row" gap={2} alignItems="center" justifyContent="space-between">
                         <text
-                          fg={isPeak() ? theme.primary : theme.textMuted}
+                          fg={isPeak() ? theme.accent.fg : theme.foreground.muted}
                           attributes={isPeak() ? TextAttributes.BOLD : undefined}
                           wrapMode="none"
                         >
                           {day.date.slice(5)}
                         </text>
-                        <text fg={theme.textMuted} wrapMode="none">
+                        <text fg={theme.foreground.muted} wrapMode="none">
                           {formatTokens(day.tokens)} · {day.cost > 0 ? money.format(day.cost) : "—"}
                         </text>
                       </box>
@@ -1429,7 +1429,7 @@ function OverviewTab(props: {
                 >
                   <box flexDirection="row" gap={2} alignItems="center">
                     <text
-                      fg={isPeak() ? theme.primary : theme.textMuted}
+                      fg={isPeak() ? theme.accent.fg : theme.foreground.muted}
                       attributes={isPeak() ? TextAttributes.BOLD : undefined}
                       width={6}
                       wrapMode="none"
@@ -1437,10 +1437,10 @@ function OverviewTab(props: {
                       {day.date.slice(5)}
                     </text>
                     <StackedBarChartV2 segments={segments} width={dailyBarW()} showLabels={false} />
-                    <text fg={theme.textMuted} width={8} wrapMode="none">
+                    <text fg={theme.foreground.muted} width={8} wrapMode="none">
                       {formatTokens(day.tokens).padStart(8)}
                     </text>
-                    <text fg={theme.success} width={9} wrapMode="none">
+                    <text fg={theme.status.success.fg} width={9} wrapMode="none">
                       {(day.cost > 0 ? money.format(day.cost) : "—").padStart(9)}
                     </text>
                   </box>
@@ -1457,7 +1457,7 @@ function OverviewTab(props: {
             <LegendDot color={viz().output} label="Output" />
             <LegendDot color={viz().cache} label="Cache" />
             <LegendDot color={viz().reasoning} label="Reason" />
-            <text fg={theme.textMuted} onMouseUp={() => cycleRange()} wrapMode="none">
+            <text fg={theme.foreground.muted} onMouseUp={() => cycleRange()} wrapMode="none">
               [{dailyRange()}d ⟳]
             </text>
           </box>
@@ -1474,13 +1474,13 @@ function OverviewTab(props: {
         <For each={Array.from(props.stats.providers.values()).slice(0, 5)}>
           {(prov) => (
             <box flexDirection="row" gap={2} alignItems="center" flexWrap="wrap">
-              <text fg={theme.primary} width={layout().compact ? 10 : 12} wrapMode="none">
+              <text fg={theme.accent.fg} width={layout().compact ? 10 : 12} wrapMode="none">
                 {prov.providerID}
               </text>
-              <text fg={theme.textMuted} width={layout().compact ? 10 : 14} wrapMode="none">
+              <text fg={theme.foreground.muted} width={layout().compact ? 10 : 14} wrapMode="none">
                 {prov.sessions}s / {prov.messages}m
               </text>
-              <text fg={theme.success} wrapMode="none">
+              <text fg={theme.status.success.fg} wrapMode="none">
                 {money.format(prov.cost)}
               </text>
             </box>
@@ -1489,7 +1489,7 @@ function OverviewTab(props: {
         {/* Cost share across providers as one proportional bar. */}
         <Show when={props.stats.providers.size > 1}>
           <box paddingTop={1} flexDirection="column" gap={1}>
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               Cost share
             </text>
             <StackedBarChartV2
@@ -1630,26 +1630,26 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
       <CollapsibleSection title="Efficiency Metrics" open={open().efficiency} onToggle={() => toggle("efficiency")}>
         <box flexDirection="row" gap={3} flexWrap="wrap">
           <box flexDirection="column" gap={0}>
-            <text fg={theme.textMuted}>Cost/1K tokens</text>
-            <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+            <text fg={theme.foreground.muted}>Cost/1K tokens</text>
+            <text fg={colorToString(theme.status.success.fg)} attributes={TextAttributes.BOLD}>
               ${g().efficiency.costPer1kTokens.toFixed(4)}
             </text>
           </box>
           <box flexDirection="column" gap={0}>
-            <text fg={theme.textMuted}>Cost/session</text>
-            <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+            <text fg={theme.foreground.muted}>Cost/session</text>
+            <text fg={colorToString(theme.status.success.fg)} attributes={TextAttributes.BOLD}>
               {money.format(g().efficiency.costPerSession)}
             </text>
           </box>
           <box flexDirection="column" gap={0}>
-            <text fg={theme.textMuted}>Tokens/session</text>
+            <text fg={theme.foreground.muted}>Tokens/session</text>
             <text fg={viz().input} attributes={TextAttributes.BOLD}>
               {formatTokens(g().efficiency.avgTokensPerSession)}
             </text>
           </box>
           <box flexDirection="column" gap={0}>
-            <text fg={theme.textMuted}>Avg cost/day</text>
-            <text fg={colorToString(theme.warning)} attributes={TextAttributes.BOLD}>
+            <text fg={theme.foreground.muted}>Avg cost/day</text>
+            <text fg={colorToString(theme.status.warning.fg)} attributes={TextAttributes.BOLD}>
               {money.format(g().efficiency.avgCostPerDay)}
             </text>
           </box>
@@ -1690,7 +1690,7 @@ function ModelsTab(props: { stats: AggregatedStats }) {
       {/* Token share across top models — one proportional bar. */}
       <Show when={models().length > 1}>
         <box flexDirection="column" gap={1}>
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             Token share
           </text>
           <StackedBarChartV2 segments={shareSegments()} width={chartW()} showLabels />
@@ -1726,7 +1726,7 @@ function ModelsTab(props: { stats: AggregatedStats }) {
           input vs output split bars so the input/output ratio is visible
           at a glance (per-model). */}
       <Show when={models().length > 0}>
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        <text fg={theme.foreground.default} attributes={TextAttributes.BOLD}>
           Daily Usage Split
         </text>
         <For each={models()}>
@@ -1740,7 +1740,7 @@ function ModelsTab(props: { stats: AggregatedStats }) {
             const reasWidth = Math.max(0, w - inWidth - outWidth)
             return (
               <box flexDirection="row" gap={1} alignItems="center">
-                <text fg={theme.text} width={nameW()} wrapMode="none">
+                <text fg={theme.foreground.default} width={nameW()} wrapMode="none">
                   {(model.modelID.length > nameW() ? "…" + model.modelID.slice(-(nameW() - 1)) : model.modelID).padEnd(
                     nameW(),
                   )}
@@ -1754,7 +1754,7 @@ function ModelsTab(props: { stats: AggregatedStats }) {
                 <text fg={viz().reasoning} wrapMode="none">
                   {"█".repeat(reasWidth)}
                 </text>
-                <text fg={theme.textMuted} width={8} wrapMode="none">
+                <text fg={theme.foreground.muted} width={8} wrapMode="none">
                   {formatTokens(totalNonCache).padStart(8)}
                 </text>
               </box>
@@ -1767,19 +1767,19 @@ function ModelsTab(props: { stats: AggregatedStats }) {
             <text fg={viz().input} wrapMode="none">
               ■
             </text>
-            <text fg={theme.textMuted}>Input</text>
+            <text fg={theme.foreground.muted}>Input</text>
           </box>
           <box flexDirection="row" gap={1} alignItems="center">
             <text fg={viz().output} wrapMode="none">
               ■
             </text>
-            <text fg={theme.textMuted}>Output</text>
+            <text fg={theme.foreground.muted}>Output</text>
           </box>
           <box flexDirection="row" gap={1} alignItems="center">
             <text fg={viz().reasoning} wrapMode="none">
               ■
             </text>
-            <text fg={theme.textMuted}>Reasoning</text>
+            <text fg={theme.foreground.muted}>Reasoning</text>
           </box>
         </box>
       </Show>
@@ -1824,20 +1824,20 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
           numbers before). */}
       <box flexDirection="row" gap={3} flexWrap="wrap">
         <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>Git:</text>
-          <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+          <text fg={theme.foreground.muted}>Git:</text>
+          <text fg={colorToString(theme.status.success.fg)} attributes={TextAttributes.BOLD}>
             {vcsStats().git}
           </text>
         </box>
         <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>Local:</text>
-          <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+          <text fg={theme.foreground.muted}>Local:</text>
+          <text fg={theme.foreground.muted} attributes={TextAttributes.BOLD}>
             {vcsStats().local}
           </text>
         </box>
         <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>Avg sessions:</text>
-          <text fg={colorToString(theme.primary)} attributes={TextAttributes.BOLD}>
+          <text fg={theme.foreground.muted}>Avg sessions:</text>
+          <text fg={colorToString(theme.accent.fg)} attributes={TextAttributes.BOLD}>
             {(g().sessions / (vcsStats().total || 1)).toFixed(1)}
           </text>
         </box>
@@ -1857,7 +1857,7 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
       {/* Top projects by token volume — ranked bars. */}
       <Show when={topProjects().length > 1}>
         <box flexDirection="column" gap={1} paddingTop={1}>
-          <text fg={theme.textMuted} wrapMode="none">
+          <text fg={theme.foreground.muted} wrapMode="none">
             Top projects · tokens
           </text>
           <RankedBarList
@@ -1879,19 +1879,19 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
               alignItems="center"
               flexWrap="wrap"
               border={["bottom"]}
-              borderColor={theme.borderSubtle}
+              borderColor={theme.border.subtle}
               paddingLeft={1}
               paddingRight={1}
             >
-              <text fg={proj.vcs === "git" ? theme.success : theme.textMuted} width={2} wrapMode="none">
+              <text fg={proj.vcs === "git" ? theme.status.success.fg : theme.foreground.muted} width={2} wrapMode="none">
                 {proj.vcs === "git" ? "●" : "○"}
               </text>
-              <text fg={theme.text} width={nameW()} wrapMode="none">
+              <text fg={theme.foreground.default} width={nameW()} wrapMode="none">
                 {proj.name.length > nameW() ? "…" + proj.name.slice(-(nameW() - 1)) : proj.name}
               </text>
-              <text fg={theme.textMuted}>{proj.sessionCount}s</text>
-              <text fg={theme.primary}>{formatTokens(proj.totalTokens)}</text>
-              <text fg={theme.success}>{money.format(proj.totalCost)}</text>
+              <text fg={theme.foreground.muted}>{proj.sessionCount}s</text>
+              <text fg={theme.accent.fg}>{formatTokens(proj.totalTokens)}</text>
+              <text fg={theme.status.success.fg}>{money.format(proj.totalCost)}</text>
             </box>
           )}
         </For>
@@ -1913,9 +1913,9 @@ function ToolsTab(props: { stats: AggregatedStats }) {
   const nameW = createMemo(() => (layout().compact ? 8 : 18))
   const barW = createMemo(() => Math.max(4, chartW() - nameW() - (layout().compact ? 10 : 16)))
   const successColor = (rate: number): RGBA => {
-    if (rate >= 90) return theme.success
-    if (rate >= 70) return theme.warning
-    return theme.error
+    if (rate >= 90) return theme.status.success.fg
+    if (rate >= 70) return theme.status.warning.fg
+    return theme.status.error.fg
   }
   // Call-weighted overall success rate across every tracked tool.
   const overallSuccess = createMemo(() => weightedToolSuccess(tools()))
@@ -1944,7 +1944,7 @@ function ToolsTab(props: { stats: AggregatedStats }) {
       </Show>
 
       {/* Ranked list with 1/8-cell bar precision. Each bar uses the bar's
-          color (theme.success/warning/error) so visual "danger" is encoded
+          color (theme.status.success.fg/warning/error) so visual "danger" is encoded
           in the bar itself, not only in the trailing percent column. */}
       <RankedBarList
         items={tools()
@@ -1967,22 +1967,22 @@ function ToolsTab(props: { stats: AggregatedStats }) {
       {/* Legend */}
       <box flexDirection="row" gap={3} flexWrap="wrap">
         <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={colorToString(theme.success)} wrapMode="none">
+          <text fg={colorToString(theme.status.success.fg)} wrapMode="none">
             ■
           </text>
-          <text fg={theme.textMuted}>90%+ success</text>
+          <text fg={theme.foreground.muted}>90%+ success</text>
         </box>
         <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={colorToString(theme.warning)} wrapMode="none">
+          <text fg={colorToString(theme.status.warning.fg)} wrapMode="none">
             ■
           </text>
-          <text fg={theme.textMuted}>70-90%</text>
+          <text fg={theme.foreground.muted}>70-90%</text>
         </box>
         <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={colorToString(theme.error)} wrapMode="none">
+          <text fg={colorToString(theme.status.error.fg)} wrapMode="none">
             ■
           </text>
-          <text fg={theme.textMuted}>&lt;70%</text>
+          <text fg={theme.foreground.muted}>&lt;70%</text>
         </box>
       </box>
     </box>
@@ -2034,20 +2034,20 @@ function SessionsTab(props: { stats: AggregatedStats }) {
       >
         <box flexDirection="row" gap={3} flexWrap="wrap">
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.textMuted}>Total:</text>
-            <text fg={colorToString(theme.primary)} attributes={TextAttributes.BOLD}>
+            <text fg={theme.foreground.muted}>Total:</text>
+            <text fg={colorToString(theme.accent.fg)} attributes={TextAttributes.BOLD}>
               {g().sessions}
             </text>
           </box>
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.textMuted}>Unarchived:</text>
-            <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+            <text fg={theme.foreground.muted}>Unarchived:</text>
+            <text fg={colorToString(theme.status.success.fg)} attributes={TextAttributes.BOLD}>
               {g().sessions - g().archivedSessions}
             </text>
           </box>
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.textMuted}>Archived:</text>
-            <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+            <text fg={theme.foreground.muted}>Archived:</text>
+            <text fg={theme.foreground.muted} attributes={TextAttributes.BOLD}>
               {g().archivedSessions}
             </text>
           </box>
@@ -2116,11 +2116,11 @@ function SessionsTab(props: { stats: AggregatedStats }) {
           />
           <box flexDirection="row" gap={3} flexWrap="wrap">
             <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={theme.textMuted}>Success:</text>
-              <text fg={colorToString(theme.success)}>{bg().successRate.toFixed(0)}%</text>
+              <text fg={theme.foreground.muted}>Success:</text>
+              <text fg={colorToString(theme.status.success.fg)}>{bg().successRate.toFixed(0)}%</text>
             </box>
             <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={theme.textMuted}>Avg duration:</text>
+              <text fg={theme.foreground.muted}>Avg duration:</text>
               <text fg={viz().input}>{formatDuration(bg().avgDuration)}</text>
             </box>
           </box>
@@ -2190,28 +2190,28 @@ function SessionsTab(props: { stats: AggregatedStats }) {
       >
         <box flexDirection="row" gap={3} flexWrap="wrap">
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.textMuted}>Total:</text>
-            <text fg={colorToString(theme.primary)}>{ws().total}</text>
+            <text fg={theme.foreground.muted}>Total:</text>
+            <text fg={colorToString(theme.accent.fg)}>{ws().total}</text>
           </box>
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.textMuted}>Active:</text>
-            <text fg={colorToString(theme.success)}>{ws().active}</text>
+            <text fg={theme.foreground.muted}>Active:</text>
+            <text fg={colorToString(theme.status.success.fg)}>{ws().active}</text>
           </box>
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.textMuted}>Disconnected:</text>
-            <text fg={colorToString(theme.error)}>{ws().disconnected}</text>
+            <text fg={theme.foreground.muted}>Disconnected:</text>
+            <text fg={colorToString(theme.status.error.fg)}>{ws().disconnected}</text>
           </box>
         </box>
 
         {/* Type breakdown */}
         <Show when={Object.keys(ws().byType).length > 0}>
-          <text fg={theme.textMuted}>By type:</text>
+          <text fg={theme.foreground.muted}>By type:</text>
           <box flexDirection="row" gap={2} flexWrap="wrap">
             <For each={Object.entries(ws().byType)}>
               {([type, count]) => (
                 <box flexDirection="row" gap={1} alignItems="center">
-                  <text fg={colorToString(theme.accent)}>{type}:</text>
-                  <text fg={theme.text}>{count}</text>
+                  <text fg={colorToString(theme.accent.alt)}>{type}:</text>
+                  <text fg={theme.foreground.default}>{count}</text>
                 </box>
               )}
             </For>

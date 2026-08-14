@@ -14,10 +14,10 @@ function View() {
       list().filter(([, item]) => ["failed", "needs_auth", "needs_client_registration"].includes(item.status)).length,
   )
   const color = (status: string) => {
-    if (status === "connected") return theme.success
-    if (status === "failed" || status === "needs_client_registration") return theme.error
-    if (status === "needs_auth") return theme.warning
-    return theme.textMuted
+    if (status === "connected") return theme.status.success.fg
+    if (status === "failed" || status === "needs_client_registration") return theme.status.error.fg
+    if (status === "needs_auth") return theme.status.warning.fg
+    return theme.foreground.muted
   }
 
   return (
@@ -25,12 +25,12 @@ function View() {
       <box>
         <box flexDirection="row" gap={1} onMouseDown={() => list().length > 2 && setOpen((value) => !value)}>
           <Show when={list().length > 2}>
-            <text fg={theme.text}>{open() ? "▼" : "▶"}</text>
+            <text fg={theme.foreground.default}>{open() ? "▼" : "▶"}</text>
           </Show>
-          <text fg={theme.text}>
+          <text fg={theme.foreground.default}>
             <b>MCP</b>
             <Show when={!open()}>
-              <span style={{ fg: theme.textMuted }}>
+              <span style={{ fg: theme.foreground.muted }}>
                 {` (${active()} active${failed() ? `, ${failed()} error${failed() > 1 ? "s" : ""}` : ""})`}
               </span>
             </Show>
@@ -43,9 +43,9 @@ function View() {
                 <text flexShrink={0} fg={color(item.status)}>
                   •
                 </text>
-                <text fg={theme.text} wrapMode="word">
+                <text fg={theme.foreground.default} wrapMode="word">
                   {name}{" "}
-                  <span style={{ fg: theme.textMuted }}>
+                  <span style={{ fg: theme.foreground.muted }}>
                     <Switch fallback={item.status}>
                       <Match when={item.status === "connected"}>Connected</Match>
                       <Match when={item.status === "failed" && item}>{(value) => <i>{value().error}</i>}</Match>

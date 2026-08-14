@@ -186,10 +186,10 @@ export function DialogBgAgents(props: {
         gutter: active ? (
           <box flexDirection="row" gap={1}>
             <Spinner />
-            <text fg={color ?? theme.accent}>@</text>
+            <text fg={color ?? theme.accent.alt}>@</text>
           </box>
         ) : (
-          <text fg={color ?? theme.textMuted}>{statusSymbol(job.status)}</text>
+          <text fg={color ?? theme.foreground.muted}>{statusSymbol(job.status)}</text>
         ),
       })
     }
@@ -198,12 +198,12 @@ export function DialogBgAgents(props: {
       const isRunning = mon.status === "running"
       const statusColor =
         mon.status === "complete"
-          ? theme.success
+          ? theme.status.success.fg
           : mon.status === "running"
-            ? theme.accent
+            ? theme.accent.alt
             : mon.status === "cancelled"
-              ? theme.textMuted
-              : theme.error
+              ? theme.foreground.muted
+              : theme.status.error.fg
       const category =
         activeMonitorCount > 0 && activeMonitorCount !== monitorCount
           ? `Monitors (${activeMonitorCount}/${monitorCount} running)`

@@ -3,7 +3,7 @@ import { locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/ef
 import { Instance } from "@/project/instance"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
-import { Storage } from "@/storage/storage"
+import { SessionError } from "@/session/error"
 import { Log } from "@/util/log"
 
 /**
@@ -105,10 +105,10 @@ export namespace HttpApiPrompt {
         },
       }
     }
-    if (error instanceof Storage.NotFoundError) {
+    if (SessionError.isNotFound(error)) {
       return {
         status: 404,
-        body: { name: error._tag, data: { message: error.message } },
+        body: { name: "NotFoundError", data: { message: error.message } },
       }
     }
     const message = error instanceof Error && error.stack ? error.stack : String(error)

@@ -988,7 +988,7 @@ export function Prompt(props: PromptProps) {
 
   createEffect(
     on(
-      () => [props.disabled, theme.backgroundElement, theme.text] as const,
+      () => [props.disabled, theme.surface.offset, theme.foreground.default] as const,
       ([disabled, bg, text]) => {
         if (disabled) input.cursorColor = bg
         if (!disabled) input.cursorColor = text
@@ -1763,8 +1763,8 @@ export function Prompt(props: PromptProps) {
   }
 
   const highlight = createMemo(() => {
-    if (keybind.leader) return theme.border
-    if (store.mode === "shell") return theme.primary
+    if (keybind.leader) return theme.border.default
+    if (store.mode === "shell") return theme.accent.fg
     return local.agent.color(local.agent.current().name)
   })
 
@@ -1785,16 +1785,16 @@ export function Prompt(props: PromptProps) {
   const goalDisplay = createMemo(() => {
     const g = goal()
     if (!g) return undefined
-    if (g.status === "blocked") return { color: theme.error, status: "failed" }
+    if (g.status === "blocked") return { color: theme.status.error.fg, status: "failed" }
     if (g.status === "usage_limited" || g.status === "budget_limited") {
-      return { color: theme.error, status: "limited" }
+      return { color: theme.status.error.fg, status: "limited" }
     }
-    if (g.status === "complete") return { color: theme.success, status: "done" }
+    if (g.status === "complete") return { color: theme.status.success.fg, status: "done" }
     // active / paused: yellow while the agent is actively working it, green otherwise
     const working = status().type === "busy" || status().type === "retry"
-    if (working) return { color: theme.warning, status: "running" }
+    if (working) return { color: theme.status.warning.fg, status: "running" }
     return {
-      color: theme.success,
+      color: theme.status.success.fg,
       status: g.status === "paused" ? "paused" : "active",
     }
   })
@@ -1947,13 +1947,13 @@ export function Prompt(props: PromptProps) {
             paddingRight={2}
             paddingTop={1}
             flexShrink={0}
-            backgroundColor={theme.backgroundElement}
+            backgroundColor={theme.surface.offset}
             flexGrow={1}
           >
             <textarea
               placeholder={placeholderText()}
-              textColor={keybind.leader ? theme.textMuted : theme.text}
-              focusedTextColor={keybind.leader ? theme.textMuted : theme.text}
+              textColor={keybind.leader ? theme.foreground.muted : theme.foreground.default}
+              focusedTextColor={keybind.leader ? theme.foreground.muted : theme.foreground.default}
               minHeight={1}
               maxHeight={6}
               onContentChange={() => {
@@ -2154,12 +2154,12 @@ export function Prompt(props: PromptProps) {
                 }
                 props.ref?.(ref)
                 setTimeout(() => {
-                  input.cursorColor = theme.text
+                  input.cursorColor = theme.foreground.default
                 }, 0)
               }}
               onMouseDown={(r: MouseEvent) => r.target?.focus()}
-              focusedBackgroundColor={theme.backgroundElement}
-              cursorColor={theme.text}
+              focusedBackgroundColor={theme.surface.offset}
+              cursorColor={theme.foreground.default}
               syntaxStyle={syntax()}
             />
             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1}>
@@ -2170,7 +2170,7 @@ export function Prompt(props: PromptProps) {
               </Show>
               <Show when={store.mode === "normal" && kv.get("show_agent", true)}>
                 <box flexDirection="row" gap={1}>
-                  <text fg={theme.textMuted}>·</text>
+                  <text fg={theme.foreground.muted}>·</text>
                   <text fg={permissionModeColor(permissionMode(), theme)}>
                     {permissionModeShortLabel(permissionMode())}
                   </text>
@@ -2178,14 +2178,14 @@ export function Prompt(props: PromptProps) {
               </Show>
               <Show when={store.mode === "normal" && kv.get("show_model", true)}>
                 <box flexDirection="row" gap={1}>
-                  <text flexShrink={0} fg={keybind.leader ? theme.textMuted : theme.text}>
+                  <text flexShrink={0} fg={keybind.leader ? theme.foreground.muted : theme.foreground.default}>
                     {local.model.parsed().model}
                   </text>
-                  <text fg={theme.textMuted}>{local.model.parsed().provider}</text>
+                  <text fg={theme.foreground.muted}>{local.model.parsed().provider}</text>
                   <Show when={showVariant()}>
-                    <text fg={theme.textMuted}>·</text>
+                    <text fg={theme.foreground.muted}>·</text>
                     <text>
-                      <span style={{ fg: theme.warning, bold: true }}>{local.model.variant.current()}</span>
+                      <span style={{ fg: theme.status.warning.fg, bold: true }}>{local.model.variant.current()}</span>
                     </text>
                   </Show>
                 </box>
@@ -2193,9 +2193,9 @@ export function Prompt(props: PromptProps) {
               <Show when={goalDisplay()}>
                 {(g) => (
                   <box flexDirection="row" gap={1} flexShrink={0}>
-                    <text fg={theme.textMuted}>·</text>
+                    <text fg={theme.foreground.muted}>·</text>
                     <text fg={g().color} wrapMode="none">
-                      <span style={{ bold: true }}>goal</span> <span style={{ fg: theme.textMuted }}>{g().status}</span>
+                      <span style={{ bold: true }}>goal</span> <span style={{ fg: theme.foreground.muted }}>{g().status}</span>
                     </text>
                   </box>
                 )}
@@ -2209,15 +2209,15 @@ export function Prompt(props: PromptProps) {
           borderColor={highlight()}
           customBorderChars={{
             ...EmptyBorder,
-            vertical: theme.backgroundElement.a !== 0 ? "╹" : " ",
+            vertical: theme.surface.offset.a !== 0 ? "╹" : " ",
           }}
         >
           <box
             height={1}
             border={["bottom"]}
-            borderColor={theme.backgroundElement}
+            borderColor={theme.surface.offset}
             customBorderChars={
-              theme.backgroundElement.a !== 0
+              theme.surface.offset.a !== 0
                 ? {
                     ...EmptyBorder,
                     horizontal: "▀",
@@ -2243,14 +2243,14 @@ export function Prompt(props: PromptProps) {
                   />
                 </Show>
                 <Show when={sponsoredTip() && kv.get("show_sponsored", true)}>
-                  <text fg={theme.warning}>·</text>
-                  <text fg={theme.textMuted}>Sponsored:</text>
-                  <text fg={theme.text}>
+                  <text fg={theme.status.warning.fg}>·</text>
+                  <text fg={theme.foreground.muted}>Sponsored:</text>
+                  <text fg={theme.foreground.default}>
                     <For each={parseTipParts(sponsoredTip()!)}>
                       {(part) => (
                         <span
                           style={{
-                            fg: part.highlight ? theme.text : theme.textMuted,
+                            fg: part.highlight ? theme.foreground.default : theme.foreground.muted,
                           }}
                         >
                           {part.text}
@@ -2272,7 +2272,7 @@ export function Prompt(props: PromptProps) {
                 <box marginLeft={1}>
                   <Show
                     when={kv.get("animations_enabled", true) && spinnerDef()}
-                    fallback={<text fg={theme.textMuted}>[⋯]</text>}
+                    fallback={<text fg={theme.foreground.muted}>[⋯]</text>}
                   >
                     <spinner color={spinnerDef()!.color} frames={spinnerDef()!.frames} interval={40} />
                   </Show>
@@ -2329,7 +2329,7 @@ export function Prompt(props: PromptProps) {
                     return (
                       <Show when={retry()}>
                         <box onMouseUp={handleMessageClick}>
-                          <text fg={theme.error}>{retryText()}</text>
+                          <text fg={theme.status.error.fg}>{retryText()}</text>
                         </box>
                       </Show>
                     )
@@ -2345,25 +2345,25 @@ export function Prompt(props: PromptProps) {
                     onOpenBgAgents={() => openBackgroundSubtasks()}
                   />
                 </Show>
-                <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
+                <text fg={store.interrupt > 0 ? theme.accent.fg : theme.foreground.default}>
                   esc{" "}
                   <span
                     style={{
-                      fg: store.interrupt > 0 ? theme.primary : theme.textMuted,
+                      fg: store.interrupt > 0 ? theme.accent.fg : theme.foreground.muted,
                     }}
                   >
                     {store.interrupt > 0 ? lang.t("prompt.interruptAgain") : lang.t("prompt.interrupt")}
                   </span>
                 </text>
                 <Show when={sponsoredTip() && kv.get("show_sponsored", true)}>
-                  <text fg={theme.warning}>·</text>
-                  <text fg={theme.textMuted}>Sponsored:</text>
-                  <text fg={theme.text}>
+                  <text fg={theme.status.warning.fg}>·</text>
+                  <text fg={theme.foreground.muted}>Sponsored:</text>
+                  <text fg={theme.foreground.default}>
                     <For each={parseTipParts(sponsoredTip()!)}>
                       {(part) => (
                         <span
                           style={{
-                            fg: part.highlight ? theme.text : theme.textMuted,
+                            fg: part.highlight ? theme.foreground.default : theme.foreground.muted,
                           }}
                         >
                           {part.text}
@@ -2396,12 +2396,12 @@ export function Prompt(props: PromptProps) {
                   onMouseUp={() => {
                     void handleVoiceButtonUp()
                   }}
-                  backgroundColor={theme.error}
+                  backgroundColor={theme.status.error.fg}
                   paddingLeft={0.5}
                   paddingRight={0.5}
                   flexShrink={0}
                 >
-                  <text fg={theme.background} wrapMode="none">
+                  <text fg={theme.surface.base} wrapMode="none">
                     <span style={{ bold: voiceStatus() === "recording" }}>
                       {voiceStatus() === "recording"
                         ? "release to send"
@@ -2412,7 +2412,7 @@ export function Prompt(props: PromptProps) {
                               const shortcut = keybind.print("voice_record" as any)
                               return shortcut ? (
                                 <>
-                                  ⏺ <span style={{ fg: theme.textMuted }}>rec</span>
+                                  ⏺ <span style={{ fg: theme.foreground.muted }}>rec</span>
                                 </>
                               ) : (
                                 "⏺"
@@ -2426,13 +2426,13 @@ export function Prompt(props: PromptProps) {
                   onMouseUp={() => {
                     dialog.replace(() => <DialogWebPreview />)
                   }}
-                  backgroundColor={theme.primary}
+                  backgroundColor={theme.accent.fg}
                   paddingLeft={1}
                   paddingRight={1}
                   flexShrink={0}
                 >
-                  <text fg={theme.background} wrapMode="none">
-                    ⊕ <span style={{ fg: theme.background }}>web</span>
+                  <text fg={theme.surface.base} wrapMode="none">
+                    ⊕ <span style={{ fg: theme.surface.base }}>web</span>
                   </text>
                 </box>
 
@@ -2444,7 +2444,7 @@ export function Prompt(props: PromptProps) {
                           <Match when={usage()}>
                             {(item) => (
                               <text
-                                fg={theme.textMuted}
+                                fg={theme.foreground.muted}
                                 wrapMode="none"
                                 onMouseUp={() => command.trigger("nikcli.usage")}
                               >
@@ -2453,16 +2453,16 @@ export function Prompt(props: PromptProps) {
                             )}
                           </Match>
                           <Match when={true}>
-                            <text fg={theme.text}>
+                            <text fg={theme.foreground.default}>
                               {keybind.print("command_list")}{" "}
-                              <span style={{ fg: theme.textMuted }}>{lang.t("prompt.commands")}</span>
+                              <span style={{ fg: theme.foreground.muted }}>{lang.t("prompt.commands")}</span>
                             </text>
                           </Match>
                         </Switch>
                       </Match>
                       <Match when={store.mode === "shell"}>
-                        <text fg={theme.text}>
-                          esc <span style={{ fg: theme.textMuted }}>{lang.t("prompt.exitShellMode")}</span>
+                        <text fg={theme.foreground.default}>
+                          esc <span style={{ fg: theme.foreground.muted }}>{lang.t("prompt.exitShellMode")}</span>
                         </text>
                       </Match>
                     </Switch>
@@ -2470,7 +2470,7 @@ export function Prompt(props: PromptProps) {
                 </Show>
                 <Show when={editorContextVisible() && editorFileLabelDisplay()}>
                   {(file) => (
-                    <text fg={theme.secondary} flexShrink={0} wrapMode="none">
+                    <text fg={theme.accent.secondary} flexShrink={0} wrapMode="none">
                       {file()}
                     </text>
                   )}

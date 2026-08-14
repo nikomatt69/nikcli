@@ -1,7 +1,7 @@
 import { Flag } from "@/flag/flag"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Session } from "@/session"
-import { Storage } from "@/storage/storage"
+import { SessionError } from "@/session/error"
 import { Log } from "@/util/log"
 import { Vcs } from "@/project/vcs"
 import { Workspace } from "@/workspace"
@@ -122,6 +122,17 @@ export namespace ServerRouter {
     return new Response(null, { status: 204, headers })
   }
 
+  function isPtyNotFound(error: unknown): error is { message: string } {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error &&
+      (error as { _tag: unknown })._tag === "PtyNotFoundError" &&
+      "message" in error &&
+      typeof (error as { message: unknown }).message === "string"
+    )
+  }
+
   export function mapError(error: unknown): Response {
     log.error("failed", { error })
     if (typeof error === "object" && error !== null && "__http" in error) {
@@ -134,8 +145,12 @@ export namespace ServerRouter {
         { status: 409 },
       )
     }
-    if (error instanceof Storage.NotFoundError) {
-      return Response.json({ name: error._tag, data: { message: error.message } }, { status: 404 })
+    // The wire name is the literal "NotFoundError", not the error's `_tag` —
+    // `SessionError.NotFoundError` is tagged "SessionNotFoundError" and the
+    // declared response schemas pin the literal. Pty and Workspace own the
+    // same 404 shape after dropping borrowed `Storage.NotFoundError`.
+    if (SessionError.isNotFound(error) || error instanceof Workspace.NotFoundError || isPtyNotFound(error)) {
+      return Response.json({ name: "NotFoundError", data: { message: error.message } }, { status: 404 })
     }
     if (error instanceof Provider.ModelNotFoundError) {
       return Response.json(

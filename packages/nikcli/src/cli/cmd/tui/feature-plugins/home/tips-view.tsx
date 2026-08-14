@@ -1,7 +1,7 @@
 import { For } from "solid-js"
-import { DEFAULT_THEMES, useTheme } from "@tui/context/theme"
+import { BUILT_IN_THEME_IDS, useTheme } from "@tui/context/theme"
 
-const themeCount = Object.keys(DEFAULT_THEMES).length
+const themeCount = BUILT_IN_THEME_IDS.length
 const themeTip = `Use {highlight}/themes{/highlight} or {highlight}Ctrl+X T{/highlight} to switch between ${themeCount} built-in themes`
 
 type TipPart = { text: string; highlight: boolean }
@@ -36,12 +36,12 @@ export function Tips() {
 
   return (
     <box flexDirection="row" maxWidth="100%">
-      <text flexShrink={0} style={{ fg: theme.warning }}>
+      <text flexShrink={0} style={{ fg: theme.status.warning.fg }}>
         ● Tip{" "}
       </text>
       <text flexShrink={1}>
         <For each={parts}>
-          {(part) => <span style={{ fg: part.highlight ? theme.text : theme.textMuted }}>{part.text}</span>}
+          {(part) => <span style={{ fg: part.highlight ? theme.foreground.default : theme.foreground.muted }}>{part.text}</span>}
         </For>
       </text>
     </box>

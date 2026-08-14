@@ -16,12 +16,12 @@ type McpRowValue = { kind: "installed"; name: string } | { kind: "catalog"; inde
 function Status(props: { enabled: boolean; loading: boolean }) {
   const { theme } = useTheme()
   if (props.loading) {
-    return <span style={{ fg: theme.textMuted }}>⋯ Loading</span>
+    return <span style={{ fg: theme.foreground.muted }}>⋯ Loading</span>
   }
   if (props.enabled) {
-    return <span style={{ fg: theme.success, attributes: TextAttributes.BOLD }}>✓ Enabled</span>
+    return <span style={{ fg: theme.status.success.fg, attributes: TextAttributes.BOLD }}>✓ Enabled</span>
   }
-  return <span style={{ fg: theme.textMuted }}>○ Disabled</span>
+  return <span style={{ fg: theme.foreground.muted }}>○ Disabled</span>
 }
 
 export function DialogMcp() {
@@ -58,7 +58,7 @@ export function DialogMcp() {
       value: { kind: "catalog" as const, index: i },
       title: entry.name,
       description: entry.description,
-      footer: <span style={{ fg: theme.textMuted }}>not configured</span>,
+      footer: <span style={{ fg: theme.foreground.muted }}>not configured</span>,
       category: "Catalog",
     }))
 

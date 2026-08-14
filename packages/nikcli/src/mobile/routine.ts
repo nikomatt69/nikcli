@@ -5,15 +5,11 @@ import { Instance } from "@/project/instance"
 import { Scheduler } from "@/scheduler"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
-import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import { Provider } from "@/provider/provider"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
-
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
+import { RoutineRepo } from "./repo"
 
 function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
   return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
@@ -32,51 +28,6 @@ function defaultProviderModel() {
     Effect.gen(function* () {
       const provider = yield* Provider.Service
       return yield* provider.defaultModel()
-    }),
-  )
-}
-
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
-
-function storageWrite<T>(key: string[], content: T) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(key, content)
-    }),
-  )
-}
-
-function storageUpdate<T>(key: string[], fn: (draft: T) => void) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.update(key, fn)
-    }),
-  )
-}
-
-function storageRemove(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.remove(key)
-    }),
-  )
-}
-
-function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.list(prefix)
     }),
   )
 }
@@ -153,10 +104,14 @@ export namespace Routine {
   export type CreateInput = z.infer<typeof CreateInput>
   export type UpdateInput = z.infer<typeof UpdateInput>
 
-  // ── Storage key ───────────────────────────────────────────────────────────
+  // ── Identity ───────────────────────────────────────────────────────────────
 
-  function key(id: string) {
-    return ["routine", Instance.project.id, id]
+  function projectID() {
+    return Instance.project.id
+  }
+
+  function missing(id: string): never {
+    throw new Error(`Routine "${id}" not found.`)
   }
 
   function generateID() {
@@ -246,29 +201,13 @@ export namespace Routine {
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
   export async function list(): Promise<Record[]> {
-    // Resolve the project-scoped prefix in the caller's instance scope. Reading
-    // `Instance.project.id` (AsyncLocalStorage) inside the Effect fiber below
-    // can race the context and throw "No context found for instance"; compute
-    // it up front, exactly like `LoopManager.list` (`src/loop/manager.ts`).
-    const prefix = ["routine", Instance.project.id]
-    // Single Effect program: one Storage layer build for the whole batch.
-    const records = await runPromiseWithLayer(
-      Storage.defaultLayer,
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        const keys = yield* storage.list(prefix)
-        return yield* Effect.forEach(
-          keys,
-          (k) => storage.read<Record>(k).pipe(Effect.catch(() => Effect.succeed(null))),
-          { concurrency: 10 },
-        )
-      }),
-    )
-    return records.filter((r): r is Record => r !== null).sort((a, b) => b.createdAt - a.createdAt)
+    // Resolve the project id in the caller's instance scope, exactly like
+    // `LoopManager.list` (`src/loop/manager.ts`).
+    return RoutineRepo.list(projectID())
   }
 
-  export async function get(id: string): Promise<Record> {
-    return storageRead<Record>(key(id))
+  export async function get(id: string): Promise<Record | undefined> {
+    return RoutineRepo.get(projectID(), id)
   }
 
   export async function getByToken(token: string): Promise<Record | null> {
@@ -310,7 +249,7 @@ export namespace Routine {
       updatedAt: now,
     }
 
-    await storageWrite(key(id), record)
+    RoutineRepo.upsert(projectID(), record)
     log.info("created", { id, name: record.name })
     registerScheduler(record)
     return record
@@ -318,7 +257,7 @@ export namespace Routine {
 
   export async function update(id: string, input: UpdateInput): Promise<Record> {
     if (input.triggers) validateTriggers(input.triggers)
-    const record = await storageUpdate<Record>(key(id), (draft) => {
+    const record = RoutineRepo.update(projectID(), id, (draft) => {
       if (input.name !== undefined) draft.name = input.name
       if (input.prompt !== undefined) draft.prompt = input.prompt
       if (input.triggers !== undefined) draft.triggers = input.triggers
@@ -326,13 +265,14 @@ export namespace Routine {
       if (input.model !== undefined) draft.model = input.model
       draft.updatedAt = Date.now()
     })
+    if (!record) missing(id)
     registerScheduler(record)
     return record
   }
 
   export async function remove(id: string): Promise<void> {
     unregisterScheduler(id)
-    await storageRemove(key(id))
+    RoutineRepo.remove(projectID(), id)
     log.info("removed", { id })
   }
 
@@ -351,6 +291,7 @@ export namespace Routine {
     input?: { text?: string; model?: { providerID: string; modelID: string } },
   ): Promise<Session.Info> {
     const routine = await get(id)
+    if (!routine) missing(id)
     log.info("running", { id, name: routine.name, model: input?.model ?? routine.model })
 
     const session = await runSession(
@@ -377,11 +318,12 @@ export namespace Routine {
       }),
     )
 
-    await storageUpdate<Record>(key(id), (draft) => {
+    const updated = RoutineRepo.update(projectID(), id, (draft) => {
       draft.lastRunAt = Date.now()
       draft.lastSessionID = session.id
       draft.updatedAt = Date.now()
     })
+    if (!updated) missing(id)
 
     return session
   }

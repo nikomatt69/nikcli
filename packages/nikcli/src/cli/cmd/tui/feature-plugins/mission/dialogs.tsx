@@ -28,15 +28,15 @@ import {
 export function toneColor(theme: TuiPluginApi["theme"]["current"], tone: Runner.MissionTone): RGBA {
   switch (tone) {
     case "running":
-      return theme.warning
+      return theme.status.warning.fg
     case "error":
-      return theme.error
+      return theme.status.error.fg
     case "ok":
-      return theme.success
+      return theme.status.success.fg
     case "frozen":
-      return theme.textMuted
+      return theme.foreground.muted
     default:
-      return theme.textMuted
+      return theme.foreground.muted
   }
 }
 
@@ -354,7 +354,7 @@ function askGenerateDescription(api: TuiPluginApi, preset?: { brief?: string }):
         placeholder="e.g. Add OAuth login with Google and GitHub, with tests and docs"
         value={preset?.brief ?? ""}
         description={() => (
-          <text fg={api.theme.current.textMuted}>
+          <text fg={api.theme.current.foreground.muted}>
             The model will draft milestones + features. You'll review the plan before it runs.
           </text>
         )}
@@ -1348,7 +1348,7 @@ function openHistory(api: TuiPluginApi, def: Store.MissionDefinition): void {
       footer: (
         <span
           style={{
-            fg: run.ok ? api.theme.current.success : api.theme.current.error,
+            fg: run.ok ? api.theme.current.status.success.fg : api.theme.current.status.error.fg,
           }}
         >
           {run.ok ? "ok" : run.status}

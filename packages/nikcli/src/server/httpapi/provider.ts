@@ -8,6 +8,7 @@ import { Provider } from "@/provider/provider"
 import { Instance } from "@/project/instance"
 import { mapValues } from "remeda"
 import { ConfigHttpApi } from "./config"
+import { Policy } from "@/policy/policy"
 
 export namespace ProviderHttpApi {
   const ProviderPath = Schema.Struct({
@@ -68,10 +69,10 @@ export namespace ProviderHttpApi {
       }).annotate(OpenApi.Identifier, "provider.api.set"),
     )
     .add(
-      HttpApiEndpoint.delete("removeAuth", "/:providerID/auth", { params: ProviderPath, success: Success }).annotate(
-        OpenApi.Identifier,
-        "provider.auth.remove",
-      ),
+      HttpApiEndpoint.delete("removeAuth", "/:providerID/auth", {
+        params: ProviderPath,
+        success: Success,
+      }).annotate(OpenApi.Identifier, "provider.auth.remove"),
     )
     .add(
       HttpApiEndpoint.post("oauthAuthorize", "/:providerID/oauth/authorize", {
@@ -98,16 +99,8 @@ export namespace ProviderHttpApi {
       Effect.gen(function* () {
         const configService = yield* Config.Service
         const config = yield* configService.get()
-        const disabled = new Set(config.disabled_providers ?? [])
-        const enabled = config.enabled_providers ? new Set(config.enabled_providers) : undefined
 
-        const allProviders = yield* Effect.promise(() => ModelsDev.get())
-        const filteredProviders: Record<string, (typeof allProviders)[string]> = {}
-        for (const [key, value] of Object.entries(allProviders)) {
-          if ((enabled ? enabled.has(key) : true) && !disabled.has(key)) {
-            filteredProviders[key] = value
-          }
-        }
+        const filteredProviders = Policy.filter(config, yield* Effect.promise(() => ModelsDev.get()))
 
         const provider = yield* Provider.Service
         const connected = yield* provider.list()
@@ -131,7 +124,10 @@ export namespace ProviderHttpApi {
     api: ({ params, payload }: { params: { providerID: string }; payload: typeof ApiPayload.Type }) =>
       Effect.gen(function* () {
         const providerAuth = yield* ProviderAuth.Service
-        yield* providerAuth.api({ providerID: params.providerID, key: payload.key })
+        yield* providerAuth.api({
+          providerID: params.providerID,
+          key: payload.key,
+        })
         yield* Effect.promise(() => Instance.dispose())
         const provider = yield* Provider.Service
         yield* Effect.ignore(provider.refresh())

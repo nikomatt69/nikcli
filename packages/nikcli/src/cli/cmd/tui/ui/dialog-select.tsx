@@ -1,5 +1,5 @@
 import { InputRenderable, RGBA, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
-import { useTheme, selectedForeground } from "@tui/context/theme"
+import { useTheme } from "@tui/context/theme"
 import { entries, flatMap, groupBy, pipe } from "remeda"
 import { batch, createEffect, createMemo, For, onCleanup, Show, type JSX, on } from "solid-js"
 import { createStore } from "solid-js/store"
@@ -301,10 +301,10 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
     <box gap={1} paddingBottom={1}>
       <box paddingLeft={4} paddingRight={4}>
         <box flexDirection="row" justifyContent="space-between">
-          <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          <text fg={theme.foreground.default} attributes={TextAttributes.BOLD}>
             {props.title}
           </text>
-          <text fg={theme.textMuted}>esc</text>
+          <text fg={theme.foreground.muted}>esc</text>
         </box>
         <box paddingTop={1} paddingBottom={1}>
           <input
@@ -314,9 +314,9 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                 props.onFilter?.(e)
               })
             }}
-            focusedBackgroundColor={theme.backgroundPanel}
-            cursorColor={theme.primary}
-            focusedTextColor={theme.textMuted}
+            focusedBackgroundColor={theme.surface.offset}
+            cursorColor={theme.accent.fg}
+            focusedTextColor={theme.foreground.muted}
             ref={(r) => {
               input = r
               if (inputFocusTimer) clearTimeout(inputFocusTimer)
@@ -332,7 +332,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         when={grouped().length > 0}
         fallback={
           <box paddingLeft={4} paddingRight={4} paddingTop={1}>
-            <text fg={theme.textMuted}>No results matching "{store.filter}"</text>
+            <text fg={theme.foreground.muted}>No results matching "{store.filter}"</text>
           </box>
         }
       >
@@ -348,7 +348,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
               <>
                 <Show when={category}>
                   <box paddingTop={groupIndex() > 0 ? 1 : 0} paddingLeft={3}>
-                    <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+                    <text fg={theme.accent.alt} attributes={TextAttributes.BOLD}>
                       {category}
                     </text>
                   </box>
@@ -385,7 +385,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                           if (idx === -1) return
                           moveTo(idx)
                         }}
-                        backgroundColor={active() ? (option.bg ?? theme.primary) : RGBA.fromInts(0, 0, 0, 0)}
+                        backgroundColor={active() ? (option.bg ?? theme.badge.bg) : RGBA.fromInts(0, 0, 0, 0)}
                         paddingLeft={current() || option.gutter ? 1 : 3}
                         paddingRight={3}
                         gap={1}
@@ -411,11 +411,11 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         when={keybinds().length}
         fallback={
           <box paddingRight={2} paddingLeft={4} flexDirection="row" gap={1} flexShrink={0} paddingTop={1}>
-            <text fg={theme.textMuted}>↑↓ navigate</text>
-            <text fg={theme.borderSubtle}>·</text>
-            <text fg={theme.textMuted}>↵ select</text>
-            <text fg={theme.borderSubtle}>·</text>
-            <text fg={theme.textMuted}>esc close</text>
+            <text fg={theme.foreground.muted}>↑↓ navigate</text>
+            <text fg={theme.border.subtle}>·</text>
+            <text fg={theme.foreground.muted}>↵ select</text>
+            <text fg={theme.border.subtle}>·</text>
+            <text fg={theme.foreground.muted}>esc close</text>
           </box>
         }
       >
@@ -431,10 +431,10 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                 }}
               >
                 <text>
-                  <span style={{ fg: theme.text }}>
+                  <span style={{ fg: theme.foreground.default }}>
                     <b>{item.title}</b>{" "}
                   </span>
-                  <span style={{ fg: theme.accent }}>{Keybind.toString(item.keybind)}</span>
+                  <span style={{ fg: theme.accent.alt }}>{Keybind.toString(item.keybind)}</span>
                 </text>
               </box>
             )}
@@ -455,12 +455,12 @@ function Option(props: {
   onMouseOver?: () => void
 }) {
   const { theme } = useTheme()
-  const fg = selectedForeground(theme)
+  const fg = theme.badge.fg
 
   return (
     <>
       <Show when={props.current}>
-        <text flexShrink={0} fg={props.active ? fg : props.current ? theme.primary : theme.text} marginRight={0}>
+        <text flexShrink={0} fg={props.active ? fg : props.current ? theme.accent.fg : theme.foreground.default} marginRight={0}>
           ●
         </text>
       </Show>
@@ -471,7 +471,7 @@ function Option(props: {
       </Show>
       <text
         flexGrow={1}
-        fg={props.active ? fg : props.current ? theme.primary : theme.text}
+        fg={props.active ? fg : props.current ? theme.accent.fg : theme.foreground.default}
         attributes={props.active ? TextAttributes.BOLD : undefined}
         overflow="hidden"
         wrapMode="none"
@@ -479,12 +479,12 @@ function Option(props: {
       >
         {Locale.truncate(props.title, 61)}
         <Show when={props.description}>
-          <span style={{ fg: props.active ? fg : theme.textMuted }}> {props.description}</span>
+          <span style={{ fg: props.active ? fg : theme.foreground.muted }}> {props.description}</span>
         </Show>
       </text>
       <Show when={props.footer}>
         <box flexShrink={0}>
-          <text fg={props.active ? fg : theme.textMuted}>{props.footer}</text>
+          <text fg={props.active ? fg : theme.foreground.muted}>{props.footer}</text>
         </box>
       </Show>
     </>

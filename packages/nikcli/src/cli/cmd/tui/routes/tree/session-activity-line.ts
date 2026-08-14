@@ -16,7 +16,7 @@ export type SessionTreeActivityTheme = {
 export function sessionTreeActivityDisplay(
   data: SyncData,
   sessionId: string,
-  theme: SessionTreeActivityTheme,
+  t: SessionTreeActivityTheme,
   options?: SessionStatusDisplayOptions,
 ): { label: string; fg: RGBA; attributes?: number } {
   const max = options?.maxMessageChars ?? 64
@@ -24,13 +24,13 @@ export function sessionTreeActivityDisplay(
   if (last) {
     return {
       label: truncateOneLine(last, max),
-      fg: theme.text,
+      fg: t.text,
       attributes: TextAttributes.DIM,
     }
   }
   return sessionStatusDisplay(
     data.session_status[sessionId],
-    { textMuted: theme.textMuted, info: theme.info, warning: theme.warning },
+    { textMuted: t.textMuted, info: t.info, warning: t.warning },
     options,
   )
 }

@@ -11,12 +11,13 @@
  *
  *   { name: string, data: Record<string, unknown> }
  *
- * where `name` matches the error's `_tag` (e.g. `"StorageNotFoundError"`)
- * and `data` carries the user-facing fields.
+ * where `name` is the wire literal (e.g. `"NotFoundError"`) and `data`
+ * carries the user-facing fields. Domain `_tag` values such as
+ * `"SessionNotFoundError"` must not be forwarded.
  */
 import { Effect } from "effect"
 
-/** Build a 404 body for `Storage.NotFoundError` and similar not-found errors. */
+/** Build a 404 body for domain not-found errors. */
 export function notFound(message: string) {
   return Effect.fail({
     __http: { status: 404, name: "NotFound" as const, data: { message } },

@@ -20,15 +20,15 @@ export function ChangesHeader(props: {
 }) {
   const { theme } = useTheme()
   const badge = () => (props.pane === "list" ? "FILES" : "DIFF")
-  const badgeFg = () => (props.pane === "list" ? theme.primary : theme.diffHighlightAdded)
+  const badgeFg = () => (props.pane === "list" ? theme.accent.fg : theme.diff.highlightAdded)
 
   return (
     <box
       flexShrink={0}
       width="100%"
       border={["bottom"]}
-      borderColor={theme.borderSubtle}
-      backgroundColor={theme.backgroundPanel}
+      borderColor={theme.border.subtle}
+      backgroundColor={theme.surface.panel}
     >
       <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} flexDirection="column" gap={0}>
         <box flexDirection="row" justifyContent="space-between" alignItems="center" width="100%" gap={1}>
@@ -41,13 +41,13 @@ export function ChangesHeader(props: {
             minWidth={0}
             overflow="hidden"
           >
-            <text attributes={TextAttributes.BOLD} fg={theme.text} wrapMode="none">
+            <text attributes={TextAttributes.BOLD} fg={theme.foreground.default} wrapMode="none">
               Code review
             </text>
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               ·
             </text>
-            <text fg={theme.text} wrapMode="word" flexGrow={1} minWidth={0}>
+            <text fg={theme.foreground.default} wrapMode="word" flexGrow={1} minWidth={0}>
               {props.sessionTitle || "Session"}
             </text>
           </box>
@@ -56,9 +56,9 @@ export function ChangesHeader(props: {
             paddingRight={1}
             paddingTop={0}
             paddingBottom={0}
-            backgroundColor={theme.backgroundElement}
+            backgroundColor={theme.surface.offset}
             border={["top", "right", "bottom", "left"]}
-            borderColor={theme.borderSubtle}
+            borderColor={theme.border.subtle}
             flexShrink={0}
           >
             <text fg={badgeFg()} attributes={TextAttributes.BOLD} wrapMode="none">
@@ -76,29 +76,29 @@ export function ChangesHeader(props: {
             overflow="hidden"
             alignItems="center"
           >
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               {shortSessionId(props.sessionId)}
             </text>
             <Show when={props.directory}>
-              <text fg={theme.textMuted} wrapMode="none">
+              <text fg={theme.foreground.muted} wrapMode="none">
                 ·
               </text>
-              <text fg={theme.textMuted} wrapMode="word" flexShrink={1} minWidth={0}>
+              <text fg={theme.foreground.muted} wrapMode="word" flexShrink={1} minWidth={0}>
                 {props.directory}
               </text>
             </Show>
           </box>
           <box flexDirection="row" gap={2} flexShrink={0} alignItems="center">
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               {`${props.totalFiles} file${props.totalFiles === 1 ? "" : "s"}`}
             </text>
             <Show when={props.totalAdditions > 0}>
-              <text fg={theme.diffAdded} wrapMode="none">
+              <text fg={theme.diff.added} wrapMode="none">
                 {`+${props.totalAdditions}`}
               </text>
             </Show>
             <Show when={props.totalDeletions > 0}>
-              <text fg={theme.diffRemoved} wrapMode="none">
+              <text fg={theme.diff.removed} wrapMode="none">
                 {`-${props.totalDeletions}`}
               </text>
             </Show>
@@ -114,14 +114,14 @@ export function ChangesHeader(props: {
             minWidth={0}
             overflow="hidden"
           >
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               ▾
             </text>
-            <text fg={theme.text} wrapMode="word" flexGrow={1} minWidth={0}>
+            <text fg={theme.foreground.default} wrapMode="word" flexGrow={1} minWidth={0}>
               {props.currentFile}
             </text>
             <Show when={props.lineHint}>
-              <text fg={theme.primary} wrapMode="none" flexShrink={0}>
+              <text fg={theme.accent.fg} wrapMode="none" flexShrink={0}>
                 {props.lineHint}
               </text>
             </Show>

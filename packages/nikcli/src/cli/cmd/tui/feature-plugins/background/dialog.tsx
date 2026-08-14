@@ -65,7 +65,7 @@ export function DialogBackgroundPicker() {
         title: "..",
         description: shortenPath(parent),
         category: "Navigate",
-        gutter: <text fg={theme.textMuted}>↰</text>,
+        gutter: <text fg={theme.foreground.muted}>↰</text>,
         onSelect: () => setDirectory(parent),
       })
     }
@@ -79,7 +79,7 @@ export function DialogBackgroundPicker() {
         title: "Use this folder",
         description: `Rotate through its ${images.length} images`,
         category: "Navigate",
-        gutter: <text fg={theme.textMuted}>◇</text>,
+        gutter: <text fg={theme.foreground.muted}>◇</text>,
         onSelect: (ctx) => save(current, ctx),
       })
     }
@@ -91,7 +91,7 @@ export function DialogBackgroundPicker() {
         title: folder.label,
         description: shortenPath(folder.directory),
         category: "Jump to",
-        gutter: <text fg={theme.textMuted}>→</text>,
+        gutter: <text fg={theme.foreground.muted}>→</text>,
         onSelect: () => setDirectory(folder.directory),
       })
     }
@@ -117,7 +117,7 @@ export function DialogBackgroundPicker() {
           value: { kind: "directory", path: entry.path },
           title: entry.name,
           category: "Folders",
-          gutter: <text fg={theme.textMuted}>▸</text>,
+          gutter: <text fg={theme.foreground.muted}>▸</text>,
           onSelect: () => setDirectory(entry.path),
         })
         continue
@@ -126,8 +126,8 @@ export function DialogBackgroundPicker() {
         value: { kind: "image", path: entry.path },
         title: entry.name,
         category: "Images",
-        gutter: <text fg={theme.primary}>◆</text>,
-        footer: <span style={{ fg: theme.textMuted }}>{path.extname(entry.name).slice(1)}</span>,
+        gutter: <text fg={theme.accent.fg}>◆</text>,
+        footer: <span style={{ fg: theme.foreground.muted }}>{path.extname(entry.name).slice(1)}</span>,
         onSelect: (ctx) => save(entry.path, ctx),
       })
     }
@@ -167,7 +167,7 @@ export function DialogBackground() {
   const update = (patch: Parameters<typeof writeSettings>[1]) => writeSettings(kv, patch)
 
   const value = (text: string, muted = false) => (
-    <span style={{ fg: muted ? theme.textMuted : theme.text, attributes: muted ? undefined : TextAttributes.BOLD }}>
+    <span style={{ fg: muted ? theme.foreground.muted : theme.foreground.default, attributes: muted ? undefined : TextAttributes.BOLD }}>
       {text}
     </span>
   )

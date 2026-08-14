@@ -54,7 +54,7 @@ export function Logo(props: { idle?: boolean; compact?: boolean }) {
     const cursor = Math.floor(progress() * (LOGO_WIDTH + SHINE_WIDTH))
     const edge = Math.min(LOGO_WIDTH, cursor)
     const shineStart = Math.min(LOGO_WIDTH, Math.max(0, cursor - SHINE_WIDTH))
-    const base = tint(theme.textMuted, theme.text, ROW_LUMINANCE[row] ?? 0.7)
+    const base = tint(theme.foreground.muted, theme.foreground.default, ROW_LUMINANCE[row] ?? 0.7)
     const segments: Segment[] = []
 
     if (shineStart > 0) {
@@ -68,7 +68,7 @@ export function Logo(props: { idle?: boolean; compact?: boolean }) {
     if (edge > shineStart) {
       segments.push({
         text: line.slice(shineStart, edge),
-        color: tint(base, theme.text, 0.9),
+        color: tint(base, theme.foreground.default, 0.9),
         bold: true,
       })
     }
@@ -76,7 +76,7 @@ export function Logo(props: { idle?: boolean; compact?: boolean }) {
     if (edge < LOGO_WIDTH) {
       segments.push({
         text: " ".repeat(LOGO_WIDTH - edge),
-        color: theme.background,
+        color: theme.surface.base,
         bold: false,
       })
     }
@@ -115,7 +115,7 @@ export function Logo(props: { idle?: boolean; compact?: boolean }) {
           </For>
           <box width={LOGO_WIDTH} height={1} flexDirection="row" justifyContent="center" gap={1}>
             <text
-              fg={tint(theme.background, theme.text, diamondStrength())}
+              fg={tint(theme.surface.base, theme.foreground.default, diamondStrength())}
               attributes={TextAttributes.BOLD}
               selectable={false}
             >
@@ -124,12 +124,12 @@ export function Logo(props: { idle?: boolean; compact?: boolean }) {
             <Show
               when={progress() >= 0.86}
               fallback={
-                <text fg={theme.background} selectable={false}>
+                <text fg={theme.surface.base} selectable={false}>
                   {" ".repeat(CREDIT.length)}
                 </text>
               }
             >
-              <Link href={GITHUB_PROFILE_URL} fg={theme.info} underline={false}>
+              <Link href={GITHUB_PROFILE_URL} fg={theme.status.info.fg} underline={false}>
                 {CREDIT}
               </Link>
             </Show>
@@ -139,10 +139,10 @@ export function Logo(props: { idle?: boolean; compact?: boolean }) {
     >
       <box height={1} flexDirection="column">
         <text selectable={false} wrapMode="none">
-          <span style={{ fg: theme.textMuted }}>
+          <span style={{ fg: theme.foreground.muted }}>
             <b>NIK</b>
           </span>
-          <span style={{ fg: theme.text }}>
+          <span style={{ fg: theme.foreground.default }}>
             <b>CLI</b>
           </span>
         </text>

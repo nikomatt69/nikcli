@@ -4,10 +4,10 @@ import { MessageV2 } from "./message-v2"
 import { Snapshot } from "@/snapshot"
 import { Log } from "@/util/log"
 import path from "path"
-import { Storage } from "@/storage/storage"
 import { Bus } from "@/bus"
 import { LLM } from "./llm"
 import { Agent } from "@/agent/agent"
+import { SessionDiffRepo } from "./diff-repo"
 import { zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { AppRuntime, InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
@@ -37,34 +37,12 @@ export namespace SessionSummary {
 
   export class Service extends Context.Service<Service, Interface>()("SessionSummary.Service") {}
 
-  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-    return runPromiseWithLayer(Storage.defaultLayer, effect)
-  }
-
   function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>, ctx: InstanceContext) {
     return runPromiseWithLayer(Provider.defaultLayer, locallyInstance(ctx, effect))
   }
 
   function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>, ctx: InstanceContext) {
     return runPromiseWithLayer(Session.defaultLayer, locallyInstance(ctx, effect))
-  }
-
-  function storageRead<T>(key: string[]) {
-    return runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        return yield* storage.read<T>(key)
-      }),
-    )
-  }
-
-  function storageWrite<T>(key: string[], content: T) {
-    return runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        yield* storage.write(key, content)
-      }),
-    )
   }
 
   async function messagesForSummary(ctx: InstanceContext, input: { sessionID: string; messageID: string }) {
@@ -159,7 +137,7 @@ export namespace SessionSummary {
           }),
           ctx,
         )
-        await storageWrite(["session_diff", input.sessionID], diffs)
+        SessionDiffRepo.upsert(input.sessionID, diffs)
         await Bus.publish(Session.Event.Diff, {
           sessionID: input.sessionID,
           diff: diffs,
@@ -269,9 +247,7 @@ export namespace SessionSummary {
         diff: (input) =>
           Effect.gen(function* () {
             if (!input.messageID) {
-              return yield* Effect.promise(() =>
-                storageRead<Snapshot.FileDiff[]>(["session_diff", input.sessionID]).catch(() => []),
-              )
+              return SessionDiffRepo.get(input.sessionID)
             }
 
             const ctx = yield* InstanceState.context

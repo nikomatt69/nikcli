@@ -397,6 +397,8 @@ export type ConnectorLinear = { type: "linear"; botToken?: string | undefined; e
 
 export type LayoutConfig = "auto" | "stretch"
 
+export type PolicyStatementConfig = { effect: "allow" | "deny"; action: string; resource: string }
+
 export type RagConfig = { model?: string | undefined; provider?: string | undefined }
 
 export type ImageConfig = { model?: string | undefined; provider?: string | undefined }
@@ -2302,6 +2304,7 @@ export type Config = {
   compaction?: { auto?: boolean | undefined; prune?: boolean | undefined; reserved?: number | undefined } | undefined
   experimental?:
     | {
+        policies?: Array<PolicyStatementConfig> | undefined
         hook?:
           | {
               file_edited?:
@@ -3542,6 +3545,9 @@ export type ConfigUpdateInput = {
       | undefined
     readonly experimental?:
       | {
+          readonly policies?:
+            | ReadonlyArray<{ readonly effect: "allow" | "deny"; readonly action: string; readonly resource: string }>
+            | undefined
           readonly hook?:
             | {
                 readonly file_edited?:

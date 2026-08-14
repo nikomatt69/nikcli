@@ -6,7 +6,7 @@ import { createMemo, For, Show, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Global } from "@/global"
 import { Filesystem } from "@/util/filesystem"
-import { DEFAULT_THEMES, useTheme } from "../context/theme"
+import { reservedThemeNames, useTheme } from "../context/theme"
 import { useDialog } from "../ui/dialog"
 
 interface ColorDef {
@@ -86,7 +86,7 @@ function normalizeThemeName(input: string): { ok: true; value: string } | { ok: 
   if (!slug) return { ok: false, reason: "Theme name must include letters or numbers." }
   if (slug.length > 64) slug = slug.slice(0, 64).replace(/-+$/, "")
 
-  const reserved = new Set<string>([...Object.keys(DEFAULT_THEMES), "system"])
+  const reserved = new Set<string>(reservedThemeNames())
   if (reserved.has(slug)) {
     return { ok: false, reason: `"${slug}" is reserved. Choose a different name.` }
   }
@@ -526,24 +526,24 @@ export function DialogThemeCreate() {
   return (
     <box paddingLeft={2} paddingRight={2} paddingTop={1} gap={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           Create Theme
         </text>
-        <text fg={theme.textMuted}>tab focus · v variant · g scope · ctrl+s save</text>
+        <text fg={theme.foreground.muted}>tab focus · v variant · g scope · ctrl+s save</text>
       </box>
 
       <Show when={store.status}>
-        <text fg={store.overwriteArmed ? theme.warning : theme.textMuted} wrapMode="word">
+        <text fg={store.overwriteArmed ? theme.status.warning.fg : theme.foreground.muted} wrapMode="word">
           {store.status}
         </text>
       </Show>
 
       <box flexDirection="row" gap={1} alignItems="center">
-        <text fg={theme.textMuted}>Name:</text>
+        <text fg={theme.foreground.muted}>Name:</text>
         <box
           width={25}
           border={["bottom"]}
-          borderColor={store.selectedColor === "__name__" ? theme.primary : theme.borderSubtle}
+          borderColor={store.selectedColor === "__name__" ? theme.accent.fg : theme.border.subtle}
           onMouseUp={() => {
             setStore("selectedColor", "__name__")
             setStore("selectedIndex", -1)
@@ -558,8 +558,8 @@ export function DialogThemeCreate() {
               resetOverwriteArm()
             }}
             placeholder="my-theme"
-            cursorColor={theme.primary}
-            focusedTextColor={theme.text}
+            cursorColor={theme.accent.fg}
+            focusedTextColor={theme.foreground.default}
             ref={(r) => {
               nameInput = r
             }}
@@ -568,44 +568,44 @@ export function DialogThemeCreate() {
       </box>
 
       <box flexDirection="row" gap={1} alignItems="center">
-        <text fg={theme.textMuted}>Variant:</text>
+        <text fg={theme.foreground.muted}>Variant:</text>
         <For each={["dark", "light"] as const}>
           {(variant) => (
             <box
               paddingLeft={1}
               paddingRight={1}
-              backgroundColor={store.variant === variant ? theme.primary : theme.backgroundElement}
+              backgroundColor={store.variant === variant ? theme.accent.fg : theme.surface.offset}
               onMouseUp={() => {
                 setStore("variant", variant)
                 resetOverwriteArm()
               }}
             >
-              <text fg={store.variant === variant ? theme.selectedListItemText : theme.text}>{variant}</text>
+              <text fg={store.variant === variant ? theme.badge.fg : theme.foreground.default}>{variant}</text>
             </box>
           )}
         </For>
       </box>
 
       <box flexDirection="row" gap={1} alignItems="center">
-        <text fg={theme.textMuted}>Scope:</text>
+        <text fg={theme.foreground.muted}>Scope:</text>
         <For each={["global", "project"] as const}>
           {(scope) => (
             <box
               paddingLeft={1}
               paddingRight={1}
-              backgroundColor={store.scope === scope ? theme.primary : theme.backgroundElement}
+              backgroundColor={store.scope === scope ? theme.accent.fg : theme.surface.offset}
               onMouseUp={() => {
                 setStore("scope", scope)
                 resetOverwriteArm()
               }}
             >
-              <text fg={store.scope === scope ? theme.selectedListItemText : theme.text}>{scope}</text>
+              <text fg={store.scope === scope ? theme.badge.fg : theme.foreground.default}>{scope}</text>
             </box>
           )}
         </For>
       </box>
 
-      <box height={1} border={["top"]} borderColor={theme.borderSubtle} />
+      <box height={1} border={["top"]} borderColor={theme.border.subtle} />
 
       <scrollbox maxHeight={18} scrollbarOptions={{ visible: false }}>
         <box flexDirection="row" flexWrap="wrap" gap={1}>
@@ -615,9 +615,9 @@ export function DialogThemeCreate() {
               return (
                 <box
                   width={colorBoxWidth()}
-                  backgroundColor={theme.backgroundPanel}
+                  backgroundColor={theme.surface.panel}
                   border={["top", "bottom", "left", "right"]}
-                  borderColor={isSelected ? theme.primary : theme.borderSubtle}
+                  borderColor={isSelected ? theme.accent.fg : theme.border.subtle}
                   onMouseUp={() => {
                     setStore("selectedIndex", item.index)
                     setStore("selectedColor", item.key)
@@ -625,14 +625,14 @@ export function DialogThemeCreate() {
                 >
                   <box paddingLeft={1} gap={0}>
                     <text
-                      fg={isSelected ? theme.primary : theme.text}
+                      fg={isSelected ? theme.accent.fg : theme.foreground.default}
                       attributes={isSelected ? TextAttributes.BOLD : undefined}
                     >
                       {item.label}
                     </text>
                     <box flexDirection="row" gap={0} alignItems="center" paddingTop={1}>
                       <box width={3} height={1} backgroundColor={RGBA.fromHex(item.value)} />
-                      <text fg={theme.textMuted} marginLeft={1}>
+                      <text fg={theme.foreground.muted} marginLeft={1}>
                         {item.value}
                       </text>
                     </box>
@@ -646,16 +646,16 @@ export function DialogThemeCreate() {
 
       <Show when={store.selectedColor && store.selectedColor !== "__name__"}>
         <box
-          backgroundColor={theme.backgroundPanel}
+          backgroundColor={theme.surface.panel}
           border={["top", "bottom", "left", "right"]}
-          borderColor={theme.border}
+          borderColor={theme.border.default}
           paddingLeft={1}
           paddingRight={1}
           paddingTop={1}
           gap={1}
         >
           <box flexDirection="row" justifyContent="space-between">
-            <text attributes={TextAttributes.BOLD} fg={theme.text}>
+            <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
               {selectedColorDef()?.label}: {selectedColorDef()?.description}
             </text>
           </box>
@@ -670,7 +670,7 @@ export function DialogThemeCreate() {
                       height={1}
                       backgroundColor={RGBA.fromHex(color)}
                       border={["top", "bottom", "left", "right"]}
-                      borderColor={isSelected ? theme.primary : theme.borderSubtle}
+                      borderColor={isSelected ? theme.accent.fg : theme.border.subtle}
                       onMouseUp={() => {
                         setStore("pickerIndex", i())
                         if (store.selectedColor) {
@@ -687,7 +687,7 @@ export function DialogThemeCreate() {
         </box>
       </Show>
 
-      <box height={1} border={["top"]} borderColor={theme.borderSubtle} />
+      <box height={1} border={["top"]} borderColor={theme.border.subtle} />
 
       <box flexDirection="row" justifyContent="space-between" alignItems="center">
         <box flexDirection="row" gap={1}>
@@ -696,7 +696,7 @@ export function DialogThemeCreate() {
             height={2}
             backgroundColor={RGBA.fromHex(store.colors[store.variant].primary || defaultAccentHex)}
             border={["top", "bottom", "left", "right"]}
-            borderColor={theme.borderSubtle}
+            borderColor={theme.border.subtle}
           >
             <box paddingLeft={1} paddingTop={1}>
               <text fg={RGBA.fromHex(store.colors[store.variant].background || defaultBgHex(store.variant))}>Aa</text>
@@ -707,7 +707,7 @@ export function DialogThemeCreate() {
             height={2}
             backgroundColor={RGBA.fromHex(store.colors[store.variant].background || defaultBgHex(store.variant))}
             border={["top", "bottom", "left", "right"]}
-            borderColor={theme.borderSubtle}
+            borderColor={theme.border.subtle}
             justifyContent="center"
             alignItems="center"
           >
@@ -719,10 +719,10 @@ export function DialogThemeCreate() {
           <box
             paddingLeft={1}
             paddingRight={1}
-            backgroundColor={theme.backgroundElement}
+            backgroundColor={theme.surface.offset}
             onMouseUp={() => dialog.clear()}
           >
-            <text fg={theme.textMuted}>Cancel</text>
+            <text fg={theme.foreground.muted}>Cancel</text>
           </box>
           <box
             paddingLeft={1}
@@ -730,13 +730,13 @@ export function DialogThemeCreate() {
             backgroundColor={
               store.name && !store.saving
                 ? store.overwriteArmed
-                  ? theme.warning
-                  : theme.primary
-                : theme.backgroundElement
+                  ? theme.status.warning.fg
+                  : theme.accent.fg
+                : theme.surface.offset
             }
             onMouseUp={() => store.name && !store.saving && handleSave()}
           >
-            <text fg={store.name && !store.saving ? theme.selectedListItemText : theme.textMuted}>
+            <text fg={store.name && !store.saving ? theme.badge.fg : theme.foreground.muted}>
               {store.saving ? "Saving..." : store.overwriteArmed ? "Overwrite Theme" : "Save Theme"}
             </text>
           </box>

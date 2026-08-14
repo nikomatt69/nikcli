@@ -109,9 +109,9 @@ function Readout() {
   )
   const color = createMemo(() => {
     const current = status()
-    if (current === "high") return theme.error
-    if (current === "medium") return theme.warning
-    return theme.textMuted
+    if (current === "high") return theme.status.error.fg
+    if (current === "medium") return theme.status.warning.fg
+    return theme.foreground.muted
   })
 
   return (
@@ -119,9 +119,9 @@ function Readout() {
       <text fg={color()}>
         {statusIcon(status())} {Math.round(latest()?.delay ?? 0)}ms
       </text>
-      <text fg={theme.textMuted}>{graph()}</text>
-      <text fg={theme.textMuted}>cpu {Math.round(latest()?.cpu ?? 0)}%</text>
-      <text fg={theme.textMuted}>rss {formatBytes(latest()?.memory ?? 0)}</text>
+      <text fg={theme.foreground.muted}>{graph()}</text>
+      <text fg={theme.foreground.muted}>cpu {Math.round(latest()?.cpu ?? 0)}%</text>
+      <text fg={theme.foreground.muted}>rss {formatBytes(latest()?.memory ?? 0)}</text>
     </box>
   )
 }

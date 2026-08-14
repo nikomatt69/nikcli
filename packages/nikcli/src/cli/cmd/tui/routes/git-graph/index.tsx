@@ -92,11 +92,11 @@ function shortDir(dir: string) {
 }
 
 function colorForGraph(text: string, theme: ReturnType<typeof useTheme>["theme"]) {
-  if (text.includes("*")) return theme.primary
-  if (text.includes("/")) return theme.warning
-  if (text.includes("\\")) return theme.success
-  if (text.includes("|")) return theme.info
-  return theme.textMuted
+  if (text.includes("*")) return theme.accent.fg
+  if (text.includes("/")) return theme.status.warning.fg
+  if (text.includes("\\")) return theme.status.success.fg
+  if (text.includes("|")) return theme.status.info.fg
+  return theme.foreground.muted
 }
 
 function cleanRef(ref: string) {
@@ -140,14 +140,14 @@ function initials(author: string) {
 }
 
 function scoreColor(value: string, theme: ReturnType<typeof useTheme>["theme"]) {
-  if (value === "PR") return theme.primary
-  if (value === "—") return theme.textMuted
+  if (value === "PR") return theme.accent.fg
+  if (value === "—") return theme.foreground.muted
   const [done, total] = value.split("/").map(Number)
-  if (!done || !total) return theme.textMuted
+  if (!done || !total) return theme.foreground.muted
   const ratio = done / total
-  if (ratio >= 0.9) return theme.success
-  if (ratio >= 0.7) return theme.warning
-  return theme.error
+  if (ratio >= 0.9) return theme.status.success.fg
+  if (ratio >= 0.7) return theme.status.warning.fg
+  return theme.status.error.fg
 }
 
 function isPlainShortcut(evt: { ctrl?: boolean; meta?: boolean; super?: boolean; name?: string }, ...names: string[]) {
@@ -582,29 +582,29 @@ export function GitGraph() {
   })
 
   return (
-    <box width="100%" height="100%" flexDirection="column" backgroundColor={theme.background}>
-      <box flexShrink={0} border={["bottom"]} borderColor={theme.borderSubtle} backgroundColor={theme.background}>
+    <box width="100%" height="100%" flexDirection="column" backgroundColor={theme.surface.base}>
+      <box flexShrink={0} border={["bottom"]} borderColor={theme.border.subtle} backgroundColor={theme.surface.base}>
         <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} flexDirection="column" gap={0}>
           <box flexDirection="row" justifyContent="space-between" alignItems="center" width="100%" gap={1}>
             <box flexDirection="row" gap={0} flexGrow={1} minWidth={0} overflow="hidden">
-              <text fg={theme.textMuted} attributes={TextAttributes.BOLD} wrapMode="none">
+              <text fg={theme.foreground.muted} attributes={TextAttributes.BOLD} wrapMode="none">
                 GHUI
               </text>
-              <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+              <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                 {"  "}
               </text>
-              <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+              <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
                 {shortDir(directory())}
               </text>
-              <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+              <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                 {branchLabel() ? `  ${branchLabel()}` : ""}
               </text>
             </box>
             <box flexDirection="row" gap={1} flexShrink={0}>
-              <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+              <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                 updated
               </text>
-              <text fg={theme.textMuted} attributes={TextAttributes.BOLD} wrapMode="none">
+              <text fg={theme.foreground.muted} attributes={TextAttributes.BOLD} wrapMode="none">
                 {currentGitHub()?.updatedAt
                   ? currentGitHub()!.updatedAt.slice(0, 10)
                   : (selectedRow()?.relativeDate ?? "--")}
@@ -612,7 +612,7 @@ export function GitGraph() {
             </box>
           </box>
           <Show when={filterOpen() || filterText()}>
-            <text fg={theme.primary} wrapMode="none">
+            <text fg={theme.accent.fg} wrapMode="none">
               {`/${filterText()}${filterOpen() ? "_" : ""}`}
             </text>
           </Show>
@@ -629,10 +629,10 @@ export function GitGraph() {
             flexDirection="row"
             justifyContent="space-between"
           >
-            <text fg={theme.warning} attributes={TextAttributes.BOLD} wrapMode="none">
+            <text fg={theme.status.warning.fg} attributes={TextAttributes.BOLD} wrapMode="none">
               {hasPrRows() ? "PULL REQUESTS" : "COMMITS"}
             </text>
-            <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
               {`${rows().length}/${totalRows()}`}
             </text>
           </box>
@@ -641,13 +641,13 @@ export function GitGraph() {
             gap={1}
             paddingLeft={2}
             paddingRight={1}
-            backgroundColor={commitsOpen() ? undefined : theme.backgroundElement}
+            backgroundColor={commitsOpen() ? undefined : theme.surface.offset}
             onMouseDown={() => setCommitsOpen((open) => !open)}
           >
-            <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
+            <text fg={theme.accent.fg} attributes={TextAttributes.BOLD} wrapMode="none">
               {commitsOpen() ? "▾" : "▸"}
             </text>
-            <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
+            <text fg={theme.accent.fg} attributes={TextAttributes.BOLD} wrapMode="none">
               {`${shortDir(directory())}/${branchLabel() ?? "commits"}`}
             </text>
           </box>
@@ -656,7 +656,7 @@ export function GitGraph() {
             fallback={
               <box flexGrow={1} justifyContent="center" alignItems="center" flexDirection="column" gap={1}>
                 <text
-                  fg={errorMessage() ? theme.error : theme.textMuted}
+                  fg={errorMessage() ? theme.status.error.fg : theme.foreground.muted}
                   attributes={TextAttributes.DIM}
                   wrapMode="word"
                 >
@@ -676,7 +676,7 @@ export function GitGraph() {
             <scrollbox
               ref={setListScroll}
               flexGrow={1}
-              backgroundColor={theme.background}
+              backgroundColor={theme.surface.base}
               paddingLeft={1}
               paddingRight={1}
               paddingBottom={1}
@@ -694,30 +694,30 @@ export function GitGraph() {
                       flexDirection="row"
                       width="100%"
                       height={1}
-                      backgroundColor={isSelected() ? theme.backgroundElement : theme.background}
+                      backgroundColor={isSelected() ? theme.surface.offset : theme.surface.base}
                       onMouseDown={() => setSelected(index())}
                     >
-                      <box width={1} minWidth={1} backgroundColor={isSelected() ? theme.primary : undefined} />
+                      <box width={1} minWidth={1} backgroundColor={isSelected() ? theme.accent.fg : undefined} />
                       <box width={GRAPH_WIDTH} minWidth={GRAPH_WIDTH} flexShrink={0} overflow="hidden">
                         <text fg={colorForGraph(row.graph, theme)} wrapMode="none">
                           {row.graph.includes("*") ? "•" : row.graph.includes("|") ? "│" : "·"}
                         </text>
                       </box>
                       <box width={HASH_WIDTH} minWidth={HASH_WIDTH} flexShrink={0} overflow="hidden">
-                        <text fg={theme.warning} wrapMode="none">
+                        <text fg={theme.status.warning.fg} wrapMode="none">
                           {truncate(number() ? `#${number()}` : row.hash, HASH_WIDTH - 1)}
                         </text>
                       </box>
                       <box flexDirection="row" gap={1} flexGrow={1} minWidth={0} overflow="hidden">
                         <Show when={refs().length > 0}>
                           <box width={REF_WIDTH} minWidth={REF_WIDTH} flexShrink={0} overflow="hidden">
-                            <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
+                            <text fg={theme.accent.fg} attributes={TextAttributes.BOLD} wrapMode="none">
                               {truncate(refs()[0], REF_WIDTH - 1)}
                             </text>
                           </box>
                         </Show>
                         <text
-                          fg={theme.text}
+                          fg={theme.foreground.default}
                           attributes={isSelected() ? TextAttributes.BOLD : undefined}
                           wrapMode="none"
                           maxWidth={rowSubjectWidth()}
@@ -731,7 +731,7 @@ export function GitGraph() {
                         </text>
                       </box>
                       <box width={DATE_WIDTH} minWidth={DATE_WIDTH} flexShrink={0} overflow="hidden">
-                        <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+                        <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                           {truncate(row.relativeDate, DATE_WIDTH - 1)}
                         </text>
                       </box>
@@ -744,12 +744,12 @@ export function GitGraph() {
         </box>
 
         <Show when={splitView()}>
-          <box border={["left"]} borderColor={theme.borderSubtle} flexGrow={1} minWidth={0} flexDirection="column">
+          <box border={["left"]} borderColor={theme.border.subtle} flexGrow={1} minWidth={0} flexDirection="column">
             <Show
               when={selectedRow()}
               fallback={
                 <box flexGrow={1} alignItems="center" justifyContent="center">
-                  <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="word">
+                  <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="word">
                     Select a commit
                   </text>
                 </box>
@@ -767,17 +767,17 @@ export function GitGraph() {
                   <box flexDirection="column" gap={1}>
                     <box
                       border={["bottom"]}
-                      borderColor={theme.borderSubtle}
+                      borderColor={theme.border.subtle}
                       paddingBottom={1}
                       flexDirection="column"
                       gap={0}
                     >
                       <box flexDirection="row" justifyContent="space-between" gap={2}>
                         <box flexDirection="row" gap={1} minWidth={0} flexGrow={1}>
-                          <text fg={theme.warning} wrapMode="none">
+                          <text fg={theme.status.warning.fg} wrapMode="none">
                             {currentGitHub()?.number ? `#${currentGitHub()!.number}` : row().hash}
                           </text>
-                          <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+                          <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                             {currentGitHub()?.author ?? initials(row().author)}
                           </text>
                         </box>
@@ -785,7 +785,7 @@ export function GitGraph() {
                           {displayScore()}
                         </text>
                       </box>
-                      <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="word">
+                      <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="word">
                         {currentGitHub()?.title || row().subject}
                       </text>
                       <box flexDirection="row" gap={1} flexWrap="wrap">
@@ -794,9 +794,9 @@ export function GitGraph() {
                             <box
                               paddingLeft={1}
                               paddingRight={1}
-                              backgroundColor={index() === 0 ? theme.backgroundElement : theme.primary}
+                              backgroundColor={index() === 0 ? theme.surface.offset : theme.accent.fg}
                             >
-                              <text fg={index() === 0 ? theme.text : theme.background} wrapMode="none">
+                              <text fg={index() === 0 ? theme.foreground.default : theme.surface.base} wrapMode="none">
                                 {label}
                               </text>
                             </box>
@@ -808,12 +808,12 @@ export function GitGraph() {
                     <Show when={(currentGitHub()?.checks.length ?? 0) > 0}>
                       <box
                         border={["bottom"]}
-                        borderColor={theme.borderSubtle}
+                        borderColor={theme.border.subtle}
                         paddingBottom={1}
                         flexDirection="column"
                         gap={0}
                       >
-                        <text fg={theme.warning} attributes={TextAttributes.BOLD} wrapMode="none">
+                        <text fg={theme.status.warning.fg} attributes={TextAttributes.BOLD} wrapMode="none">
                           Checks
                         </text>
                         <For each={currentGitHub()?.checks.slice(0, 6) ?? []}>
@@ -822,13 +822,13 @@ export function GitGraph() {
                             return (
                               <box flexDirection="row" gap={1}>
                                 <text
-                                  fg={ok() ? theme.success : theme.warning}
+                                  fg={ok() ? theme.status.success.fg : theme.status.warning.fg}
                                   attributes={TextAttributes.BOLD}
                                   wrapMode="none"
                                 >
                                   {ok() ? "✓" : "•"}
                                 </text>
-                                <text fg={theme.text} wrapMode="none">
+                                <text fg={theme.foreground.default} wrapMode="none">
                                   {truncate(check.name, Math.max(20, dimensions().width - leftWidth() - 12))}
                                 </text>
                               </box>
@@ -838,8 +838,8 @@ export function GitGraph() {
                       </box>
                     </Show>
                     <Show when={selectedPrNumber() && github.loading}>
-                      <box border={["bottom"]} borderColor={theme.borderSubtle} paddingBottom={1}>
-                        <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="word">
+                      <box border={["bottom"]} borderColor={theme.border.subtle} paddingBottom={1}>
+                        <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="word">
                           Loading GitHub PR metadata...
                         </text>
                       </box>
@@ -847,45 +847,45 @@ export function GitGraph() {
 
                     <box
                       border={["bottom"]}
-                      borderColor={theme.borderSubtle}
+                      borderColor={theme.border.subtle}
                       paddingBottom={1}
                       flexDirection="column"
                       gap={0}
                     >
-                      <text fg={theme.warning} attributes={TextAttributes.BOLD} wrapMode="none">
+                      <text fg={theme.status.warning.fg} attributes={TextAttributes.BOLD} wrapMode="none">
                         Details
                       </text>
-                      <text fg={theme.text} wrapMode="none">
+                      <text fg={theme.foreground.default} wrapMode="none">
                         {`Author  ${currentGitHub()?.author ?? row().author}`}
                       </text>
-                      <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+                      <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                         {`Date    ${row().date} (${row().relativeDate})`}
                       </text>
                       <Show when={currentGitHub()}>
                         {(pr) => (
                           <>
-                            <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+                            <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                               {`Branch  ${pr().headRefName} -> ${pr().baseRefName}`}
                             </text>
-                            <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+                            <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                               {`State   ${pr().state}`}
                             </text>
                           </>
                         )}
                       </Show>
-                      <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+                      <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                         {`Hash    ${row().fullHash}`}
                       </text>
                     </box>
 
                     <box
                       border={["bottom"]}
-                      borderColor={theme.borderSubtle}
+                      borderColor={theme.border.subtle}
                       paddingBottom={1}
                       flexDirection="column"
                       gap={0}
                     >
-                      <text fg={theme.warning} attributes={TextAttributes.BOLD} wrapMode="none">
+                      <text fg={theme.status.warning.fg} attributes={TextAttributes.BOLD} wrapMode="none">
                         Summary
                       </text>
                       <Show
@@ -895,7 +895,7 @@ export function GitGraph() {
                             : (currentDetails()?.body.length ?? 0)) > 0
                         }
                         fallback={
-                          <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="word">
+                          <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="word">
                             No extended commit body.
                           </text>
                         }
@@ -907,7 +907,7 @@ export function GitGraph() {
                           ).slice(0, 8)}
                         >
                           {(line) => (
-                            <text fg={theme.text} wrapMode="word">
+                            <text fg={theme.foreground.default} wrapMode="word">
                               {`- ${line}`}
                             </text>
                           )}
@@ -917,27 +917,27 @@ export function GitGraph() {
 
                     <box flexDirection="column" gap={0}>
                       <box flexDirection="row" justifyContent="space-between">
-                        <text fg={theme.warning} attributes={TextAttributes.BOLD} wrapMode="none">
+                        <text fg={theme.status.warning.fg} attributes={TextAttributes.BOLD} wrapMode="none">
                           Files
                         </text>
                         <box flexDirection="row" gap={1}>
-                          <text fg={theme.success} wrapMode="none">
+                          <text fg={theme.status.success.fg} wrapMode="none">
                             {`+${currentDetails()?.additions ?? 0}`}
                           </text>
-                          <text fg={theme.error} wrapMode="none">
+                          <text fg={theme.status.error.fg} wrapMode="none">
                             {`-${currentDetails()?.deletions ?? 0}`}
                           </text>
                         </box>
                       </box>
                       <For each={currentDetails()?.files.slice(0, 8) ?? []}>
                         {(file) => (
-                          <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+                          <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                             {truncate(file, Math.max(30, dimensions().width - leftWidth() - 6))}
                           </text>
                         )}
                       </For>
                       <Show when={!currentDetails() && !details.loading}>
-                        <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="word">
+                        <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="word">
                           Stats unavailable.
                         </text>
                       </Show>
@@ -945,12 +945,12 @@ export function GitGraph() {
 
                     <Show when={testLines().length > 0}>
                       <box flexDirection="column" gap={0}>
-                        <text fg={theme.warning} attributes={TextAttributes.BOLD} wrapMode="none">
+                        <text fg={theme.status.warning.fg} attributes={TextAttributes.BOLD} wrapMode="none">
                           Test
                         </text>
                         <For each={testLines()}>
                           {(line) => (
-                            <text fg={theme.text} wrapMode="word">
+                            <text fg={theme.foreground.default} wrapMode="word">
                               {`- ${line}`}
                             </text>
                           )}
@@ -967,8 +967,8 @@ export function GitGraph() {
 
       <box
         border={["top"]}
-        borderColor={theme.borderSubtle}
-        backgroundColor={theme.backgroundPanel}
+        borderColor={theme.border.subtle}
+        backgroundColor={theme.surface.panel}
         width="100%"
         flexShrink={0}
       >
@@ -983,7 +983,7 @@ export function GitGraph() {
           gap={1}
         >
           <box flexDirection="row" gap={2} flexWrap="wrap">
-            <text fg={theme.text} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.foreground.default} attributes={TextAttributes.DIM} wrapMode="none">
               Graph
             </text>
             <FooterSep />
@@ -1004,7 +1004,7 @@ export function GitGraph() {
             <FooterHint keys="g/G" label="top/end" />
           </box>
           <box flexDirection="row" gap={2}>
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               {`[${Math.min(selected() + 1, Math.max(1, rows().length))}/${Math.max(1, rows().length)}]`}
             </text>
             <FooterHint keys="esc" label={filterOpen() || filterText() ? "clear" : "back"} />

@@ -27,6 +27,8 @@ const { InstanceScope } = await import("@/effect")
 const { Instance } = await import("@/project/instance")
 const { ToolRegistry } = await import("@/tool/registry")
 const { CodeModeTool } = await import("@/tool/code_mode")
+const { Tool } = await import("@/tool/tool")
+const z = (await import("zod")).default
 
 const projectDirs: string[] = []
 
@@ -298,6 +300,48 @@ describe("CodeModeTool", () => {
 
     expect(result.output).toBe("recovered")
     expect((result.metadata.toolCalls as Array<{ status: string }>)[0]?.status).toBe("error")
+  })
+
+  it("passes a codec-validated value into the confined program instead of the model string", async () => {
+    const directory = await makeProjectDir()
+    const CountItems = Tool.define("count_items", {
+      description: "Return a counted value",
+      parameters: z.object({}),
+      output: z.object({ count: z.number() }),
+      async execute() {
+        return {
+          title: "count",
+          output: "the count is 3, as a story for the model",
+          metadata: {},
+          value: { count: 3 },
+        }
+      },
+    })
+
+    const result = await Effect.runPromise(
+      InstanceScope.with(
+        { directory },
+        Effect.gen(function* () {
+          const registry = yield* ToolRegistry.Service
+          yield* registry.register(CountItems)
+          const def = yield* Effect.promise(() => CodeModeTool.init())
+          return yield* Effect.promise(() =>
+            def.executeAsync(
+              {
+                code: `
+                  const result = await tools.count_items({})
+                  return { n: result.count, kind: typeof result }
+                `,
+              },
+              makeCtx(),
+            ),
+          )
+        }).pipe(Effect.provide(ToolRegistry.defaultLayer)),
+      ),
+    )
+
+    expect(result.output).toContain('"n": 3')
+    expect(result.output).toContain('"kind": "object"')
   })
 })
 

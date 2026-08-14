@@ -44,16 +44,16 @@ export function Reconnecting(props: { attempt: number; error?: string }) {
         right={0}
         bottom={0}
         left={0}
-        backgroundColor={theme.background}
+        backgroundColor={theme.surface.base}
         alignItems="center"
         justifyContent="center"
       >
         <box width={54} maxWidth="90%" flexDirection="column" alignItems="center" gap={1}>
-          <text fg={theme.text}>Connection lost</text>
-          <Spinner color={theme.textMuted}>Reconnecting to server...</Spinner>
-          <text fg={theme.textMuted}>Attempt {props.attempt}</text>
+          <text fg={theme.foreground.default}>Connection lost</text>
+          <Spinner color={theme.foreground.muted}>Reconnecting to server...</Spinner>
+          <text fg={theme.foreground.muted}>Attempt {props.attempt}</text>
           <Show when={props.error}>
-            <text fg={theme.error} wrapMode="word">
+            <text fg={theme.status.error.fg} wrapMode="word">
               {props.error}
             </text>
           </Show>

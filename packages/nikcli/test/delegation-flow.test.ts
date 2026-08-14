@@ -4,8 +4,6 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import type { Tool } from "../src/tool/tool"
-import { Effect } from "effect"
-import { runPromiseWithLayer } from "../src/effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-delegation-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -13,30 +11,17 @@ process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 
 preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
-const [{ Instance }, { Delegation }, { BackgroundRun }, { DelegationTool }, { DelegatorTool }, { Storage }] =
+const [{ Instance }, { Delegation }, { BackgroundRun }, { BackgroundRunRepo }, { DelegationTool }, { DelegatorTool }] =
   await Promise.all([
     import("../src/project/instance"),
     import("../src/delegation/manager"),
     import("../src/background/run"),
+    import("../src/background/repo"),
     import("../src/tool/delegation"),
     import("../src/tool/delegator"),
-    import("../src/storage/storage"),
   ])
 
 const projectDirs: string[] = []
-
-function runStorage<A, E>(effect: Effect.Effect<A, E, any>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
-function storageUpdate<T>(key: string[], fn: (draft: T) => void) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.update(key, fn)
-    }),
-  )
-}
 
 async function withProject<T>(fn: (projectDir: string) => Promise<T>): Promise<T> {
   const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-delegation-project-"))
@@ -74,6 +59,8 @@ afterEach(async () => {
 
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
+  const { Database } = await import("../src/database/database")
+  Database.closeAll()
   await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
   await fs.rm(testHome, { recursive: true, force: true })
 })
@@ -257,7 +244,7 @@ describe("delegation flow", () => {
         source: "task",
       })
 
-      await storageUpdate(["background_run", Instance.project.id, record.id], (draft: typeof record) => {
+      BackgroundRunRepo.update(Instance.project.id, record.id, (draft) => {
         draft.ownerID = "stale-owner"
         draft.heartbeatAt = Date.now() - BackgroundRun.LEASE_TIMEOUT_MS - 1_000
         draft.updatedAt = Date.now() - BackgroundRun.LEASE_TIMEOUT_MS - 1_000

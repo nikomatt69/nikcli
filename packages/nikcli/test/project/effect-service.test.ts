@@ -31,6 +31,10 @@ function runProject<A, E>(effect: Effect.Effect<A, E, any>) {
 
 describe("Project.Service", () => {
   beforeEach(async () => {
+    const { Database } = await import("@/database/database")
+    const { ProjectRepo } = await import("@/project/repo")
+    Database.syncDb()
+    ProjectRepo.clear()
     await removeTestDir(path.join(testHome, "data", "storage"))
   })
 
@@ -200,5 +204,7 @@ describe("Project.Service", () => {
 })
 
 afterAll(async () => {
+  const { Database } = await import("@/database/database")
+  Database.closeAll()
   await removeTestDir(testHome)
 })

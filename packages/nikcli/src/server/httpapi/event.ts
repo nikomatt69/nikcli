@@ -1,6 +1,8 @@
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
+import { Instance } from "@/project/instance"
 import { Log } from "@/util/log"
+import { EventFeed } from "./event-feed"
 
 /**
  * GET /event for the Effect backend — the same SSE contract as the Hono
@@ -9,9 +11,55 @@ import { Log } from "@/util/log"
  * on a web-standard ReadableStream so the fallback window has no Hono
  * dependency. Served by the bridge ahead of the HttpApi router because
  * SSE is a raw streaming response, not a schema-encoded body.
+ *
+ * Both routes fan out through an `EventFeed`: one subscription and one
+ * encode per event regardless of how many clients are attached, and one lag
+ * budget per client. See `specs/v2/event-stream-architecture.md`.
  */
 export namespace HttpApiEvent {
   const log = Log.create({ service: "httpapi.event" })
+
+  const HEARTBEAT_MS = 30_000
+
+  /**
+   * One feed per instance, created with the first connection and torn down
+   * with the last. Sharing it is what makes the encode O(1) in connections:
+   * a second client to the same directory reuses the subscription rather
+   * than adding one.
+   */
+  const instanceFeeds = new Map<string, { feed: EventFeed.Feed; unsubscribe: () => void }>()
+
+  /** The instance stream sends payloads unwrapped. */
+  const instanceEnvelope: EventFeed.Envelope = (event) => event
+
+  /** The global stream wraps everything in `{payload}`. */
+  const globalEnvelope: EventFeed.Envelope = (event) => ({ payload: event })
+
+  function instanceFeed(directory: string) {
+    const existing = instanceFeeds.get(directory)
+    if (existing) return existing.feed
+
+    const feed = new EventFeed.Feed(instanceEnvelope)
+    // `Bus.subscribeAll` reads the current instance at subscription time, so
+    // this must stay synchronous inside the caller's instance ALS. Moving it
+    // into a fiber breaks instance binding.
+    const unsubscribe = Bus.subscribeAll((event: { type?: string }) => {
+      feed.broadcast(event)
+      if (event.type === Bus.InstanceDisposed.type) {
+        releaseInstanceFeed(directory)
+        feed.closeAll()
+      }
+    })
+    instanceFeeds.set(directory, { feed, unsubscribe })
+    return feed
+  }
+
+  function releaseInstanceFeed(directory: string) {
+    const entry = instanceFeeds.get(directory)
+    if (!entry) return
+    instanceFeeds.delete(directory)
+    entry.unsubscribe()
+  }
 
   /**
    * GET /event — instance-scoped SSE, same wire contract as the Hono
@@ -23,108 +71,89 @@ export namespace HttpApiEvent {
    * event client-side.
    *
    * Must be called synchronously within the instance ALS (the bridge runs
-   * inside the Hono instance middleware) — `Bus.subscribeAll` reads the
-   * current instance at subscription time.
+   * inside the Hono instance middleware) — the feed's `Bus.subscribeAll`
+   * reads the current instance at subscription time.
    */
   export function handleInstance(): Response {
     log.info("event connected")
-    const encoder = new TextEncoder()
-    let unsub: (() => void) | undefined
+    // Read the instance key in the caller's scope, not inside the stream.
+    const directory = Instance.directory
+    const feed = instanceFeed(directory)
+
+    let connection: EventFeed.Connection | undefined
     let heartbeat: ReturnType<typeof setInterval> | undefined
 
-    const cleanup = () => {
-      if (heartbeat) clearInterval(heartbeat)
-      unsub?.()
-      heartbeat = undefined
-      unsub = undefined
-      log.info("event disconnected")
-    }
-
-    const stream = new ReadableStream<Uint8Array>({
+    const stream = EventFeed.stream({
+      // `start` runs synchronously at construction, so the caller's instance
+      // ALS is still active here.
       start(controller) {
-        const send = (data: unknown) => {
-          try {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
-          } catch (error) {
-            log.debug("sse write failed", { error })
-            cleanup()
-          }
-        }
-        send({ type: "server.connected", properties: {} })
-        // ReadableStream `start` runs synchronously at construction, so the
-        // instance ALS from the caller is still active here.
-        unsub = Bus.subscribeAll(async (event) => {
-          send(event)
-          if (event.type === Bus.InstanceDisposed.type) {
-            cleanup()
-            try {
-              controller.close()
-            } catch {
-              // already closed by the client
-            }
-          }
+        connection = feed.attach(controller, () => {
+          if (heartbeat) clearInterval(heartbeat)
+          heartbeat = undefined
+          if (feed.size === 0) releaseInstanceFeed(directory)
+          log.info("event disconnected")
         })
+        connection.local({ type: "server.connected", properties: {} })
         heartbeat = setInterval(() => {
-          send({ type: "server.heartbeat", properties: {} })
-        }, 30_000)
+          connection?.local({ type: "server.heartbeat", properties: {} })
+        }, HEARTBEAT_MS)
       },
       cancel() {
-        cleanup()
+        connection?.abandon()
       },
     })
 
-    return new Response(stream, {
-      headers: {
-        "content-type": "text/event-stream",
-        "cache-control": "no-cache",
-        connection: "keep-alive",
-      },
-    })
+    return new Response(stream, { headers: { ...EventFeed.HEADERS } })
+  }
+
+  /**
+   * GET /global/event — cross-instance SSE. It sits outside the instance
+   * middleware on purpose: clients track several directories at once, so the
+   * feed must not filter by request instance.
+   *
+   * One `GlobalBus` listener serves every connection, which also keeps this
+   * route from ever being the source of a `MaxListenersExceededWarning`.
+   */
+  const globalFeed = new EventFeed.Feed(globalEnvelope)
+  let globalListener: ((event: unknown) => void) | undefined
+
+  function attachGlobalListener() {
+    if (globalListener) return
+    globalListener = (event) => globalFeed.broadcast(event)
+    GlobalBus.on("event", globalListener as never)
+  }
+
+  function detachGlobalListener() {
+    if (!globalListener) return
+    GlobalBus.off("event", globalListener as never)
+    globalListener = undefined
   }
 
   export function handle(): Response {
     log.info("global event connected")
-    const encoder = new TextEncoder()
-    let handler: ((event: unknown) => void) | undefined
+    attachGlobalListener()
+
+    let connection: EventFeed.Connection | undefined
     let heartbeat: ReturnType<typeof setInterval> | undefined
 
-    const cleanup = () => {
-      if (heartbeat) clearInterval(heartbeat)
-      if (handler) GlobalBus.off("event", handler as never)
-      heartbeat = undefined
-      handler = undefined
-      log.info("global event disconnected")
-    }
-
-    const stream = new ReadableStream<Uint8Array>({
+    const stream = EventFeed.stream({
       start(controller) {
-        const send = (data: unknown) => {
-          try {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
-          } catch (error) {
-            // Closed by the client between the cancel callback and this write.
-            log.debug("sse write failed", { error })
-            cleanup()
-          }
-        }
-        send({ payload: { type: "server.connected", properties: {} } })
-        handler = (event) => send(event)
-        GlobalBus.on("event", handler as never)
+        connection = globalFeed.attach(controller, () => {
+          if (heartbeat) clearInterval(heartbeat)
+          heartbeat = undefined
+          if (globalFeed.size === 0) detachGlobalListener()
+          log.info("global event disconnected")
+        })
+        connection.local({ type: "server.connected", properties: {} })
         heartbeat = setInterval(() => {
-          send({ payload: { type: "server.heartbeat", properties: {} } })
-        }, 30_000)
+          connection?.local({ type: "server.heartbeat", properties: {} })
+        }, HEARTBEAT_MS)
       },
       cancel() {
-        cleanup()
+        connection?.abandon()
       },
     })
 
-    return new Response(stream, {
-      headers: {
-        "content-type": "text/event-stream",
-        "cache-control": "no-cache",
-        connection: "keep-alive",
-      },
-    })
+    return new Response(stream, { headers: { ...EventFeed.HEADERS } })
   }
 }

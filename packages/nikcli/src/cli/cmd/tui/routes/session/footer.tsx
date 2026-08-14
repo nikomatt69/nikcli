@@ -88,55 +88,55 @@ export function Footer() {
 
   return (
     <box flexDirection="row" justifyContent="space-between" gap={1} flexShrink={0}>
-      <text fg={theme.textMuted}>{directory()}</text>
+      <text fg={theme.foreground.muted}>{directory()}</text>
       <box gap={2} flexDirection="row" flexShrink={0}>
         <Switch>
           <Match when={store.welcome}>
-            <text fg={theme.text}>
-              Get started <span style={{ fg: theme.textMuted }}>/connect</span>
+            <text fg={theme.foreground.default}>
+              Get started <span style={{ fg: theme.foreground.muted }}>/connect</span>
             </text>
           </Match>
           <Match when={connected()}>
             <Show when={permissions().length > 0}>
-              <text fg={theme.warning}>
-                <span style={{ fg: theme.warning }}>△</span> {permissions().length} Permission
+              <text fg={theme.status.warning.fg}>
+                <span style={{ fg: theme.status.warning.fg }}>△</span> {permissions().length} Permission
                 {permissions().length > 1 ? "s" : ""}
               </text>
             </Show>
             <Show when={brainStatus()}>
-              <text fg={theme.text}>
-                <span style={{ fg: theme.textMuted }}>Brain: </span>
+              <text fg={theme.foreground.default}>
+                <span style={{ fg: theme.foreground.muted }}>Brain: </span>
                 {brainStatus()!.never ? "never" : `${brainStatus()!.hours}h ago`}
                 {brainStatus()!.sessions > 0 && (
-                  <span style={{ fg: theme.success }}> ({brainStatus()!.sessions} sessions)</span>
+                  <span style={{ fg: theme.status.success.fg }}> ({brainStatus()!.sessions} sessions)</span>
                 )}
               </text>
             </Show>
             <Show when={activeCommand()}>
-              <text fg={theme.accent}>
-                <span style={{ fg: theme.accent }}>◉</span> /{activeCommand()}
+              <text fg={theme.accent.alt}>
+                <span style={{ fg: theme.accent.alt }}>◉</span> /{activeCommand()}
               </text>
             </Show>
             <Show when={brainEnabled() === null}>
-              <text fg={theme.textMuted}>Brain: ...</text>
+              <text fg={theme.foreground.muted}>Brain: ...</text>
             </Show>
-            <text fg={theme.text}>
-              <span style={{ fg: lsp().length > 0 ? theme.success : theme.textMuted }}>•</span> {lsp().length} LSP
+            <text fg={theme.foreground.default}>
+              <span style={{ fg: lsp().length > 0 ? theme.status.success.fg : theme.foreground.muted }}>•</span> {lsp().length} LSP
             </text>
             <Show when={mcp()}>
-              <text fg={theme.text}>
+              <text fg={theme.foreground.default}>
                 <Switch>
                   <Match when={mcpError()}>
-                    <span style={{ fg: theme.error }}>⊙ </span>
+                    <span style={{ fg: theme.status.error.fg }}>⊙ </span>
                   </Match>
                   <Match when={true}>
-                    <span style={{ fg: theme.success }}>⊙ </span>
+                    <span style={{ fg: theme.status.success.fg }}>⊙ </span>
                   </Match>
                 </Switch>
                 {mcp()} MCP
               </text>
             </Show>
-            <text fg={theme.textMuted}>/status</text>
+            <text fg={theme.foreground.muted}>/status</text>
           </Match>
         </Switch>
       </box>

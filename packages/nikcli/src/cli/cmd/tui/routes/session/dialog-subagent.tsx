@@ -78,7 +78,7 @@ export function DialogSubagent(props: { sessionID: string }) {
           value: opt.value,
           description: opt.description,
           bg: color,
-          gutter: <text fg={color ?? theme.textMuted}>@{opt.agent}</text>,
+          gutter: <text fg={color ?? theme.foreground.muted}>@{opt.agent}</text>,
           onSelect: (ctx: DialogContext) => {
             const sessionID = opt.workerSessionID ?? opt.delegatorSessionID
             if (!sessionID) return

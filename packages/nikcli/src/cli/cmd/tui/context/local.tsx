@@ -58,12 +58,12 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
 
       const { theme } = useTheme()
       const colors = createMemo(() => [
-        theme.secondary,
-        theme.accent,
-        theme.success,
-        theme.warning,
-        theme.primary,
-        theme.error,
+        theme.accent.secondary,
+        theme.accent.alt,
+        theme.status.success.fg,
+        theme.status.warning.fg,
+        theme.accent.fg,
+        theme.status.error.fg,
       ])
       return {
         list() {

@@ -60,24 +60,24 @@ export function ChangesHelp() {
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           Changes — keybindings
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <text fg={theme.foreground.muted}>esc</text>
       </box>
       <For each={SECTIONS}>
         {(section) => (
           <box gap={0}>
-            <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+            <text fg={theme.accent.fg} attributes={TextAttributes.BOLD}>
               {section.title}
             </text>
             <For each={section.items}>
               {(item) => (
                 <box flexDirection="row" gap={2}>
                   <box width={20} flexShrink={0}>
-                    <text fg={theme.text}>{item.keys}</text>
+                    <text fg={theme.foreground.default}>{item.keys}</text>
                   </box>
-                  <text fg={theme.textMuted}>{item.description}</text>
+                  <text fg={theme.foreground.muted}>{item.description}</text>
                 </box>
               )}
             </For>

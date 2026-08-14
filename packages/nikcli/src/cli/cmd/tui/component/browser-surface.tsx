@@ -459,11 +459,11 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
         when={status() !== "error" && (props.renderer === "overlay" ? overlayBytes() : placeholder().length > 0)}
         fallback={
           <box paddingLeft={1} paddingTop={1} gap={1}>
-            <text fg={status() === "error" ? theme.error : theme.textMuted} wrapMode="word">
+            <text fg={status() === "error" ? theme.status.error.fg : theme.foreground.muted} wrapMode="word">
               {status() === "error" ? `✗ ${error()}` : "Starting Chromium…"}
             </text>
             <Show when={status() === "error"}>
-              <text fg={theme.textMuted} wrapMode="word">
+              <text fg={theme.foreground.muted} wrapMode="word">
                 Press ^⇧R for reader mode (no Chromium), or fix the browser-control daemon and reopen.
               </text>
             </Show>

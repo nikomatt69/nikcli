@@ -1,6 +1,5 @@
 import { Effect } from "effect"
 import { Pty } from "@/pty"
-import { Storage } from "@/storage/storage"
 import { runPty } from "./helpers"
 import { body, isResponse, json } from "./request"
 
@@ -37,7 +36,7 @@ export async function handlePtyRequest(request: Request): Promise<Response | und
         return yield* (yield* Pty.Service).get(ptyID)
       }),
     )
-    if (!info) throw new Storage.NotFoundError({ message: "Session not found" })
+    if (!info) throw new Pty.NotFoundError({ message: "Session not found" })
     return json(info)
   }
   if (request.method === "PUT") {

@@ -38,19 +38,19 @@ export const CATEGORY_LABEL: Record<UsageCategory, string> = {
 export function categoryColor(theme: Theme, cat: UsageCategory): RGBA {
   switch (cat) {
     case "system":
-      return theme.primary
+      return theme.accent.fg
     case "instructions":
-      return theme.accent
+      return theme.accent.alt
     case "skills":
-      return theme.success
+      return theme.status.success.fg
     case "mcp":
-      return theme.info
+      return theme.status.info.fg
     case "tools":
-      return theme.warning
+      return theme.status.warning.fg
     case "agents":
-      return theme.secondary
+      return theme.accent.secondary
     case "messages":
-      return theme.error
+      return theme.status.error.fg
   }
 }
 

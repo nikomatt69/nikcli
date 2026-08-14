@@ -24,8 +24,8 @@ export function SessionTreeFooter(props: {
   return (
     <box
       border={["top"]}
-      borderColor={theme.theme.borderSubtle}
-      backgroundColor={theme.theme.backgroundPanel}
+      borderColor={theme.theme.border.subtle}
+      backgroundColor={theme.theme.surface.panel}
       width="100%"
       flexShrink={0}
     >
@@ -42,7 +42,7 @@ export function SessionTreeFooter(props: {
         gap={1}
       >
         <box flexDirection="row" gap={2} alignItems="center" flexWrap="wrap">
-          <text fg={theme.theme.text} attributes={TextAttributes.DIM} wrapMode="none">
+          <text fg={theme.theme.foreground.default} attributes={TextAttributes.DIM} wrapMode="none">
             Tree
           </text>
           <FooterSep />
@@ -66,22 +66,22 @@ export function SessionTreeFooter(props: {
         </box>
 
         <box flexDirection="row" gap={2} alignItems="center" flexShrink={0} flexWrap="wrap">
-          <text fg={theme.theme.textMuted} wrapMode="none">
+          <text fg={theme.theme.foreground.muted} wrapMode="none">
             {`[${props.selectedIndex + 1}/${Math.max(1, props.totalRows)}]`}
           </text>
           <Show when={props.mcpCount > 0}>
-            <text fg={props.mcpError ? theme.theme.error : theme.theme.success} wrapMode="none">
+            <text fg={props.mcpError ? theme.theme.status.error.fg : theme.theme.status.success.fg} wrapMode="none">
               {`MCP ${props.mcpCount}`}
             </text>
           </Show>
-          <text fg={theme.theme.textMuted} wrapMode="none">
+          <text fg={theme.theme.foreground.muted} wrapMode="none">
             {`LSP ${props.lspCount}`}
           </text>
-          <box flexDirection="row" gap={0} paddingLeft={1} border={["left"]} borderColor={theme.theme.borderSubtle}>
-            <text fg={theme.theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+          <box flexDirection="row" gap={0} paddingLeft={1} border={["left"]} borderColor={theme.theme.border.subtle}>
+            <text fg={theme.theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
               esc
             </text>
-            <text fg={theme.theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
               {` ${escLabel()}`}
             </text>
           </box>

@@ -5,8 +5,9 @@ import { Instance } from "@/project/instance"
 import { MessageV2 } from "@/session/message-v2"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
-import { Storage } from "@/storage/storage"
+import { SessionError } from "@/session/error"
 import { Log } from "@/util/log"
+import { MonitorRepo } from "./repo"
 import { Runtime } from "@/util/runtime"
 import { throttleTrailing } from "@/util/throttle"
 import { Shell } from "@/shell/shell"
@@ -34,43 +35,12 @@ const DEFAULT_LOG_LINES = 200
 
 const log = Log.create({ service: "monitor" })
 
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
 function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
   return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
 }
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
-}
-
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
-
-function storageWrite<T>(key: string[], content: T) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(key, content)
-    }),
-  )
-}
-
-function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.list(prefix)
-    }),
-  )
 }
 
 export namespace Monitor {
@@ -197,10 +167,6 @@ export namespace Monitor {
     return id
   }
 
-  function recordKey(sessionID: string, monitorID: string) {
-    return ["monitor", sessionID, monitorID]
-  }
-
   function monitorDir(sessionID: string, monitorID: string) {
     return path.join(Global.Path.data, "monitors", sessionID, monitorID)
   }
@@ -233,7 +199,7 @@ export namespace Monitor {
   }
 
   async function persist(record: Record) {
-    await storageWrite(recordKey(record.sessionID, record.id), record)
+    MonitorRepo.upsert(record)
   }
 
   async function resolveToolPart(record: Record): Promise<MessageV2.ToolPart | undefined> {
@@ -518,7 +484,13 @@ export namespace Monitor {
   async function load(sessionID: string, monitorID: string): Promise<Record> {
     const active = state().get(key(monitorID))
     if (active && active.record.sessionID === sessionID) return active.record
-    return storageRead<Record>(recordKey(sessionID, monitorID))
+    const record = MonitorRepo.get(sessionID, monitorID)
+    if (!record) {
+      throw new SessionError.NotFoundError({
+        message: `Resource not found: monitor/${sessionID}/${monitorID}`,
+      })
+    }
+    return record
   }
 
   export async function start(input: {
@@ -695,10 +667,8 @@ export namespace Monitor {
    * keeps ownership of its monitors.
    */
   export async function reconcile(): Promise<void> {
-    const keys = await storageList(["monitor"]).catch(() => [])
-    for (const itemKey of keys) {
-      const record = await storageRead<Record>(itemKey).catch(() => undefined)
-      if (!record || record.status !== "running") continue
+    for (const record of MonitorRepo.listRunning()) {
+      if (record.status !== "running") continue
       if (state().get(key(record.id))) continue
       if (record.pid && pidAlive(record.pid)) continue
 

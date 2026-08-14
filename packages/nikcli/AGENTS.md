@@ -204,7 +204,7 @@ export type Output = z.output<typeof Info>
 - Use Result patterns for tool results (return error info in output)
 - Avoid throwing exceptions in tool `execute()` methods
 - For fatal errors, use `NamedError` from `@nikcli-ai/util/error`
-- Storage errors throw `Storage.NotFoundError` for missing resources
+- Session-domain misses throw `SessionError.NotFoundError` (HTTP wire stays `"NotFoundError"`).
 
 ```typescript
 // In tools, handle errors gracefully
@@ -237,15 +237,13 @@ log.info("operation completed", { count: 42, status: "ok" })
 
 ### Storage Patterns
 
-- Use `Storage` namespace for persistence
-- Key format: `["collection", "id", ...]` for hierarchical storage
-- Use `Storage.read()`, `Storage.write()`, `Storage.update()`, `Storage.remove()`
+Durable domain state lives in `nikcli.db` behind domain repos (`SessionRepo`, `ProjectRepo`, `LoopRepo`, `MissionRepo`, `MonitorRepo`, `ShareRepo`, `ArtifactRepo`, `GoalRepo`, `BackgroundRunRepo`, `RoutineRepo`, `SessionDiffRepo`, …). Functions are synchronous over `Database.syncDb()`; `data` holds the whole record. Do not add JSON file stores for a domain that already has a repo. Leftover `storage/*.json` trees stay on disk for downgrade only; runtime does not read them. See `specs/storage/remove-json-storage.md`.
 
 ```typescript
-await Storage.write(["session", projectID, sessionID], sessionData)
-const data = await Storage.read<Session.Info>(["session", projectID, sessionID])
-await Storage.update(["session", projectID, sessionID], (draft) => {
-  draft.updated = Date.now()
+SessionRepo.upsert(session)
+const data = SessionRepo.get(sessionID)
+SessionRepo.update(sessionID, (draft) => {
+  draft.time.updated = Date.now()
 })
 ```
 
@@ -314,7 +312,9 @@ const validated = Identifier.schema("session").parse(inputSessionID)
 
 ```typescript
 export const getSession = fn(Identifier.schema("session"), async (sessionID) => {
-  return Storage.read<Session.Info>(["session", projectID, sessionID])
+  const session = SessionRepo.get(sessionID)
+  if (!session) throw new SessionError.NotFoundError({ message: `Session not found: ${sessionID}` })
+  return session
 })
 
 // Usage
@@ -328,7 +328,7 @@ getSession.force(unvalidatedInput) // skip validation
 - **Context**: Pass `sessionID` in tool context, use `App.provide()` for DI
 - **Validation**: All inputs validated with Zod schemas
 - **Logging**: Use `Log.create({ service: "name" })` pattern
-- **Storage**: Use `Storage` namespace for persistence
+- **Storage**: Durable state goes through SQL domain repos. The JSON `Storage` module is gone; leftover JSON trees on disk are downgrade-only.
 - **API Client**: The TypeScript TUI (built with SolidJS + OpenTUI) communicates with the Nikcli server using `@nikcli-ai/sdk`. When adding or modifying an endpoint, edit its contract in `src/server/httpapi/` and run `bun run generate:httpapi-clients` — see "HTTP integration workflow" above. Endpoints do not live in `src/server/server.ts`; that file only owns the listener and the request pipeline.
 
 ## Parallel Execution

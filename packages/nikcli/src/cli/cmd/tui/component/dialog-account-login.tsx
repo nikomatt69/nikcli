@@ -201,21 +201,21 @@ export function DialogAccountLogin(props: {
   return (
     <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} gap={1} flexDirection="column">
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           Sign in to nikcli
         </text>
-        <text fg={theme.textMuted}>esc close</text>
+        <text fg={theme.foreground.muted}>esc close</text>
       </box>
 
       <Show when={active()}>
         {(value) => (
-          <text fg={theme.textMuted} wrapMode="word">
+          <text fg={theme.foreground.muted} wrapMode="word">
             Currently signed in as {value().email} — completing a new sign-in switches the active account.
           </text>
         )}
       </Show>
 
-      <text fg={error() ? theme.error : theme.textMuted} wrapMode="word">
+      <text fg={error() ? theme.status.error.fg : theme.foreground.muted} wrapMode="word">
         {error() ?? status()}
       </text>
 
@@ -223,18 +223,18 @@ export function DialogAccountLogin(props: {
         {(value) => (
           <box flexDirection="column" gap={1}>
             <box flexDirection="column">
-              <text fg={theme.textMuted}>
+              <text fg={theme.foreground.muted}>
                 {browserOpened() ? "Opened in your browser (code prefilled)" : "Open this link to approve"}
               </text>
-              <text fg={theme.accent} selectable wrapMode="word">
+              <text fg={theme.accent.alt} selectable wrapMode="word">
                 {value().verificationUrlComplete}
               </text>
             </box>
             <box flexDirection="column">
-              <text fg={theme.textMuted}>
+              <text fg={theme.foreground.muted}>
                 {`Code, if the page asks for it${remaining() ? ` — expires in ${remaining()}` : ""}`}
               </text>
-              <text attributes={TextAttributes.BOLD} fg={theme.primary} selectable>
+              <text attributes={TextAttributes.BOLD} fg={theme.accent.fg} selectable>
                 {value().userCode}
               </text>
             </box>
@@ -244,14 +244,14 @@ export function DialogAccountLogin(props: {
 
       <box flexDirection="row" gap={2} marginTop={1}>
         <Show when={start()}>
-          <text fg={theme.textMuted}>o reopen</text>
-          <text fg={theme.textMuted}>u copy link</text>
-          <text fg={theme.textMuted}>y copy code</text>
+          <text fg={theme.foreground.muted}>o reopen</text>
+          <text fg={theme.foreground.muted}>u copy link</text>
+          <text fg={theme.foreground.muted}>y copy code</text>
         </Show>
         <Show when={error()}>
-          <text fg={theme.textMuted}>r retry</text>
+          <text fg={theme.foreground.muted}>r retry</text>
         </Show>
-        <text fg={theme.textMuted}>esc close</text>
+        <text fg={theme.foreground.muted}>esc close</text>
       </box>
     </box>
   )

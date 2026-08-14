@@ -1,4 +1,4 @@
-import { eq, and, desc, asc } from "drizzle-orm"
+import { eq, and, desc, asc, inArray, isNotNull } from "drizzle-orm"
 import { Database } from "@/database/database"
 import { sessionInfo } from "./session.sql"
 import type { Session } from "./index"
@@ -127,6 +127,36 @@ export namespace SessionRepo {
   export function remove(id: string, tx: Executor = db()): boolean {
     const result = tx.delete(sessionInfo).where(eq(sessionInfo.id, id)).run()
     return (result as any).changes > 0
+  }
+
+  /**
+   * Mark sessions as suspended by a graceful shutdown.
+   *
+   * Called *before* the abort-and-drain, not after: a crash between the mark
+   * and the interrupt leaves a session marked suspended that was never
+   * interrupted, and a spurious resume re-enters a loop that is already idle —
+   * cheap and correct. The reverse order loses the turn, which is the failure
+   * this exists to fix.
+   */
+  export function suspend(ids: string[], at = Date.now(), tx: Executor = db()): void {
+    if (ids.length === 0) return
+    tx.update(sessionInfo).set({ timeSuspended: at }).where(inArray(sessionInfo.id, ids)).run()
+  }
+
+  /**
+   * Claim every suspended session, clearing the mark in the same statement.
+   *
+   * The single `UPDATE ... RETURNING` is what makes this safe when two servers
+   * start on one data directory: only one of them can observe a given row as
+   * non-null, so a session is resumed at most once.
+   */
+  export function consumeSuspended(tx: Executor = db()): { id: string; directory: string }[] {
+    return tx
+      .update(sessionInfo)
+      .set({ timeSuspended: null })
+      .where(isNotNull(sessionInfo.timeSuspended))
+      .returning({ id: sessionInfo.id, directory: sessionInfo.directory })
+      .all()
   }
 
   export function getChildren(parentId: string): Session.Info[] {

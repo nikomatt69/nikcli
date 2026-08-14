@@ -102,7 +102,7 @@ function View(props: { api: TuiPluginApi }) {
       footer: (
         <span
           style={{
-            fg: p.enabled ? api.theme.current.success : api.theme.current.textMuted,
+            fg: p.enabled ? api.theme.current.status.success.fg : api.theme.current.foreground.muted,
           }}
         >
           {p.enabled ? "enabled" : "disabled"}
@@ -186,7 +186,7 @@ function View(props: { api: TuiPluginApi }) {
       <api.ui.DialogPrompt
         title={`Models for "${name}"`}
         placeholder="~anthropic/claude-opus-latest, ~openai/gpt-latest, ..."
-        description={() => <text fg={api.theme.current.textMuted}>comma or space separated OpenRouter slugs</text>}
+        description={() => <text fg={api.theme.current.foreground.muted}>comma or space separated OpenRouter slugs</text>}
         onCancel={() => show(api)}
         onConfirm={(rawModels) => {
           const models = rawModels

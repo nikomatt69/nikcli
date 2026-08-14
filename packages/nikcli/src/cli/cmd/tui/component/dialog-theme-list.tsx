@@ -6,7 +6,8 @@ import { createMemo, onCleanup } from "solid-js"
 export function DialogThemeList() {
   const theme = useTheme()
   const options = createMemo(() => {
-    return Object.keys(theme.all())
+    return theme
+      .names()
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
       .map((value) => ({
         title: value,

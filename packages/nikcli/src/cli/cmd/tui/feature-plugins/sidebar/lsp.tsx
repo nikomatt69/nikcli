@@ -11,15 +11,15 @@ function View() {
     <box>
       <box flexDirection="row" gap={1} onMouseDown={() => sync.data.lsp.length > 2 && setOpen((value) => !value)}>
         <Show when={sync.data.lsp.length > 2}>
-          <text fg={theme.text}>{open() ? "▼" : "▶"}</text>
+          <text fg={theme.foreground.default}>{open() ? "▼" : "▶"}</text>
         </Show>
-        <text fg={theme.text}>
+        <text fg={theme.foreground.default}>
           <b>LSP</b>
         </text>
       </box>
       <Show when={sync.data.lsp.length <= 2 || open()}>
         <Show when={sync.data.lsp.length === 0}>
-          <text fg={theme.textMuted}>
+          <text fg={theme.foreground.muted}>
             {sync.data.config.lsp === false
               ? "LSPs have been disabled in settings"
               : "LSPs will activate as files are read"}
@@ -28,10 +28,10 @@ function View() {
         <For each={sync.data.lsp}>
           {(item) => (
             <box flexDirection="row" gap={1}>
-              <text flexShrink={0} fg={item.status === "connected" ? theme.success : theme.error}>
+              <text flexShrink={0} fg={item.status === "connected" ? theme.status.success.fg : theme.status.error.fg}>
                 •
               </text>
-              <text fg={theme.textMuted}>
+              <text fg={theme.foreground.muted}>
                 {item.id} {item.root}
               </text>
             </box>

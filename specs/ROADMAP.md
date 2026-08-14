@@ -8,12 +8,12 @@ An item is only here if the evidence for it is in the repository today. Nothing 
 
 ## How To Read This
 
-| Field       | Meaning                                                                 |
-| ----------- | ----------------------------------------------------------------------- |
-| **Buys**    | The user-visible or operational improvement. If this is vague, drop the item. |
-| **Evidence**| The file and fact that makes the case. Verifiable now.                  |
-| **Blocks**  | What cannot be done well before this lands.                             |
-| **Done when** | A check someone else can run.                                          |
+| Field         | Meaning                                                                       |
+| ------------- | ----------------------------------------------------------------------------- |
+| **Buys**      | The user-visible or operational improvement. If this is vague, drop the item. |
+| **Evidence**  | The file and fact that makes the case. Verifiable now.                        |
+| **Blocks**    | What cannot be done well before this lands.                                   |
+| **Done when** | A check someone else can run.                                                 |
 
 Horizons are ordering, not dates. An item moves up when its dependency lands, not when someone has time.
 
@@ -26,54 +26,51 @@ State the wins, so nobody re-plans them:
 - **One database.** `nikcli.db` with a journaled TypeScript migration chain, WAL, `foreign_keys=ON`, `mmap_size=0`. `bun:sqlite` is opened in exactly one place. Sessions, messages, parts, todos, permissions, and sync events are SQL. See [storage/nikcli-sql-drizzle-adoption.md](./storage/nikcli-sql-drizzle-adoption.md).
 - **One HTTP surface.** ~286 Effect `HttpApi` endpoints; Hono and the experimental flag are gone from `src`. Clients are generated from the contract by `packages/httpapi-codegen`.
 - **One event log.** `sync_event` carries both session and workspace aggregates, with snapshots for cold start and an outbox for remote push. The parallel `session_v2_event` and `workspace.events` logs were dropped.
-- **Entry read model.** `session_entry` with ids whose lexicographic order *is* conversation order. See [v2/session.md](./v2/session.md).
+- **Entry read model.** `session_entry` with ids whose lexicographic order _is_ conversation order. See [v2/session.md](./v2/session.md).
 - **Instance hot reload.** Config-surface watching with scoped, announced cache invalidation, and an explicit narrow `Provider.refresh()`. See [v2/catalog-config-plugin-lifecycle.md](./v2/catalog-config-plugin-lifecycle.md).
 - **Byte-stable tool advertisement.** Locale-independent id ordering, so the prompt-cache prefix is identical across machines. See [v2/tools.md](./v2/tools.md).
+- **Turns survive a graceful restart** (was S2, landed 2026-08-14). A private nullable `session_info.time_suspended` with a partial index; `serve` suspends what the process is running before the aborts, and claims each suspension exactly once at startup with a single `UPDATE … RETURNING`. Resume is advisory, because `loop` already derives continuation from history. Hard crashes remain out of scope. See [v2/session-restart-continuation.md](./v2/session-restart-continuation.md).
+- **Loops in SQL** (was D2a, landed 2026-08-14). `loop` + `loop_run` behind `LoopRepo`, with `20260814000000_loop_sql` backfilling the JSON tree. The `loop_meta` record kind is gone — the counter is a column excluded from the definition upsert. This is the repository shape the remaining domains follow. See [v2/schema-changelog.md](./v2/schema-changelog.md).
+- **Remaining domain state in SQL** (was D2b step 3, landed 2026-08-14). Missions, monitors, shares, and artifacts sit behind `MissionRepo` / `MonitorRepo` / `ShareRepo` / `ArtifactRepo`, with `20260814020000_domain_sql` backfilling the JSON tree. See [storage/remove-json-storage.md](./storage/remove-json-storage.md).
+- **Project identity in SQL** (D2b remainder, first move, landed 2026-08-14). `project` behind `ProjectRepo`, with `20260814030000_project_sql` backfilling `storage/project/…` and folding `["project_directory", id]` into a nullable `directories` column. Stats, usage, and analytics backfill enumerate via `ProjectRepo.list()`; `memory_search` dropped a dead `Storage` import. See [storage/remove-json-storage.md](./storage/remove-json-storage.md) step 4.
+- **Analytics JSON snapshots deleted** (D2b remainder, landed 2026-08-14). `GET /analytics/{global,daily,session,sessions}` queries `message_info` / `session_info` / `message_part`. The install UUID for anonymous reporting sits in one-row `analytics_share` (`20260814040000_analytics_share`). `record*` is a no-op. See [storage/remove-json-storage.md](./storage/remove-json-storage.md) step 4.
+- **Session goals in SQL** (D2b remainder, landed 2026-08-14). `session_goal` behind `GoalRepo`, with `20260814050000_session_goal` backfilling `storage/goal/…`. `SessionGoal.Service` no longer reads JSON. See [storage/remove-json-storage.md](./storage/remove-json-storage.md) step 4.
+- **Background runs in SQL** (D2b remainder, landed 2026-08-14). `background_run` behind `BackgroundRunRepo`, with `20260814060000_background_run` backfilling `storage/background_run/…`. Lease/heartbeat stay inside `data`; `listRunning` is a status query so orphan detection survives a restart. See [storage/remove-json-storage.md](./storage/remove-json-storage.md) step 4.
+- **Routines in SQL** (D2b remainder, landed 2026-08-14). `routine` behind `RoutineRepo`, with `20260814070000_routine` backfilling `storage/routine/…`. `restoreSchedulers` at bootstrap reads SQL. See [storage/remove-json-storage.md](./storage/remove-json-storage.md) step 4.
+- **Session diffs in SQL** (D2b remainder, landed 2026-08-14). `session_diff` sits behind `SessionDiffRepo`, with `20260814080000_session_diff` backfilling `storage/session_diff/…`. It moved instead of being deleted because unreferenced snapshot trees can be garbage-collected, and imported shares may have only a ready-made `FileDiff[]`. See [storage/remove-json-storage.md](./storage/remove-json-storage.md) step 4.
+- **PTY / workspace owned 404s** (D2b remainder, landed 2026-08-14). `Pty.NotFoundError` and `Workspace.NotFoundError` replace borrowed `Storage.NotFoundError`; the HTTP wire literal stays `"NotFoundError"`. The workspace JSON backfill is journaled as `20260814090000_workspace_json`, and runtime no longer scans `storage/workspace/*.json`. See [storage/remove-json-storage.md](./storage/remove-json-storage.md) step 4.
+- **JSON Storage retired** (was D2b remainder steps 4–5, completed 2026-08-14). `src/storage/storage.ts` and `src/storage/effect.ts` are gone, along with all production imports. Leftover JSON trees remain for downgrade only and are ignored by current runtime reads. See [storage/remove-json-storage.md](./storage/remove-json-storage.md).
+- **Built-in themes lazy-load** (was U3, landed 2026-08-14). Only `nikcli.json` is parsed at TUI module load. The other 97 documents plus the `dim` alias load through static `import()` loaders when selected. Previously unwired files (`arctic`, `muted`, `osaka-jade`, `oxocarbon`, `vivid`, `zinc`) are in the catalog. See [v2/tui-theme-migration.md](./v2/tui-theme-migration.md).
+- **Semantic theme tokens** (was U2, landed 2026-08-14). Nested tokens are derived from the flat document in `theme-tokens.ts`. TUI callers use `foreground` / `surface` / `status` / `badge` / `syntax` / `accent.{fg,alt,secondary}`. The `asDual` proxy and the `ThemeColors` intersection on `Theme` are gone. See [v2/tui-theme-migration.md](./v2/tui-theme-migration.md).
+- **Subsystem-doc triage** (was X1, landed 2026-08-14). `dc0f8bb003` deleted 52 files under `packages/nikcli/specs/`. The 14 that described live subsystems were read from `dc0f8bb003^` and triaged below — none restored wholesale, because each copy describes a world the code has already left (Hono, `exec_code`, OpenTUI 0.1.95, Browser Use Cloud). Source of truth stays the code until a rewrite against current source is worth a separate pass.
+
+  | Deleted doc                                | Why it stays deleted                                                                                        |
+  | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+  | `codemode.md`                              | Live in `src/codemode/`. The copy still argues against `exec_code`/`native-executor` and is Italian-only.   |
+  | `sdk-next.md`                              | Live as `packages/sdk-next`, but the copy wires `Server.App()` (Hono). Current host is `Server.fetch`.      |
+  | `simulation.md`                            | Live as `packages/simulation` + `NIKCLI_DRIVE`. The copy is a port log, not a current contract.             |
+  | `generative-tui.md`                        | Live in `src/tool/opentui.ts`. The copy is a port map onto json-render, not the shipped catalog.            |
+  | `startup-performance.md`                   | Snapshot of one graph-cutting pass. Warm-start numbers would be fiction within a week.                      |
+  | `unified-auth.md` / `unified-auth-plan.md` | Auth landed; the copies describe the migration, not the current `packages/auth` + UserDB surface.           |
+  | `tui-plugins.md`                           | Live as `src/cli/cmd/tui/feature-plugins/` + `plugin/internal.ts`. The copy predates the current slot API.  |
+  | `tui-math.md`                              | Live as `packages/tui-math`. Upgrade notes, not a contract.                                                 |
+  | `browser-live-view.md`                     | Describes `opentui-browser` Kitty screencast. Current tool is `browser_control` (Playwright).               |
+  | `computer-browser-use.md`                  | Live tools, but the copy still mentions `NIKCLI_EXPERIMENTAL_*` default-on flags that are now disable-envs. |
+  | `httpapi-codegen.md`                       | Live as `packages/httpapi-codegen`, but the copy still generates "because Hono is the real router".         |
+  | `user-profile.md`                          | Live as `src/profile/profile.ts` + Brain habits. Restore only as a rewrite against that module.             |
+  | `opentui-0.4-upgrade.md`                   | Finished 2026-08-01. The two-copy `@opentui/core` bug is historical.                                        |
+
+- **One encode per event** (was E1, landed 2026-08-14). `EventFeed` fans both SSE routes out from a single encoded frame, with a per-connection lag budget carried by the stream's own queuing strategy. A stalled reader is evicted with a stated reason instead of growing an unbounded internal queue; `/global/event` went from one `GlobalBus` listener per client to one total. Both wire shapes unchanged. See [v2/event-stream-architecture.md](./v2/event-stream-architecture.md).
+- **Session-owned errors** (was D1, landed 2026-08-14). `src/session/error.ts` declares `SessionNotFoundError` and `SessionIOError`; `Session.Error` no longer borrows from `Storage`. The HTTP wire is unchanged — boundaries emit the literal `"NotFoundError"` rather than forwarding `_tag`, which also fixes two sites that produced the tag by coincidence. See [storage/remove-json-storage.md](./storage/remove-json-storage.md) step 1.
+- **Tool output schemas** (was T2, landed 2026-08-14). A tool may declare an `output` zod codec; the wrapper parses `result.value` after execute and rejects a malformed success for that call only. Code Mode receives `Tool.encoded(result, codec)` — the validated value when a codec exists, otherwise the model-facing string. Truncation still bounds only `output`. Tools without a codec are unchanged. See [v2/tools.md](./v2/tools.md) §"One Response Value, Not Three".
+- **Provider policy** (was P1, landed 2026-08-14). `Policy` centrally evaluates `experimental.policies` with full or trailing-prefix wildcards and ordered last-match-wins. Legacy enabled/disabled fields translate with their old precedence; the provider catalog, HTTP provider list, CLI auth picker, and session auth picker consume the evaluator, while TUI disconnect writes deny statements. Unit tests cover matching, translation, overrides, filtering, and schema validation; HTTP integration covers legacy allowlist filtering. See [v2/provider-policy.md](./v2/provider-policy.md).
+- **Scoped tool registration** (was T1, landed 2026-08-14). `ToolRegistry.register` returns a handle whose `close` removes exactly that stack entry and reveals the next-latest occupant of the id. Config-dir and plugin tools live in a reloadable derived cache; runtime registrations live in a separate non-reloadable cache, so a hot reload cannot drop sdk-next tools. See [v2/tools.md](./v2/tools.md) §"Registration Is An Overlay Stack".
 
 ---
 
 ## Horizon 1 — Now
 
-Correctness and cost. No new public surface, no contract changes.
-
-### E1 · Encode the event stream once, bound each connection
-
-- **Buys** — Server CPU that stops scaling with connected clients, and a stalled reader that gets evicted instead of growing without limit.
-- **Evidence** — `src/server/httpapi/event.ts`: both handlers define a private `send` that runs `JSON.stringify` per connection; `controller.enqueue` has no lag budget; `GlobalBus` is a bare `EventEmitter` with no `setMaxListeners`, so the 11th `/global/event` client emits a false leak warning. Upstream measured −89% at 10 clients and −98% at 50 for the same boundary.
-- **Blocks** — Nothing. Independent of every other item, which is why it goes first.
-- **Done when** — One encode per event with N subscribers is asserted by a test; a slow subscriber fails with a typed `SubscriberOverflowError` while healthy ones keep receiving in order; both wire shapes (`{type,…}` on `/event`, `{payload}` on `/global/event`) are byte-identical to today.
-- **Spec** — [v2/event-stream-architecture.md](./v2/event-stream-architecture.md)
-
-### D1 · Give `Session` its own errors
-
-- **Buys** — An honest picture of what is still on JSON, and error types that can say "no such session" instead of "file not found".
-- **Evidence** — `src/session/index.ts` declares `Session.Error = BusyError | Storage.NotFoundError | Storage.IOError` and coerces unknown rejections into `Storage.IOError`, though session rows have been SQL since `20260611000000`.
-- **Blocks** — D2. While the error types are shared, a grep cannot distinguish a real JSON dependency from a vestigial one.
-- **Done when** — `src/session` imports nothing from `src/storage`, and the HTTP error mapping is unchanged for clients.
-- **Spec** — [storage/remove-json-storage.md](./storage/remove-json-storage.md)
-
-### D2a · Move loops to SQL
-
-- **Buys** — Loop definitions and runs get a schema, a real transaction, and queries instead of key-prefix directory scans.
-- **Evidence** — `src/loop/manager.ts` performs `list`/`read`/`write`/`update`/`remove` over `Storage` key prefixes across ~15 call sites. It is a three-column table implemented as a directory tree.
-- **Blocks** — The rest of D2. This establishes the repository shape the other domains copy.
-- **Done when** — Loops read and write through Drizzle; a data migration backfills the existing JSON tree; `test/database/database.test.ts`'s journal assertion is updated in the same commit.
-- **Spec** — [storage/remove-json-storage.md](./storage/remove-json-storage.md)
-
-### S2 · Continue sessions after a graceful restart
-
-- **Buys** — `nikcli upgrade` and a server redeploy stop killing in-flight turns. Today the transcript survives and the turn does not.
-- **Evidence** — `PromptState` holds ownership in memory only; `serve.ts` aborts every controller on `SIGINT`/`SIGTERM`. Nothing marks or resumes.
-- **Blocks** — Nothing, deliberately. It is scoped to the graceful case precisely so it does not wait on S1.
-- **Done when** — One private nullable `session_info.time_suspended` column exists; suspend-then-interrupt on shutdown; atomic consume-and-resume on startup; two servers racing on one directory resume each session exactly once; the column appears in no HTTP response.
-- **Spec** — [v2/session-restart-continuation.md](./v2/session-restart-continuation.md)
-
-### X1 · Rematerialize the deleted spec tree
-
-- **Buys** — The documentation for features that are live and undocumented.
-- **Evidence** — 54 files under `packages/nikcli/specs/` are staged as deleted while only `project.md` and `storage/` were rewritten at the new root. The deleted set includes documents for shipped subsystems: `codemode.md`, `sdk-next.md`, `simulation.md`, `generative-tui.md`, `startup-performance.md`, `unified-auth.md`, `tui-plugins.md`, `tui-math.md`, `browser-live-view.md`, `computer-browser-use.md`, `httpapi-codegen.md`, `user-profile.md`, `opentui-0.4-upgrade.md`, the `effect/` migration set, and the `opencode-parity/` set.
-- **Blocks** — Nothing technically. But every week it stays deleted, another live feature loses its only written explanation.
-- **Done when** — Each deleted document is either restored under `specs/` with a current status header, or explicitly deleted with the reason recorded in this file. Restoring is `git checkout HEAD -- <path>` plus a move; deciding is the work.
+Empty. Correctness items with no new public surface have landed. Next work is Horizon 2 (contracts).
 
 ---
 
@@ -87,22 +84,7 @@ Contracts. These change what the system promises, so each needs its spec landed 
 - **Evidence** — `SessionPrompt.admit` writes the user message straight into visible history. `loop` has no delivery mode; a second caller joins the active loop through `PromptState` callbacks and receives the owner's result. There is no pending row and no promotion transaction.
 - **Blocks** — S4 (the engine swap has nothing to swap to without this), and any credible hard-crash recovery.
 - **Done when** — A `session_pending` row plus a promotion transaction exist; `steer` promotes at the next safe step boundary while `queue` waits for idle; promoting input resets the agent's step allowance once per batch; an interrupted turn leaves its pending input intact.
-- **Spec** — [v2/session.md](./v2/session.md) §"Admission Precedes Execution"; needs its own decision record before implementation.
-
-### T2 · Tool output schemas
-
-- **Buys** — Code Mode gets typed, validated values instead of a string it has to parse. The registry can reject a malformed success.
-- **Evidence** — `Tool.Result.output` is a `string` and is simultaneously the model-facing content and the machine value `src/codemode/tool-runtime.ts` consumes. A tool cannot declare an output shape.
-- **Blocks** — Any serious Code Mode work. It is the largest remaining divergence in the tool contract.
-- **Done when** — A tool may declare an output codec; the encoded value reaches Code Mode; model-facing content stays separately bounded; a tool without an output codec keeps working unchanged.
-- **Spec** — [v2/tools.md](./v2/tools.md) §"One Response Value, Not Three"
-
-### T1 · Scoped tool registration
-
-- **Buys** — A plugin that unloads stops contributing its tools, and the tool it shadowed comes back.
-- **Evidence** — `ToolRegistry.register` splices or appends into one flat per-instance array. There is no scope, no removal, and no overlay stack; the `InstanceState` entry is deliberately non-reloadable *because* runtime registrations would be lost, which is the same problem seen from the other side.
-- **Blocks** — TUI plugin hot reload reaching parity for tool-contributing plugins.
-- **Done when** — Registration returns a scoped handle; closing it removes exactly that registration and reveals the next-latest; the registry can become reloadable without losing runtime tools.
+- **Spec** — [v2/durable-pending-input.md](./v2/durable-pending-input.md) (proposed). Implementation waits on acceptance of that record; do not start from [v2/session.md](./v2/session.md) §"Admission Precedes Execution" alone.
 
 ### S3 · Instruction sync as value deltas
 
@@ -111,14 +93,6 @@ Contracts. These change what the system promises, so each needs its spec landed 
 - **Blocks** — Nothing hard, but it interacts with compaction epochs, so land it after S1 while the safe-boundary machinery is fresh.
 - **Done when** — One `session.instructions.updated { delta }` event of content hashes; blobs stored once, content-addressed; request assembly renders from stored values; a compaction moves the epoch without reading sources.
 - **Spec** — [v2/instruction-sync-proposal.md](./v2/instruction-sync-proposal.md)
-
-### P1 · Provider policy
-
-- **Buys** — One evaluation point instead of five copies, and a vocabulary that extends to `plugin.load` and `mcp.connect`.
-- **Evidence** — The same two-line allow/deny check is written out in `provider/provider.ts`, `server/httpapi/provider.ts`, `cli/cmd/auth.ts`, `session/auth.ts`, and the TUI provider dialog — which mutates `disabled_providers` directly.
-- **Blocks** — Nothing. Small and self-contained; it sits here rather than in Horizon 1 only because nothing is currently broken by it.
-- **Done when** — Ordered statements with wildcards and last-match-wins; old fields translate at config load and keep working; four of the five call sites read the catalog instead of re-deriving.
-- **Spec** — [v2/provider-policy.md](./v2/provider-policy.md)
 
 ---
 
@@ -140,21 +114,6 @@ Structure. Large, and each depends on Horizon 2.
 - **Depends on** — Nothing formally, but section 1 (extract shared `util`) removes 103 of the 241 imports and is worth doing regardless.
 - **Done when** — `packages/tui` typechecks with `packages/nikcli` out of its references; no import resolves into `packages/nikcli`; the TUI starts from the installer binary; warm startup does not regress.
 - **Spec** — [tui-package.md](./tui-package.md)
-
-### U3 · Lazy-load themes → U2 · Semantic theme tokens
-
-- **Buys** — Startup that does not parse 92 theme documents to render one, then a token system where a warning badge is readable in every theme without a component inventing colors.
-- **Evidence** — `theme.tsx` statically imports 92 of 98 theme JSON files. Six documents (`arctic`, `muted`, `osaka-jade`, `oxocarbon`, `vivid`, `zinc`) are imported by nothing and referenced nowhere. Components read flat colors: 746 `textMuted`, 359 `text`, 207 `primary`.
-- **Order matters** — U3 first. Adding tokens to 98 documents while all 98 are eagerly parsed multiplies the startup cost of the very change meant to improve the UI.
-- **Done when** — Only the selected theme plus one built-in are parsed at startup; then paired foreground/background tokens and explicit surface levels exist, with a compatibility proxy deleted at the end.
-- **Spec** — [v2/tui-theme-migration.md](./v2/tui-theme-migration.md)
-
-### D2b · Finish retiring JSON storage
-
-- **Buys** — One durability model. Ends the class of bug where a crash between a SQL write and a JSON write leaves state no migration can detect.
-- **Depends on** — D1, D2a.
-- **Done when** — No production module imports `src/storage/storage.ts`; the file and `storage/effect.ts` are deleted; the JSON tree stays on disk for downgrade.
-- **Spec** — [storage/remove-json-storage.md](./storage/remove-json-storage.md)
 
 ---
 

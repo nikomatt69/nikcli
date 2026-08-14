@@ -2,9 +2,10 @@
 
 | Field  | Value                                                                 |
 | ------ | --------------------------------------------------------------------- |
-| Status | **Proposed and unimplemented**                                        |
-| Scope  | `src/server/httpapi/event.ts`, `src/bus/index.ts`, `src/bus/global.ts` |
+| Status | **Implemented** 2026-08-14 (was roadmap E1)                            |
+| Scope  | `src/server/httpapi/event-feed.ts`, `src/server/httpapi/event.ts`, `src/bus/global.ts` |
 | Buys   | O(1) encoding per event instead of O(connections); a real lag budget  |
+| Tests  | `test/server/event-feed.test.ts`                                      |
 
 ## Decision
 
@@ -29,20 +30,51 @@ Bus.publish / GlobalBus
 
 The bus keeps owning event meaning, publication, and instance scoping. The feed owns public selection, wire encoding, bounded delivery, and subscriber lifecycle.
 
-## Current Behavior
+## What Was Built
 
-`GET /event` (`HttpApiEvent.handleInstance`) and `GET /global/event` (`HttpApiEvent.handle`) each build a `ReadableStream` and, inside it, define a private `send`:
+`EventFeed` in `src/server/httpapi/event-feed.ts`. Two classes:
+
+- **`Feed`** — a fan-out group. `broadcast` returns immediately when nothing is attached, otherwise encodes the event **once** into a `Uint8Array` and offers that same frame to every connection.
+- **`Connection`** — one SSE connection, holding its own lag budget.
+
+`GET /event` keeps one feed per instance directory in a module-level map, created with the first connection and released with the last. Per-instance rather than server-scoped because `Bus.subscribeAll` is instance-scoped; a second client on the same directory reuses the subscription instead of adding one. `GET /global/event` uses a single module-level feed behind exactly **one** `GlobalBus` listener, so that route can no longer contribute to a listener-count warning at all.
+
+### The lag budget is the stream's own queuing strategy
+
+The proposal below describes Effect queues. The implementation uses the web stream that was already there: `EventFeed.stream` constructs the `ReadableStream` with `CountQueuingStrategy({ highWaterMark: LAG_BUDGET })`, which makes `controller.desiredSize` equal the budget minus the frames the reader has not consumed. It reaches zero exactly when the connection is `LAG_BUDGET` frames behind.
+
+This was chosen over introducing `Queue`/`Stream` because both handlers are plain functions returning a `Response`, served by the bridge *ahead* of the HttpApi router precisely because SSE is not a schema-encoded body. Wrapping them in an Effect stream layer would have been a larger change than the win it delivers, and `desiredSize` already measures the exact quantity the delivery law is about.
+
+Consequence worth knowing: the `Connection` cannot read its own budget back, so the overflow message states the condition rather than a frame count.
+
+### Failures are stated, not silent
+
+Both eviction paths write a final frame before closing:
+
+```
+{ "type": "server.error", "properties": { "name": "SubscriberOverflowError", "message": "..." } }
+```
+
+wrapped in the route's envelope. This frame is written past the budget on purpose — a client being dropped should learn why. It is additive: it appears only where the previous behaviour was a silent close, and clients dispatch by `type`, so an unknown type has no listeners.
+
+### Not implemented: public filtering
+
+The proposal's "public filter" stage has no counterpart in the code, because nothing marks a bus event as internal today. Every event that reached a client before still does. Adding a filter is a wire change and needs its own decision.
+
+## Behavior Before This Change
+
+`GET /event` (`HttpApiEvent.handleInstance`) and `GET /global/event` (`HttpApiEvent.handle`) each built a `ReadableStream` and, inside it, defined a private `send`:
 
 ```ts
 const send = (data: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
 ```
 
-The instance handler then calls `Bus.subscribeAll(...)`; the global handler attaches a listener to the `GlobalBus` `EventEmitter`. Consequences, all verified in the source:
+The instance handler then called `Bus.subscribeAll(...)` once per connection; the global handler attached one listener per connection to the `GlobalBus` `EventEmitter`. The consequences, which are what the change addresses:
 
 1. **Encoding is per connection.** With `N` attached clients, `JSON.stringify` plus UTF-8 encoding runs `N` times for every event. Upstream measured the equivalent boundary at 8 KiB events: 10 clients went from 96.3 ms to 10.4 ms (−89.3%) and 50 clients from 553.9 ms to 12.4 ms (−97.8%) once the frame was encoded once. That measurement isolates the encoding boundary and does not claim socket throughput.
 2. **There is no lag budget.** `controller.enqueue` never refuses. A stalled reader accumulates in the stream's internal queue until the process runs out of memory; nothing evicts it, and nothing reports it.
 3. **A write failure is silent and terminal for that client.** A throwing `enqueue` is caught, logged at `debug`, and cleaned up. The client sees a closed stream with no typed reason.
-4. **`GlobalBus` is a bare `EventEmitter` with default limits.** No `setMaxListeners` call exists anywhere in the repo, so the eleventh concurrent `/global/event` connection triggers a `MaxListenersExceededWarning` that looks like a leak and is not one.
+4. **`GlobalBus` was a bare `EventEmitter` with default limits.** No `setMaxListeners` call existed anywhere in the repo, so the eleventh concurrent `/global/event` connection triggered a `MaxListenersExceededWarning` that looked like a leak and was not one. Fixed twice over: `/global/event` now attaches one listener total, and `bus/global.ts` raises the cap to 200 — raised rather than removed, because at 0 the warning is disabled and a real leak becomes invisible. The cap still matters, because `/sync/stream`, the mobile session-lifecycle stream, and the workspace server each attach a listener *per connection*.
 5. **Two wire shapes are load-bearing.** The instance stream sends unwrapped `{type, properties}`; the global stream sends `{payload: {...}}`. The TUI reads `data.type` directly, so serving the global envelope on the instance route silently drops every event client-side. Any refactor must preserve both shapes exactly.
 
 The cross-instance stream is intentional: `/global/event` sits outside the instance middleware because clients track several directories at once. The feed must not add request-instance filtering.
@@ -79,9 +111,9 @@ Independent queues capture the dominant win — encode once — with queue-local
 
 ## Feed Lifecycle
 
-**Server scope.** `EventFeed` is built once with the server handler graph and registers one subscription outside instance middleware. Filtering, encoding, and nonblocking offers happen inline, once per event, so ordering is identical for every healthy subscriber. When no subscribers are registered the observer returns before encoding, so a headless server pays nothing.
+**Feed scope.** A feed registers its subscription when its first connection attaches and releases it when its last one leaves — one per instance directory for `/event`, one module-level for `/global/event`. Encoding and offers happen inline, once per event, so ordering is identical for every healthy connection. With nothing attached, `broadcast` returns before encoding, so a headless server pays nothing.
 
-**Connection scope.** Each subscription allocates a queue, registers it synchronously, returns `Stream.fromQueue`, and removes and shuts down the queue when the request scope closes. Registration happens **before** the connection-specific `server.connected` frame is prepended, so live frames queue behind the greeting. Events before registration may be missed; the stream is volatile by contract.
+**Connection scope.** `Feed.attach` registers the connection synchronously inside the stream's `start`, which is also what keeps the instance ALS valid. The greeting is written **after** registration, so live frames queue behind it. Events before registration are missed; the stream is volatile by contract. The connection is removed on client cancel (`abandon`), on eviction, and on instance disposal.
 
 **Encoding failure.** If an accepted event cannot be encoded: log its type and cause, fail every currently connected queue with `EncodingError`, skip the malformed event, and keep the feed available for later connections. Keeping current clients attached would create a silent gap; permanently poisoning the feed would break every future connection.
 
@@ -93,12 +125,16 @@ Method, path, payload shape, greeting, and the 30s heartbeat all stay as they ar
 
 ## Verification
 
-Behavioral tests to land with the change:
+Covered by `test/server/event-feed.test.ts` (9 tests). The encode count is asserted without mocks: the broadcast payload carries a `toJSON()` that increments a counter, so N connections must still produce exactly one call.
 
 - one encoding operation for multiple subscribers;
 - identical frames delivered to healthy subscribers;
 - a slow subscriber overflowing without affecting others;
 - delivery continuing after another subscriber overflows;
-- internal events filtered before consuming capacity;
+- nothing encoded when no connection is attached;
+- greeting and heartbeat outside the budget, so they cannot evict a stalled connection;
 - current subscribers failed on malformed encoding, later subscribers still served;
+- an abandoned connection removed from the feed;
 - both wire shapes (`{type,...}` on `/event`, `{payload}` on `/global/event`) preserved byte for byte.
+
+Not covered by a test: filtering internal events, which is not implemented — see "Not implemented: public filtering" above.

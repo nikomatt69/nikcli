@@ -109,7 +109,7 @@ export function MathMarkdown(props: MathMarkdownProps) {
                       content={(block() as { content: string }).content}
                       displayMode={(block() as { display: boolean }).display}
                       foregroundColor={props.fg}
-                      errorColor={theme.error}
+                      errorColor={theme.status.error.fg}
                       fallback="source"
                     />
                   </box>

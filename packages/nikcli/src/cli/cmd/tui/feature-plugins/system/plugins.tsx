@@ -14,17 +14,17 @@ const tab = Keybind.parse("tab").at(0)
 
 function state(api: TuiPluginApi, item: TuiPluginStatus) {
   if (!item.enabled) {
-    return <span style={{ fg: api.theme.current.textMuted }}>disabled</span>
+    return <span style={{ fg: api.theme.current.foreground.muted }}>disabled</span>
   }
 
   if (item.target === "server") {
-    return <span style={{ fg: api.theme.current.textMuted }}>server</span>
+    return <span style={{ fg: api.theme.current.foreground.muted }}>server</span>
   }
 
   return (
     <span
       style={{
-        fg: item.active ? api.theme.current.success : api.theme.current.error,
+        fg: item.active ? api.theme.current.status.success.fg : api.theme.current.status.error.fg,
       }}
     >
       {item.active ? "active" : "inactive"}
@@ -67,12 +67,12 @@ function Install(props: { api: TuiPluginApi }) {
       busyText="Installing plugin..."
       description={() => (
         <box flexDirection="row" gap={1}>
-          <text fg={props.api.theme.current.textMuted}>scope:</text>
-          <text fg={busy() ? props.api.theme.current.textMuted : props.api.theme.current.text}>
+          <text fg={props.api.theme.current.foreground.muted}>scope:</text>
+          <text fg={busy() ? props.api.theme.current.foreground.muted : props.api.theme.current.foreground.default}>
             {global() ? "global" : "local"}
           </text>
           <Show when={!busy()}>
-            <text fg={props.api.theme.current.textMuted}>({Keybind.toString(tab)} toggle)</text>
+            <text fg={props.api.theme.current.foreground.muted}>({Keybind.toString(tab)} toggle)</text>
           </Show>
         </box>
       )}

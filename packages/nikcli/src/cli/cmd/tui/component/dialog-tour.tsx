@@ -66,45 +66,45 @@ export function DialogTour() {
   return (
     <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} gap={1} flexDirection="column">
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           Tour — {step().title}
         </text>
-        <text fg={theme.textMuted}>
+        <text fg={theme.foreground.muted}>
           {index() + 1} / {total} · ←/→ navigate · esc to exit
         </text>
       </box>
 
       <box flexDirection="column" gap={1} paddingTop={1} paddingBottom={1}>
-        <text fg={theme.text}>{step().body}</text>
+        <text fg={theme.foreground.default}>{step().body}</text>
         <Show when={step() === STEPS[2]}>
-          <text fg={theme.accent}>Press {keybind.print("command_list")} to open it now.</text>
+          <text fg={theme.accent.alt}>Press {keybind.print("command_list")} to open it now.</text>
         </Show>
         <Show when={step() === STEPS[5]}>
-          <text fg={theme.accent}>Press ? to open help any time.</text>
+          <text fg={theme.accent.alt}>Press ? to open help any time.</text>
         </Show>
       </box>
 
       <box flexDirection="row" gap={1} paddingTop={1}>
-        <For each={STEPS}>{(_s, i) => <text fg={i() === index() ? theme.primary : theme.textMuted}>●</text>}</For>
+        <For each={STEPS}>{(_s, i) => <text fg={i() === index() ? theme.accent.fg : theme.foreground.muted}>●</text>}</For>
         <box flexGrow={1} />
         <box
           paddingLeft={2}
           paddingRight={2}
-          backgroundColor={index() > 0 ? theme.backgroundPanel : undefined}
+          backgroundColor={index() > 0 ? theme.surface.panel : undefined}
           onMouseUp={() => index() > 0 && setIndex(index() - 1)}
         >
-          <text fg={index() > 0 ? theme.text : theme.textMuted}>← Back</text>
+          <text fg={index() > 0 ? theme.foreground.default : theme.foreground.muted}>← Back</text>
         </box>
         <box
           paddingLeft={2}
           paddingRight={2}
-          backgroundColor={theme.primary}
+          backgroundColor={theme.accent.fg}
           onMouseUp={() => {
             if (index() >= total - 1) dialog.clear()
             else setIndex(index() + 1)
           }}
         >
-          <text fg={theme.selectedListItemText}>{index() >= total - 1 ? "Finish" : "Next →"}</text>
+          <text fg={theme.badge.fg}>{index() >= total - 1 ? "Finish" : "Next →"}</text>
         </box>
       </box>
     </box>

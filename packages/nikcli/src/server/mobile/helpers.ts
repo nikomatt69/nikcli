@@ -23,7 +23,6 @@ import { MobileAuth } from "@/mobile/auth"
 import { MobileGithubRepo } from "@/mobile/github-repo"
 import { Routine } from "@/mobile/routine"
 import { LoopDefinitionSchema, LoopRunSchema } from "@/loop/schema"
-import { Storage } from "@/storage/storage"
 import { Flag } from "@/flag/flag"
 import { Config } from "@/config/config"
 import { Command } from "@/command"
@@ -129,10 +128,6 @@ export function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
   return runPromiseWithLayer(Project.defaultLayer, effect)
 }
 
-export function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
 export function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
   return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
 }
@@ -164,24 +159,6 @@ export function configUpdateGlobal(info: Config.Info) {
     Effect.gen(function* () {
       const config = yield* Config.Service
       yield* config.updateGlobal(info)
-    }),
-  )
-}
-
-export function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
-
-export function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.list(prefix)
     }),
   )
 }
@@ -619,9 +596,7 @@ export async function searchPromptMemories(query: string) {
     preview: string
   }> = []
 
-  // Sessions live in SQL (repo.ts) since the database migration in 50b55f9a4,
-  // so we use SessionRepo.listAll() instead of the obsolete file-based
-  // storageList(["session"]) walk.
+  // Search the authoritative SQL session index rather than scanning files.
   const allSessions = SessionRepo.listAll()
   for (const session of allSessions) {
     const messages = await runSessionForSession(

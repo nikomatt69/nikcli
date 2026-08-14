@@ -116,7 +116,7 @@ export function BgPulse(props: { centerX?: number; centerY?: number; masks?: BgP
           }
         }
         const strength = Math.min(1, ((level / RINGS) * edgeFalloff + breath * edgeFalloff) * maskAtten)
-        row.push(tint(theme.backgroundPanel, theme.primary, strength * 0.7))
+        row.push(tint(theme.surface.panel, theme.accent.fg, strength * 0.7))
       }
       rows.push(row)
     }

@@ -25,14 +25,14 @@ Deep knowledge of the nikcli monorepo for effective development, debugging, and 
 | File                                       | Role                                 |
 | ------------------------------------------ | ------------------------------------ |
 | `packages/nikcli/src/index.ts`             | CLI entrypoint, command registration |
-| `packages/nikcli/src/server/server.ts`     | Hono HTTP server app                 |
+| `packages/nikcli/src/server/server.ts`     | Listener + request pipeline          |
 | `packages/nikcli/src/session/index.ts`     | Session engine core                  |
 | `packages/nikcli/src/session/llm.ts`       | LLM request path                     |
 | `packages/nikcli/src/tool/registry.ts`     | Tool registration                    |
 | `packages/nikcli/src/config/config.ts`     | Configuration merge logic            |
 | `packages/nikcli/src/provider/provider.ts` | Provider registry                    |
 | `packages/nikcli/src/permission/next.ts`   | Permission evaluation                |
-| `packages/nikcli/src/storage/storage.ts`   | JSON object store                    |
+| `packages/nikcli/src/database/database.ts` | Central `nikcli.db` runtime          |
 | `packages/nikcli/src/mcp/index.ts`         | MCP client lifecycle                 |
 | `packages/nikcli/src/plugin/index.ts`      | Server plugin runtime                |
 
@@ -134,14 +134,13 @@ Tools are registered in `registry.ts` with gating logic based on model capabilit
 
 #### Server (`packages/nikcli/src/server/`)
 
-The server is built on Hono and exposes CLI, TUI, mobile, workspace, and generated Effect HttpApi routes.
+The server is Effect HttpApi on `Bun.serve`. There is no Hono app. Contracts live in `src/server/httpapi/`; `server.ts` owns the listener and request pipeline.
 
 | File          | Purpose                                 |
 | ------------- | --------------------------------------- |
-| `server.ts`   | Hono app construction, middleware order |
-| `routes/`     | Classic Hono route handlers             |
-| `httpapi/`    | Typed Effect HttpApi routes             |
-| `middleware/` | Auth, logging, CORS                     |
+| `server.ts`   | Listener, CORS, auth, instance selection |
+| `httpapi/`    | Typed Effect HttpApi groups + handlers  |
+| `server-router.ts` | Body limit, CORS, auth, dispatch   |
 | `proxy.ts`    | Remote workspace proxying               |
 
 #### Config (`packages/nikcli/src/config/`)
@@ -221,16 +220,10 @@ Evaluation order:
 
 ### Server Request Pipeline
 
-1. Global error mapping
-2. Public share routes (before auth)
-3. User auth middleware
-4. Server-level auth (mobile bearer, Tailscale, Basic Auth)
-5. CORS
-6. Global routes
-7. Workspace context resolution
-8. OpenAPI docs
-9. Effect HttpApi bridge (when enabled)
-10. Classic Hono route groups
+1. Body-limit and CORS
+2. Auth and instance selection
+3. Effect HttpApi groups
+4. Raw handlers (share, SSE, websocket upgrades)
 
 ## Configuration
 
@@ -479,26 +472,25 @@ Provider resolution order:
 | `Global.Path.state`  | Ephemeral state (locks, stashes)        |
 | `Global.Path.repos`  | Hosted repositories                     |
 
-### JSON Store Keys
+### Durable state (`nikcli.db`)
 
-| Key                             | Content             |
-| ------------------------------- | ------------------- |
-| `session/PROJECT_ID/SESSION_ID` | Session metadata    |
-| `message/SESSION_ID/MESSAGE_ID` | Message records     |
-| `part/MESSAGE_ID/PART_ID`       | Message parts       |
-| `session_diff/SESSION_ID`       | Session diffs       |
-| `goal/SESSION_ID`               | Goal state          |
-| `todo/SESSION_ID`               | Todo state          |
-| `routine/PROJECT_ID/ROUTINE_ID` | Routine definitions |
+Sessions, messages, parts, todos, permissions, loops, missions, monitors, shares, and artifacts live behind domain repos (`SessionRepo`, `LoopRepo`, `MissionRepo`, `MonitorRepo`, `ShareRepo`, `ArtifactRepo`, …). Do not add JSON `Storage` reads for a domain that has already moved.
+
+### Leftover JSON keys
+
+JSON `Storage` remains only for derived/ephemeral keys. Do not extend this set; see `specs/storage/remove-json-storage.md`.
+
+| Key                             | Content                    |
+| ------------------------------- | -------------------------- |
+| `session_diff/SESSION_ID`       | Session diffs              |
+| `goal/SESSION_ID`               | Goal state                 |
+| `routine/PROJECT_ID/ROUTINE_ID` | Mobile routine definitions |
 
 ### SQLite Databases
 
-| Database         | Owner            | Purpose                   |
-| ---------------- | ---------------- | ------------------------- |
-| `users.db`       | User module      | Users, sessions, contacts |
-| `accounts.db`    | Account module   | Nikcli account tokens     |
-| `mobile_auth.db` | Mobile auth      | Bearer tokens             |
-| `workspaces.db`  | Workspace module | Workspace records         |
+| Database     | Owner    | Purpose                                                                 |
+| ------------ | -------- | ----------------------------------------------------------------------- |
+| `nikcli.db`  | Database | Central store. Legacy per-domain files were imported; they stay on disk for downgrade. |
 
 ## MCP Reference
 
@@ -675,7 +667,7 @@ nikcli uninstall --keep-config --dry-run
 | Invalid prompt error       | Malformed message shape    | Verify `normalizeStreamMessages` input    |
 | 401 on every request       | Missing auth               | Check bearer token, Basic Auth, Tailscale |
 | Session list empty         | Wrong data root or project | Check `nikcli debug paths`                |
-| HTTP 404 stored object     | Missing JSON file          | Confirm key path exists                   |
+| HTTP 404 stored object     | Missing SQL row            | Confirm the domain repo returns the id    |
 | MCP needs_auth             | OAuth required             | Run `nikcli mcp auth <name>`              |
 | MCP no tools               | listTools failed           | Check server logs and response            |
 | Mobile bootstrap slow      | Multiple subsystem checks  | Smoke `/mobile/auth/token` first          |
@@ -702,11 +694,11 @@ nikcli --print-logs --log-level debug run "your prompt"
 # Check storage paths
 nikcli debug paths
 
-# Inspect storage files
+# Inspect leftover JSON storage (derived/ephemeral keys only)
 find "$HOME/.local/share/nikcli/storage" -maxdepth 3 -type f | sort | head
 
 # Inspect SQLite
-sqlite3 "$HOME/.local/share/nikcli/users.db" ".tables"
+sqlite3 "$HOME/.local/share/nikcli/nikcli.db" ".tables"
 ```
 
 ### Log Analysis
@@ -818,25 +810,7 @@ export const yourTool = {
 
 ### Adding a Server Route
 
-```typescript
-// 1. Create route in packages/nikcli/src/server/routes/your-route.ts
-import { Hono } from "hono"
-
-const app = new Hono()
-
-app.get("/", (c) => {
-  return c.json({ status: "ok" })
-})
-
-export default app
-
-// 2. Mount in packages/nikcli/src/server/server.ts
-import yourRoute from "./routes/your-route"
-app.route("/your-route", yourRoute)
-
-// 3. Regenerate SDK
-// ./packages/sdk/js/script/build.ts
-```
+Edit the HttpApi group in `packages/nikcli/src/server/httpapi/`, then run `bun run generate:httpapi-clients` from `packages/nikcli`. Full workflow is in `packages/nikcli/AGENTS.md` ("HTTP integration workflow"). There is no Hono app and no `src/server/routes/` tree.
 
 ### Working with Sessions
 
@@ -896,29 +870,19 @@ const openai = await Provider.get("openai")
 
 ### Working with Storage
 
+Durable domain state lives in `nikcli.db` behind domain repos. Do not add JSON `Storage` reads for a domain that has already moved (sessions, messages, loops, missions, monitors, shares, artifacts).
+
 ```typescript
-import { Storage } from "./storage"
+import { SessionRepo } from "./session/repo"
 
-// Read
-const session = await Storage.read(["session", projectId, sessionId])
-
-// Write
-await Storage.write(["session", projectId, sessionId], sessionData)
-
-// Update
-await Storage.update(["session", projectId, sessionId], (draft) => {
+SessionRepo.upsert(session)
+const session = SessionRepo.get(sessionId)
+SessionRepo.update(sessionId, (draft) => {
   draft.title = "New Title"
 })
-
-// List
-const sessions = await Storage.list(["session", projectId])
-
-// Transaction
-await Storage.transaction([
-  { type: "write", key: ["session", id], value: data },
-  { type: "remove", key: ["message", id] },
-])
 ```
+
+JSON `Storage` remains only for leftover derived/ephemeral keys (`session_diff`, goals, analytics, PTY). See `specs/storage/remove-json-storage.md`.
 
 ### Working with MCP
 
@@ -950,7 +914,7 @@ const result = await Mcp.callTool("my-server", "tool-name", { arg: "value" })
 8. **Use Effect** - Prefer Effect services for new features
 9. **Follow patterns** - Match existing code organization
 10. **Verify routes** - Test with curl or SDK after changes
-11. **Check storage** - Verify JSON/SQLite changes work
+11. **Check storage** - Durable domain state goes through SQL repos; do not add JSON `Storage` reads for a domain that has already moved
 12. **Test MCP** - Verify tool conversion works correctly
 13. **Test plugins** - Ensure server/TUI targets work
 14. **Back up data** - Before manual storage edits

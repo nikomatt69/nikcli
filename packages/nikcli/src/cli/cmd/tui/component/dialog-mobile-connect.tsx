@@ -124,10 +124,10 @@ function QRCode(props: { matrix: boolean[][] }) {
   const { theme } = useTheme()
   const rows = createMemo(() => renderQRRows(props.matrix))
   return (
-    <box backgroundColor={theme.text} paddingLeft={1} paddingRight={1} flexDirection="column">
+    <box backgroundColor={theme.foreground.default} paddingLeft={1} paddingRight={1} flexDirection="column">
       <For each={rows()}>
         {(row) => (
-          <text fg={theme.background} bg={theme.text} wrapMode="none">
+          <text fg={theme.surface.base} bg={theme.foreground.default} wrapMode="none">
             {row}
           </text>
         )}
@@ -412,27 +412,27 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
   return (
     <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} gap={1} flexDirection="column">
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           {props.mode === "cloud" ? "Connect cloud server" : "Teleport session"}
         </text>
-        <text fg={theme.textMuted}>esc back</text>
+        <text fg={theme.foreground.muted}>esc back</text>
       </box>
 
       <Show
         when={pairing()}
         fallback={
           <>
-            <text fg={theme.textMuted} wrapMode="word">
+            <text fg={theme.foreground.muted} wrapMode="word">
               {props.mode === "cloud"
                 ? "Use a mobile-scoped Bearer token from the remote nikcli server."
                 : "Send the current session and workspace to a remote nikcli server."}
             </text>
             <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={theme.textMuted}>Server URL:</text>
+              <text fg={theme.foreground.muted}>Server URL:</text>
               <box
                 flexGrow={1}
                 border={["bottom"]}
-                borderColor={form.focus === "url" ? theme.primary : theme.borderSubtle}
+                borderColor={form.focus === "url" ? theme.accent.fg : theme.border.subtle}
                 onMouseUp={() => focusField("url")}
               >
                 <input
@@ -442,18 +442,18 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
                     setForm("status", "")
                   }}
                   placeholder="https://my-nikcli-server.example.com"
-                  cursorColor={theme.primary}
-                  focusedTextColor={theme.text}
+                  cursorColor={theme.accent.fg}
+                  focusedTextColor={theme.foreground.default}
                   ref={(value) => (urlInput = value)}
                 />
               </box>
             </box>
             <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={theme.textMuted}>Auth token:</text>
+              <text fg={theme.foreground.muted}>Auth token:</text>
               <box
                 flexGrow={1}
                 border={["bottom"]}
-                borderColor={form.focus === "token" ? theme.primary : theme.borderSubtle}
+                borderColor={form.focus === "token" ? theme.accent.fg : theme.border.subtle}
                 onMouseUp={() => focusField("token")}
               >
                 <input
@@ -463,14 +463,14 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
                     setForm("status", "")
                   }}
                   placeholder="nkm_…"
-                  cursorColor={theme.primary}
-                  focusedTextColor={theme.text}
+                  cursorColor={theme.accent.fg}
+                  focusedTextColor={theme.foreground.default}
                   ref={(value) => (tokenInput = value)}
                 />
               </box>
             </box>
             <Show when={form.status}>
-              <text fg={form.busy ? theme.textMuted : theme.warning} wrapMode="word">
+              <text fg={form.busy ? theme.foreground.muted : theme.status.warning.fg} wrapMode="word">
                 {form.status}
               </text>
             </Show>
@@ -478,10 +478,10 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
               <box
                 paddingLeft={1}
                 paddingRight={1}
-                backgroundColor={form.busy ? theme.backgroundElement : theme.primary}
+                backgroundColor={form.busy ? theme.surface.offset : theme.accent.fg}
                 onMouseUp={() => !form.busy && void submit()}
               >
-                <text fg={form.busy ? theme.textMuted : theme.selectedListItemText}>
+                <text fg={form.busy ? theme.foreground.muted : theme.badge.fg}>
                   {form.busy
                     ? props.mode === "cloud"
                       ? "Verifying…"
@@ -497,21 +497,21 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
       >
         {(value) => (
           <>
-            <text fg={theme.success}>{form.status}</text>
+            <text fg={theme.status.success.fg}>{form.status}</text>
             <box flexDirection={stacked() ? "column" : "row"} gap={2} alignItems={stacked() ? "center" : "flex-start"}>
               <box flexDirection="column" gap={1} flexGrow={1} minWidth={32}>
-                <text attributes={TextAttributes.BOLD} fg={theme.primary}>
+                <text attributes={TextAttributes.BOLD} fg={theme.accent.fg}>
                   Scan from Nikcli Mobile
                 </text>
-                <text fg={theme.textMuted} wrapMode="word">
+                <text fg={theme.foreground.muted} wrapMode="word">
                   This QR connects the app directly to the verified cloud server.
                 </text>
-                <text fg={theme.textMuted}>Server URL</text>
-                <text fg={theme.accent} selectable wrapMode="word">
+                <text fg={theme.foreground.muted}>Server URL</text>
+                <text fg={theme.accent.alt} selectable wrapMode="word">
                   {value().serverUrl}
                 </text>
-                <text fg={theme.textMuted}>Pairing token</text>
-                <text fg={theme.text}>{value().token.slice(0, 8)}••••••••••••••••</text>
+                <text fg={theme.foreground.muted}>Pairing token</text>
+                <text fg={theme.foreground.default}>{value().token.slice(0, 8)}••••••••••••••••</text>
               </box>
               <scrollbox
                 height={Math.min(qrRows(), Math.max(8, dimensions().height - 12))}
@@ -524,9 +524,9 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
               </scrollbox>
             </box>
             <box flexDirection="row" gap={2} marginTop={1}>
-              <text fg={theme.textMuted}>y copy link</text>
-              <text fg={theme.textMuted}>r edit server</text>
-              <text fg={theme.textMuted}>esc back</text>
+              <text fg={theme.foreground.muted}>y copy link</text>
+              <text fg={theme.foreground.muted}>r edit server</text>
+              <text fg={theme.foreground.muted}>esc back</text>
             </box>
           </>
         )}
@@ -679,19 +679,19 @@ function LocalMobileConnect(props: { onBack: () => void }) {
   return (
     <box paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1} gap={1} flexDirection="column">
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           Connect local server
         </text>
-        <text fg={theme.textMuted}>esc back</text>
+        <text fg={theme.foreground.muted}>esc back</text>
       </box>
-      <text fg={connected() ? theme.success : error() ? theme.error : theme.textMuted}>{status()}</text>
+      <text fg={connected() ? theme.status.success.fg : error() ? theme.status.error.fg : theme.foreground.muted}>{status()}</text>
 
       <Show when={error()}>
-        <box backgroundColor={theme.backgroundElement} padding={1} flexDirection="column" gap={1}>
-          <text fg={theme.error} wrapMode="word">
+        <box backgroundColor={theme.surface.offset} padding={1} flexDirection="column" gap={1}>
+          <text fg={theme.status.error.fg} wrapMode="word">
             {error()}
           </text>
-          <text fg={theme.textMuted}>Press r to try again.</text>
+          <text fg={theme.foreground.muted}>Press r to try again.</text>
         </box>
       </Show>
 
@@ -699,39 +699,39 @@ function LocalMobileConnect(props: { onBack: () => void }) {
         {(value) => (
           <box flexDirection={stacked() ? "column" : "row"} gap={2} alignItems={stacked() ? "center" : "flex-start"}>
             <box flexDirection="column" gap={1} flexGrow={1} minWidth={32}>
-              <text attributes={TextAttributes.BOLD} fg={theme.primary}>
+              <text attributes={TextAttributes.BOLD} fg={theme.accent.fg}>
                 Scan from Nikcli Mobile
               </text>
-              <text fg={theme.textMuted} wrapMode="word">
+              <text fg={theme.foreground.muted} wrapMode="word">
                 The QR securely pairs this server and workspace. It enables mobile sessions, approvals, remote actions
                 and Teleport workflows.
               </text>
               <box marginTop={1} flexDirection="column">
-                <text fg={theme.textMuted}>Server URL</text>
-                <text fg={theme.accent} selectable wrapMode="word">
+                <text fg={theme.foreground.muted}>Server URL</text>
+                <text fg={theme.accent.alt} selectable wrapMode="word">
                   {value().serverUrl}
                 </text>
               </box>
               <Show when={value().urls.length > 1}>
-                <text fg={theme.textMuted}>
+                <text fg={theme.foreground.muted}>
                   tab switches network interface ({selectedURL() + 1}/{value().urls.length})
                 </text>
               </Show>
               <Show when={isLikelyIPhoneHotspotUrl(value().serverUrl)}>
-                <text fg={theme.warning} wrapMode="word">
+                <text fg={theme.status.warning.fg} wrapMode="word">
                   iPhone Personal Hotspot may block access from the phone to connected devices. Use the same Wi-Fi
                   network, Tailscale, or the cloud server if this connection times out.
                 </text>
               </Show>
               <box marginTop={1} flexDirection="column">
-                <text fg={theme.textMuted}>Pairing token</text>
-                <text fg={theme.text}>{value().token.slice(0, 8)}••••••••••••••••</text>
+                <text fg={theme.foreground.muted}>Pairing token</text>
+                <text fg={theme.foreground.default}>{value().token.slice(0, 8)}••••••••••••••••</text>
               </box>
-              <text fg={theme.textMuted}>
+              <text fg={theme.foreground.muted}>
                 Expires {value().expiresAt ? new Date(value().expiresAt!).toLocaleDateString() : "never"}
               </text>
               <Show when={connected()}>
-                <text attributes={TextAttributes.BOLD} fg={theme.success}>
+                <text attributes={TextAttributes.BOLD} fg={theme.status.success.fg}>
                   ● Connected
                 </text>
               </Show>
@@ -750,12 +750,12 @@ function LocalMobileConnect(props: { onBack: () => void }) {
       </Show>
 
       <box flexDirection="row" gap={2} marginTop={1}>
-        <text fg={theme.textMuted}>y copy link</text>
-        <text fg={theme.textMuted}>r new token</text>
+        <text fg={theme.foreground.muted}>y copy link</text>
+        <text fg={theme.foreground.muted}>r new token</text>
         <Show when={(pairing()?.urls.length ?? 0) > 1}>
-          <text fg={theme.textMuted}>tab next interface</text>
+          <text fg={theme.foreground.muted}>tab next interface</text>
         </Show>
-        <text fg={theme.textMuted}>esc back</text>
+        <text fg={theme.foreground.muted}>esc back</text>
       </box>
     </box>
   )

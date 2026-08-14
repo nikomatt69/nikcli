@@ -1,53 +1,8 @@
 import z from "zod"
-import path from "path"
-import { Storage } from "../storage/storage"
-import { SessionRepo } from "../session/repo"
-import { MessageRepo } from "../session/message-repo"
+import { Database } from "@/database/database"
 import { Log } from "../util/log"
-import { Effect } from "effect"
-import { runPromiseWithLayer } from "@/effect"
 
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
-
-function storageWrite<T>(key: string[], content: T) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(key, content)
-    }),
-  )
-}
-
-function storageUpdate<T>(key: string[], fn: (draft: T) => void) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.update(key, fn)
-    }),
-  )
-}
-
-function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.list(prefix)
-    }),
-  )
-}
-
-// ===== Schemas =====
+const log = Log.create({ service: "analytics" })
 
 export const TokenBreakdown = z.object({
   input: z.number(),
@@ -158,12 +113,6 @@ export const SessionAnalytics = z.object({
 })
 export type SessionAnalytics = z.infer<typeof SessionAnalytics>
 
-// ===== Helpers =====
-
-function dateKey(timestamp: number): string {
-  return new Date(timestamp).toISOString().split("T")[0]
-}
-
 function emptyGlobal(): GlobalAnalytics {
   return {
     version: 1,
@@ -181,31 +130,31 @@ function emptyGlobal(): GlobalAnalytics {
   }
 }
 
-function emptyDaily(date: string): DailyAnalytics {
-  return {
-    date,
-    sessions: 0,
-    messages: 0,
-    tokens: { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
-    cost: 0,
-    toolCalls: 0,
-    tools: {},
-    providers: {},
-    models: {},
-    recordedAt: Date.now(),
-  }
+const HAS_MODEL = `
+  role = 'assistant'
+  AND json_extract(info, '$.providerID') IS NOT NULL
+  AND json_extract(info, '$.providerID') != ''
+  AND json_extract(info, '$.modelID') IS NOT NULL
+  AND json_extract(info, '$.modelID') != ''`
+
+const DAY_OF = "date(created_at / 1000, 'unixepoch')"
+const token = (field: string) => `COALESCE(SUM(COALESCE(json_extract(info, '$.tokens.${field}'), 0)), 0)`
+
+function native() {
+  return Database.syncNative()
 }
 
-// ===== Analytics Service =====
+function num(value: number | null | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0
+}
 
 export namespace Analytics {
-  const log = Log.create({ service: "analytics" })
-
   /**
-   * Record an assistant message completion.
-   * Updates global totals and daily snapshot.
+   * Recording is a no-op. Totals are queried from `message_info` /
+   * `session_info` / `message_part`. The signatures stay so session writes
+   * do not have to know the JSON snapshots are gone.
    */
-  export async function recordMessage(data: {
+  export async function recordMessage(_data: {
     sessionID: string
     projectID: string
     directory: string
@@ -219,245 +168,23 @@ export namespace Analytics {
     }
     cost: number
     timestamp: number
-  }): Promise<void> {
-    try {
-      const dk = dateKey(data.timestamp)
-      const modelKey = `${data.providerID}/${data.modelID}`
-      const tokenTotal = data.tokens.input + data.tokens.output + data.tokens.reasoning
+  }): Promise<void> {}
 
-      // Update global analytics
-      await storageUpdate<GlobalAnalytics>(["analytics", "global"], (draft) => {
-        if (!draft || !draft.version) {
-          Object.assign(draft, emptyGlobal())
-        }
-        draft.updatedAt = Date.now()
-        draft.totals.messages++
-        draft.totals.tokens.input += data.tokens.input
-        draft.totals.tokens.output += data.tokens.output
-        draft.totals.tokens.reasoning += data.tokens.reasoning
-        draft.totals.tokens.cacheRead += data.tokens.cache.read
-        draft.totals.tokens.cacheWrite += data.tokens.cache.write
-        draft.totals.cost += data.cost
-
-        // Provider
-        if (!draft.byProvider[data.providerID]) {
-          draft.byProvider[data.providerID] = { sessions: 0, messages: 0, tokens: 0, cost: 0 }
-        }
-        const prov = draft.byProvider[data.providerID]
-        prov.messages++
-        prov.tokens += tokenTotal
-        prov.cost += data.cost
-
-        // Model
-        if (!draft.byModel[modelKey]) {
-          draft.byModel[modelKey] = {
-            sessions: 0,
-            messages: 0,
-            tokens: { input: 0, output: 0, reasoning: 0 },
-            cost: 0,
-            firstUsed: data.timestamp,
-            lastUsed: data.timestamp,
-          }
-        }
-        const model = draft.byModel[modelKey]
-        model.messages++
-        model.tokens.input += data.tokens.input
-        model.tokens.output += data.tokens.output
-        model.tokens.reasoning += data.tokens.reasoning
-        model.cost += data.cost
-        model.lastUsed = Math.max(model.lastUsed, data.timestamp)
-
-        // Project
-        const projectID = data.projectID || "default"
-        if (!draft.byProject[projectID]) {
-          draft.byProject[projectID] = { sessions: 0, tokens: 0, cost: 0, lastActive: data.timestamp }
-        }
-        const proj = draft.byProject[projectID]
-        proj.tokens += tokenTotal
-        proj.cost += data.cost
-        proj.lastActive = Math.max(proj.lastActive, data.timestamp)
-      }).catch((e) => {
-        // If update fails (e.g., first time), write fresh
-        const fresh = emptyGlobal()
-        fresh.totals.messages = 1
-        fresh.totals.tokens = {
-          input: data.tokens.input,
-          output: data.tokens.output,
-          reasoning: data.tokens.reasoning,
-          cacheRead: data.tokens.cache.read,
-          cacheWrite: data.tokens.cache.write,
-        }
-        fresh.totals.cost = data.cost
-        fresh.byProvider[data.providerID] = { sessions: 0, messages: 1, tokens: tokenTotal, cost: data.cost }
-        fresh.byModel[modelKey] = {
-          sessions: 0,
-          messages: 1,
-          tokens: { input: data.tokens.input, output: data.tokens.output, reasoning: data.tokens.reasoning },
-          cost: data.cost,
-          firstUsed: data.timestamp,
-          lastUsed: data.timestamp,
-        }
-        fresh.byProject[data.projectID || "default"] = {
-          sessions: 0,
-          tokens: tokenTotal,
-          cost: data.cost,
-          lastActive: data.timestamp,
-        }
-        return storageWrite(["analytics", "global"], fresh)
-      })
-
-      // Update daily snapshot
-      await storageUpdate<DailyAnalytics>(["analytics", "daily", dk], (draft) => {
-        if (!draft || !draft.date) {
-          Object.assign(draft, emptyDaily(dk))
-        }
-        draft.messages++
-        draft.tokens.input += data.tokens.input
-        draft.tokens.output += data.tokens.output
-        draft.tokens.reasoning += data.tokens.reasoning
-        draft.tokens.cacheRead += data.tokens.cache.read
-        draft.tokens.cacheWrite += data.tokens.cache.write
-        draft.cost += data.cost
-        draft.recordedAt = Date.now()
-
-        // Provider daily
-        if (!draft.providers[data.providerID]) {
-          draft.providers[data.providerID] = { messages: 0, tokens: 0, cost: 0 }
-        }
-        draft.providers[data.providerID].messages++
-        draft.providers[data.providerID].tokens += tokenTotal
-        draft.providers[data.providerID].cost += data.cost
-
-        // Model daily
-        if (!draft.models[modelKey]) {
-          draft.models[modelKey] = { messages: 0, tokens: 0, cost: 0 }
-        }
-        draft.models[modelKey].messages++
-        draft.models[modelKey].tokens += tokenTotal
-        draft.models[modelKey].cost += data.cost
-      }).catch(() => {
-        const fresh = emptyDaily(dk)
-        fresh.messages = 1
-        fresh.tokens = {
-          input: data.tokens.input,
-          output: data.tokens.output,
-          reasoning: data.tokens.reasoning,
-          cacheRead: data.tokens.cache.read,
-          cacheWrite: data.tokens.cache.write,
-        }
-        fresh.cost = data.cost
-        fresh.providers[data.providerID] = { messages: 1, tokens: tokenTotal, cost: data.cost }
-        fresh.models[modelKey] = { messages: 1, tokens: tokenTotal, cost: data.cost }
-        return storageWrite(["analytics", "daily", dk], fresh)
-      })
-    } catch (e) {
-      log.error("Failed to record message analytics", { error: e })
-    }
-  }
-
-  /**
-   * Record session creation.
-   */
-  export async function recordSession(data: {
+  export async function recordSession(_data: {
     sessionID: string
     projectID: string
     directory: string
     timestamp: number
-  }): Promise<void> {
-    try {
-      const dk = dateKey(data.timestamp)
+  }): Promise<void> {}
 
-      await storageUpdate<GlobalAnalytics>(["analytics", "global"], (draft) => {
-        if (!draft || !draft.version) {
-          Object.assign(draft, emptyGlobal())
-        }
-        draft.updatedAt = Date.now()
-        draft.totals.sessions++
-
-        const projectID = data.projectID || "default"
-        if (!draft.byProject[projectID]) {
-          draft.byProject[projectID] = { sessions: 0, tokens: 0, cost: 0, lastActive: data.timestamp }
-        }
-        draft.byProject[projectID].sessions++
-        draft.byProject[projectID].lastActive = Math.max(draft.byProject[projectID].lastActive, data.timestamp)
-      }).catch(() => {
-        const fresh = emptyGlobal()
-        fresh.totals.sessions = 1
-        fresh.byProject[data.projectID || "default"] = { sessions: 1, tokens: 0, cost: 0, lastActive: data.timestamp }
-        return storageWrite(["analytics", "global"], fresh)
-      })
-
-      await storageUpdate<DailyAnalytics>(["analytics", "daily", dk], (draft) => {
-        if (!draft || !draft.date) {
-          Object.assign(draft, emptyDaily(dk))
-        }
-        draft.sessions++
-        draft.recordedAt = Date.now()
-      }).catch(() => {
-        const fresh = emptyDaily(dk)
-        fresh.sessions = 1
-        return storageWrite(["analytics", "daily", dk], fresh)
-      })
-    } catch (e) {
-      log.error("Failed to record session analytics", { error: e })
-    }
-  }
-
-  /**
-   * Record tool usage.
-   */
-  export async function recordToolUse(data: {
+  export async function recordToolUse(_data: {
     toolName: string
     sessionID: string
     success: boolean
     timestamp: number
-  }): Promise<void> {
-    try {
-      const dk = dateKey(data.timestamp)
+  }): Promise<void> {}
 
-      await storageUpdate<GlobalAnalytics>(["analytics", "global"], (draft) => {
-        if (!draft || !draft.version) {
-          Object.assign(draft, emptyGlobal())
-        }
-        draft.updatedAt = Date.now()
-        draft.totals.toolCalls++
-      }).catch(() => {
-        const fresh = emptyGlobal()
-        fresh.totals.toolCalls = 1
-        return storageWrite(["analytics", "global"], fresh)
-      })
-
-      await storageUpdate<DailyAnalytics>(["analytics", "daily", dk], (draft) => {
-        if (!draft || !draft.date) {
-          Object.assign(draft, emptyDaily(dk))
-        }
-        draft.toolCalls++
-        draft.recordedAt = Date.now()
-
-        if (!draft.tools[data.toolName]) {
-          draft.tools[data.toolName] = { calls: 0, success: 0, error: 0 }
-        }
-        draft.tools[data.toolName].calls++
-        if (data.success) {
-          draft.tools[data.toolName].success++
-        } else {
-          draft.tools[data.toolName].error++
-        }
-      }).catch(() => {
-        const fresh = emptyDaily(dk)
-        fresh.toolCalls = 1
-        fresh.tools[data.toolName] = { calls: 1, success: data.success ? 1 : 0, error: data.success ? 0 : 1 }
-        return storageWrite(["analytics", "daily", dk], fresh)
-      })
-    } catch (e) {
-      log.error("Failed to record tool analytics", { error: e })
-    }
-  }
-
-  /**
-   * Record session-level snapshot on session end/archival.
-   */
-  export async function recordSessionEnd(data: {
+  export async function recordSessionEnd(_data: {
     sessionID: string
     projectID: string
     directory: string
@@ -477,282 +204,417 @@ export namespace Analytics {
     duration: number
     created: number
     completed: number
-  }): Promise<void> {
-    try {
-      await storageWrite<SessionAnalytics>(["analytics", "session", data.sessionID], {
-        sessionID: data.sessionID,
-        projectID: data.projectID,
-        directory: data.directory,
-        title: data.title,
-        providerID: data.providerID,
-        modelID: data.modelID,
-        messages: data.messages,
-        tokens: data.tokens,
-        cost: data.cost,
-        toolCalls: data.toolCalls,
-        duration: data.duration,
-        time: {
-          created: data.created,
-          completed: data.completed,
-        },
-      })
+  }): Promise<void> {}
 
-      // Update model session count in global
-      const modelKey = `${data.providerID}/${data.modelID}`
-      await storageUpdate<GlobalAnalytics>(["analytics", "global"], (draft) => {
-        if (!draft || !draft.version) return
-        if (draft.byModel[modelKey]) {
-          draft.byModel[modelKey].sessions++
-        }
-        if (draft.byProvider[data.providerID]) {
-          draft.byProvider[data.providerID].sessions++
-        }
-      }).catch(() => {})
-    } catch (e) {
-      log.error("Failed to record session end analytics", { error: e })
-    }
-  }
+  /** @deprecated Snapshots are derived; nothing to backfill. */
+  export async function backfillFromExisting(): Promise<void> {}
 
-  /**
-   * Backfill analytics from existing session/message data.
-   * One-time migration for users upgrading to analytics.
-   */
-  export async function backfillFromExisting(): Promise<void> {
-    try {
-      // Check if already backfilled
-      const existing = await storageRead<GlobalAnalytics>(["analytics", "global"]).catch(() => null)
-      if (existing && existing.version === 1) {
-        log.info("Analytics already backfilled, skipping")
-        return
-      }
-
-      log.info("Starting analytics backfill from existing data...")
-      const global = emptyGlobal()
-
-      // Scan all projects
-      const projectKeys = await storageList(["project"])
-      for (const key of projectKeys) {
-        try {
-          const project = await storageRead<{ id: string }>(key)
-          if (!project?.id) continue
-
-          // Scan sessions for this project
-          const projectSessions = SessionRepo.getByProject(project.id)
-          for (const session of projectSessions) {
-            try {
-              global.totals.sessions++
-              const projID = session.projectID || "default"
-              if (!global.byProject[projID]) {
-                global.byProject[projID] = { sessions: 0, tokens: 0, cost: 0, lastActive: session.time.updated }
-              }
-              global.byProject[projID].sessions++
-
-              // Scan messages for this session
-              const sessionMessages = MessageRepo.listMessages(session.id)
-              for (const msg of sessionMessages) {
-                try {
-                  if (msg.role !== "assistant" || !msg.tokens) continue
-
-                  const input = msg.tokens.input || 0
-                  const output = msg.tokens.output || 0
-                  const reasoning = msg.tokens.reasoning || 0
-                  const cacheRead = msg.tokens.cache?.read || 0
-                  const cacheWrite = msg.tokens.cache?.write || 0
-                  const cost = msg.cost || 0
-                  const providerID = msg.providerID || "unknown"
-                  const modelID = msg.modelID || "unknown"
-                  const modelKey = `${providerID}/${modelID}`
-                  const timestamp = msg.time?.completed || msg.time?.created || session.time.updated
-                  const dk = dateKey(timestamp)
-                  const tokenTotal = input + output + reasoning
-
-                  // Update global
-                  global.totals.messages++
-                  global.totals.tokens.input += input
-                  global.totals.tokens.output += output
-                  global.totals.tokens.reasoning += reasoning
-                  global.totals.tokens.cacheRead += cacheRead
-                  global.totals.tokens.cacheWrite += cacheWrite
-                  global.totals.cost += cost
-
-                  // Provider
-                  if (!global.byProvider[providerID]) {
-                    global.byProvider[providerID] = { sessions: 0, messages: 0, tokens: 0, cost: 0 }
-                  }
-                  global.byProvider[providerID].messages++
-                  global.byProvider[providerID].tokens += tokenTotal
-                  global.byProvider[providerID].cost += cost
-
-                  // Model
-                  if (!global.byModel[modelKey]) {
-                    global.byModel[modelKey] = {
-                      sessions: 0,
-                      messages: 0,
-                      tokens: { input: 0, output: 0, reasoning: 0 },
-                      cost: 0,
-                      firstUsed: timestamp,
-                      lastUsed: timestamp,
-                    }
-                  }
-                  global.byModel[modelKey].messages++
-                  global.byModel[modelKey].tokens.input += input
-                  global.byModel[modelKey].tokens.output += output
-                  global.byModel[modelKey].tokens.reasoning += reasoning
-                  global.byModel[modelKey].cost += cost
-                  global.byModel[modelKey].firstUsed = Math.min(global.byModel[modelKey].firstUsed, timestamp)
-                  global.byModel[modelKey].lastUsed = Math.max(global.byModel[modelKey].lastUsed, timestamp)
-
-                  // Project
-                  global.byProject[projID].tokens += tokenTotal
-                  global.byProject[projID].cost += cost
-                  global.byProject[projID].lastActive = Math.max(global.byProject[projID].lastActive, timestamp)
-
-                  // Daily snapshot
-                  await storageUpdate<DailyAnalytics>(["analytics", "daily", dk], (draft) => {
-                    if (!draft || !draft.date) {
-                      Object.assign(draft, emptyDaily(dk))
-                    }
-                    draft.messages++
-                    draft.tokens.input += input
-                    draft.tokens.output += output
-                    draft.tokens.reasoning += reasoning
-                    draft.tokens.cacheRead += cacheRead
-                    draft.tokens.cacheWrite += cacheWrite
-                    draft.cost += cost
-                    draft.recordedAt = Date.now()
-
-                    if (!draft.providers[providerID]) {
-                      draft.providers[providerID] = { messages: 0, tokens: 0, cost: 0 }
-                    }
-                    draft.providers[providerID].messages++
-                    draft.providers[providerID].tokens += tokenTotal
-                    draft.providers[providerID].cost += cost
-
-                    if (!draft.models[modelKey]) {
-                      draft.models[modelKey] = { messages: 0, tokens: 0, cost: 0 }
-                    }
-                    draft.models[modelKey].messages++
-                    draft.models[modelKey].tokens += tokenTotal
-                    draft.models[modelKey].cost += cost
-                  }).catch(() => {
-                    const fresh = emptyDaily(dk)
-                    fresh.messages = 1
-                    fresh.tokens = { input, output, reasoning, cacheRead, cacheWrite }
-                    fresh.cost = cost
-                    fresh.providers[providerID] = { messages: 1, tokens: tokenTotal, cost }
-                    fresh.models[modelKey] = { messages: 1, tokens: tokenTotal, cost }
-                    return storageWrite(["analytics", "daily", dk], fresh)
-                  })
-                } catch {
-                  // Skip unreadable messages
-                }
-              }
-            } catch {
-              // Skip unreadable sessions
-            }
-          }
-        } catch {
-          // Skip unreadable projects
-        }
-      }
-
-      global.updatedAt = Date.now()
-      await storageWrite(["analytics", "global"], global)
-      log.info("Analytics backfill complete", {
-        sessions: global.totals.sessions,
-        messages: global.totals.messages,
-        cost: global.totals.cost,
-      })
-    } catch (e) {
-      log.error("Analytics backfill failed", { error: e })
-    }
-  }
-
-  /**
-   * Read global analytics.
-   */
   export async function getGlobal(): Promise<GlobalAnalytics> {
-    return storageRead<GlobalAnalytics>(["analytics", "global"]).catch(() => emptyGlobal())
+    try {
+      const db = native()
+      const totals = db
+        .query<
+          {
+            sessions: number
+            messages: number
+            input: number
+            output: number
+            reasoning: number
+            cacheRead: number
+            cacheWrite: number
+            cost: number
+            toolCalls: number
+          },
+          []
+        >(
+          `SELECT
+             (SELECT COUNT(*) FROM session_info) AS sessions,
+             COUNT(*) AS messages,
+             ${token("input")} AS input,
+             ${token("output")} AS output,
+             ${token("reasoning")} AS reasoning,
+             ${token("cache.read")} AS cacheRead,
+             ${token("cache.write")} AS cacheWrite,
+             COALESCE(SUM(COALESCE(json_extract(info, '$.cost'), 0)), 0) AS cost,
+             (SELECT COUNT(*) FROM message_part WHERE type = 'tool') AS toolCalls
+           FROM message_info
+           WHERE ${HAS_MODEL}`,
+        )
+        .get()
+
+      const byProvider: GlobalAnalytics["byProvider"] = {}
+      for (const row of db
+        .query<
+          { provider: string; sessions: number; messages: number; tokens: number; cost: number },
+          []
+        >(
+          `SELECT
+             json_extract(info, '$.providerID') AS provider,
+             COUNT(DISTINCT session_id) AS sessions,
+             COUNT(*) AS messages,
+             ${token("input")} + ${token("output")} + ${token("reasoning")} AS tokens,
+             COALESCE(SUM(COALESCE(json_extract(info, '$.cost'), 0)), 0) AS cost
+           FROM message_info
+           WHERE ${HAS_MODEL}
+           GROUP BY 1`,
+        )
+        .all()) {
+        if (!row.provider) continue
+        byProvider[row.provider] = {
+          sessions: num(row.sessions),
+          messages: num(row.messages),
+          tokens: num(row.tokens),
+          cost: num(row.cost),
+        }
+      }
+
+      const byModel: GlobalAnalytics["byModel"] = {}
+      for (const row of db
+        .query<
+          {
+            provider: string
+            model: string
+            sessions: number
+            messages: number
+            input: number
+            output: number
+            reasoning: number
+            cost: number
+            firstUsed: number
+            lastUsed: number
+          },
+          []
+        >(
+          `SELECT
+             json_extract(info, '$.providerID') AS provider,
+             json_extract(info, '$.modelID') AS model,
+             COUNT(DISTINCT session_id) AS sessions,
+             COUNT(*) AS messages,
+             ${token("input")} AS input,
+             ${token("output")} AS output,
+             ${token("reasoning")} AS reasoning,
+             COALESCE(SUM(COALESCE(json_extract(info, '$.cost'), 0)), 0) AS cost,
+             MIN(created_at) AS firstUsed,
+             MAX(COALESCE(json_extract(info, '$.time.completed'), created_at)) AS lastUsed
+           FROM message_info
+           WHERE ${HAS_MODEL}
+           GROUP BY 1, 2`,
+        )
+        .all()) {
+        if (!row.provider || !row.model) continue
+        byModel[`${row.provider}/${row.model}`] = {
+          sessions: num(row.sessions),
+          messages: num(row.messages),
+          tokens: { input: num(row.input), output: num(row.output), reasoning: num(row.reasoning) },
+          cost: num(row.cost),
+          firstUsed: num(row.firstUsed),
+          lastUsed: num(row.lastUsed),
+        }
+      }
+
+      const byProject: GlobalAnalytics["byProject"] = {}
+      for (const row of db
+        .query<
+          { projectID: string; sessions: number; tokens: number; cost: number; lastActive: number },
+          []
+        >(
+          `SELECT
+             s.project_id AS projectID,
+             COUNT(DISTINCT s.id) AS sessions,
+             COALESCE(SUM(
+               CASE WHEN m.role = 'assistant'
+                 THEN COALESCE(json_extract(m.info, '$.tokens.input'), 0)
+                    + COALESCE(json_extract(m.info, '$.tokens.output'), 0)
+                    + COALESCE(json_extract(m.info, '$.tokens.reasoning'), 0)
+               ELSE 0 END
+             ), 0) AS tokens,
+             COALESCE(SUM(
+               CASE WHEN m.role = 'assistant' THEN COALESCE(json_extract(m.info, '$.cost'), 0) ELSE 0 END
+             ), 0) AS cost,
+             MAX(s.updated_at) AS lastActive
+           FROM session_info s
+           LEFT JOIN message_info m ON m.session_id = s.id
+           GROUP BY s.project_id`,
+        )
+        .all()) {
+        if (!row.projectID) continue
+        byProject[row.projectID] = {
+          sessions: num(row.sessions),
+          tokens: num(row.tokens),
+          cost: num(row.cost),
+          lastActive: num(row.lastActive),
+        }
+      }
+
+      return {
+        version: 1,
+        updatedAt: Date.now(),
+        totals: {
+          sessions: num(totals?.sessions),
+          messages: num(totals?.messages),
+          tokens: {
+            input: num(totals?.input),
+            output: num(totals?.output),
+            reasoning: num(totals?.reasoning),
+            cacheRead: num(totals?.cacheRead),
+            cacheWrite: num(totals?.cacheWrite),
+          },
+          cost: num(totals?.cost),
+          toolCalls: num(totals?.toolCalls),
+        },
+        byProvider,
+        byModel,
+        byProject,
+      }
+    } catch (error) {
+      log.error("Failed to read global analytics", { error })
+      return emptyGlobal()
+    }
   }
 
-  /**
-   * Read daily snapshots in a date range.
-   */
   export async function getDaily(from: string, to: string): Promise<DailyAnalytics[]> {
-    const keys = await storageList(["analytics", "daily"])
-    const results: DailyAnalytics[] = []
-    for (const key of keys) {
-      const dk = key[2]
-      if (!dk || dk < from || dk > to) continue
-      try {
-        const snap = await storageRead<DailyAnalytics>(key)
-        if (snap && snap.date) results.push(snap)
-      } catch {
-        // Skip unreadable
+    try {
+      const db = native()
+      const days = new Map<string, DailyAnalytics>()
+
+      const ensure = (date: string): DailyAnalytics => {
+        const existing = days.get(date)
+        if (existing) return existing
+        const fresh: DailyAnalytics = {
+          date,
+          sessions: 0,
+          messages: 0,
+          tokens: { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+          cost: 0,
+          toolCalls: 0,
+          tools: {},
+          providers: {},
+          models: {},
+          recordedAt: Date.now(),
+        }
+        days.set(date, fresh)
+        return fresh
       }
+
+      for (const row of db
+        .query<
+          {
+            date: string
+            sessions: number
+            messages: number
+            input: number
+            output: number
+            reasoning: number
+            cacheRead: number
+            cacheWrite: number
+            cost: number
+          },
+          [string, string]
+        >(
+          `SELECT
+             ${DAY_OF} AS date,
+             COUNT(DISTINCT session_id) AS sessions,
+             COUNT(*) AS messages,
+             ${token("input")} AS input,
+             ${token("output")} AS output,
+             ${token("reasoning")} AS reasoning,
+             ${token("cache.read")} AS cacheRead,
+             ${token("cache.write")} AS cacheWrite,
+             COALESCE(SUM(COALESCE(json_extract(info, '$.cost'), 0)), 0) AS cost
+           FROM message_info
+           WHERE ${HAS_MODEL} AND ${DAY_OF} BETWEEN ? AND ?
+           GROUP BY 1`,
+        )
+        .all(from, to)) {
+        const day = ensure(row.date)
+        day.sessions = num(row.sessions)
+        day.messages = num(row.messages)
+        day.tokens = {
+          input: num(row.input),
+          output: num(row.output),
+          reasoning: num(row.reasoning),
+          cacheRead: num(row.cacheRead),
+          cacheWrite: num(row.cacheWrite),
+        }
+        day.cost = num(row.cost)
+      }
+
+      for (const row of db
+        .query<{ date: string; provider: string; messages: number; tokens: number; cost: number }, [string, string]>(
+          `SELECT
+             ${DAY_OF} AS date,
+             json_extract(info, '$.providerID') AS provider,
+             COUNT(*) AS messages,
+             ${token("input")} + ${token("output")} + ${token("reasoning")} AS tokens,
+             COALESCE(SUM(COALESCE(json_extract(info, '$.cost'), 0)), 0) AS cost
+           FROM message_info
+           WHERE ${HAS_MODEL} AND ${DAY_OF} BETWEEN ? AND ?
+           GROUP BY 1, 2`,
+        )
+        .all(from, to)) {
+        if (!row.provider) continue
+        ensure(row.date).providers[row.provider] = {
+          messages: num(row.messages),
+          tokens: num(row.tokens),
+          cost: num(row.cost),
+        }
+      }
+
+      for (const row of db
+        .query<
+          { date: string; provider: string; model: string; messages: number; tokens: number; cost: number },
+          [string, string]
+        >(
+          `SELECT
+             ${DAY_OF} AS date,
+             json_extract(info, '$.providerID') AS provider,
+             json_extract(info, '$.modelID') AS model,
+             COUNT(*) AS messages,
+             ${token("input")} + ${token("output")} + ${token("reasoning")} AS tokens,
+             COALESCE(SUM(COALESCE(json_extract(info, '$.cost'), 0)), 0) AS cost
+           FROM message_info
+           WHERE ${HAS_MODEL} AND ${DAY_OF} BETWEEN ? AND ?
+           GROUP BY 1, 2, 3`,
+        )
+        .all(from, to)) {
+        if (!row.provider || !row.model) continue
+        ensure(row.date).models[`${row.provider}/${row.model}`] = {
+          messages: num(row.messages),
+          tokens: num(row.tokens),
+          cost: num(row.cost),
+        }
+      }
+
+      for (const row of db
+        .query<
+          { date: string; tool: string; calls: number; success: number; error: number },
+          [string, string]
+        >(
+          `SELECT
+             date(m.created_at / 1000, 'unixepoch') AS date,
+             COALESCE(json_extract(p.info, '$.tool'), 'unknown') AS tool,
+             COUNT(*) AS calls,
+             SUM(CASE WHEN json_extract(p.info, '$.state.status') = 'completed' THEN 1 ELSE 0 END) AS success,
+             SUM(CASE WHEN json_extract(p.info, '$.state.status') = 'error' THEN 1 ELSE 0 END) AS error
+           FROM message_part p
+           JOIN message_info m ON m.id = p.message_id
+           WHERE p.type = 'tool' AND date(m.created_at / 1000, 'unixepoch') BETWEEN ? AND ?
+           GROUP BY 1, 2`,
+        )
+        .all(from, to)) {
+        const day = ensure(row.date)
+        day.toolCalls += num(row.calls)
+        day.tools[row.tool || "unknown"] = {
+          calls: num(row.calls),
+          success: num(row.success),
+          error: num(row.error),
+        }
+      }
+
+      return [...days.values()].sort((a, b) => a.date.localeCompare(b.date))
+    } catch (error) {
+      log.error("Failed to read daily analytics", { error })
+      return []
     }
-    return results.sort((a, b) => a.date.localeCompare(b.date))
   }
 
-  /**
-   * Read session-level analytics.
-   */
+  function sessionRow(row: {
+    sessionID: string
+    projectID: string
+    directory: string
+    title: string
+    providerID: string | null
+    modelID: string | null
+    messages: number
+    input: number
+    output: number
+    reasoning: number
+    cacheRead: number
+    cacheWrite: number
+    cost: number
+    toolCalls: number
+    created: number
+    completed: number
+  }): SessionAnalytics {
+    return {
+      sessionID: row.sessionID,
+      projectID: row.projectID,
+      directory: row.directory,
+      title: row.title,
+      providerID: row.providerID || "unknown",
+      modelID: row.modelID || "unknown",
+      messages: num(row.messages),
+      tokens: {
+        input: num(row.input),
+        output: num(row.output),
+        reasoning: num(row.reasoning),
+        cacheRead: num(row.cacheRead),
+        cacheWrite: num(row.cacheWrite),
+      },
+      cost: num(row.cost),
+      toolCalls: num(row.toolCalls),
+      duration: Math.max(0, num(row.completed) - num(row.created)),
+      time: { created: num(row.created), completed: num(row.completed) },
+    }
+  }
+
+  const SESSION_SELECT = `
+    SELECT
+      s.id AS sessionID,
+      s.project_id AS projectID,
+      s.directory,
+      s.title,
+      (SELECT json_extract(info, '$.providerID') FROM message_info
+        WHERE session_id = s.id AND role = 'assistant' AND json_extract(info, '$.providerID') IS NOT NULL
+        ORDER BY created_at DESC LIMIT 1) AS providerID,
+      (SELECT json_extract(info, '$.modelID') FROM message_info
+        WHERE session_id = s.id AND role = 'assistant' AND json_extract(info, '$.modelID') IS NOT NULL
+        ORDER BY created_at DESC LIMIT 1) AS modelID,
+      COALESCE(SUM(CASE WHEN m.role = 'assistant' THEN 1 ELSE 0 END), 0) AS messages,
+      COALESCE(SUM(CASE WHEN m.role = 'assistant' THEN COALESCE(json_extract(m.info, '$.tokens.input'), 0) ELSE 0 END), 0) AS input,
+      COALESCE(SUM(CASE WHEN m.role = 'assistant' THEN COALESCE(json_extract(m.info, '$.tokens.output'), 0) ELSE 0 END), 0) AS output,
+      COALESCE(SUM(CASE WHEN m.role = 'assistant' THEN COALESCE(json_extract(m.info, '$.tokens.reasoning'), 0) ELSE 0 END), 0) AS reasoning,
+      COALESCE(SUM(CASE WHEN m.role = 'assistant' THEN COALESCE(json_extract(m.info, '$.tokens.cache.read'), 0) ELSE 0 END), 0) AS cacheRead,
+      COALESCE(SUM(CASE WHEN m.role = 'assistant' THEN COALESCE(json_extract(m.info, '$.tokens.cache.write'), 0) ELSE 0 END), 0) AS cacheWrite,
+      COALESCE(SUM(CASE WHEN m.role = 'assistant' THEN COALESCE(json_extract(m.info, '$.cost'), 0) ELSE 0 END), 0) AS cost,
+      (SELECT COUNT(*) FROM message_part p WHERE p.session_id = s.id AND p.type = 'tool') AS toolCalls,
+      s.created_at AS created,
+      s.updated_at AS completed
+    FROM session_info s
+    LEFT JOIN message_info m ON m.session_id = s.id`
+
   export async function getSession(sessionID: string): Promise<SessionAnalytics | null> {
-    return storageRead<SessionAnalytics>(["analytics", "session", sessionID]).catch(() => null)
-  }
-
-  /**
-   * Read all session analytics.
-   */
-  export async function getAllSessions(): Promise<SessionAnalytics[]> {
-    const keys = await storageList(["analytics", "session"])
-    const results: SessionAnalytics[] = []
-    for (const key of keys) {
-      try {
-        const snap = await storageRead<SessionAnalytics>(key)
-        if (snap && snap.sessionID) results.push(snap)
-      } catch {
-        // Skip unreadable
-      }
+    try {
+      const row = native()
+        .query<Parameters<typeof sessionRow>[0], [string]>(`${SESSION_SELECT} WHERE s.id = ? GROUP BY s.id`)
+        .get(sessionID)
+      return row ? sessionRow(row) : null
+    } catch (error) {
+      log.error("Failed to read session analytics", { error, sessionID })
+      return null
     }
-    return results.sort((a, b) => b.time.completed - a.time.completed)
   }
 
-  /**
-   * Get the retention date (365 days ago).
-   */
+  export async function getAllSessions(): Promise<SessionAnalytics[]> {
+    try {
+      return native()
+        .query<Parameters<typeof sessionRow>[0], []>(`${SESSION_SELECT} GROUP BY s.id ORDER BY s.updated_at DESC`)
+        .all()
+        .map(sessionRow)
+    } catch (error) {
+      log.error("Failed to read session analytics list", { error })
+      return []
+    }
+  }
+
   export function retentionDate(): string {
     const d = new Date()
     d.setUTCDate(d.getUTCDate() - 365)
     return d.toISOString().split("T")[0]
   }
 
-  /**
-   * Clean up daily snapshots older than retention period.
-   */
-  export async function compactOldDays(): Promise<void> {
-    const cutoff = retentionDate()
-    const keys = await storageList(["analytics", "daily"])
-    let removed = 0
-    for (const key of keys) {
-      const dk = key[2]
-      if (!dk || dk >= cutoff) continue
-      try {
-        await runStorage(
-          Effect.gen(function* () {
-            const storage = yield* Storage.Service
-            yield* storage.remove(key)
-          }),
-        )
-        removed++
-      } catch {
-        // Skip
-      }
-    }
-    if (removed > 0) {
-      log.info("Compacted old analytics days", { removed })
-    }
-  }
+  /** @deprecated Daily snapshots are no longer stored. */
+  export async function compactOldDays(): Promise<void> {}
 }
 
 function maxTokenBreakdown(a: TokenBreakdown, b: TokenBreakdown): TokenBreakdown {
@@ -941,47 +803,13 @@ export function mergeSessionAnalyticsLists(a: SessionAnalytics[], b: SessionAnal
 }
 
 /**
- * Read persisted analytics JSON from disk (`<dataRoot>/storage/analytics/…`) without going through HTTP.
- * Uses the same layout as {@link Storage} (XDG data dir when `dataRoot` is `Global.Path.data`).
+ * Leftover JSON snapshots are no longer a runtime source. The HTTP handlers
+ * query SQL; this stays so the TUI refresh path does not have to know.
  */
-export async function loadPersistedAnalyticsFromDataRoot(dataRoot: string): Promise<{
+export async function loadPersistedAnalyticsFromDataRoot(_dataRoot: string): Promise<{
   global: GlobalAnalytics | null
   daily: DailyAnalytics[]
   sessions: SessionAnalytics[]
 }> {
-  const root = path.join(dataRoot, "storage", "analytics")
-  const globalRaw = await Bun.file(path.join(root, "global.json"))
-    .json()
-    .catch(() => null)
-  const global = globalRaw && GlobalAnalytics.safeParse(globalRaw).success ? GlobalAnalytics.parse(globalRaw) : null
-
-  const daily: DailyAnalytics[] = []
-  const dailyDir = path.join(root, "daily")
-  try {
-    for await (const file of new Bun.Glob("*.json").scan({ cwd: dailyDir, absolute: true })) {
-      const raw = await Bun.file(file)
-        .json()
-        .catch(() => null)
-      if (raw && DailyAnalytics.safeParse(raw).success) daily.push(DailyAnalytics.parse(raw))
-    }
-  } catch {
-    // missing dir
-  }
-  daily.sort((x, y) => x.date.localeCompare(y.date))
-
-  const sessions: SessionAnalytics[] = []
-  const sessionDir = path.join(root, "session")
-  try {
-    for await (const file of new Bun.Glob("*.json").scan({ cwd: sessionDir, absolute: true })) {
-      const raw = await Bun.file(file)
-        .json()
-        .catch(() => null)
-      if (raw && SessionAnalytics.safeParse(raw).success) sessions.push(SessionAnalytics.parse(raw))
-    }
-  } catch {
-    // missing dir
-  }
-  sessions.sort((a, b) => b.time.completed - a.time.completed)
-
-  return { global, daily, sessions }
+  return { global: null, daily: [], sessions: [] }
 }

@@ -1,6 +1,7 @@
 import { preserveTestEnv } from "../helpers/env"
 import { removeTestDir } from "../helpers/fs"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
+import { existsSync } from "fs"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -187,6 +188,9 @@ describe("Mission HttpApi", () => {
     }
     expect(goneBody.name).toBe("NotFound")
     expect(goneBody.data.message).toContain(mission.id)
+
+    const jsonTree = path.join(testHome, "data", "storage", "mission")
+    expect(existsSync(jsonTree)).toBe(false)
   })
 
   it("returns the legacy 404 body for lifecycle routes on a missing mission", async () => {

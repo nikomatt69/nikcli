@@ -47,22 +47,22 @@ function actionLabel(action: PermissionAction) {
 export function permissionModeColor(mode: PermissionMode, theme: ReturnType<typeof useTheme>["theme"]) {
   switch (mode) {
     case "require_approval":
-      return theme.warning
+      return theme.status.warning.fg
     case "approve_for_me":
-      return theme.primary
+      return theme.accent.fg
     case "full_access":
-      return theme.success
+      return theme.status.success.fg
     case "custom":
-      return theme.secondary
+      return theme.accent.secondary
   }
 }
 
 function ActionBadge(props: { action: PermissionAction }) {
   const { theme } = useTheme()
   const color = () => {
-    if (props.action === "allow") return theme.success
-    if (props.action === "deny") return theme.error
-    return theme.warning
+    if (props.action === "allow") return theme.status.success.fg
+    if (props.action === "deny") return theme.status.error.fg
+    return theme.status.warning.fg
   }
   return (
     <span style={{ fg: color(), attributes: TextAttributes.BOLD }}>
@@ -73,7 +73,7 @@ function ActionBadge(props: { action: PermissionAction }) {
 
 function PresetBadge(props: { active: boolean; mode: PermissionMode }) {
   const { theme } = useTheme()
-  if (!props.active) return <span style={{ fg: theme.textMuted }}>○</span>
+  if (!props.active) return <span style={{ fg: theme.foreground.muted }}>○</span>
   return <span style={{ fg: permissionModeColor(props.mode, theme), attributes: TextAttributes.BOLD }}>✓ active</span>
 }
 

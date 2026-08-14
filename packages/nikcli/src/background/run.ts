@@ -7,51 +7,11 @@ import { SandboxRegistry } from "@/sandbox/registry"
 import { Sandbox } from "@/sandbox/types"
 import type { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
-import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import { Effect, Schema } from "effect"
 import { type DeepMutable, zod, zodObject } from "@/util/effect-zod"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
-
-function storageWrite<T>(key: string[], content: T) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(key, content)
-    }),
-  )
-}
-
-function storageUpdate<T>(key: string[], fn: (draft: T) => void) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.update(key, fn)
-    }),
-  )
-}
-
-function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.list(prefix)
-    }),
-  )
-}
+import { BackgroundRunRepo } from "./repo"
 
 export namespace BackgroundRun {
   const log = Log.create({ service: "background.run" })
@@ -128,8 +88,18 @@ export namespace BackgroundRun {
     })
   }
 
-  function key(id: string) {
-    return ["background_run", Instance.project.id, id]
+  function projectID() {
+    return Instance.project.id
+  }
+
+  function missing(id: string): never {
+    throw new Error(`Background run "${id}" not found.`)
+  }
+
+  function mutate(id: string, fn: (draft: Record) => void) {
+    const updated = BackgroundRunRepo.update(projectID(), id, fn)
+    if (!updated) missing(id)
+    return updated
   }
 
   function directory(parentSessionID: string) {
@@ -363,14 +333,14 @@ ${result}
       record.sandboxState = sandbox.state
     }
 
-    await storageWrite(key(id), record)
+    BackgroundRunRepo.upsert(projectID(), record)
     invalidateListCache()
     return record
   }
 
   export async function updateSession(id: string, session: Pick<Session.Info, "id" | "directory" | "workspaceID">) {
     const sandbox = await SandboxRegistry.fromSession(session)
-    return storageUpdate<Record>(key(id), (draft) => {
+    const updated = mutate(id, (draft) => {
       draft.sessionID = session.id
       draft.workspaceID = session.workspaceID
       draft.sandboxRef = sandbox.ref
@@ -380,11 +350,13 @@ ${result}
       draft.ownerPID = process.pid
       draft.heartbeatAt = Date.now()
       draft.lastActivityAt = Date.now()
-    }).finally(() => invalidateListCache())
+    })
+    invalidateListCache()
+    return updated
   }
 
   export async function touchLease(id: string) {
-    return storageUpdate<Record>(key(id), (draft) => {
+    return mutate(id, (draft) => {
       if (draft.status !== "running") return
       draft.ownerID = OWNER_ID
       draft.ownerPID = process.pid
@@ -394,7 +366,7 @@ ${result}
   }
 
   export async function updateProgress(id: string, progressSummary?: string) {
-    return storageUpdate<Record>(key(id), (draft) => {
+    const updated = mutate(id, (draft) => {
       if (draft.status !== "running") return
       draft.progressSummary = progressSummary || undefined
       draft.lastActivityAt = Date.now()
@@ -402,53 +374,39 @@ ${result}
       draft.ownerID = OWNER_ID
       draft.ownerPID = process.pid
       draft.heartbeatAt = Date.now()
-    }).finally(() => invalidateListCache())
+    })
+    invalidateListCache()
+    return updated
   }
 
   export async function setDelegatorID(id: string, delegatorID: string) {
-    return storageUpdate<Record>(key(id), (draft) => {
+    const updated = mutate(id, (draft) => {
       draft.delegatorID = delegatorID
       draft.updatedAt = Date.now()
-    }).finally(() => invalidateListCache())
+    })
+    invalidateListCache()
+    return updated
   }
 
   export async function get(id: string) {
-    return storageRead<Record>(key(id))
+    const record = BackgroundRunRepo.get(projectID(), id)
+    if (!record) missing(id)
+    return record
   }
 
   // Short-lived cache to avoid re-loading all records within a single logical operation.
   // Multiple list* calls in the same call chain (e.g. listJobs -> listForParent, then
-  // projectJob -> listForJob) hit the cache instead of re-reading every JSON file.
-  // Uses a pending-promise reference so concurrent callers share a single in-flight load.
-  let listCache: { records: Record[]; expiresAt: number; promise: Promise<Record[]> } | undefined
+  // projectJob -> listForJob) hit the cache instead of re-reading every row.
+  let listCache: { records: Record[]; expiresAt: number } | undefined
   const LIST_CACHE_TTL_MS = 2_000
 
   async function listAll(): Promise<Record[]> {
     const now = Date.now()
     if (listCache && now < listCache.expiresAt) {
-      return listCache.promise
+      return listCache.records
     }
-
-    // Single Effect program: one Storage layer build for the whole batch
-    // instead of one per record.
-    const load = runPromiseWithLayer(
-      Storage.defaultLayer,
-      withCurrentInstance(
-        Effect.gen(function* () {
-          const storage = yield* Storage.Service
-          const paths = yield* storage.list(["background_run", Instance.project.id])
-          const results = yield* Effect.forEach(
-            paths,
-            (item) => storage.read<Record>(item).pipe(Effect.catch(() => Effect.succeed(undefined))),
-            { concurrency: 10 },
-          )
-          return (results.filter(Boolean) as Record[]).sort((a, b) => a.createdAt - b.createdAt)
-        }),
-      ),
-    )
-
-    const records = await load
-    listCache = { records, expiresAt: now + LIST_CACHE_TTL_MS, promise: load }
+    const records = BackgroundRunRepo.list(projectID())
+    listCache = { records, expiresAt: now + LIST_CACHE_TTL_MS }
     return records
   }
 
@@ -476,7 +434,7 @@ ${result}
   }
 
   export async function listRunning(): Promise<Record[]> {
-    return filtered((r) => r.status === "running")
+    return BackgroundRunRepo.listRunning(projectID())
   }
 
   export async function countRunningForParent(parentSessionID: string) {
@@ -509,7 +467,7 @@ ${result}
 
   export async function finalize(id: string, status: Status, result: string, error?: string, metadata?: Metadata) {
     let finalized = false
-    const record = await storageUpdate<Record>(key(id), (draft) => {
+    const record = mutate(id, (draft) => {
       if (draft.status !== "running") return
       draft.status = status
       draft.updatedAt = Date.now()

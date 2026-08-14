@@ -11,8 +11,7 @@ import { Flag } from "../flag/flag"
 import { Identifier } from "../id/id"
 import { Installation } from "../installation"
 
-import { Storage } from "../storage/storage"
-import { storageRead, storageRemove } from "@/storage/effect"
+import { SessionError } from "./error"
 import { Log } from "../util/log"
 import { MessageV2 } from "./message-v2"
 import { SessionPrimitives } from "./primitives"
@@ -35,6 +34,9 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { zodObject, zodObjectMode, type DeepMutable } from "@/util/effect-zod"
 import { Analytics } from "../analytics/analytics"
 import { SessionRepo } from "./repo"
+import { GoalRepo } from "./goal-repo"
+import { SessionDiffRepo } from "./diff-repo"
+import { ShareRepo } from "@/share/repo"
 import { SessionSync } from "./projectors"
 import { SyncEvent } from "@/sync/sync-event"
 import { MessageRepo } from "./message-repo"
@@ -306,7 +308,10 @@ export namespace Session {
 
   async function getImpl(ctx: InstanceContext, id: string) {
     const read = SessionRepo.get(id)
-    if (!read) throw new Storage.NotFoundError({ message: `Session not found: ${id}` })
+    if (!read)
+      throw new SessionError.NotFoundError({
+        message: `Session not found: ${id}`,
+      })
     return read as Info
   }
 
@@ -324,7 +329,10 @@ export namespace Session {
     // The event carries the whole session, and its projector performs the
     // write: the edit is applied here only to compute what the event says.
     const existing = SessionRepo.get(id)
-    if (!existing) throw new Storage.NotFoundError({ message: `Session not found: ${id}` })
+    if (!existing)
+      throw new SessionError.NotFoundError({
+        message: `Session not found: ${id}`,
+      })
     const result = structuredClone(existing)
     editor(result)
     if (options?.touch !== false) {
@@ -482,12 +490,13 @@ export namespace Session {
     const session = SessionRepo.get(id)
     if (session) return session as Info
 
-    throw new Storage.NotFoundError({ message: `Session not found: ${id}` })
+    throw new SessionError.NotFoundError({
+      message: `Session not found: ${id}`,
+    })
   }
 
   async function diffImpl(sessionID: string) {
-    const diffs = await storageRead<Snapshot.FileDiff[]>(["session_diff", sessionID])
-    return diffs ?? []
+    return SessionDiffRepo.get(sessionID)
   }
 
   async function messagesImpl(ctx: InstanceContext, input: MessagesInput) {
@@ -605,12 +614,16 @@ export namespace Session {
       for (const msg of sessionMessages) {
         MessageRepo.removeMessage(sessionID, msg.id)
       }
-      await storageRemove(["session_diff", sessionID]).catch((err) => {
-        log.error("Storage operation failed", { error: err })
-      })
-      await storageRemove(["goal", sessionID]).catch((err) => {
-        log.error("Storage operation failed", { error: err })
-      })
+      try {
+        SessionDiffRepo.remove(sessionID)
+      } catch (err) {
+        log.error("Failed to remove session diff", { error: err })
+      }
+      try {
+        GoalRepo.remove(sessionID)
+      } catch (err) {
+        log.error("Failed to remove session goal", { error: err })
+      }
       SessionSync.install()
       SyncEvent.run(SessionSync.Deleted, { sessionID, info: session }, { projectID: ctx.project.id })
     } catch (e) {
@@ -651,7 +664,7 @@ export namespace Session {
         cost: msg.cost || 0,
         timestamp: msg.time.completed,
       }).catch((err) => {
-        log.error("Storage operation failed", { error: err })
+        log.error("analytics record failed", { error: err })
       })
     }
 
@@ -676,7 +689,11 @@ export namespace Session {
     SessionSync.install()
     SyncEvent.run(
       SessionSync.PartRemoved,
-      { sessionID: input.sessionID, messageID: input.messageID, partID: input.partID },
+      {
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+        partID: input.partID,
+      },
       { projectID: ctx.project.id },
     )
     return input.partID
@@ -703,7 +720,7 @@ export namespace Session {
           success: isSuccess,
           timestamp: Date.now(),
         }).catch((err) => {
-          log.error("Storage operation failed", { error: err })
+          log.error("analytics record failed", { error: err })
         })
       }
     }
@@ -811,15 +828,20 @@ export namespace Session {
     }
   }
 
+  /** A session, message, or part was addressed by an ID that does not exist. */
+  export const NotFoundError = SessionError.NotFoundError
+  export type NotFoundError = SessionError.NotFoundError
+
+  /** A session read or write failed for a reason that is not "missing". */
+  export const IOError = SessionError.IOError
+  export type IOError = SessionError.IOError
+
   /**
    * Union of all errors that any `Session.Service` method can fail with. Use
    * this in the Effect error channel of downstream consumers so they can
    * `Effect.catchTag` against the specific error class.
-   *
-   * `Storage.NotFoundError` is included because the session storage helpers
-   * throw a `NotFoundError` when a session ID does not exist.
    */
-  export type Error = BusyError | Storage.NotFoundError | Storage.IOError
+  export type Error = BusyError | NotFoundError | IOError
 
   export interface Interface {
     create(input?: CreateInput): Effect.Effect<Info, Error>
@@ -849,20 +871,19 @@ export namespace Session {
   export class Service extends Context.Service<Service, Interface>()("Session.Service") {}
 
   /**
-   * Preserve the typed session error thrown by an impl. The session helpers
-   * primarily surface `Storage.NotFoundError` (when a session ID does not
-   * exist) and `Storage.IOError` (on disk failures); any other rejection
-   * becomes an `IOError` so the service's Effect error channel stays typed
-   * at the `Session.Error` union.
+   * Normalize whatever an impl rejected with into the `Session.Error` union.
+   *
+   * Session rows and derived state are SQL. Keep implementation failures in
+   * the closed session-domain error union exposed by the service.
    */
   function asSessionError(e: unknown): Error {
     if (e instanceof BusyError) return e
-    if (e instanceof Storage.NotFoundError) return e
-    if (e instanceof Storage.IOError) return e
+    if (e instanceof SessionError.NotFoundError) return e
+    if (e instanceof SessionError.IOError) return e
     if (e instanceof Error) {
-      return new Storage.IOError({ message: e.message, cause: e })
+      return new SessionError.IOError({ message: e.message, cause: e })
     }
-    return new Storage.IOError({ message: String(e) })
+    return new SessionError.IOError({ message: String(e) })
   }
 
   export const layer = Layer.succeed(
@@ -940,7 +961,14 @@ export namespace Session {
         ),
       getShare: (id) =>
         Effect.tryPromise({
-          try: () => storageRead<ShareInfo>(["session_share", id]),
+          try: async () => {
+            const share = ShareRepo.get(id)
+            if (!share)
+              throw new SessionError.NotFoundError({
+                message: `Share not found: ${id}`,
+              })
+            return share
+          },
           catch: asSessionError,
         }),
       share: (id) =>

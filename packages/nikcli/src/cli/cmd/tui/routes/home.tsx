@@ -33,14 +33,14 @@ export function Home() {
   const Hint = (
     <Show when={connectedMcpCount() > 0}>
       <box flexShrink={0} flexDirection="row" gap={1}>
-        <text fg={theme.text}>
+        <text fg={theme.foreground.default}>
           <Switch>
             <Match when={mcpError()}>
-              <span style={{ fg: theme.error }}>•</span> mcp errors{" "}
-              <span style={{ fg: theme.textMuted }}>ctrl+x s</span>
+              <span style={{ fg: theme.status.error.fg }}>•</span> mcp errors{" "}
+              <span style={{ fg: theme.foreground.muted }}>ctrl+x s</span>
             </Match>
             <Match when={true}>
-              <span style={{ fg: theme.success }}>•</span>{" "}
+              <span style={{ fg: theme.status.success.fg }}>•</span>{" "}
               {Locale.pluralize(connectedMcpCount(), "{} mcp server", "{} mcp servers")}
             </Match>
           </Switch>
@@ -123,20 +123,20 @@ export function Home() {
         alignItems="center"
         minWidth={0}
       >
-        <text fg={theme.textMuted} wrapMode="none" flexShrink={1} minWidth={0}>
+        <text fg={theme.foreground.muted} wrapMode="none" flexShrink={1} minWidth={0}>
           {directory()}
         </text>
         <box gap={1} flexDirection="row" flexShrink={0}>
           <Show when={mcp()}>
-            <text fg={theme.text}>
+            <text fg={theme.foreground.default}>
               <Switch>
                 <Match when={mcpError()}>
-                  <span style={{ fg: theme.error }}>⊙ </span>
+                  <span style={{ fg: theme.status.error.fg }}>⊙ </span>
                 </Match>
                 <Match when={true}>
                   <span
                     style={{
-                      fg: connectedMcpCount() > 0 ? theme.success : theme.textMuted,
+                      fg: connectedMcpCount() > 0 ? theme.status.success.fg : theme.foreground.muted,
                     }}
                   >
                     ⊙{" "}
@@ -145,26 +145,26 @@ export function Home() {
               </Switch>
               {connectedMcpCount()} MCP
             </text>
-            <text fg={theme.textMuted}>/status</text>
+            <text fg={theme.foreground.muted}>/status</text>
           </Show>
           <Show when={remote.isConfigured()}>
-            <text fg={theme.textMuted}>·</text>
-            <text fg={theme.text}>
+            <text fg={theme.foreground.muted}>·</text>
+            <text fg={theme.foreground.default}>
               <span
                 style={{
-                  fg: remote.isConnected() ? theme.success : remote.status.lastError ? theme.error : theme.textMuted,
+                  fg: remote.isConnected() ? theme.status.success.fg : remote.status.lastError ? theme.status.error.fg : theme.foreground.muted,
                 }}
               >
                 {remote.isConnected() ? "◉" : "○"}{" "}
               </span>
               {remote.status.pending > 0 ? `${remote.status.pending} pending` : "sync"}
             </text>
-            <text fg={theme.textMuted}>/sync</text>
+            <text fg={theme.foreground.muted}>/sync</text>
           </Show>
         </box>
         <box flexGrow={1} />
         <box flexShrink={0}>
-          <text fg={theme.textMuted}>{Installation.VERSION}</text>
+          <text fg={theme.foreground.muted}>{Installation.VERSION}</text>
         </box>
       </box>
       <TuiPluginRuntime.Slot name="home.footer" />

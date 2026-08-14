@@ -318,7 +318,7 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
       dialog.replace(() => (
         <DialogPrompt
           title="Custom schedule"
-          description={() => <text style={{ fg: theme.textMuted }}>{SUPPORTED_CRON_HELP}</text>}
+          description={() => <text style={{ fg: theme.foreground.muted }}>{SUPPORTED_CRON_HELP}</text>}
           placeholder="*/30 or 0 */2 * * *"
           value={scheduleCron()}
           onConfirm={(cron) => {
@@ -356,7 +356,7 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
       <DialogPrompt
         title="API token"
         description={() => (
-          <text style={{ fg: theme.textMuted }}>Keep this token secret. It can trigger the routine.</text>
+          <text style={{ fg: theme.foreground.muted }}>Keep this token secret. It can trigger the routine.</text>
         )}
         placeholder="nkr_..."
         value={apiToken()}
@@ -466,7 +466,7 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
         <DialogPrompt
           title="New routine: prompt"
           description={() => (
-            <text style={{ fg: theme.textMuted }}>
+            <text style={{ fg: theme.foreground.muted }}>
               Write self-contained instructions with a clear success condition.
             </text>
           )}
@@ -588,7 +588,7 @@ function DialogRoutineActions(props: { routine: MobileRoutine; onDone: () => voi
     dialog.replace(() => (
       <DialogPrompt
         title="Run context"
-        description={() => <text style={{ fg: theme.textMuted }}>Optional context to pass to this run.</text>}
+        description={() => <text style={{ fg: theme.foreground.muted }}>Optional context to pass to this run.</text>}
         placeholder="Alert body, release notes, or extra instructions"
         onConfirm={(value) => void run(value)}
         onCancel={() => void refreshTo(props.routine)}
@@ -701,7 +701,7 @@ function DialogRoutineActions(props: { routine: MobileRoutine; onDone: () => voi
             dialog.replace(() => (
               <DialogPrompt
                 title="Custom schedule"
-                description={() => <text style={{ fg: theme.textMuted }}>{SUPPORTED_CRON_HELP}</text>}
+                description={() => <text style={{ fg: theme.foreground.muted }}>{SUPPORTED_CRON_HELP}</text>}
                 placeholder="*/30 or 0 */2 * * *"
                 value={scheduleTrigger(props.routine)?.cron}
                 onConfirm={(value) => {
@@ -882,10 +882,10 @@ function DialogRoutineActions(props: { routine: MobileRoutine; onDone: () => voi
       when={!busy()}
       fallback={
         <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
-          <text attributes={TextAttributes.BOLD} style={{ fg: theme.text }}>
+          <text attributes={TextAttributes.BOLD} style={{ fg: theme.foreground.default }}>
             Routine: {props.routine.name}
           </text>
-          <text style={{ fg: theme.textMuted }}>Working...</text>
+          <text style={{ fg: theme.foreground.muted }}>Working...</text>
         </box>
       }
     >
@@ -951,10 +951,10 @@ export function DialogRoutine() {
       when={routines.state === "ready" || routines.state === "refreshing"}
       fallback={
         <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
-          <text attributes={TextAttributes.BOLD} style={{ fg: theme.text }}>
+          <text attributes={TextAttributes.BOLD} style={{ fg: theme.foreground.default }}>
             Routines
           </text>
-          <text style={{ fg: theme.textMuted }}>
+          <text style={{ fg: theme.foreground.muted }}>
             {routines.error ? `Error: ${errorMessage(routines.error)}` : "Loading..."}
           </text>
         </box>

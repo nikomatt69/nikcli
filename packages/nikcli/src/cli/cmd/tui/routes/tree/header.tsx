@@ -17,15 +17,15 @@ export function SessionTreeHeader(props: {
   const { theme } = useTheme()
   const scope = () => props.workspaceLabel ?? "All workspaces"
   const badge = () => (props.focusedSessionId ? "FOCUS" : "TREE")
-  const badgeFg = () => (props.focusedSessionId ? theme.primary : theme.info)
+  const badgeFg = () => (props.focusedSessionId ? theme.accent.fg : theme.status.info.fg)
 
   return (
     <box
       flexShrink={0}
       width="100%"
       border={["bottom"]}
-      borderColor={theme.borderSubtle}
-      backgroundColor={theme.backgroundPanel}
+      borderColor={theme.border.subtle}
+      backgroundColor={theme.surface.panel}
     >
       <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} flexDirection="column" gap={0}>
         <box flexDirection="row" justifyContent="space-between" alignItems="center" width="100%" gap={1}>
@@ -38,16 +38,16 @@ export function SessionTreeHeader(props: {
             minWidth={0}
             overflow="hidden"
           >
-            <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
               Session
             </text>
-            <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
+            <text fg={theme.accent.fg} attributes={TextAttributes.BOLD} wrapMode="none">
               {" tree"}
             </text>
-            <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
               {"  ·  "}
             </text>
-            <text fg={theme.text} attributes={TextAttributes.DIM} wrapMode="word" flexGrow={1} minWidth={0}>
+            <text fg={theme.foreground.default} attributes={TextAttributes.DIM} wrapMode="word" flexGrow={1} minWidth={0}>
               {scope()}
             </text>
           </box>
@@ -56,9 +56,9 @@ export function SessionTreeHeader(props: {
             paddingRight={1}
             paddingTop={0}
             paddingBottom={0}
-            backgroundColor={theme.backgroundElement}
+            backgroundColor={theme.surface.offset}
             border={["top", "right", "bottom", "left"]}
-            borderColor={theme.borderSubtle}
+            borderColor={theme.border.subtle}
             flexShrink={0}
           >
             <text fg={badgeFg()} attributes={TextAttributes.BOLD} wrapMode="none">
@@ -70,23 +70,23 @@ export function SessionTreeHeader(props: {
           <Show
             when={props.focusedSessionId}
             fallback={
-              <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+              <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                 All roots
               </text>
             }
           >
-            <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
               {`Focus · ${shortId(props.focusedSessionId!)}`}
             </text>
           </Show>
           <box flexDirection="row" gap={1} flexShrink={0} alignItems="center">
-            <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
               {`${props.rootsCount} root${props.rootsCount === 1 ? "" : "s"}`}
             </text>
-            <text fg={theme.borderSubtle} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.border.subtle} attributes={TextAttributes.DIM} wrapMode="none">
               ·
             </text>
-            <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
               {`${props.sessionsCount} session${props.sessionsCount === 1 ? "" : "s"}`}
             </text>
           </box>
@@ -101,10 +101,10 @@ export function SessionTreeHeader(props: {
             minWidth={0}
             overflow="hidden"
           >
-            <text fg={theme.primary} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.accent.fg} attributes={TextAttributes.DIM} wrapMode="none">
               ▾
             </text>
-            <text fg={theme.text} wrapMode="word" flexGrow={1} minWidth={0}>
+            <text fg={theme.foreground.default} wrapMode="word" flexGrow={1} minWidth={0}>
               {props.currentSessionTitle}
             </text>
           </box>
@@ -129,23 +129,23 @@ export function SessionTreeColumnHeaders() {
       gap={2}
     >
       <box flexDirection="row" gap={1} flexShrink={0}>
-        <text attributes={TextAttributes.DIM} fg={theme.textMuted} wrapMode="none">
+        <text attributes={TextAttributes.DIM} fg={theme.foreground.muted} wrapMode="none">
           Session
         </text>
       </box>
       <box flexDirection="row" gap={2} flexShrink={1} minWidth={0} alignItems="center">
-        <text attributes={TextAttributes.DIM} fg={theme.textMuted} minWidth={14} wrapMode="none">
+        <text attributes={TextAttributes.DIM} fg={theme.foreground.muted} minWidth={14} wrapMode="none">
           Delta
         </text>
         <box flexGrow={1} minWidth={20} minHeight={0} flexShrink={1}>
-          <text attributes={TextAttributes.DIM} fg={theme.textMuted} wrapMode="none">
+          <text attributes={TextAttributes.DIM} fg={theme.foreground.muted} wrapMode="none">
             Message
           </text>
         </box>
-        <text attributes={TextAttributes.DIM} fg={theme.textMuted} minWidth={10} wrapMode="none">
+        <text attributes={TextAttributes.DIM} fg={theme.foreground.muted} minWidth={10} wrapMode="none">
           Age
         </text>
-        <text attributes={TextAttributes.DIM} fg={theme.textMuted} minWidth={8} wrapMode="none">
+        <text attributes={TextAttributes.DIM} fg={theme.foreground.muted} minWidth={8} wrapMode="none">
           ID
         </text>
       </box>

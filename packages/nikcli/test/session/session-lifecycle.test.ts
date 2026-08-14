@@ -14,13 +14,26 @@ process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 
 preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
-const [{ Identifier }, { Instance }, { MessageV2 }, { Session }, { SessionRevert }, { Storage }] = await Promise.all([
+const [
+  { Identifier },
+  { Instance },
+  { MessageV2 },
+  { Session },
+  { SessionError },
+  { SessionRevert },
+  { ShareRepo },
+  { SessionDiffRepo },
+  { Global },
+] = await Promise.all([
   import("../../src/id/id"),
   import("../../src/project/instance"),
   import("../../src/session/message-v2"),
   import("../../src/session"),
+  import("../../src/session/error"),
   import("../../src/session/revert"),
-  import("../../src/storage/storage"),
+  import("../../src/share/repo"),
+  import("../../src/session/diff-repo"),
+  import("../../src/global"),
 ])
 
 const projectDirs: string[] = []
@@ -33,26 +46,10 @@ function runSession<A, E>(effect: Effect.Effect<A, E, any>) {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
 
-function runStorage<A, E>(effect: Effect.Effect<A, E, any>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
-
-function storageWrite<T>(key: string[], content: T) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(key, content)
-    }),
-  )
+async function writeLeftoverJson(key: string[], content: unknown) {
+  const file = path.join(Global.Path.data, "storage", ...key) + ".json"
+  await fs.mkdir(path.dirname(file), { recursive: true })
+  await fs.writeFile(file, JSON.stringify(content))
 }
 
 async function withProject<T>(fn: (projectDir: string) => Promise<T>): Promise<T> {
@@ -142,7 +139,10 @@ describe("session lifecycle", () => {
       await runSession(
         Effect.gen(function* () {
           const sessionService = yield* Session.Service
-          yield* sessionService.removeMessage({ sessionID: session.id, messageID: msg.id })
+          yield* sessionService.removeMessage({
+            sessionID: session.id,
+            messageID: msg.id,
+          })
         }),
       )
 
@@ -181,7 +181,10 @@ describe("session lifecycle", () => {
         }),
       )
 
-      const after = await MessageV2.get({ sessionID: session.id, messageID: user.id })
+      const after = await MessageV2.get({
+        sessionID: session.id,
+        messageID: user.id,
+      })
       expect(after.parts.map((part) => part.id)).toEqual([keep.id])
       expect(await MessageV2.parts(assistant.id)).toEqual([])
       await expect(MessageV2.get({ sessionID: session.id, messageID: assistant.id })).rejects.toThrow()
@@ -191,7 +194,17 @@ describe("session lifecycle", () => {
   it("removes stored session diffs when deleting a session", async () => {
     await withProject(async () => {
       const session = await createSession()
-      await storageWrite(["session_diff", session.id], [])
+      SessionDiffRepo.upsert(session.id, [
+        {
+          file: "src/a.ts",
+          patch: "@@ -0,0 +1 @@\n+hello",
+          additions: 1,
+          deletions: 0,
+          before: "",
+          after: "hello",
+        },
+      ])
+      expect(SessionDiffRepo.get(session.id)).toHaveLength(1)
 
       await runSession(
         Effect.gen(function* () {
@@ -200,7 +213,46 @@ describe("session lifecycle", () => {
         }),
       )
 
-      await expect(storageRead(["session_diff", session.id])).rejects.toThrow()
+      expect(SessionDiffRepo.get(session.id)).toEqual([])
+    })
+  })
+
+  it("getShare reads SQL and ignores leftover session_share JSON", async () => {
+    await withProject(async () => {
+      const session = await createSession()
+      await writeLeftoverJson(["session_share", session.id], {
+        url: "http://json-trap/share",
+        mode: "local",
+        id: "share_json_trap",
+      })
+      ShareRepo.put(session.id, {
+        url: "http://sql/share",
+        mode: "local",
+        id: "share_sql",
+      })
+
+      const share = await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          return yield* sessionService.getShare(session.id)
+        }),
+      )
+      expect(share.url).toBe("http://sql/share")
+      expect(share.id).toBe("share_sql")
+    })
+  })
+
+  it("getShare throws SessionNotFoundError when the share row is missing", async () => {
+    await withProject(async () => {
+      const session = await createSession()
+      await expect(
+        runSession(
+          Effect.gen(function* () {
+            const sessionService = yield* Session.Service
+            return yield* sessionService.getShare(session.id)
+          }),
+        ),
+      ).rejects.toBeInstanceOf(SessionError.NotFoundError)
     })
   })
 
@@ -217,7 +269,9 @@ describe("session lifecycle", () => {
           yield* sessionService.updateMessage(assistant)
           yield* sessionService.updatePart(textPart(session.id, assistant.id, "hi"))
           const fork = yield* sessionService.fork({ sessionID: session.id })
-          const forkMessages = yield* sessionService.messages({ sessionID: fork.id })
+          const forkMessages = yield* sessionService.messages({
+            sessionID: fork.id,
+          })
           return { fork, forkMessages }
         }),
       )
@@ -231,12 +285,15 @@ describe("session lifecycle", () => {
     })
   })
 
-  it("does not read messages for sessions outside the current project", async () => {
+  it("does not read session or message rows from the JSON tree", async () => {
     await withProject(async () => {
-      const foreignSessionID = Identifier.descending("session")
-      const msg = userMessage(foreignSessionID)
-      await storageWrite(["session", "other-project", foreignSessionID], {
-        id: foreignSessionID,
+      const missingID = Identifier.descending("session")
+      const msg = userMessage(missingID)
+      // Sessions and messages live in SQL. These JSON files are a trap: a
+      // read-through fallback would resurrect the two-model problem the
+      // move is meant to end (specs/storage/remove-json-storage.md).
+      await writeLeftoverJson(["session", "other-project", missingID], {
+        id: missingID,
         slug: "foreign",
         projectID: "other-project",
         directory: "/foreign",
@@ -244,17 +301,17 @@ describe("session lifecycle", () => {
         version: "test",
         time: { created: Date.now(), updated: Date.now() },
       })
-      await storageWrite(["message", foreignSessionID, msg.id], msg)
-      await storageWrite(["part", msg.id, Identifier.ascending("part")], textPart(foreignSessionID, msg.id, "private"))
+      await writeLeftoverJson(["message", missingID, msg.id], msg)
+      await writeLeftoverJson(["part", msg.id, Identifier.ascending("part")], textPart(missingID, msg.id, "private"))
 
       await expect(
         runSession(
           Effect.gen(function* () {
             const sessionService = yield* Session.Service
-            return yield* sessionService.messages({ sessionID: foreignSessionID })
+            return yield* sessionService.messages({ sessionID: missingID })
           }),
         ),
-      ).rejects.toThrow()
+      ).rejects.toBeInstanceOf(SessionError.NotFoundError)
     })
   })
 

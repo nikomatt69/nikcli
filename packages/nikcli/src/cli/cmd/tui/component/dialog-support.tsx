@@ -42,10 +42,10 @@ function Header(props: { title: string; subtitle?: string }) {
   const { theme } = useTheme()
   return (
     <box flexDirection="row" justifyContent="space-between">
-      <text attributes={TextAttributes.BOLD} fg={theme.text}>
+      <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
         {props.title}
       </text>
-      {props.subtitle ? <text fg={theme.textMuted}>{props.subtitle}</text> : null}
+      {props.subtitle ? <text fg={theme.foreground.muted}>{props.subtitle}</text> : null}
     </box>
   )
 }
@@ -53,7 +53,7 @@ function Header(props: { title: string; subtitle?: string }) {
 function Body(props: { children: string }) {
   const { theme } = useTheme()
   return (
-    <text fg={theme.text} attributes={0}>
+    <text fg={theme.foreground.default} attributes={0}>
       {props.children}
     </text>
   )
@@ -64,9 +64,9 @@ function Footer(props: { left?: string; right?: string }) {
   const { theme } = useTheme()
   return (
     <box flexDirection="row" justifyContent="space-between" paddingTop={1}>
-      <text fg={theme.textMuted}>{props.left ?? ""}</text>
-      <box paddingLeft={3} paddingRight={3} backgroundColor={theme.primary} onMouseUp={() => dialog.clear()}>
-        <text fg={theme.selectedListItemText}>{props.right ?? "Close"}</text>
+      <text fg={theme.foreground.muted}>{props.left ?? ""}</text>
+      <box paddingLeft={3} paddingRight={3} backgroundColor={theme.accent.fg} onMouseUp={() => dialog.clear()}>
+        <text fg={theme.badge.fg}>{props.right ?? "Close"}</text>
       </box>
     </box>
   )
@@ -544,14 +544,14 @@ export function DialogSupport() {
       <box paddingLeft={2} paddingRight={2}>
         <box flexDirection="row" justifyContent="space-between">
           <box flexDirection="row" gap={1}>
-            <text attributes={TextAttributes.BOLD} fg={theme.text}>
+            <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
               Support
             </text>
-            <text fg={theme.textMuted}>@{agentName()}</text>
-            <text fg={theme.textMuted}>·</text>
-            <text fg={theme.textMuted}>{modelName()}</text>
+            <text fg={theme.foreground.muted}>@{agentName()}</text>
+            <text fg={theme.foreground.muted}>·</text>
+            <text fg={theme.foreground.muted}>{modelName()}</text>
           </box>
-          <text fg={theme.textMuted}>{streaming() ? "● responding" : busy() ? "● sending" : "esc close"}</text>
+          <text fg={theme.foreground.muted}>{streaming() ? "● responding" : busy() ? "● sending" : "esc close"}</text>
         </box>
       </box>
 
@@ -566,23 +566,23 @@ export function DialogSupport() {
         paddingRight={2}
       >
         <Show when={!ready()}>
-          <text fg={theme.textMuted}>Loading support session…</text>
+          <text fg={theme.foreground.muted}>Loading support session…</text>
         </Show>
         <Show when={ready() && messages().length === 0}>
           <WelcomeHints onPick={(p) => send(p)} />
         </Show>
         <Show when={initError()}>
           <box paddingBottom={1}>
-            <text fg={theme.error}>{initError()}</text>
+            <text fg={theme.status.error.fg}>{initError()}</text>
           </box>
         </Show>
         <For each={messages()}>{(m) => <MessageRow msg={m} />}</For>
         <Show when={streaming() && messages().at(-1)?.role !== "assistant"}>
           <box flexDirection="row" gap={1}>
-            <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+            <text fg={theme.accent.alt} attributes={TextAttributes.BOLD}>
               support
             </text>
-            <text fg={theme.textMuted}>is typing…</text>
+            <text fg={theme.foreground.muted}>is typing…</text>
           </box>
         </Show>
       </scrollbox>
@@ -590,7 +590,7 @@ export function DialogSupport() {
       {/* Input */}
       <box paddingLeft={2} paddingRight={2} gap={1} paddingTop={1}>
         <Show when={attachments().length > 0}>
-          <For each={attachments()}>{(item) => <text fg={theme.primary}>{item.label}</text>}</For>
+          <For each={attachments()}>{(item) => <text fg={theme.accent.fg}>{item.label}</text>}</For>
         </Show>
         <textarea
           height={3}
@@ -619,15 +619,15 @@ export function DialogSupport() {
             textarea = r
           }}
           placeholder={busy() ? "Support is responding — please wait..." : "Ask Support… paste a file path to attach"}
-          textColor={theme.text}
-          focusedTextColor={theme.text}
-          cursorColor={theme.text}
+          textColor={theme.foreground.default}
+          focusedTextColor={theme.foreground.default}
+          cursorColor={theme.foreground.default}
         />
-        <text fg={theme.textMuted}>
-          <span style={{ fg: theme.primary }}>enter</span> send · paste file path to attach ·{" "}
-          <span style={{ fg: theme.primary }}>ctrl+o</span> model · <span style={{ fg: theme.primary }}>ctrl+y</span>{" "}
-          copy reply · <span style={{ fg: theme.primary }}>ctrl+l</span> new conversation ·{" "}
-          <span style={{ fg: theme.primary }}>esc</span> close
+        <text fg={theme.foreground.muted}>
+          <span style={{ fg: theme.accent.fg }}>enter</span> send · paste file path to attach ·{" "}
+          <span style={{ fg: theme.accent.fg }}>ctrl+o</span> model · <span style={{ fg: theme.accent.fg }}>ctrl+y</span>{" "}
+          copy reply · <span style={{ fg: theme.accent.fg }}>ctrl+l</span> new conversation ·{" "}
+          <span style={{ fg: theme.accent.fg }}>esc</span> close
         </text>
       </box>
     </box>
@@ -644,21 +644,21 @@ function MessageRow(props: { msg: ChatMessage }) {
   return (
     <box paddingBottom={1} flexDirection="column" gap={0}>
       <box flexDirection="row" gap={1}>
-        <text fg={m.role === "user" ? theme.primary : theme.accent} attributes={TextAttributes.BOLD}>
+        <text fg={m.role === "user" ? theme.accent.fg : theme.accent.alt} attributes={TextAttributes.BOLD}>
           {m.role === "user" ? "you" : "support"}
         </text>
-        <text fg={theme.textMuted}>{timeLabel(m.time)}</text>
+        <text fg={theme.foreground.muted}>{timeLabel(m.time)}</text>
         <Show when={m.pending}>
-          <text fg={theme.textMuted}>…</text>
+          <text fg={theme.foreground.muted}>…</text>
         </Show>
         <Show when={m.error}>
-          <text fg={theme.error}>! {m.error}</text>
+          <text fg={theme.status.error.fg}>! {m.error}</text>
         </Show>
       </box>
       <Show
         when={m.role === "assistant" && m.text}
         fallback={
-          <text fg={theme.text} wrapMode="word">
+          <text fg={theme.foreground.default} wrapMode="word">
             {m.text || (m.pending ? " " : "")}
           </text>
         }
@@ -667,14 +667,14 @@ function MessageRow(props: { msg: ChatMessage }) {
           streaming={m.pending === true}
           syntaxStyle={syntax()}
           content={m.text}
-          fg={theme.text}
+          fg={theme.foreground.default}
           tableOptions={{
             widthMode: "full",
             wrapMode: "word",
             cellPadding: 0,
             borders: true,
             outerBorder: false,
-            borderColor: theme.borderSubtle,
+            borderColor: theme.border.subtle,
           }}
         />
       </Show>
@@ -687,23 +687,23 @@ function WelcomeHints(props: { onPick: (prompt: string) => void }) {
   const connected = useConnected()
   return (
     <box gap={1} flexDirection="column" paddingBottom={1}>
-      <text fg={theme.text}>
-        Hi! I'm <span style={{ fg: theme.accent }}>Support</span>, nikcli's documentation assistant.
+      <text fg={theme.foreground.default}>
+        Hi! I'm <span style={{ fg: theme.accent.alt }}>Support</span>, nikcli's documentation assistant.
       </text>
       <Show
         when={connected()}
         fallback={
-          <text fg={theme.textMuted}>
+          <text fg={theme.foreground.muted}>
             No model provider is connected yet — let me help you get set up. Open{" "}
-            <span style={{ fg: theme.primary }}>/providers</span> to connect one, or ask me how:
+            <span style={{ fg: theme.accent.fg }}>/providers</span> to connect one, or ask me how:
           </text>
         }
       >
-        <text fg={theme.textMuted}>
+        <text fg={theme.foreground.muted}>
           I can answer questions about commands, configuration, agents, MCP, keybinds, workflows, and troubleshooting.
         </text>
       </Show>
-      <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+      <text fg={theme.foreground.muted} attributes={TextAttributes.BOLD}>
         Examples:
       </text>
       <For each={connected() ? WELCOME_HINTS : SETUP_HINTS}>
@@ -713,11 +713,11 @@ function WelcomeHints(props: { onPick: (prompt: string) => void }) {
             paddingLeft={1}
             paddingRight={1}
             onMouseUp={() => props.onPick(hint.prompt)}
-            backgroundColor={theme.backgroundPanel}
+            backgroundColor={theme.surface.panel}
           >
-            <text fg={theme.text}>
-              <span style={{ fg: theme.accent }}>›</span> {hint.title}
-              <span style={{ fg: theme.textMuted }}> — {hint.prompt}</span>
+            <text fg={theme.foreground.default}>
+              <span style={{ fg: theme.accent.alt }}>›</span> {hint.title}
+              <span style={{ fg: theme.foreground.muted }}> — {hint.prompt}</span>
             </text>
           </box>
         )}

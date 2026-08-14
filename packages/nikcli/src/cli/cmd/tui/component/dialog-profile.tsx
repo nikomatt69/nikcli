@@ -173,7 +173,7 @@ export function DialogProfile() {
       value: current,
       // An empty submit is swallowed by the prompt itself, so clearing a field
       // needs a value that means "nothing".
-      description: () => <text fg={theme.textMuted}>{`${meta.hint}${current ? " Enter - to clear." : ""}`}</text>,
+      description: () => <text fg={theme.foreground.muted}>{`${meta.hint}${current ? " Enter - to clear." : ""}`}</text>,
     })
     if (result !== null) {
       await apply({ [field]: result.trim() === "-" ? "" : result } as Profile.Input, `${meta.title} saved`)
@@ -323,7 +323,7 @@ export function DialogProfile() {
           placeholder: "e.g. Italian",
           value: info?.communication?.language ?? "",
           description: () => (
-            <text fg={theme.textMuted}>Prose only — code, identifiers and commands stay as they are.</text>
+            <text fg={theme.foreground.muted}>Prose only — code, identifiers and commands stay as they are.</text>
           ),
         })
         if (result !== null) await apply({ communication: { ...info?.communication, language: result } }, "Saved")
@@ -417,7 +417,7 @@ function DialogProfileList(props: { field: ListField }) {
       onSelect: async () => {
         const result = await DialogPrompt.show(dialog, `Add to ${meta.title.toLowerCase()}`, {
           placeholder: meta.placeholder,
-          description: () => <text fg={theme.textMuted}>{meta.hint}</text>,
+          description: () => <text fg={theme.foreground.muted}>{meta.hint}</text>,
         })
         if (result) await write([...values(), result.trim()])
         dialog.replace(() => <DialogProfileList field={props.field} />)

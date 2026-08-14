@@ -385,17 +385,17 @@ export function DialogUsage() {
       {/* Header — mirrors the analytics panel: title chip + live summary. */}
       <box flexDirection="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
         <box flexDirection="column" gap={0}>
-          <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
+          <text fg={theme.accent.alt} attributes={TextAttributes.BOLD} wrapMode="none">
             ◈ CONTEXT USAGE
           </text>
           <Show when={data()?.model}>
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               {data()!.model!.name} · {data()!.model!.providerID}/{data()!.model!.modelID} ·{" "}
               {Usage.formatTokens(usedAbs())} / {Usage.formatTokens(contextLimit())} ({usagePct().toFixed(1)}%)
             </text>
           </Show>
         </box>
-        <text fg={theme.textMuted} wrapMode="none">
+        <text fg={theme.foreground.muted} wrapMode="none">
           esc close
         </text>
       </box>
@@ -404,9 +404,9 @@ export function DialogUsage() {
         when={data()?.model}
         fallback={
           <box>
-            <Show when={!data.loading} fallback={<text fg={theme.textMuted}>Computing context breakdown…</text>}>
-              <text fg={theme.textMuted}>No active session or no assistant messages yet.</text>
-              <text fg={theme.textMuted}>Send a message to populate context usage.</text>
+            <Show when={!data.loading} fallback={<text fg={theme.foreground.muted}>Computing context breakdown…</text>}>
+              <text fg={theme.foreground.muted}>No active session or no assistant messages yet.</text>
+              <text fg={theme.foreground.muted}>Send a message to populate context usage.</text>
             </Show>
           </box>
         }
@@ -469,7 +469,7 @@ export function DialogUsage() {
                 value={usagePct()}
                 max={100}
                 width={Math.max(20, Math.min(48, chartW()))}
-                color={usagePct() >= 90 ? theme.error : usagePct() >= 70 ? theme.warning : theme.primary}
+                color={usagePct() >= 90 ? theme.status.error.fg : usagePct() >= 70 ? theme.status.warning.fg : theme.accent.fg}
                 thresholds={[70, 90]}
                 format={(v) => `${v.toFixed(0)}%`}
               />
@@ -479,7 +479,7 @@ export function DialogUsage() {
                 max={100}
                 width={Math.max(20, Math.min(36, chartW() - 16))}
                 color={
-                  (cacheHitRate() ?? 0) >= 0.5 ? theme.success : (cacheHitRate() ?? 0) > 0 ? theme.warning : theme.error
+                  (cacheHitRate() ?? 0) >= 0.5 ? theme.status.success.fg : (cacheHitRate() ?? 0) > 0 ? theme.status.warning.fg : theme.status.error.fg
                 }
                 format={(v) => `${v.toFixed(0)}%`}
               />
@@ -491,7 +491,7 @@ export function DialogUsage() {
             stacked bar. */}
           <Show when={categoryBreakdown().length > 0}>
             <box flexDirection="column" gap={0}>
-              <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+              <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
                 Prompt composition
               </text>
               <StackedBarChartV2 segments={categoryBreakdown()} width={chartW()} showLabels />
@@ -502,7 +502,7 @@ export function DialogUsage() {
             contributors so the user can decide which to disable / lazy-load. */}
           <Show when={rankedSources().length > 0}>
             <box flexDirection="column" gap={0}>
-              <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+              <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
                 Top sources
               </text>
               <RankedBarList
@@ -520,11 +520,11 @@ export function DialogUsage() {
             render when there's at least one assistant message. */}
           <Show when={assistantMessages().length > 0}>
             <box flexDirection="column" gap={0}>
-              <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+              <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
                 Tokens per turn · last {assistantMessages().length} turn
                 {assistantMessages().length === 1 ? "" : "s"}
               </text>
-              <text fg={theme.textMuted} wrapMode="none">
+              <text fg={theme.foreground.muted} wrapMode="none">
                 input · cache · output
               </text>
               <box flexDirection="column" gap={0} paddingTop={1}>
@@ -538,7 +538,7 @@ export function DialogUsage() {
           {/* Operational health — 4-cell status grid derived from the
             headline ratios. Mirrors analytics. */}
           <box flexDirection="column" gap={0}>
-            <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+            <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
               Context health
             </text>
             <box flexDirection="row" gap={1} flexWrap="wrap">
@@ -586,15 +586,15 @@ export function DialogUsage() {
                   return source.enabled ? "[x]" : "[ ]"
                 }
                 const indicatorColor = () => {
-                  if (!source.togglable) return theme.textMuted
-                  return source.enabled ? theme.success : theme.textMuted
+                  if (!source.togglable) return theme.foreground.muted
+                  return source.enabled ? theme.status.success.fg : theme.foreground.muted
                 }
-                const labelColor = () => (source.enabled ? theme.text : theme.textMuted)
+                const labelColor = () => (source.enabled ? theme.foreground.default : theme.foreground.muted)
                 return (
                   <>
                     <Show when={showHeader()}>
                       <box paddingTop={index() > 0 ? 1 : 0}>
-                        <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
+                        <text fg={theme.accent.alt} attributes={TextAttributes.BOLD} wrapMode="none">
                           {CATEGORY_LABEL[source.category]}
                         </text>
                       </box>
@@ -605,7 +605,7 @@ export function DialogUsage() {
                       gap={1}
                       paddingLeft={1}
                       paddingRight={1}
-                      backgroundColor={active() ? theme.backgroundElement : undefined}
+                      backgroundColor={active() ? theme.surface.offset : undefined}
                       onMouseUp={() => {
                         setSelected(index())
                         void toggle(source)
@@ -618,17 +618,17 @@ export function DialogUsage() {
                         <text flexShrink={1} wrapMode="none" fg={labelColor()}>
                           <Show
                             when={source.enabled}
-                            fallback={<span style={{ fg: theme.textMuted }}>{source.label}</span>}
+                            fallback={<span style={{ fg: theme.foreground.muted }}>{source.label}</span>}
                           >
                             <b>{source.label}</b>
                           </Show>
                           <Show when={source.detail}>
-                            <span style={{ fg: theme.textMuted }}> — {source.detail}</span>
+                            <span style={{ fg: theme.foreground.muted }}> — {source.detail}</span>
                           </Show>
                         </text>
-                        <text flexShrink={0} fg={source.enabled ? theme.text : theme.textMuted} wrapMode="none">
+                        <text flexShrink={0} fg={source.enabled ? theme.foreground.default : theme.foreground.muted} wrapMode="none">
                           {Usage.formatTokens(source.tokens)}
-                          <span style={{ fg: theme.textMuted }}>
+                          <span style={{ fg: theme.foreground.muted }}>
                             {" "}
                             {source.enabled ? tokenPct(source.tokens) : "(off)"}
                           </span>
@@ -645,15 +645,15 @@ export function DialogUsage() {
             cache-hit colour hint so the user can correlate it with the KPI. */}
           <Show when={data()?.reported && reportedTotal() > 0}>
             <box flexDirection="row" flexWrap="wrap" gap={2}>
-              <text fg={theme.textMuted} wrapMode="none">
+              <text fg={theme.foreground.muted} wrapMode="none">
                 cache read {Usage.formatTokens(data()!.reported.cacheRead)}
               </text>
-              <text fg={theme.textMuted} wrapMode="none">
+              <text fg={theme.foreground.muted} wrapMode="none">
                 cache write {Usage.formatTokens(data()!.reported.cacheWrite)}
               </text>
               <Show when={cacheHitRate() !== undefined}>
                 <text
-                  fg={cacheHitRate()! >= 0.5 ? theme.success : cacheHitRate()! > 0 ? theme.warning : theme.error}
+                  fg={cacheHitRate()! >= 0.5 ? theme.status.success.fg : cacheHitRate()! > 0 ? theme.status.warning.fg : theme.status.error.fg}
                   wrapMode="none"
                 >
                   cache hit{" "}
@@ -663,11 +663,11 @@ export function DialogUsage() {
                   )}
                 </text>
               </Show>
-              <text fg={theme.textMuted} wrapMode="none">
+              <text fg={theme.foreground.muted} wrapMode="none">
                 output {Usage.formatTokens(data()!.reported.output)}
               </text>
               <Show when={data()!.reported.reasoning > 0}>
-                <text fg={theme.textMuted} wrapMode="none">
+                <text fg={theme.foreground.muted} wrapMode="none">
                   reasoning {Usage.formatTokens(data()!.reported.reasoning)}
                 </text>
               </Show>
@@ -675,19 +675,19 @@ export function DialogUsage() {
           </Show>
 
           <box paddingTop={1} flexDirection="row" flexWrap="wrap" gap={1} flexShrink={0}>
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               ↑↓ navigate
             </text>
-            <text fg={theme.borderSubtle} wrapMode="none">
+            <text fg={theme.border.subtle} wrapMode="none">
               ·
             </text>
-            <text fg={busy() ? theme.warning : theme.textMuted} wrapMode="none">
+            <text fg={busy() ? theme.status.warning.fg : theme.foreground.muted} wrapMode="none">
               {busy() ? "saving…" : "space toggle"}
             </text>
-            <text fg={theme.borderSubtle} wrapMode="none">
+            <text fg={theme.border.subtle} wrapMode="none">
               ·
             </text>
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               esc close
             </text>
           </box>
@@ -713,12 +713,12 @@ function HealthCard(props: { label: string; detail: string; status: HealthStatus
       border
       borderColor={
         props.status === "success"
-          ? theme.success
+          ? theme.status.success.fg
           : props.status === "warning"
-            ? theme.warning
+            ? theme.status.warning.fg
             : props.status === "error"
-              ? theme.error
-              : theme.info
+              ? theme.status.error.fg
+              : theme.status.info.fg
       }
       paddingLeft={1}
       paddingRight={1}
@@ -730,23 +730,23 @@ function HealthCard(props: { label: string; detail: string; status: HealthStatus
         <text
           fg={
             props.status === "success"
-              ? theme.success
+              ? theme.status.success.fg
               : props.status === "warning"
-                ? theme.warning
+                ? theme.status.warning.fg
                 : props.status === "error"
-                  ? theme.error
-                  : theme.info
+                  ? theme.status.error.fg
+                  : theme.status.info.fg
           }
           attributes={TextAttributes.BOLD}
           wrapMode="none"
         >
           {HEALTH_ICON[props.status]}
         </text>
-        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+        <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
           {props.label}
         </text>
       </box>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         {props.detail}
       </text>
     </box>

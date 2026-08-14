@@ -69,10 +69,10 @@ function EditBody(props: { request: PermissionRequest }) {
   return (
     <box flexDirection="column" gap={1}>
       <box flexDirection="row" gap={1} paddingLeft={1}>
-        <text fg={theme.textMuted}>{"→"}</text>
-        <text fg={theme.textMuted}>Edit {normalizePath(filepath())}</text>
+        <text fg={theme.foreground.muted}>{"→"}</text>
+        <text fg={theme.foreground.muted}>Edit {normalizePath(filepath())}</text>
         <Show when={files().length > 1}>
-          <text fg={theme.textMuted}>(+{files().length - 1} more)</text>
+          <text fg={theme.foreground.muted}>(+{files().length - 1} more)</text>
         </Show>
       </box>
       <Show when={diff()}>
@@ -87,16 +87,16 @@ function EditBody(props: { request: PermissionRequest }) {
                 showLineNumbers={true}
                 width="100%"
                 wrapMode="word"
-                fg={theme.text}
-                addedBg={theme.diffAddedBg}
-                removedBg={theme.diffRemovedBg}
-                contextBg={theme.diffContextBg}
-                addedSignColor={theme.diffHighlightAdded}
-                removedSignColor={theme.diffHighlightRemoved}
-                lineNumberFg={theme.diffLineNumber}
-                lineNumberBg={theme.diffContextBg}
-                addedLineNumberBg={theme.diffAddedLineNumberBg}
-                removedLineNumberBg={theme.diffRemovedLineNumberBg}
+                fg={theme.foreground.default}
+                addedBg={theme.diff.addedBg}
+                removedBg={theme.diff.removedBg}
+                contextBg={theme.diff.contextBg}
+                addedSignColor={theme.diff.highlightAdded}
+                removedSignColor={theme.diff.highlightRemoved}
+                lineNumberFg={theme.diff.lineNumber}
+                lineNumberBg={theme.diff.contextBg}
+                addedLineNumberBg={theme.diff.addedLineNumberBg}
+                removedLineNumberBg={theme.diff.removedLineNumberBg}
               />
             </Match>
           </Switch>
@@ -112,15 +112,15 @@ function TextBody(props: { title: string; description?: string; icon?: string })
     <>
       <box flexDirection="row" gap={1} paddingLeft={1}>
         <Show when={props.icon}>
-          <text fg={theme.textMuted} flexShrink={0}>
+          <text fg={theme.foreground.muted} flexShrink={0}>
             {props.icon}
           </text>
         </Show>
-        <text fg={theme.textMuted}>{props.title}</text>
+        <text fg={theme.foreground.muted}>{props.title}</text>
       </box>
       <Show when={props.description}>
         <box paddingLeft={1}>
-          <text fg={theme.text}>{props.description}</text>
+          <text fg={theme.foreground.default}>{props.description}</text>
         </box>
       </Show>
     </>
@@ -162,11 +162,11 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
               </Match>
               <Match when={true}>
                 <box paddingLeft={1} gap={1}>
-                  <text fg={theme.textMuted}>This will allow the following patterns until Nikcli is restarted</text>
+                  <text fg={theme.foreground.muted}>This will allow the following patterns until Nikcli is restarted</text>
                   <box>
                     <For each={props.request.always}>
                       {(pattern) => (
-                        <text fg={theme.text}>
+                        <text fg={theme.foreground.default}>
                           {"- "}
                           {pattern}
                         </text>
@@ -335,18 +335,18 @@ function RejectPrompt(props: { onConfirm: (message: string) => void; onCancel: (
 
   return (
     <box
-      backgroundColor={theme.backgroundPanel}
+      backgroundColor={theme.surface.panel}
       border={["left"]}
-      borderColor={theme.error}
+      borderColor={theme.status.error.fg}
       customBorderChars={SplitBorder.customBorderChars}
     >
       <box gap={1} paddingLeft={1} paddingRight={3} paddingTop={1} paddingBottom={1}>
         <box flexDirection="row" gap={1} paddingLeft={1}>
-          <text fg={theme.error}>{"△"}</text>
-          <text fg={theme.text}>Reject permission</text>
+          <text fg={theme.status.error.fg}>{"△"}</text>
+          <text fg={theme.foreground.default}>Reject permission</text>
         </box>
         <box paddingLeft={1}>
-          <text fg={theme.textMuted}>Tell Nikcli what to do differently</text>
+          <text fg={theme.foreground.muted}>Tell Nikcli what to do differently</text>
         </box>
       </box>
       <box
@@ -356,7 +356,7 @@ function RejectPrompt(props: { onConfirm: (message: string) => void; onCancel: (
         paddingLeft={2}
         paddingRight={3}
         paddingBottom={1}
-        backgroundColor={theme.backgroundElement}
+        backgroundColor={theme.surface.offset}
         justifyContent={narrow() ? "flex-start" : "space-between"}
         alignItems={narrow() ? "flex-start" : "center"}
         gap={1}
@@ -364,17 +364,17 @@ function RejectPrompt(props: { onConfirm: (message: string) => void; onCancel: (
         <textarea
           ref={(val: TextareaRenderable) => (input = val)}
           focused
-          textColor={theme.text}
-          focusedTextColor={theme.text}
-          cursorColor={theme.primary}
+          textColor={theme.foreground.default}
+          focusedTextColor={theme.foreground.default}
+          cursorColor={theme.accent.fg}
           keyBindings={textareaKeybindings()}
         />
         <box flexDirection="row" gap={2} flexShrink={0}>
-          <text fg={theme.text}>
-            enter <span style={{ fg: theme.textMuted }}>confirm</span>
+          <text fg={theme.foreground.default}>
+            enter <span style={{ fg: theme.foreground.muted }}>confirm</span>
           </text>
-          <text fg={theme.text}>
-            esc <span style={{ fg: theme.textMuted }}>cancel</span>
+          <text fg={theme.foreground.default}>
+            esc <span style={{ fg: theme.foreground.muted }}>cancel</span>
           </text>
         </box>
       </box>
@@ -438,9 +438,9 @@ function Prompt<const T extends Record<string, string>>(props: {
 
   const content = () => (
     <box
-      backgroundColor={theme.backgroundPanel}
+      backgroundColor={theme.surface.panel}
       border={["left"]}
-      borderColor={theme.warning}
+      borderColor={theme.status.warning.fg}
       customBorderChars={SplitBorder.customBorderChars}
       {...(store.expanded
         ? { top: dimensions().height * -1 + 1, bottom: 1, left: 2, right: 2, position: "absolute" }
@@ -455,8 +455,8 @@ function Prompt<const T extends Record<string, string>>(props: {
     >
       <box gap={1} paddingLeft={1} paddingRight={3} paddingTop={1} paddingBottom={1} flexGrow={1}>
         <box flexDirection="row" gap={1} paddingLeft={1} flexShrink={0}>
-          <text fg={theme.warning}>{"△"}</text>
-          <text fg={theme.text}>{props.title}</text>
+          <text fg={theme.status.warning.fg}>{"△"}</text>
+          <text fg={theme.foreground.default}>{props.title}</text>
         </box>
         {props.body}
       </box>
@@ -468,7 +468,7 @@ function Prompt<const T extends Record<string, string>>(props: {
         paddingLeft={2}
         paddingRight={3}
         paddingBottom={1}
-        backgroundColor={theme.backgroundElement}
+        backgroundColor={theme.surface.offset}
         justifyContent={narrow() ? "flex-start" : "space-between"}
         alignItems={narrow() ? "flex-start" : "center"}
       >
@@ -478,14 +478,14 @@ function Prompt<const T extends Record<string, string>>(props: {
               <box
                 paddingLeft={1}
                 paddingRight={1}
-                backgroundColor={option === store.selected ? theme.warning : theme.backgroundMenu}
+                backgroundColor={option === store.selected ? theme.status.warning.fg : theme.surface.overlay}
                 onMouseOver={() => setStore("selected", option)}
                 onMouseUp={() => {
                   setStore("selected", option)
                   props.onSelect(option)
                 }}
               >
-                <text fg={option === store.selected ? selectedForeground(theme, theme.warning) : theme.textMuted}>
+                <text fg={option === store.selected ? selectedForeground(theme, theme.status.warning.fg) : theme.foreground.muted}>
                   {props.options[option]}
                 </text>
               </box>
@@ -494,15 +494,15 @@ function Prompt<const T extends Record<string, string>>(props: {
         </box>
         <box flexDirection="row" gap={2} flexShrink={0}>
           <Show when={props.fullscreen}>
-            <text fg={theme.text}>
-              {"ctrl+f"} <span style={{ fg: theme.textMuted }}>{hint()}</span>
+            <text fg={theme.foreground.default}>
+              {"ctrl+f"} <span style={{ fg: theme.foreground.muted }}>{hint()}</span>
             </text>
           </Show>
-          <text fg={theme.text}>
-            {"⇆"} <span style={{ fg: theme.textMuted }}>select</span>
+          <text fg={theme.foreground.default}>
+            {"⇆"} <span style={{ fg: theme.foreground.muted }}>select</span>
           </text>
-          <text fg={theme.text}>
-            enter <span style={{ fg: theme.textMuted }}>confirm</span>
+          <text fg={theme.foreground.default}>
+            enter <span style={{ fg: theme.foreground.muted }}>confirm</span>
           </text>
         </box>
       </box>

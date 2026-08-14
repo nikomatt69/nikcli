@@ -15,13 +15,13 @@ import { LoopApi } from "./sdk"
 export function toneColor(theme: TuiPluginApi["theme"]["current"], tone: Runner.LoopTone): RGBA {
   switch (tone) {
     case "running":
-      return theme.warning
+      return theme.status.warning.fg
     case "error":
-      return theme.error
+      return theme.status.error.fg
     case "ok":
-      return theme.success
+      return theme.status.success.fg
     default:
-      return theme.textMuted
+      return theme.foreground.muted
   }
 }
 
@@ -721,7 +721,7 @@ function openHistory(api: TuiPluginApi, def: Store.LoopDefinition): void {
       footer: (
         <span
           style={{
-            fg: run.ok ? api.theme.current.success : api.theme.current.error,
+            fg: run.ok ? api.theme.current.status.success.fg : api.theme.current.status.error.fg,
           }}
         >
           {run.ok ? "ok" : "error"}
@@ -888,7 +888,7 @@ function askGenerateDescription(api: TuiPluginApi): void {
         title="New loop · describe what you want"
         placeholder="e.g. Watch CI on PR #1234 every 10m and fix any failing checks"
         description={() => (
-          <text fg={api.theme.current.textMuted}>
+          <text fg={api.theme.current.foreground.muted}>
             The AI will draft a multi-stage pipeline. You'll review before saving.
           </text>
         )}

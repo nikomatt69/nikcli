@@ -28,10 +28,10 @@ nikcli's answer is **per-instance caches with two invalidation channels** — a 
 
 `reloadable: true` is **opt-in**, and the opt-out cases are the interesting ones. The source names two:
 
-- `format/index.ts` owns the auto-format bus subscription. Invalidating it would drop the subscription.
-- `tool/registry.ts` holds tools registered at runtime by sdk-next and plugins. Those exist nowhere else, so a config-driven invalidation would silently delete them.
+- `format/index.ts` used to own the auto-format bus subscription. Formatting is now invoked explicitly, so that cache is reloadable.
+- Runtime tool registrations from sdk-next. Those exist nowhere else, so they live in a **separate non-reloadable cache** in `tool/registry.ts`. The config-dir and `plugin.tool` list next to them is reloadable.
 
-The rule that falls out: **a cache may be reloadable only if it can be rebuilt from files.** State that owns a live resource or accumulates runtime-only registrations must not be.
+The rule that falls out: **a cache may be reloadable only if it can be rebuilt from files.** State that owns a live resource or accumulates runtime-only registrations must not be. A service that has both splits them.
 
 ### 2. Broad invalidation is file-driven and announced
 

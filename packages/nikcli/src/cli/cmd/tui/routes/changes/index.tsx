@@ -512,15 +512,15 @@ export function Changes() {
     const row = selectedRow()
     if (!row) return
     diff.setLineColor(row.visualLine, {
-      gutter: themeState.theme.primary,
-      content: themeState.theme.backgroundElement,
+      gutter: themeState.theme.accent.fg,
+      content: themeState.theme.surface.offset,
     })
   })
 
   onCleanup(() => diffRef()?.clearAllLineColors())
 
   return (
-    <box flexDirection="column" flexGrow={1} backgroundColor={themeState.theme.background} gap={0}>
+    <box flexDirection="column" flexGrow={1} backgroundColor={themeState.theme.surface.base} gap={0}>
       <ChangesHeader
         sessionTitle={sessionTitleDisplay()}
         sessionId={routeData.sessionID}
@@ -573,7 +573,7 @@ export function Changes() {
           when={ordered().length > 0}
           fallback={
             <box width={contentWidth()} height="100%" paddingLeft={2} paddingTop={2}>
-              <text fg={themeState.theme.textMuted}>No changes to display</text>
+              <text fg={themeState.theme.foreground.muted}>No changes to display</text>
             </box>
           }
         >
@@ -584,7 +584,7 @@ export function Changes() {
               paddingLeft={2}
               paddingRight={2}
               paddingTop={1}
-              backgroundColor={themeState.theme.diffContextBg}
+              backgroundColor={themeState.theme.diff.contextBg}
               scrollbarOptions={{ visible: false }}
             >
               <diff
@@ -596,16 +596,16 @@ export function Changes() {
                 showLineNumbers={true}
                 width="100%"
                 wrapMode={wrap()}
-                fg={themeState.theme.text}
-                addedBg={themeState.theme.diffAddedBg}
-                removedBg={themeState.theme.diffRemovedBg}
-                contextBg={themeState.theme.diffContextBg}
-                addedSignColor={themeState.theme.diffHighlightAdded}
-                removedSignColor={themeState.theme.diffHighlightRemoved}
-                lineNumberFg={themeState.theme.diffLineNumber}
-                lineNumberBg={themeState.theme.diffContextBg}
-                addedLineNumberBg={themeState.theme.diffAddedLineNumberBg}
-                removedLineNumberBg={themeState.theme.diffRemovedLineNumberBg}
+                fg={themeState.theme.foreground.default}
+                addedBg={themeState.theme.diff.addedBg}
+                removedBg={themeState.theme.diff.removedBg}
+                contextBg={themeState.theme.diff.contextBg}
+                addedSignColor={themeState.theme.diff.highlightAdded}
+                removedSignColor={themeState.theme.diff.highlightRemoved}
+                lineNumberFg={themeState.theme.diff.lineNumber}
+                lineNumberBg={themeState.theme.diff.contextBg}
+                addedLineNumberBg={themeState.theme.diff.addedLineNumberBg}
+                removedLineNumberBg={themeState.theme.diff.removedLineNumberBg}
               />
             </scrollbox>
 
@@ -614,7 +614,7 @@ export function Changes() {
                 width={reviewInline() ? reviewWidth() : "100%"}
                 height={reviewInline() ? "100%" : 14}
                 border={[reviewInline() ? "left" : "top"]}
-                borderColor={themeState.theme.borderSubtle}
+                borderColor={themeState.theme.border.subtle}
               >
                 <scrollbox
                   flexGrow={1}
@@ -625,7 +625,7 @@ export function Changes() {
                 >
                   <Show when={commentItems().length > 0}>
                     <box gap={1} paddingTop={0}>
-                      <text fg={themeState.theme.text}>
+                      <text fg={themeState.theme.foreground.default}>
                         <b>Review Comments</b> {`(${commentItems().length})`}
                       </text>
                       <For each={commentItems()}>

@@ -23,6 +23,8 @@ function runGoal<A, E>(effect: Effect.Effect<A, E, any>) {
 }
 
 afterAll(async () => {
+  const { Database } = await import("@/database/database")
+  Database.closeAll()
   await removeTestDir(testHome)
 })
 

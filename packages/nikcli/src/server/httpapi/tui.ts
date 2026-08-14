@@ -3,7 +3,7 @@ import { Effect, Layer, Schema } from "effect"
 import z from "zod"
 import { Bus } from "@/bus"
 import { Session } from "@/session"
-import { Storage } from "@/storage/storage"
+import { SessionError } from "@/session/error"
 import { TuiEvent } from "@/cli/cmd/tui/event"
 import { TuiControlQueues } from "../tui-control"
 
@@ -192,7 +192,7 @@ export namespace TuiHttpApi {
         const session = yield* Session.Service
         yield* session.get(body.sessionID).pipe(
           Effect.catch((error) =>
-            error instanceof Storage.NotFoundError
+            SessionError.isNotFound(error)
               ? Effect.fail({
                   name: "NotFoundError" as const,
                   data: { message: error.message } as Record<string, unknown>,
@@ -200,7 +200,7 @@ export namespace TuiHttpApi {
               : Effect.die(error),
           ),
           Effect.catchDefect((defect) =>
-            defect instanceof Storage.NotFoundError
+            SessionError.isNotFound(defect)
               ? Effect.fail({
                   name: "NotFoundError" as const,
                   data: { message: defect.message } as Record<string, unknown>,

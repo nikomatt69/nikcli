@@ -37,10 +37,10 @@ export function DialogSync() {
   })
   const kindColor = createMemo(() => {
     const k = kind()
-    if (k === "connected") return theme.success
-    if (k === "error") return theme.error
-    if (k === "disconnected") return theme.warning
-    return theme.textMuted
+    if (k === "connected") return theme.status.success.fg
+    if (k === "error") return theme.status.error.fg
+    if (k === "disconnected") return theme.status.warning.fg
+    return theme.foreground.muted
   })
   const kindLabel = createMemo(() => {
     const k = kind()
@@ -176,18 +176,18 @@ export function DialogSync() {
   return (
     <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} gap={1} flexDirection="column">
       <box flexDirection="row" justifyContent="space-between">
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        <text fg={theme.foreground.default} attributes={TextAttributes.BOLD}>
           Sync
         </text>
         <text fg={kindColor()}>{kindLabel()}</text>
       </box>
-      <text fg={theme.textMuted}>Unified event log for sessions + workspace, with optional hub-and-spoke remote</text>
+      <text fg={theme.foreground.muted}>Unified event log for sessions + workspace, with optional hub-and-spoke remote</text>
 
       <Show
         when={!showForm()}
         fallback={
           <box
-            backgroundColor={theme.backgroundElement}
+            backgroundColor={theme.surface.offset}
             paddingLeft={2}
             paddingRight={2}
             paddingTop={1}
@@ -195,24 +195,24 @@ export function DialogSync() {
             flexDirection="column"
             gap={1}
           >
-            <text fg={theme.text} attributes={TextAttributes.BOLD}>
+            <text fg={theme.foreground.default} attributes={TextAttributes.BOLD}>
               {form.editing ? "Edit sync server" : "Set up remote sync"}
             </text>
-            <text fg={theme.textMuted} wrapMode="word">
+            <text fg={theme.foreground.muted} wrapMode="word">
               Saved to the global nikcli.json. NIKCLI_REMOTE_URL / NIKCLI_REMOTE_TOKEN env vars override it.
             </text>
             <Show when={status().source === "env"}>
-              <text fg={theme.warning} wrapMode="word">
+              <text fg={theme.status.warning.fg} wrapMode="word">
                 Env vars are currently set and will keep overriding whatever you save here.
               </text>
             </Show>
 
             <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={theme.textMuted}>Server URL:</text>
+              <text fg={theme.foreground.muted}>Server URL:</text>
               <box
                 flexGrow={1}
                 border={["bottom"]}
-                borderColor={form.focus === "url" ? theme.primary : theme.borderSubtle}
+                borderColor={form.focus === "url" ? theme.accent.fg : theme.border.subtle}
                 onMouseUp={() => focusField("url")}
               >
                 <input
@@ -222,19 +222,19 @@ export function DialogSync() {
                     setForm("status", "")
                   }}
                   placeholder="https://s.nikcli.store"
-                  cursorColor={theme.primary}
-                  focusedTextColor={theme.text}
+                  cursorColor={theme.accent.fg}
+                  focusedTextColor={theme.foreground.default}
                   ref={(r: any) => (urlInput = r)}
                 />
               </box>
             </box>
 
             <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={theme.textMuted}>Sync Token:</text>
+              <text fg={theme.foreground.muted}>Sync Token:</text>
               <box
                 flexGrow={1}
                 border={["bottom"]}
-                borderColor={form.focus === "token" ? theme.primary : theme.borderSubtle}
+                borderColor={form.focus === "token" ? theme.accent.fg : theme.border.subtle}
                 onMouseUp={() => focusField("token")}
               >
                 <input
@@ -246,39 +246,39 @@ export function DialogSync() {
                   placeholder={
                     status().configured ? "leave blank to keep the current token" : "mobile or cli-sync bearer token"
                   }
-                  cursorColor={theme.primary}
-                  focusedTextColor={theme.text}
+                  cursorColor={theme.accent.fg}
+                  focusedTextColor={theme.foreground.default}
                   ref={(r: any) => (tokenInput = r)}
                 />
               </box>
             </box>
 
             <Show when={form.status}>
-              <text fg={form.busy ? theme.textMuted : theme.warning} wrapMode="word">
+              <text fg={form.busy ? theme.foreground.muted : theme.status.warning.fg} wrapMode="word">
                 {form.status}
               </text>
             </Show>
 
             <box flexDirection="row" justifyContent="space-between" alignItems="center">
-              <text fg={theme.textMuted}>The local event log always works without the hub.</text>
+              <text fg={theme.foreground.muted}>The local event log always works without the hub.</text>
               <box flexDirection="row" gap={1}>
                 <Show when={form.editing}>
                   <box
                     paddingLeft={1}
                     paddingRight={1}
-                    backgroundColor={theme.backgroundPanel}
+                    backgroundColor={theme.surface.panel}
                     onMouseUp={() => !form.busy && closeForm()}
                   >
-                    <text fg={theme.textMuted}>Cancel</text>
+                    <text fg={theme.foreground.muted}>Cancel</text>
                   </box>
                 </Show>
                 <box
                   paddingLeft={1}
                   paddingRight={1}
-                  backgroundColor={form.busy ? theme.backgroundPanel : theme.primary}
+                  backgroundColor={form.busy ? theme.surface.panel : theme.accent.fg}
                   onMouseUp={() => void save()}
                 >
-                  <text fg={form.busy ? theme.textMuted : theme.selectedListItemText}>
+                  <text fg={form.busy ? theme.foreground.muted : theme.badge.fg}>
                     {form.busy ? "Saving…" : "Save"}
                   </text>
                 </box>
@@ -295,12 +295,12 @@ export function DialogSync() {
           <Stat
             label="Last event"
             value={status().lastOrigin ? `${status().lastOrigin}` : "—"}
-            color={status().lastOrigin === "remote" ? String(theme.accent) : undefined}
+            color={status().lastOrigin === "remote" ? String(theme.accent.alt) : undefined}
           />
         </box>
 
         <Show when={status().lastError}>
-          <text fg={theme.error}>error: {status().lastError}</text>
+          <text fg={theme.status.error.fg}>error: {status().lastError}</text>
         </Show>
 
         <box flexDirection="row" gap={2} paddingTop={1}>
@@ -315,36 +315,36 @@ export function DialogSync() {
         </box>
       </Show>
 
-      <text fg={theme.textMuted} paddingTop={1}>
+      <text fg={theme.foreground.muted} paddingTop={1}>
         Recent events (newest first)
       </text>
       <scrollbox height={bodyHeight()} focused={!showForm()} scrollbarOptions={{ visible: true }}>
-        <Show when={status().events.length > 0} fallback={<text fg={theme.textMuted}>No events yet.</text>}>
+        <Show when={status().events.length > 0} fallback={<text fg={theme.foreground.muted}>No events yet.</text>}>
           <For each={status().events}>
             {(event) => (
               <box flexDirection="row" gap={1}>
-                <text fg={theme.textMuted} wrapMode="none">
+                <text fg={theme.foreground.muted} wrapMode="none">
                   {formatAge(event.timestamp).padStart(8)}
                 </text>
                 <text
                   fg={
                     event.origin === "remote"
-                      ? theme.accent
+                      ? theme.accent.alt
                       : event.aggregateKind === "workspace"
-                        ? theme.primary
-                        : theme.text
+                        ? theme.accent.fg
+                        : theme.foreground.default
                   }
                   wrapMode="none"
                 >
                   {event.origin === "remote" ? "↓" : "↑"}
                 </text>
-                <text fg={theme.textMuted} wrapMode="none">
+                <text fg={theme.foreground.muted} wrapMode="none">
                   [{event.aggregateKind}]
                 </text>
-                <text fg={theme.text} wrapMode="none">
+                <text fg={theme.foreground.default} wrapMode="none">
                   {event.type}
                 </text>
-                <text fg={theme.textMuted} wrapMode="none">
+                <text fg={theme.foreground.muted} wrapMode="none">
                   {event.preview && event.preview !== event.type ? ` ${event.preview}` : ""}
                 </text>
               </box>
@@ -376,7 +376,7 @@ export function DialogSync() {
             <FooterHint keys="^e" label="settings" />
           </Show>
         </FooterHintGroup>
-        <text fg={theme.textMuted}>
+        <text fg={theme.foreground.muted}>
           {status().events.length} events · last seq {status().lastSeq}
         </text>
       </box>
@@ -388,10 +388,10 @@ function Stat(props: { label: string; value: string; color?: string }) {
   const { theme } = useTheme()
   return (
     <box flexDirection="column" gap={0}>
-      <text fg={theme.textMuted} wrapMode="none">
+      <text fg={theme.foreground.muted} wrapMode="none">
         {props.label}
       </text>
-      <text fg={props.color ?? theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+      <text fg={props.color ?? theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
         {props.value}
       </text>
     </box>
@@ -404,12 +404,12 @@ function ActionButton(props: { label: string; onClick: () => void; accent?: bool
     <box
       paddingLeft={2}
       paddingRight={2}
-      backgroundColor={props.disabled ? theme.backgroundPanel : props.accent ? theme.primary : theme.backgroundElement}
+      backgroundColor={props.disabled ? theme.surface.panel : props.accent ? theme.accent.fg : theme.surface.offset}
       onMouseUp={() => {
         if (!props.disabled) props.onClick()
       }}
     >
-      <text fg={props.disabled ? theme.textMuted : props.accent ? theme.selectedListItemText : theme.text}>
+      <text fg={props.disabled ? theme.foreground.muted : props.accent ? theme.badge.fg : theme.foreground.default}>
         {props.label}
       </text>
     </box>

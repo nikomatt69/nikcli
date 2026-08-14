@@ -14,10 +14,10 @@ export function FooterHintAction(props: { action: string; label?: string }) {
 
   return (
     <box flexDirection="row" gap={1} alignItems="baseline">
-      <text fg={t.theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+      <text fg={t.theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
         {key()}
       </text>
-      <text fg={t.theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+      <text fg={t.theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
         {` ${label()}`}
       </text>
     </box>
@@ -28,10 +28,10 @@ export function FooterHint(props: { keys: string; label: string }) {
   const t = useTheme()
   return (
     <box flexDirection="row" gap={1} alignItems="baseline">
-      <text fg={t.theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+      <text fg={t.theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
         {props.keys}
       </text>
-      <text fg={t.theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+      <text fg={t.theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
         {` ${props.label}`}
       </text>
     </box>
@@ -41,7 +41,7 @@ export function FooterHint(props: { keys: string; label: string }) {
 export function FooterSep() {
   const t = useTheme()
   return (
-    <text fg={t.theme.borderSubtle} wrapMode="none">
+    <text fg={t.theme.border.subtle} wrapMode="none">
       │
     </text>
   )
@@ -59,7 +59,7 @@ export function FooterHintGroup(props: { children: JSX.Element | JSX.Element[] }
           <>
             {child}
             {index() < children.length - 1 && (
-              <text fg={t.theme.borderSubtle} wrapMode="none">
+              <text fg={t.theme.border.subtle} wrapMode="none">
                 ·
               </text>
             )}

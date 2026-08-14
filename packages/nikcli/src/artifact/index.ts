@@ -1,9 +1,7 @@
 import path from "path"
-import { Effect } from "effect"
-import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
-import { runPromiseWithLayer } from "@/effect"
 import { UserDB } from "@/user/users"
+import { ArtifactRepo } from "./repo"
 
 /**
  * Published artifacts — Claude-artifacts-style pages hosted on nikcli.store.
@@ -39,8 +37,6 @@ export namespace Artifact {
   }
 
   type StoredRecord = Info & { secret: string }
-
-  const STORAGE_PREFIX = "artifact"
 
   const MIME_BY_EXT: Record<string, string> = {
     ".html": "text/html",
@@ -86,10 +82,6 @@ export namespace Artifact {
     const url = new URL(info.url)
     url.searchParams.set("key", info.viewKey)
     return url.toString()
-  }
-
-  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-    return runPromiseWithLayer(Storage.defaultLayer, effect)
   }
 
   /** The nikcli server whose UserDB is authoritative for artifact ownership. */
@@ -260,43 +252,15 @@ export namespace Artifact {
   }
 
   async function write(record: StoredRecord) {
-    await runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        yield* storage.write([STORAGE_PREFIX, record.sessionID, record.id], record)
-      }),
-    )
+    ArtifactRepo.upsert(record)
   }
 
   async function read(sessionID: string, artifactID: string): Promise<StoredRecord | undefined> {
-    return runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        return yield* storage
-          .read<StoredRecord>([STORAGE_PREFIX, sessionID, artifactID])
-          .pipe(Effect.catch(() => Effect.succeed(undefined)))
-      }),
-    )
+    return ArtifactRepo.get(sessionID, artifactID)
   }
 
   /** Artifacts published from a session, newest first (secrets stripped). */
   export async function list(sessionID: string): Promise<Info[]> {
-    const keys = await runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        return yield* storage.list([STORAGE_PREFIX, sessionID]).pipe(Effect.catch(() => Effect.succeed([])))
-      }),
-    )
-    const records: Info[] = []
-    for (const key of keys) {
-      const artifactID = key[key.length - 1]
-      if (!artifactID) continue
-      const record = await read(sessionID, artifactID)
-      if (!record) continue
-      const { secret: _secret, ...info } = record
-      records.push(info)
-    }
-    records.sort((a, b) => b.time.updated - a.time.updated)
-    return records
+    return ArtifactRepo.list(sessionID).map(({ secret: _secret, ...info }) => info)
   }
 }

@@ -80,14 +80,14 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           Export Options
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <text fg={theme.foreground.muted}>esc</text>
       </box>
       <box gap={1}>
         <box>
-          <text fg={theme.text}>Filename:</text>
+          <text fg={theme.foreground.default}>Filename:</text>
         </box>
         <textarea
           onSubmit={() => {
@@ -106,9 +106,9 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
           ref={(val: TextareaRenderable) => (textarea = val)}
           initialValue={props.defaultFilename}
           placeholder="Enter filename (.md, .txt, .json)"
-          textColor={theme.text}
-          focusedTextColor={theme.text}
-          cursorColor={theme.text}
+          textColor={theme.foreground.default}
+          focusedTextColor={theme.foreground.default}
+          cursorColor={theme.foreground.default}
         />
       </box>
       <box flexDirection="column">
@@ -116,67 +116,67 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
           flexDirection="row"
           gap={2}
           paddingLeft={1}
-          backgroundColor={store.active === "thinking" ? theme.backgroundElement : undefined}
+          backgroundColor={store.active === "thinking" ? theme.surface.offset : undefined}
           onMouseUp={() => setStore("active", "thinking")}
         >
-          <text fg={store.active === "thinking" ? theme.primary : theme.textMuted}>
+          <text fg={store.active === "thinking" ? theme.accent.fg : theme.foreground.muted}>
             {store.thinking ? "[x]" : "[ ]"}
           </text>
-          <text fg={store.active === "thinking" ? theme.primary : theme.text}>Include thinking</text>
+          <text fg={store.active === "thinking" ? theme.accent.fg : theme.foreground.default}>Include thinking</text>
         </box>
         <box
           flexDirection="row"
           gap={2}
           paddingLeft={1}
-          backgroundColor={store.active === "toolDetails" ? theme.backgroundElement : undefined}
+          backgroundColor={store.active === "toolDetails" ? theme.surface.offset : undefined}
           onMouseUp={() => setStore("active", "toolDetails")}
         >
-          <text fg={store.active === "toolDetails" ? theme.primary : theme.textMuted}>
+          <text fg={store.active === "toolDetails" ? theme.accent.fg : theme.foreground.muted}>
             {store.toolDetails ? "[x]" : "[ ]"}
           </text>
-          <text fg={store.active === "toolDetails" ? theme.primary : theme.text}>Include tool details</text>
+          <text fg={store.active === "toolDetails" ? theme.accent.fg : theme.foreground.default}>Include tool details</text>
         </box>
         <box
           flexDirection="row"
           gap={2}
           paddingLeft={1}
-          backgroundColor={store.active === "assistantMetadata" ? theme.backgroundElement : undefined}
+          backgroundColor={store.active === "assistantMetadata" ? theme.surface.offset : undefined}
           onMouseUp={() => setStore("active", "assistantMetadata")}
         >
-          <text fg={store.active === "assistantMetadata" ? theme.primary : theme.textMuted}>
+          <text fg={store.active === "assistantMetadata" ? theme.accent.fg : theme.foreground.muted}>
             {store.assistantMetadata ? "[x]" : "[ ]"}
           </text>
-          <text fg={store.active === "assistantMetadata" ? theme.primary : theme.text}>Include assistant metadata</text>
+          <text fg={store.active === "assistantMetadata" ? theme.accent.fg : theme.foreground.default}>Include assistant metadata</text>
         </box>
         <box
           flexDirection="row"
           gap={2}
           paddingLeft={1}
-          backgroundColor={store.active === "openWithoutSaving" ? theme.backgroundElement : undefined}
+          backgroundColor={store.active === "openWithoutSaving" ? theme.surface.offset : undefined}
           onMouseUp={() => setStore("active", "openWithoutSaving")}
         >
-          <text fg={store.active === "openWithoutSaving" ? theme.primary : theme.textMuted}>
+          <text fg={store.active === "openWithoutSaving" ? theme.accent.fg : theme.foreground.muted}>
             {store.openWithoutSaving ? "[x]" : "[ ]"}
           </text>
-          <text fg={store.active === "openWithoutSaving" ? theme.primary : theme.text}>Open without saving</text>
+          <text fg={store.active === "openWithoutSaving" ? theme.accent.fg : theme.foreground.default}>Open without saving</text>
         </box>
       </box>
       <Show when={store.active !== "filename"}>
         <box flexDirection="row" flexWrap="wrap" gap={1} paddingBottom={1}>
-          <text fg={theme.textMuted}>space</text>
-          <text fg={theme.textMuted}>toggle</text>
-          <text fg={theme.borderSubtle}>·</text>
-          <text fg={theme.textMuted}>return</text>
-          <text fg={theme.textMuted}>confirm</text>
+          <text fg={theme.foreground.muted}>space</text>
+          <text fg={theme.foreground.muted}>toggle</text>
+          <text fg={theme.border.subtle}>·</text>
+          <text fg={theme.foreground.muted}>return</text>
+          <text fg={theme.foreground.muted}>confirm</text>
         </box>
       </Show>
       <Show when={store.active === "filename"}>
         <box flexDirection="row" flexWrap="wrap" gap={1} paddingBottom={1}>
-          <text fg={theme.textMuted}>return</text>
-          <text fg={theme.textMuted}>confirm</text>
-          <text fg={theme.borderSubtle}>·</text>
-          <text fg={theme.textMuted}>tab</text>
-          <text fg={theme.textMuted}>options</text>
+          <text fg={theme.foreground.muted}>return</text>
+          <text fg={theme.foreground.muted}>confirm</text>
+          <text fg={theme.border.subtle}>·</text>
+          <text fg={theme.foreground.muted}>tab</text>
+          <text fg={theme.foreground.muted}>options</text>
         </box>
       </Show>
     </box>

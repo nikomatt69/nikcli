@@ -1,11 +1,9 @@
 import { Context, Effect, Layer, Schema } from "effect"
-import z from "zod"
 import { zod, zodObject, zodObjectMode, type DeepMutable } from "@/util/effect-zod"
 import { Identifier } from "@/id/id"
-import { Storage } from "@/storage/storage"
-import { storageRead, storageRemove, storageUpdate, storageWrite } from "@/storage/effect"
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
+import { GoalRepo } from "./goal-repo"
 
 export namespace SessionGoal {
   export const MAX_ITERATIONS = 50
@@ -74,37 +72,15 @@ export namespace SessionGoal {
 
   export class Service extends Context.Service<Service, Interface>()("SessionGoal.Service") {}
 
-  function key(sessionID: string) {
-    return ["goal", sessionID]
-  }
-
-  function isStorageNotFound(error: unknown): boolean {
-    if (error instanceof Storage.NotFoundError) return true
-    if (typeof error !== "object" || error === null) return false
-    const tagged = error as {
-      _tag?: string
-      cause?: unknown
-      message?: string
-    }
-    return (
-      tagged._tag === "NotFoundError" ||
-      isStorageNotFound(tagged.cause) ||
-      tagged.message?.startsWith("Resource not found:") === true
-    )
-  }
-
   function publishGoal(sessionID: string, state: State | undefined) {
     void Bus.publish(Event.Updated, { sessionID, goal: state ?? null })
   }
 
-  async function getImpl(sessionID: string) {
-    return storageRead<State>(key(sessionID)).catch((error) => {
-      if (isStorageNotFound(error)) return undefined
-      throw error
-    })
+  function getImpl(sessionID: string) {
+    return GoalRepo.get(sessionID)
   }
 
-  async function setImpl(sessionID: string, objective: string, tokenBudget?: number) {
+  function setImpl(sessionID: string, objective: string, tokenBudget?: number) {
     const now = Date.now()
     const state: State = {
       sessionID,
@@ -118,26 +94,23 @@ export namespace SessionGoal {
       timeCreated: now,
       timeUpdated: now,
     }
-    await storageWrite(key(sessionID), state)
+    GoalRepo.upsert(state)
     publishGoal(sessionID, state)
     return state
   }
 
-  async function updateStatusImpl(sessionID: string, status: Status) {
-    const existing = await getImpl(sessionID)
-    if (!existing) return undefined
-    const updated = await storageUpdate<State>(key(sessionID), (draft) => {
+  function updateStatusImpl(sessionID: string, status: Status) {
+    const updated = GoalRepo.update(sessionID, (draft) => {
       draft.status = status
       draft.timeUpdated = Date.now()
     })
+    if (!updated) return undefined
     publishGoal(sessionID, updated)
     return updated
   }
 
-  async function accountUsageImpl(sessionID: string, tokensDelta: number, timeDeltaSeconds: number) {
-    const existing = await getImpl(sessionID)
-    if (!existing) return undefined
-    const updated = await storageUpdate<State>(key(sessionID), (draft) => {
+  function accountUsageImpl(sessionID: string, tokensDelta: number, timeDeltaSeconds: number) {
+    const updated = GoalRepo.update(sessionID, (draft) => {
       draft.tokensUsed += Math.max(0, Math.floor(tokensDelta))
       draft.timeUsedSeconds += Math.max(0, Math.floor(timeDeltaSeconds))
       if (draft.status === "active" && draft.tokenBudget !== undefined && draft.tokensUsed >= draft.tokenBudget) {
@@ -145,23 +118,23 @@ export namespace SessionGoal {
       }
       draft.timeUpdated = Date.now()
     })
+    if (!updated) return undefined
     publishGoal(sessionID, updated)
     return updated
   }
 
-  async function incrementIterationImpl(sessionID: string) {
-    const existing = await getImpl(sessionID)
-    if (!existing) return undefined
-    const updated = await storageUpdate<State>(key(sessionID), (draft) => {
+  function incrementIterationImpl(sessionID: string) {
+    const updated = GoalRepo.update(sessionID, (draft) => {
       draft.iterationCount += 1
       draft.timeUpdated = Date.now()
     })
+    if (!updated) return undefined
     publishGoal(sessionID, updated)
     return updated
   }
 
-  async function clearImpl(sessionID: string) {
-    await storageRemove(key(sessionID)).catch(() => undefined)
+  function clearImpl(sessionID: string) {
+    GoalRepo.remove(sessionID)
     publishGoal(sessionID, undefined)
   }
 
@@ -259,16 +232,16 @@ export namespace SessionGoal {
   export const layer = Layer.succeed(
     Service,
     Service.of({
-      get: (sessionID) => Effect.tryPromise(() => getImpl(sessionID)),
-      set: (sessionID, objective, tokenBudget) => Effect.tryPromise(() => setImpl(sessionID, objective, tokenBudget)),
-      updateStatus: (sessionID, status) => Effect.tryPromise(() => updateStatusImpl(sessionID, status)),
+      get: (sessionID) => Effect.sync(() => getImpl(sessionID)),
+      set: (sessionID, objective, tokenBudget) => Effect.sync(() => setImpl(sessionID, objective, tokenBudget)),
+      updateStatus: (sessionID, status) => Effect.sync(() => updateStatusImpl(sessionID, status)),
       accountUsage: (sessionID, tokensDelta, timeDeltaSeconds) =>
-        Effect.tryPromise(() => accountUsageImpl(sessionID, tokensDelta, timeDeltaSeconds)),
-      incrementIteration: (sessionID) => Effect.tryPromise(() => incrementIterationImpl(sessionID)),
-      pause: (sessionID) => Effect.tryPromise(() => updateStatusImpl(sessionID, "paused")),
-      resume: (sessionID) => Effect.tryPromise(() => updateStatusImpl(sessionID, "active")),
-      usageLimit: (sessionID) => Effect.tryPromise(() => updateStatusImpl(sessionID, "usage_limited")),
-      clear: (sessionID) => Effect.tryPromise(() => clearImpl(sessionID)),
+        Effect.sync(() => accountUsageImpl(sessionID, tokensDelta, timeDeltaSeconds)),
+      incrementIteration: (sessionID) => Effect.sync(() => incrementIterationImpl(sessionID)),
+      pause: (sessionID) => Effect.sync(() => updateStatusImpl(sessionID, "paused")),
+      resume: (sessionID) => Effect.sync(() => updateStatusImpl(sessionID, "active")),
+      usageLimit: (sessionID) => Effect.sync(() => updateStatusImpl(sessionID, "usage_limited")),
+      clear: (sessionID) => Effect.sync(() => clearImpl(sessionID)),
       isGoalContinueNeeded,
       isIterationLimitReached,
       continuationPrompt,

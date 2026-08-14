@@ -1,25 +1,9 @@
 import z from "zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./memory_search.txt"
-import { Storage } from "@/storage/storage"
 import { SessionRepo } from "@/session/repo"
 import { Instance } from "@/project/instance"
 import { MessageV2 } from "@/session/message-v2"
-import { Effect } from "effect"
-import { runPromiseWithLayer } from "@/effect"
-
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
-function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.list(prefix)
-    }),
-  )
-}
 
 const parameters = z.object({
   query: z.string().describe("Search query"),

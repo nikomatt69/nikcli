@@ -23,9 +23,9 @@ export const project = Effect.map(context, (ctx) => ctx.project)
 //
 // Only opt in state that is a *pure derivation* of config and files on disk.
 // Invalidation runs the entry's finalizers and rebuilds lazily, so a cache that
-// owns a live resource or accumulates runtime-only data loses it. See the
-// counter-examples in `format/index.ts` (owns the auto-format subscription) and
-// `tool/registry.ts` (holds runtime-registered tools).
+// owns a live resource or accumulates runtime-only data loses it. Runtime tool
+// registrations live in a separate non-reloadable cache in `tool/registry.ts`;
+// the config-dir/plugin list next to them is reloadable.
 const reloadable = new Set<ScopedCache.ScopedCache<string, any>>()
 
 export function make<S>(

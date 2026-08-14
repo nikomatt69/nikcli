@@ -84,10 +84,10 @@ export function DialogHelp() {
   return (
     <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} gap={1} flexDirection="column">
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           Help
         </text>
-        <text fg={theme.textMuted}>esc/enter to close · ↑↓ scroll</text>
+        <text fg={theme.foreground.muted}>esc/enter to close · ↑↓ scroll</text>
       </box>
 
       {/* Scrollable body — keeps the footer and OK button anchored on
@@ -99,16 +99,16 @@ export function DialogHelp() {
       <scrollbox height={bodyHeight()} focused={true} scrollbarOptions={{ visible: true }}>
         <box flexDirection="row" gap={3}>
           <box flexDirection="column" gap={1}>
-            <text attributes={TextAttributes.BOLD} fg={theme.primary}>
+            <text attributes={TextAttributes.BOLD} fg={theme.accent.fg}>
               Shortcuts
             </text>
             <For each={SHORTCUTS}>
               {(item) => (
                 <box flexDirection="row" gap={1}>
-                  <text fg={theme.accent} wrapMode="none">
+                  <text fg={theme.accent.alt} wrapMode="none">
                     {keybind.print(item.key)}
                   </text>
-                  <text fg={theme.textMuted} wrapMode="none">
+                  <text fg={theme.foreground.muted} wrapMode="none">
                     — {item.description}
                   </text>
                 </box>
@@ -117,16 +117,16 @@ export function DialogHelp() {
           </box>
 
           <box flexDirection="column" gap={1}>
-            <text attributes={TextAttributes.BOLD} fg={theme.primary}>
+            <text attributes={TextAttributes.BOLD} fg={theme.accent.fg}>
               Slash commands
             </text>
             <For each={SLASH_COMMANDS}>
               {(item) => (
                 <box flexDirection="row" gap={1}>
-                  <text fg={theme.accent} wrapMode="none">
+                  <text fg={theme.accent.alt} wrapMode="none">
                     {item.name}
                   </text>
-                  <text fg={theme.textMuted} wrapMode="none">
+                  <text fg={theme.foreground.muted} wrapMode="none">
                     — {item.description}
                   </text>
                 </box>
@@ -135,16 +135,16 @@ export function DialogHelp() {
           </box>
 
           <box flexDirection="column" gap={1}>
-            <text attributes={TextAttributes.BOLD} fg={theme.primary}>
+            <text attributes={TextAttributes.BOLD} fg={theme.accent.fg}>
               CLI
             </text>
             <For each={CLI_COMMANDS}>
               {(item) => (
                 <box flexDirection="row" gap={1}>
-                  <text fg={theme.accent} wrapMode="none">
+                  <text fg={theme.accent.alt} wrapMode="none">
                     {item.name}
                   </text>
-                  <text fg={theme.textMuted} wrapMode="none">
+                  <text fg={theme.foreground.muted} wrapMode="none">
                     — {item.description}
                   </text>
                 </box>
@@ -155,15 +155,15 @@ export function DialogHelp() {
       </scrollbox>
 
       <box paddingTop={1} flexDirection="row" justifyContent="space-between">
-        <text fg={theme.textMuted}>
-          Need more? See <span style={{ fg: theme.accent }}>https://nikcli.store/docs</span>
+        <text fg={theme.foreground.muted}>
+          Need more? See <span style={{ fg: theme.accent.alt }}>https://nikcli.store/docs</span>
         </text>
-        <text fg={theme.textMuted}>Press {keybind.print("command_list")} to open the command palette</text>
+        <text fg={theme.foreground.muted}>Press {keybind.print("command_list")} to open the command palette</text>
       </box>
 
       <box flexDirection="row" justifyContent="flex-end" paddingTop={1}>
-        <box paddingLeft={3} paddingRight={3} backgroundColor={theme.primary} onMouseUp={() => dialog.clear()}>
-          <text fg={theme.selectedListItemText}>OK</text>
+        <box paddingLeft={3} paddingRight={3} backgroundColor={theme.accent.fg} onMouseUp={() => dialog.clear()}>
+          <text fg={theme.badge.fg}>OK</text>
         </box>
       </box>
     </box>

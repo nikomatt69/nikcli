@@ -10,9 +10,9 @@ import { existsSync } from "fs"
 import { Git } from "@/git"
 import { type DeepMutable, zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-import { storageList, storageRead, storageUpdate, storageWrite } from "@/storage/effect"
 import { Hash } from "@/util/hash"
 import { Lock } from "@/util/lock"
+import { ProjectRepo } from "./repo"
 
 export namespace Project {
   const log = Log.create({ service: "project" })
@@ -149,14 +149,10 @@ export namespace Project {
     return fs.realpath(directory).catch(() => path.resolve(directory))
   }
 
-  function directoryKey(projectID: string) {
-    return ["project_directory", projectID]
-  }
-
   async function readDirectories(projectID: string): Promise<Directory[]> {
-    const stored = await storageRead<Directory[]>(directoryKey(projectID)).catch(() => undefined)
+    const stored = ProjectRepo.directories(projectID)
     if (stored) return stored
-    const project = await storageRead<Info>(["project", projectID]).catch(() => undefined)
+    const project = ProjectRepo.get(projectID)
     if (!project) return []
     const canonical = await canonicalDirectory(project.canonical ?? project.worktree)
     const items: Directory[] = [{ directory: canonical }]
@@ -164,7 +160,7 @@ export namespace Project {
       const directory = await canonicalDirectory(sandbox)
       if (directory !== canonical) items.push({ directory, strategy: "git_worktree" })
     }
-    await storageWrite(directoryKey(projectID), items)
+    ProjectRepo.setDirectories(projectID, items)
     return items
   }
 
@@ -184,7 +180,7 @@ export namespace Project {
     } else {
       items.push({ directory, ...(strategy ? { strategy } : {}) })
     }
-    await storageWrite(directoryKey(projectID), items)
+    ProjectRepo.setDirectories(projectID, items)
     return true
   }
 
@@ -194,7 +190,7 @@ export namespace Project {
     const items = await readDirectories(projectID)
     const next = items.filter((item) => item.directory !== directory)
     if (next.length === items.length) return false
-    await storageWrite(directoryKey(projectID), next)
+    ProjectRepo.setDirectories(projectID, next)
     return true
   }
 
@@ -376,7 +372,7 @@ export namespace Project {
       }
     })
 
-    let existing = await storageRead<Info>(["project", id]).catch(() => undefined)
+    let existing = ProjectRepo.get(id)
     if (!existing) {
       existing = {
         id,
@@ -414,7 +410,7 @@ export namespace Project {
     }
     if (sandbox !== result.worktree && !result.sandboxes.includes(sandbox)) result.sandboxes.push(sandbox)
     result.sandboxes = result.sandboxes.filter((x: string) => existsSync(x))
-    await storageWrite<Info>(["project", id], result)
+    ProjectRepo.upsert(result)
     await trackDirectoryImpl(id, worktree)
     if (sandbox !== worktree) await trackDirectoryImpl(id, sandbox, vcs === "git" ? "git_worktree" : undefined)
     GlobalBus.emit("event", {
@@ -457,7 +453,7 @@ export namespace Project {
   }
 
   async function migrateFromGlobal(newProjectID: string, worktree: string) {
-    const globalProject = await storageRead<Info>(["project", "global"]).catch(() => undefined)
+    const globalProject = ProjectRepo.get("global")
     if (!globalProject) return
 
     // Lazy: the session repo pulls the drizzle/database chain, which client
@@ -491,14 +487,13 @@ export namespace Project {
   }
 
   async function setInitializedImpl(projectID: string) {
-    await storageUpdate<Info>(["project", projectID], (draft) => {
+    ProjectRepo.update(projectID, (draft) => {
       draft.time.initialized = Date.now()
     })
   }
 
   async function listImpl() {
-    const keys = await storageList(["project"])
-    const projects = await Promise.all(keys.map((x) => storageRead<Info>(x)))
+    const projects = ProjectRepo.list()
     return projects.map((project: Info) => ({
       ...project,
       canonical: project.canonical ?? project.worktree,
@@ -507,7 +502,7 @@ export namespace Project {
   }
 
   async function updateImpl(input: UpdateInput) {
-    const result = await storageUpdate<Info>(["project", input.projectID], (draft) => {
+    const result = ProjectRepo.update(input.projectID, (draft) => {
       if (input.name !== undefined) draft.name = input.name
       if (input.icon !== undefined) {
         draft.icon = {
@@ -529,7 +524,7 @@ export namespace Project {
   }
 
   async function sandboxesImpl(projectID: string) {
-    const project = await storageRead<Info>(["project", projectID]).catch(() => undefined)
+    const project = ProjectRepo.get(projectID)
     if (!project) return []
     const canonical = await canonicalDirectory(project.canonical ?? project.worktree)
     const valid: string[] = []
@@ -544,7 +539,7 @@ export namespace Project {
 
   async function removeSandboxImpl(projectID: string, directory: string) {
     await removeDirectoryImpl(projectID, directory)
-    const result = await storageUpdate<Info>(["project", projectID], (draft) => {
+    const result = ProjectRepo.update(projectID, (draft) => {
       const sandboxes = draft.sandboxes ?? []
       draft.sandboxes = sandboxes.filter((sandbox: string) => sandbox !== directory)
       draft.time.updated = Date.now()

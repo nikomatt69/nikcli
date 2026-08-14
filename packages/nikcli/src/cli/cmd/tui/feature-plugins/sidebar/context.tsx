@@ -24,12 +24,12 @@ function View(props: { sessionID: string }) {
 
   return (
     <box>
-      <text fg={theme.text}>
+      <text fg={theme.foreground.default}>
         <b>Context</b>
       </text>
-      <text fg={theme.textMuted}>{state().tokens.toLocaleString()} tokens</text>
-      <text fg={theme.textMuted}>{state().percent ?? 0}% used</text>
-      <text fg={theme.textMuted}>{money.format(cost())} spent</text>
+      <text fg={theme.foreground.muted}>{state().tokens.toLocaleString()} tokens</text>
+      <text fg={theme.foreground.muted}>{state().percent ?? 0}% used</text>
+      <text fg={theme.foreground.muted}>{money.format(cost())} spent</text>
     </box>
   )
 }

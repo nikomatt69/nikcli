@@ -22,25 +22,25 @@ export function DialogAlert(props: DialogAlertProps) {
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           {props.title}
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <text fg={theme.foreground.muted}>esc</text>
       </box>
       <box paddingBottom={1}>
-        <text fg={theme.textMuted}>{props.message}</text>
+        <text fg={theme.foreground.muted}>{props.message}</text>
       </box>
       <box flexDirection="row" justifyContent="flex-end" paddingBottom={1}>
         <box
           paddingLeft={3}
           paddingRight={3}
-          backgroundColor={theme.primary}
+          backgroundColor={theme.badge.bg}
           onMouseUp={() => {
             props.onConfirm?.()
             dialog.clear()
           }}
         >
-          <text fg={theme.selectedListItemText}>OK</text>
+          <text fg={theme.badge.fg}>OK</text>
         </box>
       </box>
     </box>

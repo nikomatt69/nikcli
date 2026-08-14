@@ -2,10 +2,10 @@ import { Snapshot } from "../snapshot"
 import { MessageV2 } from "./message-v2"
 import { Session } from "."
 import { Log } from "../util/log"
-import { Storage } from "../storage/storage"
 import { Bus } from "../bus"
 import { SessionPrompt } from "./prompt"
 import { SessionSummary } from "./summary"
+import { SessionDiffRepo } from "./diff-repo"
 import { zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -27,28 +27,6 @@ export namespace SessionRevert {
 
   function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
     return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
-  }
-
-  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-    return runPromiseWithLayer(Storage.defaultLayer, effect)
-  }
-
-  function storageWrite<T>(key: string[], content: T) {
-    return runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        yield* storage.write(key, content)
-      }),
-    )
-  }
-
-  function storageRemove(key: string[]) {
-    return runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        yield* storage.remove(key)
-      }),
-    )
   }
 
   const RevertInputSchema = Schema.Struct({
@@ -147,7 +125,7 @@ export namespace SessionRevert {
           return yield* summary.computeDiff({ messages: rangeMessages })
         }),
       )
-      await storageWrite(["session_diff", input.sessionID], diffs)
+      SessionDiffRepo.upsert(input.sessionID, diffs)
       Bus.publish(Session.Event.Diff, {
         sessionID: input.sessionID,
         diff: diffs,

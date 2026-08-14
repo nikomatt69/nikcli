@@ -184,6 +184,7 @@ export const RoutineGetCommand = cmd({
   handler: async (args) => {
     await bootstrap(process.cwd(), async () => {
       const routine = await Routine.get(String(args.id))
+      if (!routine) throw new Error(`Routine "${args.id}" not found.`)
 
       if (args.format === "json") {
         console.log(JSON.stringify(routine, null, 2))
@@ -262,6 +263,7 @@ export const RoutineDeleteCommand = cmd({
     await bootstrap(process.cwd(), async () => {
       if (!args.yes) {
         const routine = await Routine.get(String(args.id))
+        if (!routine) throw new Error(`Routine "${args.id}" not found.`)
         const confirmed = await prompts.confirm({
           message: `Delete routine "${routine.name}" (${routine.id})?`,
           initialValue: false,

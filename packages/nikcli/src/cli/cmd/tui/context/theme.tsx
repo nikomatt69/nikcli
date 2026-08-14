@@ -3,103 +3,22 @@ import path from "path"
 import { createEffect, createMemo, on, onCleanup, onMount } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { createSimpleContext } from "./helper"
-import aura from "./theme/aura.json" with { type: "json" }
-import ayu from "./theme/ayu.json" with { type: "json" }
-import catppuccin from "./theme/catppuccin.json" with { type: "json" }
-import catppuccinFrappe from "./theme/catppuccin-frappe.json" with { type: "json" }
-import catppuccinMacchiato from "./theme/catppuccin-macchiato.json" with { type: "json" }
-import cobalt2 from "./theme/cobalt2.json" with { type: "json" }
-import cursor from "./theme/cursor.json" with { type: "json" }
-import dracula from "./theme/dracula.json" with { type: "json" }
-import everforest from "./theme/everforest.json" with { type: "json" }
-import flexoki from "./theme/flexoki.json" with { type: "json" }
-import github from "./theme/github.json" with { type: "json" }
-import gruvbox from "./theme/gruvbox.json" with { type: "json" }
-import kanagawa from "./theme/kanagawa.json" with { type: "json" }
-import material from "./theme/material.json" with { type: "json" }
-import matrix from "./theme/matrix.json" with { type: "json" }
-import mercury from "./theme/mercury.json" with { type: "json" }
-import monokai from "./theme/monokai.json" with { type: "json" }
-import nightowl from "./theme/nightowl.json" with { type: "json" }
-import nord from "./theme/nord.json" with { type: "json" }
-import onedark from "./theme/one-dark.json" with { type: "json" }
-import nikcli from "./theme/nikcli.json" with { type: "json" }
-import orng from "./theme/orng.json" with { type: "json" }
-import lucentOrng from "./theme/lucent-orng.json" with { type: "json" }
-import palenight from "./theme/palenight.json" with { type: "json" }
-import rosepine from "./theme/rosepine.json" with { type: "json" }
-import solarized from "./theme/solarized.json" with { type: "json" }
-import synthwave84 from "./theme/synthwave84.json" with { type: "json" }
-import tokyonight from "./theme/tokyonight.json" with { type: "json" }
-import vercel from "./theme/vercel.json" with { type: "json" }
-import vesper from "./theme/vesper.json" with { type: "json" }
-import zenburn from "./theme/zenburn.json" with { type: "json" }
-import carbonfox from "./theme/carbonfox.json" with { type: "json" }
-import tokyonightStorm from "./theme/tokyonight-storm.json" with { type: "json" }
-import catppuccinLatte from "./theme/catppuccin-latte.json" with { type: "json" }
-import poimandres from "./theme/poimandres.json" with { type: "json" }
-import draculaOfficial from "./theme/dracula-official.json" with { type: "json" }
-import onepro from "./theme/one-pro.json" with { type: "json" }
-import materialOcean from "./theme/material-ocean.json" with { type: "json" }
-import githubDimmed from "./theme/github-dimmed.json" with { type: "json" }
-import equilibrium from "./theme/equilibrium.json" with { type: "json" }
-import ayuai from "./theme/ayuai.json" with { type: "json" }
-import dawnfox from "./theme/dawnfox.json" with { type: "json" }
-import neon from "./theme/neon.json" with { type: "json" }
-import githubDark from "./theme/github-dark.json" with { type: "json" }
-import githubLight from "./theme/github-light.json" with { type: "json" }
-import blood from "./theme/blood.json" with { type: "json" }
-import greyscale from "./theme/greyscale.json" with { type: "json" }
-import hacker from "./theme/hacker.json" with { type: "json" }
-import abyss from "./theme/abyss.json" with { type: "json" }
-import obsidian from "./theme/obsidian.json" with { type: "json" }
-import charcoal from "./theme/charcoal.json" with { type: "json" }
-import ebony from "./theme/ebony.json" with { type: "json" }
-import slate from "./theme/slate.json" with { type: "json" }
-import voidTheme from "./theme/void.json" with { type: "json" }
-import onyx from "./theme/onyx.json" with { type: "json" }
-import cosmic from "./theme/cosmic.json" with { type: "json" }
-import jet from "./theme/jet.json" with { type: "json" }
-import starlight from "./theme/starlight.json" with { type: "json" }
-import lavender from "./theme/lavender.json" with { type: "json" }
-import gone from "./theme/gone.json" with { type: "json" }
-import duo from "./theme/duo.json" with { type: "json" }
-import ink from "./theme/ink.json" with { type: "json" }
-import apple from "./theme/apple.json" with { type: "json" }
-import silicon from "./theme/silicon.json" with { type: "json" }
-import neutral from "./theme/neutral.json" with { type: "json" }
-import modern from "./theme/modern.json" with { type: "json" }
-import radiant from "./theme/radiant.json" with { type: "json" }
-import tech from "./theme/tech.json" with { type: "json" }
-import nordic from "./theme/nordic.json" with { type: "json" }
-import lightph from "./theme/lightph.json" with { type: "json" }
-import ghost from "./theme/ghost.json" with { type: "json" }
-import fusion from "./theme/fusion.json" with { type: "json" }
-import ethereal from "./theme/ethereal.json" with { type: "json" }
-import dimension from "./theme/dimension.json" with { type: "json" }
-import vapor from "./theme/vapor.json" with { type: "json" }
-import soft from "./theme/soft.json" with { type: "json" }
-import vscode from "./theme/vscode.json" with { type: "json" }
-import catmoe from "./theme/catmoe.json" with { type: "json" }
-import sunrise from "./theme/sunrise.json" with { type: "json" }
-import dusk from "./theme/dusk.json" with { type: "json" }
-import neonfusion from "./theme/neonfusion.json" with { type: "json" }
-import midnight from "./theme/midnight.json" with { type: "json" }
-import holo from "./theme/holo.json" with { type: "json" }
-import glass from "./theme/glass.json" with { type: "json" }
-import shadow from "./theme/shadow.json" with { type: "json" }
-import gold from "./theme/gold.json" with { type: "json" }
-import prism from "./theme/prism.json" with { type: "json" }
-import cyber from "./theme/cyber.json" with { type: "json" }
-import brain from "./theme/brain.json" with { type: "json" }
-import nova from "./theme/nova.json" with { type: "json" }
-import spectrum from "./theme/spectrum.json" with { type: "json" }
-import chromatic from "./theme/chromatic.json" with { type: "json" }
+import {
+  BUILT_IN_THEME_IDS,
+  FALLBACK_THEME,
+  FALLBACK_THEME_ID,
+  isBuiltInTheme,
+  loadBuiltInTheme,
+} from "./theme-catalog"
+import { contrastFg, deriveSemanticTokens, tint, type SemanticTokens } from "./theme-tokens"
 import { useKV } from "./kv"
 import { useRenderer } from "@opentui/solid"
 import { createStore, produce } from "solid-js/store"
 import { Global } from "@/global"
 import { Filesystem } from "@/util/filesystem"
+
+export { BUILT_IN_THEME_IDS } from "./theme-catalog"
+export { tint, contrastFg, type SemanticTokens } from "./theme-tokens"
 
 type ThemeColors = {
   primary: RGBA
@@ -156,27 +75,13 @@ type ThemeColors = {
   syntaxPunctuation: RGBA
 }
 
-export type Theme = ThemeColors & {
+export type Theme = SemanticTokens & {
   _hasSelectedListItemText: boolean
-  thinkingOpacity: number
 }
 
 export function selectedForeground(theme: Theme, bg?: RGBA): RGBA {
-  // If theme explicitly defines selectedListItemText, use it
-  if (theme._hasSelectedListItemText) {
-    return theme.selectedListItemText
-  }
-
-  // For transparent backgrounds, calculate contrast based on the actual bg (or fallback to primary)
-  if (theme.background.a === 0) {
-    const targetColor = bg ?? theme.primary
-    const { r, g, b } = targetColor
-    const luminance = 0.299 * r + 0.587 * g + 0.114 * b
-    return luminance > 0.5 ? RGBA.fromInts(0, 0, 0) : RGBA.fromInts(255, 255, 255)
-  }
-
-  // Fall back to background color
-  return theme.background
+  if (bg) return contrastFg(bg)
+  return theme.badge.fg
 }
 
 type HexColor = `#${string}`
@@ -198,121 +103,29 @@ type ThemeJson = {
 
 const extraThemes: Record<string, ThemeJson> = {}
 
-/** When ThemeProvider calls reload(), it replaces store.themes with a copy, so it no longer tracks mutations to DEFAULT_THEMES. */
+/** When ThemeProvider calls reload(), it replaces store.themes with a copy, so it no longer tracks mutations to extraThemes. */
 let syncPluginThemeToStore: ((name: string, data: ThemeJson) => void) | undefined
 
 export function addTheme(name: string, data: unknown): void {
   if (!data || typeof data !== "object" || !("theme" in data)) return
   extraThemes[name] = data as ThemeJson
-  DEFAULT_THEMES[name] = data as ThemeJson
   syncPluginThemeToStore?.(name, data as ThemeJson)
 }
 
 export function hasTheme(name: string): boolean {
-  return name in DEFAULT_THEMES
+  return isBuiltInTheme(name) || name in extraThemes
 }
 
+export function reservedThemeNames(): string[] {
+  return [...BUILT_IN_THEME_IDS, ...Object.keys(extraThemes), "system"]
+}
+
+/** Eagerly parsed fallback only. Built-in documents load on demand via `loadBuiltInTheme`. */
 export const DEFAULT_THEMES: Record<string, ThemeJson> = {
-  abyss,
-  aura,
-  ayu,
-  ayuai,
-  blood,
-  carbonfox,
-  catppuccin,
-  ["catppuccin-frappe"]: catppuccinFrappe,
-  ["catppuccin-macchiato"]: catppuccinMacchiato,
-  ["catppuccin-latte"]: catppuccinLatte,
-  charcoal,
-  cobalt2,
-  cosmic,
-  cursor,
-  dawnfox,
-  dracula,
-  ["dracula-official"]: draculaOfficial,
-  ebony,
-  equilibrium,
-  everforest,
-  flexoki,
-  github,
-  ["github-dark"]: githubDark,
-  ["github-dimmed"]: githubDimmed,
-  ["github-light"]: githubLight,
-  greyscale,
-  gruvbox,
-  hacker,
-  jet,
-  kanagawa,
-  material,
-  ["material-ocean"]: materialOcean,
-  matrix,
-  mercury,
-  monokai,
-
-  neon,
-  nightowl,
-  nikcli,
-  nord,
-  ["one-dark"]: onedark,
-  ["one-pro"]: onepro,
-  onyx,
-  obsidian,
-  orng,
-  ["lucent-orng"]: lucentOrng,
-
-  palenight,
-  poimandres,
-  rosepine,
-  slate,
-  solarized,
-  starlight,
-  synthwave84,
-  tokyonight,
-  ["tokyonight-storm"]: tokyonightStorm,
-  vesper,
-  vercel,
-  void: voidTheme,
-  zenburn,
-
-  // New themes
-  apple,
-  chromatic,
-  cyber,
-  dim: shadow,
-  brain,
-  duo,
-  ethereal,
-  fusion,
-  ghost,
-  glass,
-  gold,
-  gone,
-  holo,
-  ink,
-  lavender,
-  lightph,
-  midnight,
-  modern,
-  neonfusion,
-  neutral,
-  nordic,
-  nova,
-  prism,
-  radiant,
-  shadow,
-  silicon,
-  soft,
-  spectrum,
-  sunrise,
-  tech,
-  vapor,
-  vscode,
-  catmoe,
-  dusk,
-  dimension,
+  [FALLBACK_THEME_ID]: FALLBACK_THEME as ThemeJson,
 }
 
-function resolveTheme(theme: ThemeJson, mode: "dark" | "light") {
+function resolveTheme(theme: ThemeJson, mode: "dark" | "light"): Theme {
   const defs = theme.defs ?? {}
   function resolveColor(c: ColorValue): RGBA {
     if (c instanceof RGBA) return c
@@ -360,13 +173,19 @@ function resolveTheme(theme: ThemeJson, mode: "dark" | "light") {
     resolved.backgroundMenu = resolved.backgroundElement
   }
 
-  // Handle thinkingOpacity - optional with default of 0.6
+  // Presentation token: keep the historic 0.6 default rather than inventing a new opacity scale.
   const thinkingOpacity = theme.theme.thinkingOpacity ?? 0.6
+  const colors = resolved as ThemeColors
+  const semantic = deriveSemanticTokens(colors, {
+    hasSelectedListItemText,
+    thinkingOpacity,
+    mode,
+  })
 
   return {
-    ...resolved,
+    ...colors,
+    ...semantic,
     _hasSelectedListItemText: hasSelectedListItemText,
-    thinkingOpacity,
   } as Theme
 }
 
@@ -421,9 +240,9 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     const sync = useSync()
     const kv = useKV()
     const [store, setStore] = createStore({
-      themes: DEFAULT_THEMES,
+      themes: { ...DEFAULT_THEMES } as Record<string, ThemeJson>,
       mode: kv.get("theme_mode", props.mode),
-      active: (sync.data.config.theme ?? kv.get("theme", "nikcli")) as string,
+      active: (sync.data.config.theme ?? kv.get("theme", FALLBACK_THEME_ID)) as string,
       ready: false,
     })
 
@@ -435,7 +254,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
       )
     }
     syncPluginThemeToStore = mergePluginThemeIntoStore
-    // Themes that loaded before the provider (or before reload) only lived on DEFAULT_THEMES; ensure the store has them.
+    // Plugin themes that loaded before the provider only lived on extraThemes.
     setStore(
       produce((draft) => {
         for (const [k, v] of Object.entries(extraThemes)) {
@@ -447,11 +266,33 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
       syncPluginThemeToStore = undefined
     })
 
+    async function ensureLoaded(name: string) {
+      if (!name || name === "system") return
+      if (store.themes[name]) return
+      if (extraThemes[name]) {
+        setStore("themes", name, extraThemes[name])
+        return
+      }
+      if (!isBuiltInTheme(name)) return
+      const json = (await loadBuiltInTheme(name)) as ThemeJson | undefined
+      if (!json) return
+      setStore(
+        produce((draft) => {
+          draft.themes[name] = json
+        }),
+      )
+    }
+
+    void ensureLoaded(store.active)
+
     createEffect(
       on(
         () => sync.data.config.theme,
         (theme) => {
-          if (theme) setStore("active", theme)
+          if (theme) {
+            setStore("active", theme)
+            void ensureLoaded(theme)
+          }
         },
         { defer: true },
       ),
@@ -460,17 +301,26 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     async function reload() {
       resolveSystemTheme()
       const custom = await getCustomThemes().catch(() => ({}) as Record<string, ThemeJson>)
+      const active = store.active
+      let selected: ThemeJson | undefined
+      if (active && active !== "system") {
+        if (extraThemes[active]) selected = extraThemes[active]
+        else if (custom[active]) selected = custom[active]
+        else if (isBuiltInTheme(active)) selected = (await loadBuiltInTheme(active)) as ThemeJson | undefined
+      }
       setStore(
         produce((draft) => {
           const systemTheme = draft.themes.system
-          // Rebuild themes so deleted custom themes disappear.
-          draft.themes = { ...DEFAULT_THEMES } as any
+          // Rebuild so deleted custom themes disappear. Do not re-parse every built-in.
+          draft.themes = { ...DEFAULT_THEMES, ...extraThemes, ...custom }
           if (systemTheme) {
             draft.themes.system = systemTheme
           }
-          Object.assign(draft.themes, custom)
-          if (draft.themes[draft.active] === undefined) {
-            draft.active = "nikcli"
+          if (selected) {
+            draft.themes[active] = selected
+          }
+          if (draft.themes[draft.active] === undefined && draft.active !== "system") {
+            draft.active = FALLBACK_THEME_ID
           }
         }),
       )
@@ -482,7 +332,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
 
     onMount(() => {
       reload().catch(() => {
-        setStore("active", "nikcli")
+        setStore("active", FALLBACK_THEME_ID)
         setStore("ready", true)
       })
     })
@@ -497,7 +347,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
             if (store.active === "system") {
               setStore(
                 produce((draft) => {
-                  draft.active = "nikcli"
+                  draft.active = FALLBACK_THEME_ID
                   draft.ready = true
                 }),
               )
@@ -531,6 +381,9 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     return {
       theme: new Proxy({} as Theme, {
         get(_target, prop) {
+          // Solid reactivity: property reads must go through the memo. The
+          // resolved object still carries flat document keys at runtime for
+          // plugin `TuiThemeCurrent`; the Theme type is nested-only.
           // @ts-expect-error
           return values()[prop]
         },
@@ -540,6 +393,12 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
       },
       all() {
         return store.themes
+      },
+      names() {
+        const names = new Set<string>(BUILT_IN_THEME_IDS)
+        for (const k of Object.keys(store.themes)) names.add(k)
+        for (const k of Object.keys(extraThemes)) names.add(k)
+        return [...names]
       },
       syntax,
       subtleSyntax,
@@ -553,6 +412,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
       set(theme: string) {
         setStore("active", theme)
         kv.set("theme", theme)
+        void ensureLoaded(theme)
       },
       reload,
       get ready() {
@@ -587,13 +447,6 @@ async function getCustomThemes() {
     }
   }
   return result
-}
-
-export function tint(base: RGBA, overlay: RGBA, alpha: number): RGBA {
-  const r = base.r + (overlay.r - base.r) * alpha
-  const g = base.g + (overlay.g - base.g) * alpha
-  const b = base.b + (overlay.b - base.b) * alpha
-  return RGBA.fromInts(Math.round(r * 255), Math.round(g * 255), Math.round(b * 255))
 }
 
 function generateSystem(colors: TerminalColors, mode: "dark" | "light"): ThemeJson {
@@ -822,80 +675,80 @@ function getSyntaxRules(theme: Theme) {
     {
       scope: ["default"],
       style: {
-        foreground: theme.text,
+        foreground: theme.foreground.default,
       },
     },
     {
       scope: ["prompt"],
       style: {
-        foreground: theme.accent,
+        foreground: theme.accent.fg,
       },
     },
     {
       scope: ["extmark.file"],
       style: {
-        foreground: theme.warning,
+        foreground: theme.status.warning.fg,
         bold: true,
       },
     },
     {
       scope: ["extmark.agent"],
       style: {
-        foreground: theme.secondary,
+        foreground: theme.accent.secondary,
         bold: true,
       },
     },
     {
       scope: ["extmark.paste"],
       style: {
-        foreground: theme.background,
-        background: theme.warning,
+        foreground: theme.surface.base,
+        background: theme.status.warning.fg,
         bold: true,
       },
     },
     {
       scope: ["comment"],
       style: {
-        foreground: theme.syntaxComment,
+        foreground: theme.syntax.comment,
         italic: true,
       },
     },
     {
       scope: ["comment.documentation"],
       style: {
-        foreground: theme.syntaxComment,
+        foreground: theme.syntax.comment,
         italic: true,
       },
     },
     {
       scope: ["string", "symbol"],
       style: {
-        foreground: theme.syntaxString,
+        foreground: theme.syntax.string,
       },
     },
     {
       scope: ["number", "boolean"],
       style: {
-        foreground: theme.syntaxNumber,
+        foreground: theme.syntax.number,
       },
     },
     {
       scope: ["character.special"],
       style: {
-        foreground: theme.syntaxString,
+        foreground: theme.syntax.string,
       },
     },
     {
       scope: ["keyword.return", "keyword.conditional", "keyword.repeat", "keyword.coroutine"],
       style: {
-        foreground: theme.syntaxKeyword,
+        foreground: theme.syntax.keyword,
         italic: true,
       },
     },
     {
       scope: ["keyword.type"],
       style: {
-        foreground: theme.syntaxType,
+        foreground: theme.syntax.type,
         bold: true,
         italic: true,
       },
@@ -903,124 +756,124 @@ function getSyntaxRules(theme: Theme) {
     {
       scope: ["keyword.function", "function.method"],
       style: {
-        foreground: theme.syntaxFunction,
+        foreground: theme.syntax.function,
       },
     },
     {
       scope: ["keyword"],
       style: {
-        foreground: theme.syntaxKeyword,
+        foreground: theme.syntax.keyword,
         italic: true,
       },
     },
     {
       scope: ["keyword.import"],
       style: {
-        foreground: theme.syntaxKeyword,
+        foreground: theme.syntax.keyword,
       },
     },
     {
       scope: ["operator", "keyword.operator", "punctuation.delimiter"],
       style: {
-        foreground: theme.syntaxOperator,
+        foreground: theme.syntax.operator,
       },
     },
     {
       scope: ["keyword.conditional.ternary"],
       style: {
-        foreground: theme.syntaxOperator,
+        foreground: theme.syntax.operator,
       },
     },
     {
       scope: ["variable", "variable.parameter", "function.method.call", "function.call"],
       style: {
-        foreground: theme.syntaxVariable,
+        foreground: theme.syntax.variable,
       },
     },
     {
       scope: ["variable.member", "function", "constructor"],
       style: {
-        foreground: theme.syntaxFunction,
+        foreground: theme.syntax.function,
       },
     },
     {
       scope: ["type", "module"],
       style: {
-        foreground: theme.syntaxType,
+        foreground: theme.syntax.type,
       },
     },
     {
       scope: ["constant"],
       style: {
-        foreground: theme.syntaxNumber,
+        foreground: theme.syntax.number,
       },
     },
     {
       scope: ["property"],
       style: {
-        foreground: theme.syntaxVariable,
+        foreground: theme.syntax.variable,
       },
     },
     {
       scope: ["class"],
       style: {
-        foreground: theme.syntaxType,
+        foreground: theme.syntax.type,
       },
     },
     {
       scope: ["parameter"],
       style: {
-        foreground: theme.syntaxVariable,
+        foreground: theme.syntax.variable,
       },
     },
     {
       scope: ["punctuation", "punctuation.bracket"],
       style: {
-        foreground: theme.syntaxPunctuation,
+        foreground: theme.syntax.punctuation,
       },
     },
     {
       scope: ["variable.builtin", "type.builtin", "function.builtin", "module.builtin", "constant.builtin"],
       style: {
-        foreground: theme.error,
+        foreground: theme.status.error.fg,
       },
     },
     {
       scope: ["variable.super"],
       style: {
-        foreground: theme.error,
+        foreground: theme.status.error.fg,
       },
     },
     {
       scope: ["string.escape", "string.regexp"],
       style: {
-        foreground: theme.syntaxKeyword,
+        foreground: theme.syntax.keyword,
       },
     },
     {
       scope: ["keyword.directive"],
       style: {
-        foreground: theme.syntaxKeyword,
+        foreground: theme.syntax.keyword,
         italic: true,
       },
     },
     {
       scope: ["punctuation.special"],
       style: {
-        foreground: theme.syntaxOperator,
+        foreground: theme.syntax.operator,
       },
     },
     {
       scope: ["keyword.modifier"],
       style: {
-        foreground: theme.syntaxKeyword,
+        foreground: theme.syntax.keyword,
         italic: true,
       },
     },
     {
       scope: ["keyword.exception"],
       style: {
-        foreground: theme.syntaxKeyword,
+        foreground: theme.syntax.keyword,
         italic: true,
       },
     },
@@ -1028,155 +881,155 @@ function getSyntaxRules(theme: Theme) {
     {
       scope: ["markup.heading"],
       style: {
-        foreground: theme.markdownHeading,
+        foreground: theme.markdown.heading,
         bold: true,
       },
     },
     {
       scope: ["markup.heading.1"],
       style: {
-        foreground: theme.markdownHeading,
+        foreground: theme.markdown.heading,
         bold: true,
       },
     },
     {
       scope: ["markup.heading.2"],
       style: {
-        foreground: theme.markdownHeading,
+        foreground: theme.markdown.heading,
         bold: true,
       },
     },
     {
       scope: ["markup.heading.3"],
       style: {
-        foreground: theme.markdownHeading,
+        foreground: theme.markdown.heading,
         bold: true,
       },
     },
     {
       scope: ["markup.heading.4"],
       style: {
-        foreground: theme.markdownHeading,
+        foreground: theme.markdown.heading,
         bold: true,
       },
     },
     {
       scope: ["markup.heading.5"],
       style: {
-        foreground: theme.markdownHeading,
+        foreground: theme.markdown.heading,
         bold: true,
       },
     },
     {
       scope: ["markup.heading.6"],
       style: {
-        foreground: theme.markdownHeading,
+        foreground: theme.markdown.heading,
         bold: true,
       },
     },
     {
       scope: ["markup.bold", "markup.strong"],
       style: {
-        foreground: theme.markdownStrong,
+        foreground: theme.markdown.strong,
         bold: true,
       },
     },
     {
       scope: ["markup.italic"],
       style: {
-        foreground: theme.markdownEmph,
+        foreground: theme.markdown.emph,
         italic: true,
       },
     },
     {
       scope: ["markup.list"],
       style: {
-        foreground: theme.markdownListItem,
+        foreground: theme.markdown.listItem,
       },
     },
     {
       scope: ["markup.quote"],
       style: {
-        foreground: theme.markdownBlockQuote,
+        foreground: theme.markdown.blockQuote,
         italic: true,
       },
     },
     {
       scope: ["markup.raw", "markup.raw.block"],
       style: {
-        foreground: theme.markdownCode,
+        foreground: theme.markdown.code,
       },
     },
     {
       scope: ["markup.raw.inline"],
       style: {
-        foreground: theme.markdownCode,
-        background: theme.background,
+        foreground: theme.markdown.code,
+        background: theme.surface.base,
       },
     },
     {
       scope: ["markup.link"],
       style: {
-        foreground: theme.markdownLink,
+        foreground: theme.markdown.link,
         underline: true,
       },
     },
     {
       scope: ["markup.link.label"],
       style: {
-        foreground: theme.markdownLinkText,
+        foreground: theme.markdown.linkText,
         underline: true,
       },
     },
     {
       scope: ["markup.link.url"],
       style: {
-        foreground: theme.markdownLink,
+        foreground: theme.markdown.link,
         underline: true,
       },
     },
     {
       scope: ["label"],
       style: {
-        foreground: theme.markdownLinkText,
+        foreground: theme.markdown.linkText,
       },
     },
     {
       scope: ["spell", "nospell"],
       style: {
-        foreground: theme.text,
+        foreground: theme.foreground.default,
       },
     },
     {
       scope: ["conceal"],
       style: {
-        foreground: theme.textMuted,
+        foreground: theme.foreground.muted,
       },
     },
     // Additional common highlight groups
     {
       scope: ["string.special", "string.special.url"],
       style: {
-        foreground: theme.markdownLink,
+        foreground: theme.markdown.link,
         underline: true,
       },
     },
     {
       scope: ["character"],
       style: {
-        foreground: theme.syntaxString,
+        foreground: theme.syntax.string,
       },
     },
     {
       scope: ["float"],
       style: {
-        foreground: theme.syntaxNumber,
+        foreground: theme.syntax.number,
       },
     },
     {
       scope: ["comment.error"],
       style: {
-        foreground: theme.error,
+        foreground: theme.status.error.fg,
         italic: true,
         bold: true,
       },
@@ -1184,7 +1037,7 @@ function getSyntaxRules(theme: Theme) {
     {
       scope: ["comment.warning"],
       style: {
-        foreground: theme.warning,
+        foreground: theme.status.warning.fg,
         italic: true,
         bold: true,
       },
@@ -1192,7 +1045,7 @@ function getSyntaxRules(theme: Theme) {
     {
       scope: ["comment.todo", "comment.note"],
       style: {
-        foreground: theme.info,
+        foreground: theme.status.info.fg,
         italic: true,
         bold: true,
       },
@@ -1200,122 +1053,122 @@ function getSyntaxRules(theme: Theme) {
     {
       scope: ["namespace"],
       style: {
-        foreground: theme.syntaxType,
+        foreground: theme.syntax.type,
       },
     },
     {
       scope: ["field"],
       style: {
-        foreground: theme.syntaxVariable,
+        foreground: theme.syntax.variable,
       },
     },
     {
       scope: ["type.definition"],
       style: {
-        foreground: theme.syntaxType,
+        foreground: theme.syntax.type,
         bold: true,
       },
     },
     {
       scope: ["keyword.export"],
       style: {
-        foreground: theme.syntaxKeyword,
+        foreground: theme.syntax.keyword,
       },
     },
     {
       scope: ["attribute", "annotation"],
       style: {
-        foreground: theme.warning,
+        foreground: theme.status.warning.fg,
       },
     },
     {
       scope: ["tag"],
       style: {
-        foreground: theme.error,
+        foreground: theme.status.error.fg,
       },
     },
     {
       scope: ["tag.attribute"],
       style: {
-        foreground: theme.syntaxKeyword,
+        foreground: theme.syntax.keyword,
       },
     },
     {
       scope: ["tag.delimiter"],
       style: {
-        foreground: theme.syntaxOperator,
+        foreground: theme.syntax.operator,
       },
     },
     {
       scope: ["markup.strikethrough"],
       style: {
-        foreground: theme.textMuted,
+        foreground: theme.foreground.muted,
       },
     },
     {
       scope: ["markup.underline"],
       style: {
-        foreground: theme.text,
+        foreground: theme.foreground.default,
         underline: true,
       },
     },
     {
       scope: ["markup.list.checked"],
       style: {
-        foreground: theme.success,
+        foreground: theme.status.success.fg,
       },
     },
     {
       scope: ["markup.list.unchecked"],
       style: {
-        foreground: theme.textMuted,
+        foreground: theme.foreground.muted,
       },
     },
     {
       scope: ["diff.plus"],
       style: {
-        foreground: theme.diffAdded,
-        background: theme.diffAddedBg,
+        foreground: theme.diff.added,
+        background: theme.diff.addedBg,
       },
     },
     {
       scope: ["diff.minus"],
       style: {
-        foreground: theme.diffRemoved,
-        background: theme.diffRemovedBg,
+        foreground: theme.diff.removed,
+        background: theme.diff.removedBg,
       },
     },
     {
       scope: ["diff.delta"],
       style: {
-        foreground: theme.diffContext,
-        background: theme.diffContextBg,
+        foreground: theme.diff.context,
+        background: theme.diff.contextBg,
       },
     },
     {
       scope: ["error"],
       style: {
-        foreground: theme.error,
+        foreground: theme.status.error.fg,
         bold: true,
       },
     },
     {
       scope: ["warning"],
       style: {
-        foreground: theme.warning,
+        foreground: theme.status.warning.fg,
         bold: true,
       },
     },
     {
       scope: ["info"],
       style: {
-        foreground: theme.info,
+        foreground: theme.status.info.fg,
       },
     },
     {
       scope: ["debug"],
       style: {
-        foreground: theme.textMuted,
+        foreground: theme.foreground.muted,
       },
     },
   ]

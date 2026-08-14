@@ -215,25 +215,25 @@ export function FileTree(props: {
   })
 
   return (
-    <box width={props.width} height="100%" border={["right"]} borderColor={theme.borderSubtle}>
+    <box width={props.width} height="100%" border={["right"]} borderColor={theme.border.subtle}>
       <scrollbox flexGrow={1} paddingLeft={1} paddingRight={1} paddingTop={1} scrollbarOptions={{ visible: false }}>
         <box gap={0}>
           <Show when={props.filterActive || props.filterText.length > 0}>
             <box flexDirection="row" gap={0} paddingBottom={1}>
-              <text fg={theme.primary}>{"/"}</text>
-              <text fg={theme.text}>{props.filterActive ? `${props.filterText}▊` : props.filterText}</text>
+              <text fg={theme.accent.fg}>{"/"}</text>
+              <text fg={theme.foreground.default}>{props.filterActive ? `${props.filterText}▊` : props.filterText}</text>
             </box>
           </Show>
-          <text fg={theme.text}>
+          <text fg={theme.foreground.default}>
             <b>Files</b>{" "}
             <span
-              style={{ fg: theme.textMuted }}
+              style={{ fg: theme.foreground.muted }}
             >{`(${filtered().length}${props.filterText ? `/${props.files.length}` : ""})`}</span>
           </text>
           <box height={1} />
           <Show
             when={rows().length > 0}
-            fallback={<text fg={theme.textMuted}>{props.filterText ? "No matches" : "No files modified"}</text>}
+            fallback={<text fg={theme.foreground.muted}>{props.filterText ? "No matches" : "No files modified"}</text>}
           >
             <For each={rows()}>
               {(row) => {
@@ -256,7 +256,7 @@ export function FileTree(props: {
                         flexDirection="row"
                         gap={1}
                         justifyContent="space-between"
-                        backgroundColor={isHighlighted() ? theme.backgroundElement : undefined}
+                        backgroundColor={isHighlighted() ? theme.surface.offset : undefined}
                         paddingLeft={0}
                         paddingRight={1}
                         onMouseDown={() => {
@@ -264,18 +264,18 @@ export function FileTree(props: {
                           selectFileNode(row.id)
                         }}
                       >
-                        <text fg={reviewed() ? theme.textMuted : theme.text} wrapMode="none" flexShrink={1}>
+                        <text fg={reviewed() ? theme.foreground.muted : theme.foreground.default} wrapMode="none" flexShrink={1}>
                           {`${indent}${row.name}`}
                         </text>
                         <box flexDirection="row" gap={1} flexShrink={0}>
                           <Show when={commentCount() > 0}>
-                            <text fg={theme.primary}>{`@${commentCount()}`}</text>
+                            <text fg={theme.accent.fg}>{`@${commentCount()}`}</text>
                           </Show>
                           <Show when={file()?.additions}>
-                            <text fg={theme.diffAdded}>{`+${file()!.additions}`}</text>
+                            <text fg={theme.diff.added}>{`+${file()!.additions}`}</text>
                           </Show>
                           <Show when={file()?.deletions}>
-                            <text fg={theme.diffRemoved}>{`-${file()!.deletions}`}</text>
+                            <text fg={theme.diff.removed}>{`-${file()!.deletions}`}</text>
                           </Show>
                         </box>
                       </box>
@@ -284,7 +284,7 @@ export function FileTree(props: {
                     <box
                       flexDirection="row"
                       gap={0}
-                      backgroundColor={isHighlighted() ? theme.backgroundElement : undefined}
+                      backgroundColor={isHighlighted() ? theme.surface.offset : undefined}
                       paddingLeft={0}
                       paddingRight={1}
                       onMouseDown={() => {
@@ -292,7 +292,7 @@ export function FileTree(props: {
                         setExpanded((prev) => toggleFileTreeDirectory(tree(), prev, row.id))
                       }}
                     >
-                      <text fg={theme.textMuted} wrapMode="none">
+                      <text fg={theme.foreground.muted} wrapMode="none">
                         {`${indent}${expanded().has(row.id) ? "▾" : "▸"} ${row.name}/`}
                       </text>
                     </box>

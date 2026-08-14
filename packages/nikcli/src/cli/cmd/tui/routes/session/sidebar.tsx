@@ -23,7 +23,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
     <Show when={session()}>
       {(current) => (
         <box
-          backgroundColor={theme.backgroundPanel}
+          backgroundColor={theme.surface.panel}
           width={SESSION_SIDEBAR_WIDTH}
           height="100%"
           paddingTop={1}
@@ -35,11 +35,11 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
           <scrollbox flexGrow={1}>
             <box flexShrink={0} gap={1} paddingRight={1}>
               <box paddingRight={1}>
-                <text fg={theme.text}>
+                <text fg={theme.foreground.default}>
                   <b>{current().title}</b>
                 </text>
                 <Show when={current().share?.url}>
-                  <text fg={theme.textMuted}>{current().share!.url}</text>
+                  <text fg={theme.foreground.muted}>{current().share!.url}</text>
                 </Show>
               </box>
               <TuiPluginRuntime.Slot name="sidebar.content" sessionID={props.sessionID} />
@@ -52,17 +52,17 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                     onMouseDown={() => instructions()!.length > 2 && setInstructionsOpen((value) => !value)}
                   >
                     <Show when={instructions()!.length > 2}>
-                      <text fg={theme.text}>{instructionsOpen() ? "▼" : "▶"}</text>
+                      <text fg={theme.foreground.default}>{instructionsOpen() ? "▼" : "▶"}</text>
                     </Show>
-                    <text fg={theme.text}>
+                    <text fg={theme.foreground.default}>
                       <b>Instructions</b>
-                      <span style={{ fg: theme.textMuted }}> ({instructions()!.length})</span>
+                      <span style={{ fg: theme.foreground.muted }}> ({instructions()!.length})</span>
                     </text>
                   </box>
                   <Show when={instructions()!.length <= 2 || instructionsOpen()}>
                     <For each={instructions()}>
                       {(item) => (
-                        <text fg={theme.textMuted} wrapMode="none">
+                        <text fg={theme.foreground.muted} wrapMode="none">
                           📄 {item.name}
                         </text>
                       )}

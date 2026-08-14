@@ -136,9 +136,9 @@ export function DialogTelemetryLive() {
   })
 
   const colorFor = (record: TelemetryRecord) => {
-    if (record.statusCode === 2) return theme.error
-    if (record.durationMs >= 1000) return theme.warning
-    return theme.text
+    if (record.statusCode === 2) return theme.status.error.fg
+    if (record.durationMs >= 1000) return theme.status.warning.fg
+    return theme.foreground.default
   }
 
   const visible = createMemo(() => {
@@ -177,19 +177,19 @@ export function DialogTelemetryLive() {
     <box gap={1}>
       <box flexDirection="row" justifyContent="space-between" paddingLeft={2} paddingRight={2}>
         <box flexDirection="row" gap={1}>
-          <text attributes={TextAttributes.BOLD} fg={theme.text}>
+          <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
             Live telemetry
           </text>
-          <text fg={theme.textMuted}>spans</text>
+          <text fg={theme.foreground.muted}>spans</text>
         </box>
-        <text fg={theme.textMuted} onMouseUp={() => dialog.clear()}>
+        <text fg={theme.foreground.muted} onMouseUp={() => dialog.clear()}>
           esc
         </text>
       </box>
 
       <scrollbox
         height={listHeight()}
-        backgroundColor={theme.backgroundElement}
+        backgroundColor={theme.surface.offset}
         ref={(r: ScrollBoxRenderable) => {
           scroll = r
         }}
@@ -198,7 +198,7 @@ export function DialogTelemetryLive() {
           {(record) => (
             <box flexDirection="row" gap={1} paddingLeft={2} paddingRight={2}>
               <box width={9} flexShrink={0}>
-                <text fg={theme.textMuted} wrapMode="none">
+                <text fg={theme.foreground.muted} wrapMode="none">
                   {formatDuration(record.durationMs)}
                 </text>
               </box>
@@ -214,10 +214,10 @@ export function DialogTelemetryLive() {
       </scrollbox>
 
       <box flexDirection="row" justifyContent="space-between" paddingLeft={2} paddingRight={2} paddingBottom={1}>
-        <text fg={theme.textMuted}>
+        <text fg={theme.foreground.muted}>
           {visible().length} spans{errorsOnly() ? " · errors only" : ""} · {follow() ? "following" : "paused"}
         </text>
-        <text fg={theme.textMuted}>f follow · e errors · c clear · esc close</text>
+        <text fg={theme.foreground.muted}>f follow · e errors · c clear · esc close</text>
       </box>
     </box>
   )

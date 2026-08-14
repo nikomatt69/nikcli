@@ -92,6 +92,16 @@ export namespace Pty {
   }
 
   /**
+   * A PTY session was addressed by an ID that does not exist.
+   *
+   * The HTTP wire name stays the literal `"NotFoundError"` — boundaries must
+   * emit that string rather than forwarding `_tag` (`PtyNotFoundError`).
+   */
+  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("PtyNotFoundError", {
+    message: Schema.String,
+  }) {}
+
+  /**
    * Union of all errors that any `Pty.Service` method can fail with. Use this
    * in the Effect error channel of downstream consumers so they can
    * `Effect.catchTag` against the specific error class.

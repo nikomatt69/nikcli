@@ -91,7 +91,7 @@ export function BackgroundImage() {
       fit: fit(),
       opacity: opacity(),
       grayscale: grayscale(),
-      base: toRgb(theme.background),
+      base: toRgb(theme.surface.base),
       detail: detail(),
     })
   })
@@ -112,7 +112,7 @@ export function BackgroundImage() {
         width={dimensions().width}
         height={dimensions().height}
         pixels={pixels()}
-        base={theme.background}
+        base={theme.surface.base}
       />
       {/*
         A sibling, not a child: the guard has to render after the whole UI, and

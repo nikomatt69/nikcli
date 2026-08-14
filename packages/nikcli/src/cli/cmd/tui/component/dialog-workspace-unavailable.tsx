@@ -46,17 +46,17 @@ export function DialogWorkspaceUnavailable(props: { onRestore?: () => boolean | 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           Workspace Unavailable
         </text>
-        <text fg={theme.textMuted} onMouseUp={() => dialog.clear()}>
+        <text fg={theme.foreground.muted} onMouseUp={() => dialog.clear()}>
           esc
         </text>
       </box>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         This session is attached to a workspace that is no longer available.
       </text>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         Would you like to restore this session into a new workspace?
       </text>
       <box flexDirection="row" justifyContent="flex-end" paddingBottom={1} gap={1}>
@@ -65,13 +65,13 @@ export function DialogWorkspaceUnavailable(props: { onRestore?: () => boolean | 
             <box
               paddingLeft={2}
               paddingRight={2}
-              backgroundColor={item === store.active ? theme.primary : undefined}
+              backgroundColor={item === store.active ? theme.accent.fg : undefined}
               onMouseUp={() => {
                 setStore("active", item)
                 void confirm()
               }}
             >
-              <text fg={item === store.active ? theme.selectedListItemText : theme.textMuted}>{item}</text>
+              <text fg={item === store.active ? theme.badge.fg : theme.foreground.muted}>{item}</text>
             </box>
           )}
         </For>

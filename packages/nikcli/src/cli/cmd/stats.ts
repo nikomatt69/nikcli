@@ -3,8 +3,8 @@ import { cmd } from "./cmd"
 import { Session } from "../../session"
 import { SessionRepo } from "../../session/repo"
 import { bootstrap } from "../bootstrap"
-import { Storage } from "../../storage/storage"
 import { Project } from "../../project/project"
+import { ProjectRepo } from "../../project/repo"
 import { Instance } from "../../project/instance"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -13,30 +13,8 @@ import z from "zod"
 
 const log = Log.create({ service: "stats-command" })
 
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>): Promise<A> {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>): Promise<A> {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
-}
-
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
-
-function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.list(prefix)
-    }),
-  )
 }
 
 const ModelUsageSchema = z.object({
@@ -160,11 +138,7 @@ async function getAllSessions(): Promise<Session.Info[]> {
   const sessions: Session.Info[] = []
 
   try {
-    const projectKeys = await storageList(["project"])
-    const projects = await Promise.all(projectKeys.map((key) => storageRead<Project.Info>(key)))
-
-    for (const project of projects) {
-      if (!project) continue
+    for (const project of ProjectRepo.list()) {
       sessions.push(...SessionRepo.getByProject(project.id))
     }
   } catch (error) {

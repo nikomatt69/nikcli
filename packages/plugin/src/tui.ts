@@ -212,10 +212,21 @@ export type TuiToast = {
   duration?: number
 }
 
+export type TuiThemeStatusPair = {
+  readonly fg: RGBA
+  readonly bg: RGBA
+}
+
 export type TuiThemeCurrent = {
   readonly primary: RGBA
   readonly secondary: RGBA
-  readonly accent: RGBA
+  readonly accent: {
+    readonly fg: RGBA
+    readonly bg: RGBA
+    readonly border: RGBA
+    readonly alt: RGBA
+    readonly secondary: RGBA
+  }
   readonly error: RGBA
   readonly warning: RGBA
   readonly success: RGBA
@@ -227,7 +238,12 @@ export type TuiThemeCurrent = {
   readonly backgroundPanel: RGBA
   readonly backgroundElement: RGBA
   readonly backgroundMenu: RGBA
-  readonly border: RGBA
+  readonly border: {
+    readonly default: RGBA
+    readonly subtle: RGBA
+    readonly active: RGBA
+    readonly focus: RGBA
+  }
   readonly borderActive: RGBA
   readonly borderSubtle: RGBA
   readonly diffAdded: RGBA
@@ -266,6 +282,24 @@ export type TuiThemeCurrent = {
   readonly syntaxOperator: RGBA
   readonly syntaxPunctuation: RGBA
   readonly thinkingOpacity: number
+  readonly surface: {
+    readonly base: RGBA
+    readonly panel: RGBA
+    readonly offset: RGBA
+    readonly overlay: RGBA
+  }
+  readonly foreground: {
+    readonly default: RGBA
+    readonly muted: RGBA
+    readonly subtle: RGBA
+  }
+  readonly status: {
+    readonly error: TuiThemeStatusPair
+    readonly warning: TuiThemeStatusPair
+    readonly success: TuiThemeStatusPair
+    readonly info: TuiThemeStatusPair
+  }
+  readonly badge: TuiThemeStatusPair
 }
 
 export type TuiTheme = {

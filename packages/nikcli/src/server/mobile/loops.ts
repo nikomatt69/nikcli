@@ -19,6 +19,7 @@ import { body, isResponse, json, query } from "./request"
 const match = (path: string, pattern: RegExp) => path.match(pattern)?.slice(1).map(decodeURIComponent)
 const Limit = z.object({ limit: z.coerce.number().int().positive().max(200).optional() })
 const found = (id: string) => json({ error: `Loop "${id}" not found` }, 404)
+const routineFound = (id: string) => json({ error: `Routine "${id}" not found` }, 404)
 
 export async function handleLoopsRequest(request: Request): Promise<Response | undefined> {
   const path = new URL(request.url).pathname
@@ -127,6 +128,7 @@ export async function handleLoopsRequest(request: Request): Promise<Response | u
   const routineAction = match(path, /^\/mobile\/routines\/([^/]+)\/(run|pause|resume)$/)
   if (routineAction && request.method === "POST") {
     const [id, kind] = routineAction
+    if (!(await Routine.get(id))) return routineFound(id)
     if (kind === "pause") return json(await Routine.pause(id))
     if (kind === "resume") return json(await Routine.resume(id))
     const input = await body(request, MobileRoutineRunInput.optional())
@@ -135,12 +137,18 @@ export async function handleLoopsRequest(request: Request): Promise<Response | u
   const routine = match(path, /^\/mobile\/routines\/([^/]+)$/)
   if (routine) {
     const id = routine[0]
-    if (request.method === "GET") return json(await Routine.get(id))
+    if (request.method === "GET") {
+      const record = await Routine.get(id)
+      if (!record) return routineFound(id)
+      return json(record)
+    }
     if (request.method === "PATCH") {
+      if (!(await Routine.get(id))) return routineFound(id)
       const input = await body(request, MobileRoutineUpdateInput)
       return isResponse(input) ? input : json(await Routine.update(id, input))
     }
     if (request.method === "DELETE") {
+      if (!(await Routine.get(id))) return routineFound(id)
       await Routine.remove(id)
       return json({ success: true })
     }

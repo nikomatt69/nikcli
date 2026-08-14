@@ -6,9 +6,11 @@ import path from "path"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test"
 import { Effect, Layer } from "effect"
 import { runPromiseWithLayer } from "@/effect"
+import { Database } from "@/database/database"
 import { Instance } from "@/project/instance"
 import { Scheduler } from "@/scheduler"
-import { Storage } from "@/storage/storage"
+import { loop, loopRun } from "@/loop/loop.sql"
+import { LoopRepo } from "@/loop/repo"
 import * as Manager from "@/loop/manager"
 import * as Engine from "@/loop/engine"
 import { MAX_CONCURRENT_RUNS, MIN_RUN_TIMEOUT_MS, generateID, type LoopDefinition, type LoopRun } from "@/loop/schema"
@@ -30,10 +32,6 @@ preserveTestEnv([
   "XDG_STATE_HOME",
 ])
 
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
 const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-loop-engine-project-"))
 const resolvedDir = await fs.realpath(projectDir)
 
@@ -52,17 +50,11 @@ afterEach(async () => {
   await withInstance(async () => {
     Engine.dispose()
   })
-  await runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      const loopKeys = yield* storage.list(["loop"])
-      for (const k of loopKeys) yield* storage.remove(k)
-      const runKeys = yield* storage.list(["loop_run"])
-      for (const k of runKeys) yield* storage.remove(k)
-      const metaKeys = yield* storage.list(["loop_meta"])
-      for (const k of metaKeys) yield* storage.remove(k)
-    }),
-  )
+  // Loops live in SQL; the run counter is a column on `loop`, so dropping
+  // both tables is the whole teardown (there is no separate meta record).
+  const db = Database.syncDb()
+  db.delete(loopRun).run()
+  db.delete(loop).run()
 })
 
 afterAll(async () => {
@@ -73,12 +65,7 @@ afterAll(async () => {
 
 /** Mutate a persisted run record in place (test fixture helper). */
 async function mutateRun(loopID: string, runID: string, fn: (draft: LoopRun) => void): Promise<void> {
-  await runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.update<LoopRun>(["loop_run", Instance.project.id, loopID, runID], fn)
-    }),
-  )
+  LoopRepo.updateRun(Instance.project.id, loopID, runID, fn)
 }
 
 function makeDef(overrides: Partial<LoopDefinition> = {}): LoopDefinition {

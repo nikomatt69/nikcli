@@ -156,12 +156,26 @@ function useDisconnectProvider() {
     }
 
     if (source !== "api") {
-      const disabledProviders = sync.data.config.disabled_providers ?? []
-      if (!disabledProviders.includes(providerID)) {
+      const policies = sync.data.config.experimental?.policies ?? []
+      const alreadyDenied = policies.some(
+        (statement) =>
+          statement.effect === "deny" && statement.action === "provider.use" && statement.resource === providerID,
+      )
+      if (!alreadyDenied) {
         const update = await sdk.client.config
           .update({
             payload: {
-              disabled_providers: [...disabledProviders, providerID],
+              experimental: {
+                ...sync.data.config.experimental,
+                policies: [
+                  ...policies,
+                  {
+                    effect: "deny",
+                    action: "provider.use",
+                    resource: providerID,
+                  },
+                ],
+              },
             },
           })
           .catch((error: unknown) => ({ error }))
@@ -174,10 +188,16 @@ function useDisconnectProvider() {
     }
 
     await sdk.client.instance.dispose().catch((error: unknown) => {
-      toast.show({ variant: "warning", message: `Disconnected, but refresh failed: ${errorMessage(error)}` })
+      toast.show({
+        variant: "warning",
+        message: `Disconnected, but refresh failed: ${errorMessage(error)}`,
+      })
     })
     await sync.refreshProviders().catch((error: unknown) => {
-      toast.show({ variant: "warning", message: `Disconnected, but refresh failed: ${errorMessage(error)}` })
+      toast.show({
+        variant: "warning",
+        message: `Disconnected, but refresh failed: ${errorMessage(error)}`,
+      })
     })
     toast.show({ variant: "info", message: `${providerName} disconnected` })
     return true
@@ -234,7 +254,10 @@ export function DialogProvider() {
           onTrigger: async (option) => {
             const providerID = String(option.value)
             if (!sync.data.provider_next.connected.includes(providerID)) {
-              toast.show({ variant: "warning", message: "Select a connected provider to disconnect" })
+              toast.show({
+                variant: "warning",
+                message: "Select a connected provider to disconnect",
+              })
               return
             }
             setPending(true)
@@ -332,18 +355,18 @@ function AutoMethod(props: AutoMethodProps) {
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           {props.title}
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <text fg={theme.foreground.muted}>esc</text>
       </box>
       <box gap={1}>
-        <Link href={props.authorization.url} fg={theme.primary} />
-        <text fg={theme.textMuted}>{props.authorization.instructions}</text>
+        <Link href={props.authorization.url} fg={theme.accent.fg} />
+        <text fg={theme.foreground.muted}>{props.authorization.instructions}</text>
       </box>
-      <text fg={theme.textMuted}>Waiting for authorization...</text>
-      <text fg={theme.text}>
-        c <span style={{ fg: theme.textMuted }}>copy</span>
+      <text fg={theme.foreground.muted}>Waiting for authorization...</text>
+      <text fg={theme.foreground.default}>
+        c <span style={{ fg: theme.foreground.muted }}>copy</span>
       </text>
     </box>
   )
@@ -382,10 +405,10 @@ function CodeMethod(props: CodeMethodProps) {
       }}
       description={() => (
         <box gap={1}>
-          <text fg={theme.textMuted}>{props.authorization.instructions}</text>
-          <Link href={props.authorization.url} fg={theme.primary} />
+          <text fg={theme.foreground.muted}>{props.authorization.instructions}</text>
+          <Link href={props.authorization.url} fg={theme.accent.fg} />
           <Show when={error()}>
-            <text fg={theme.error}>Invalid code</text>
+            <text fg={theme.status.error.fg}>Invalid code</text>
           </Show>
         </box>
       )}
@@ -437,11 +460,11 @@ function AutoCodeMethod(props: CodeMethodProps) {
       }}
       description={() => (
         <box gap={1}>
-          <text fg={theme.textMuted}>{props.authorization.instructions}</text>
-          <Link href={props.authorization.url} fg={theme.primary} />
-          <text fg={theme.textMuted}>Waiting for authorization, or paste the code shown by xAI.</text>
+          <text fg={theme.foreground.muted}>{props.authorization.instructions}</text>
+          <Link href={props.authorization.url} fg={theme.accent.fg} />
+          <text fg={theme.foreground.muted}>Waiting for authorization, or paste the code shown by xAI.</text>
           <Show when={error()}>
-            <text fg={theme.error}>Invalid code</text>
+            <text fg={theme.status.error.fg}>Invalid code</text>
           </Show>
         </box>
       )}
@@ -473,12 +496,12 @@ function OpenRouterFreeMethod(props: { title: string }) {
       placeholder="OpenRouter API key (any free key from openrouter.ai)"
       description={() => (
         <box gap={1}>
-          <text fg={theme.textMuted}>
+          <text fg={theme.foreground.muted}>
             OpenRouter gives you a free API key at{" "}
-            <span style={{ fg: theme.primary }}>https://openrouter.ai/settings/keys</span>.
+            <span style={{ fg: theme.accent.fg }}>https://openrouter.ai/settings/keys</span>.
           </text>
-          <text fg={theme.textMuted}>
-            After saving, the model picker filters to <span style={{ fg: theme.accent }}>`:free`</span> models
+          <text fg={theme.foreground.muted}>
+            After saving, the model picker filters to <span style={{ fg: theme.accent.alt }}>`:free`</span> models
             automatically.
           </text>
         </box>
@@ -525,12 +548,12 @@ function ApiMethod(props: ApiMethodProps) {
         props.providerID === "nikcli"
           ? () => (
               <box gap={1}>
-                <text fg={theme.textMuted}>
+                <text fg={theme.foreground.muted}>
                   Nikcli Zen gives you access to all the best coding models at the cheapest prices with a single API
                   key.
                 </text>
-                <text fg={theme.text}>
-                  Go to <span style={{ fg: theme.primary }}>https://nikcli.store/zen</span> to get a key
+                <text fg={theme.foreground.default}>
+                  Go to <span style={{ fg: theme.accent.fg }}>https://nikcli.store/zen</span> to get a key
                 </text>
               </box>
             )

@@ -2,8 +2,7 @@ import type { Argv } from "yargs"
 
 import { Session } from "../session"
 import { SessionRepo } from "./repo"
-
-import { Storage } from "../storage/storage"
+import { ProjectRepo } from "../project/repo"
 import { Project } from "../project/project"
 import { Instance } from "../project/instance"
 import { bootstrap } from "@/cli/bootstrap"
@@ -11,30 +10,8 @@ import { cmd } from "@/cli/cmd/cmd"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
-}
-
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
-
-function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.list(prefix)
-    }),
-  )
 }
 
 interface SessionStats {
@@ -116,11 +93,7 @@ async function getCurrentProject(): Promise<Project.Info> {
 async function getAllSessions(): Promise<Session.Info[]> {
   const sessions: Session.Info[] = []
 
-  const projectKeys = await storageList(["project"])
-  const projects = await Promise.all(projectKeys.map((key) => storageRead<Project.Info>(key)))
-
-  for (const project of projects) {
-    if (!project) continue
+  for (const project of ProjectRepo.list()) {
     sessions.push(...SessionRepo.getByProject(project.id))
   }
 

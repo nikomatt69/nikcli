@@ -43,7 +43,7 @@ export function DialogStash(props: { onSelect: (entry: StashEntry) => void }) {
         const lineCount = (entry.input.match(/\n/g)?.length ?? 0) + 1
         return {
           title: isDeleting ? `Press ${keybind.print("stash_delete")} again to confirm` : getStashPreview(entry.input),
-          bg: isDeleting ? theme.error : undefined,
+          bg: isDeleting ? theme.status.error.fg : undefined,
           value: index,
           description: getRelativeTime(entry.timestamp),
           footer: lineCount > 1 ? `~${lineCount} lines` : undefined,

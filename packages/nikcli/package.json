@@ -15,7 +15,7 @@
     "pretest": "bun run format:check && bun run lint",
     "test": "bun test --timeout 30000 --path-ignore-patterns='**/*benchmark*.test.ts' --path-ignore-patterns='**/*integration*.test.ts'",
     "test:unit": "bun test --timeout 30000 --path-ignore-patterns='**/*benchmark*.test.ts' --path-ignore-patterns='**/*integration*.test.ts'",
-    "test:integration": "bun test --timeout 60000 --path-ignore-patterns='**/*benchmark*.test.ts' test/workspace test/worktree test/session test/database test/storage",
+    "test:integration": "bun test --timeout 60000 --path-ignore-patterns='**/*benchmark*.test.ts' test/workspace test/worktree test/session test/database",
     "test:coverage": "bun test --coverage --timeout 30000 --path-ignore-patterns='**/*benchmark*.test.ts' --path-ignore-patterns='**/*integration*.test.ts'",
     "test:bench": "bun test --timeout 60000 test/benchmarks",
     "test:e2e": "bun test --timeout 60000 test/tui",

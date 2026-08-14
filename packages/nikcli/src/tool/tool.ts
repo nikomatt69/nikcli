@@ -56,7 +56,20 @@ export namespace Tool {
     title: string
     metadata: M
     output: string
+    /**
+     * Schema-validated machine success. Present when the tool declared `output`.
+     * Truncation never rewrites this field; Code Mode consumes it instead of `output`.
+     */
+    value?: unknown
     attachments?: MessageV2.FilePart[]
+  }
+
+  /**
+   * The value Code Mode (and any other typed host) should see for one success.
+   * A declared output codec means `result.value`; otherwise the model-facing string.
+   */
+  export function encoded(result: Result, output?: z.ZodType): unknown {
+    return output !== undefined ? result.value : result.output
   }
 
   /**
@@ -66,6 +79,11 @@ export namespace Tool {
   export interface Def<Parameters extends z.ZodType = z.ZodType, M extends Metadata = Metadata> {
     description: string
     parameters: Parameters
+    /**
+     * Optional success codec. When set, the wrapper parses `result.value` after
+     * `execute` and rejects a malformed success before truncation runs.
+     */
+    output?: z.ZodType
     /**
      * The Effect-shaped tool body. Always available on a wrapped `Tool.Def`. New tools
      * should target this shape directly (`(args, ctx) => Effect.gen(function* () { ... })`).
@@ -89,6 +107,7 @@ export namespace Tool {
   export interface AuthoredDef<Parameters extends z.ZodType = z.ZodType, M extends Metadata = Metadata> {
     description: string
     parameters: Parameters
+    output?: z.ZodType
     execute(args: z.infer<Parameters>, ctx: Context): Promise<Result<M>> | Effect.Effect<Result<M>, Error>
     formatValidationError?(error: z.ZodError): string
   }
@@ -160,21 +179,36 @@ export namespace Tool {
             }
 
             const result = yield* asEffect(authoredExecute(args, wrappedCtx))
-            if (result.metadata.truncated !== undefined) return result
+            const codec = authored.output
+            let success = result
+            if (codec) {
+              try {
+                success = { ...result, value: codec.parse(result.value) }
+              } catch (error) {
+                return yield* Effect.fail(
+                  new Error(
+                    `The ${id} tool returned invalid output: ${error}.\nThe success value must satisfy the tool's output schema.`,
+                    { cause: error as Error | undefined },
+                  ),
+                )
+              }
+            }
+            if (success.metadata.truncated !== undefined) return success
 
-            // Truncation is best-effort: fall back to the raw output if it fails.
+            // Truncation is best-effort and applies only to the model-facing string.
+            // The encoded `value` is left intact so Code Mode can keep a typed result.
             // (A try/catch around `yield*` would not see Effect failures, and a
             // rejected Effect.promise would kill the fiber as a defect.)
             const truncated = yield* Effect.promise(() =>
-              truncateOutput(result.output, {}, initCtx?.agent).catch(
-                () => ({ content: result.output, truncated: false }) satisfies Truncate.Result,
+              truncateOutput(success.output, {}, initCtx?.agent).catch(
+                () => ({ content: success.output, truncated: false }) satisfies Truncate.Result,
               ),
             )
             return {
-              ...result,
+              ...success,
               output: truncated.content,
               metadata: {
-                ...result.metadata,
+                ...success.metadata,
                 truncated: truncated.truncated,
                 ...(truncated.truncated && { outputPath: truncated.outputPath }),
               },
@@ -184,6 +218,7 @@ export namespace Tool {
         const def: Def<Parameters, M> = {
           description: authored.description,
           parameters: authored.parameters,
+          output: authored.output,
           execute,
           executeAsync: (args, ctx) => AppRuntime.runPromise(execute(args, ctx)),
           formatValidationError: authored.formatValidationError,

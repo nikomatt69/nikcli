@@ -2,7 +2,7 @@
  * Fencing for ASCII diagrams in assistant prose.
  *
  * When the assistant draws a box diagram inside a paragraph, the markdown
- * renderer paints it in plain `theme.text` and the alignment reads as noise.
+ * renderer paints it in plain `theme.foreground.default` and the alignment reads as noise.
  * Wrapping runs of diagram-looking lines in a fenced code block hands them to
  * opentui's `CodeRenderable`, which restores the themed `markdownCodeBlock`
  * colouring the old `<code filetype="markdown">` path produced — without

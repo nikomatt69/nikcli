@@ -35,6 +35,7 @@ import type { createGitLab } from "@gitlab/gitlab-ai-provider"
 import { ProviderTransform } from "./transform"
 import * as CachePolicy from "./cache-policy"
 import { ProviderError } from "./error"
+import { Policy } from "@/policy/policy"
 import {
   NIKCLI_INFERENCE_DEFAULT_URL,
   NIKCLI_INFERENCE_ENV,
@@ -1296,13 +1297,13 @@ export namespace Provider {
     const modelsDev = await ModelsDev.get()
     const database = mapValues(modelsDev, fromModelsDevProvider)
 
-    const disabled = new Set(config.disabled_providers ?? [])
-    const enabled = config.enabled_providers ? new Set(config.enabled_providers) : null
+    const policy = Policy.statements(config)
 
     function isProviderAllowed(providerID: string): boolean {
-      if (enabled && !enabled.has(providerID)) return false
-      if (disabled.has(providerID)) return false
-      return true
+      return Policy.allows(policy, {
+        action: "provider.use",
+        resource: providerID,
+      })
     }
 
     const providers: { [providerID: string]: Info } = {}
@@ -1514,7 +1515,7 @@ export namespace Provider {
     // load env
     const env = Env.all()
     for (const [providerID, provider] of Object.entries(database)) {
-      if (disabled.has(providerID)) continue
+      if (!isProviderAllowed(providerID)) continue
       const apiKey = provider.env.map((item: string) => env[item]).find(Boolean)
       if (!apiKey) continue
       mergeProvider(providerID, {
@@ -1525,7 +1526,7 @@ export namespace Provider {
 
     // load apikeys
     for (const [providerID, provider] of Object.entries(await authAll()) as Array<[string, Auth.Info]>) {
-      if (disabled.has(providerID)) continue
+      if (!isProviderAllowed(providerID)) continue
       if (provider.type === "api") {
         mergeProvider(providerID, {
           source: "api",
@@ -1537,7 +1538,7 @@ export namespace Provider {
     for (const plugin of await pluginList(ctx)) {
       if (!plugin.auth) continue
       const providerID = plugin.auth.provider
-      if (disabled.has(providerID)) continue
+      if (!isProviderAllowed(providerID)) continue
 
       // For github-copilot plugin, check if auth exists for either github-copilot or github-copilot-enterprise
       let hasAuth = false
@@ -1571,7 +1572,7 @@ export namespace Provider {
       // If this is github-copilot plugin, also register for github-copilot-enterprise if auth exists
       if (providerID === "github-copilot") {
         const enterpriseProviderID = "github-copilot-enterprise"
-        if (!disabled.has(enterpriseProviderID)) {
+        if (isProviderAllowed(enterpriseProviderID)) {
           const enterpriseAuth = await authGet(enterpriseProviderID)
           if (enterpriseAuth) {
             const enterpriseOptions = await plugin.auth.loader(
@@ -1588,7 +1589,7 @@ export namespace Provider {
     }
 
     for (const [providerID, fn] of Object.entries(CUSTOM_LOADERS)) {
-      if (disabled.has(providerID)) continue
+      if (!isProviderAllowed(providerID)) continue
       const data = database[providerID]
       if (!data) {
         log.error("Provider does not exist in model list " + providerID)
@@ -1620,7 +1621,7 @@ export namespace Provider {
     for (const hook of await pluginList(ctx)) {
       const p = hook.provider
       if (!p?.models) continue
-      if (disabled.has(p.id)) continue
+      if (!isProviderAllowed(p.id)) continue
       const provider = providers[p.id]
       if (!provider) continue
       const pluginAuth = await authGet(p.id)

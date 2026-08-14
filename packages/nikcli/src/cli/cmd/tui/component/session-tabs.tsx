@@ -117,9 +117,9 @@ export function SessionTabs() {
       width="100%"
       flexDirection="row"
       alignItems="center"
-      backgroundColor={theme.backgroundPanel}
+      backgroundColor={theme.surface.panel}
       border={["bottom"]}
-      borderColor={theme.borderSubtle}
+      borderColor={theme.border.subtle}
       overflow="hidden"
     >
       <box width={9} height={3} flexShrink={0} paddingTop={1} paddingBottom={1} paddingLeft={1} flexDirection="column">
@@ -135,11 +135,11 @@ export function SessionTabs() {
             // Semantic precedence: what blocks the user outranks what is merely running, which
             // outranks work they have not looked at yet. Only one marker fits in a tab.
             const marker = createMemo(() => {
-              if (state()?.attention) return { glyph: "◆", color: theme.warning }
-              if (state()?.busy || status() === "busy") return { glyph: "●", color: theme.info }
-              if (status() === "retry") return { glyph: "●", color: theme.warning }
-              if (state()?.unread) return { glyph: "●", color: theme.primary }
-              return { glyph: "·", color: theme.textMuted }
+              if (state()?.attention) return { glyph: "◆", color: theme.status.warning.fg }
+              if (state()?.busy || status() === "busy") return { glyph: "●", color: theme.status.info.fg }
+              if (status() === "retry") return { glyph: "●", color: theme.status.warning.fg }
+              if (state()?.unread) return { glyph: "●", color: theme.accent.fg }
+              return { glyph: "·", color: theme.foreground.muted }
             })
             const linkedID = createMemo(() => sessionLinkOf(kv, id))
             const title = () =>
@@ -158,9 +158,9 @@ export function SessionTabs() {
                 paddingBottom={1}
                 overflow="hidden"
                 onMouseDown={() => tabs.open(id)}
-                backgroundColor={selected() ? theme.backgroundElement : undefined}
+                backgroundColor={selected() ? theme.surface.offset : undefined}
                 border={selected() ? ["left"] : undefined}
-                borderColor={selected() ? theme.primary : undefined}
+                borderColor={selected() ? theme.accent.fg : undefined}
                 customBorderChars={selected() ? SplitBorder.customBorderChars : undefined}
               >
                 <text fg={marker().color} wrapMode="none">
@@ -168,7 +168,7 @@ export function SessionTabs() {
                 </text>
                 <Show when={linkedID()}>
                   <text
-                    fg={theme.info}
+                    fg={theme.status.info.fg}
                     onMouseDown={(event) => {
                       event.stopPropagation()
                       openLinkDialog(id)
@@ -179,7 +179,7 @@ export function SessionTabs() {
                   </text>
                 </Show>
                 <text
-                  fg={selected() ? theme.text : theme.textMuted}
+                  fg={selected() ? theme.foreground.default : theme.foreground.muted}
                   attributes={selected() ? TextAttributes.BOLD : TextAttributes.DIM}
                   wrapMode="none"
                   flexGrow={1}
@@ -189,7 +189,7 @@ export function SessionTabs() {
                 <Show when={selected()}>
                   <Show when={!linkedID()}>
                     <text
-                      fg={theme.textMuted}
+                      fg={theme.foreground.muted}
                       onMouseDown={(event) => {
                         event.stopPropagation()
                         openLinkDialog(id)
@@ -200,7 +200,7 @@ export function SessionTabs() {
                     </text>
                   </Show>
                   <text
-                    fg={theme.textMuted}
+                    fg={theme.foreground.muted}
                     onMouseDown={(event) => {
                       event.stopPropagation()
                       tabs.close(id)
@@ -216,7 +216,7 @@ export function SessionTabs() {
         </For>
         <Show when={layout().hidden > 0}>
           <box width={6} height={3} flexShrink={0} paddingTop={1} paddingBottom={1} flexDirection="column">
-            <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
+            <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
               {` ·· +${layout().hidden}`}
             </text>
           </box>
@@ -231,13 +231,13 @@ export function SessionTabs() {
         paddingBottom={1}
         justifyContent="center"
         onMouseDown={tabs.createSession}
-        backgroundColor={route.data.type === "home" ? theme.backgroundElement : undefined}
+        backgroundColor={route.data.type === "home" ? theme.surface.offset : undefined}
         border={route.data.type === "home" ? ["left"] : undefined}
-        borderColor={route.data.type === "home" ? theme.primary : undefined}
+        borderColor={route.data.type === "home" ? theme.accent.fg : undefined}
         customBorderChars={route.data.type === "home" ? SplitBorder.customBorderChars : undefined}
       >
         <text
-          fg={route.data.type === "home" ? theme.primary : theme.textMuted}
+          fg={route.data.type === "home" ? theme.accent.fg : theme.foreground.muted}
           attributes={route.data.type === "home" ? TextAttributes.BOLD : undefined}
           wrapMode="none"
         >

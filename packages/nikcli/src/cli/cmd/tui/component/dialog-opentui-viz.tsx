@@ -110,37 +110,37 @@ function tabLabel(comp: VizComponent): string {
 function resolveColor(theme: Theme, token: VizColorToken | undefined): RGBA {
   switch (token) {
     case "primary":
-      return theme.primary
+      return theme.accent.fg
     case "secondary":
-      return theme.secondary
+      return theme.accent.secondary
     case "accent":
-      return theme.accent
+      return theme.accent.alt
     case "success":
-      return theme.success
+      return theme.status.success.fg
     case "warning":
-      return theme.warning
+      return theme.status.warning.fg
     case "error":
-      return theme.error
+      return theme.status.error.fg
     case "info":
-      return theme.info
+      return theme.status.info.fg
     case "muted":
-      return theme.textMuted
+      return theme.foreground.muted
     case "default":
     default:
-      return theme.text
+      return theme.foreground.default
   }
 }
 
 function severityColor(theme: Theme, sev: VizSeverity): RGBA {
   switch (sev) {
     case "success":
-      return theme.success
+      return theme.status.success.fg
     case "warning":
-      return theme.warning
+      return theme.status.warning.fg
     case "error":
-      return theme.error
+      return theme.status.error.fg
     case "info":
-      return theme.info
+      return theme.status.info.fg
   }
 }
 
@@ -269,7 +269,7 @@ function Title(props: { title?: string }) {
   const { theme } = useTheme()
   return (
     <Show when={props.title}>
-      <text fg={theme.secondary} attributes={TextAttributes.BOLD}>
+      <text fg={theme.accent.secondary} attributes={TextAttributes.BOLD}>
         {props.title}
       </text>
     </Show>
@@ -281,17 +281,17 @@ function TextRenderer(props: { comp: Of<"text"> }) {
   const fg = createMemo(() => {
     switch (props.comp.style) {
       case "success":
-        return theme.success
+        return theme.status.success.fg
       case "warning":
-        return theme.warning
+        return theme.status.warning.fg
       case "error":
-        return theme.error
+        return theme.status.error.fg
       case "info":
-        return theme.primary
+        return theme.accent.fg
       case "muted":
-        return theme.textMuted
+        return theme.foreground.muted
       default:
-        return theme.text
+        return theme.foreground.default
     }
   })
   return (
@@ -308,7 +308,7 @@ function TextRenderer(props: { comp: Of<"text"> }) {
         <markdown
           content={"```\n" + props.comp.content + "\n```"}
           syntaxStyle={syntax()}
-          fg={theme.text}
+          fg={theme.foreground.default}
           conceal={false}
           concealCode={false}
         />
@@ -331,7 +331,7 @@ function MarkdownRenderer(props: { comp: Of<"markdown"> }) {
       <markdown
         content={props.comp.content}
         syntaxStyle={syntax()}
-        fg={theme.text}
+        fg={theme.foreground.default}
         conceal={true}
         concealCode={false}
         tableOptions={{
@@ -340,7 +340,7 @@ function MarkdownRenderer(props: { comp: Of<"markdown"> }) {
           cellPadding: tight() ? 0 : 1,
           borders: true,
           outerBorder: !tight(),
-          borderColor: theme.borderSubtle,
+          borderColor: theme.border.subtle,
         }}
       />
     </box>
@@ -363,17 +363,17 @@ function CodeRenderer(props: { comp: Of<"code"> }) {
             content={props.comp.content}
             filetype={props.comp.filetype}
             syntaxStyle={syntax()}
-            fg={theme.text}
+            fg={theme.foreground.default}
             conceal={false}
           />
         }
       >
-        <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
+        <line_number fg={theme.foreground.muted} minWidth={3} paddingRight={1}>
           <code
             content={props.comp.content}
             filetype={props.comp.filetype}
             syntaxStyle={syntax()}
-            fg={theme.text}
+            fg={theme.foreground.default}
             conceal={false}
           />
         </line_number>
@@ -413,15 +413,15 @@ function DiffRenderer(props: { comp: Of<"diff"> }) {
         view={view()}
         filetype={props.comp.filetype ?? "diff"}
         syntaxStyle={syntax()}
-        fg={theme.text}
+        fg={theme.foreground.default}
         wrapMode="word"
         showLineNumbers={true}
-        addedBg={theme.diffAddedBg}
-        removedBg={theme.diffRemovedBg}
-        contextBg={theme.diffContextBg}
-        addedSignColor={theme.diffAdded}
-        removedSignColor={theme.diffRemoved}
-        lineNumberFg={theme.diffLineNumber}
+        addedBg={theme.diff.addedBg}
+        removedBg={theme.diff.removedBg}
+        contextBg={theme.diff.contextBg}
+        addedSignColor={theme.diff.added}
+        removedSignColor={theme.diff.removed}
+        lineNumberFg={theme.diff.lineNumber}
       />
     </box>
   )
@@ -451,7 +451,7 @@ function AlertRenderer(props: { comp: Of<"alert"> }) {
         <Show
           when={props.comp.title}
           fallback={
-            <text fg={theme.text} wrapMode="word" flexGrow={1}>
+            <text fg={theme.foreground.default} wrapMode="word" flexGrow={1}>
               {props.comp.message}
             </text>
           }
@@ -462,7 +462,7 @@ function AlertRenderer(props: { comp: Of<"alert"> }) {
         </Show>
       </box>
       <Show when={props.comp.title}>
-        <text fg={theme.text} wrapMode="word">
+        <text fg={theme.foreground.default} wrapMode="word">
           {props.comp.message}
         </text>
       </Show>
@@ -523,7 +523,7 @@ function TableRenderer(props: { comp: Of<"table"> }) {
       <box flexDirection="row" gap={tight() ? 1 : 2}>
         <For each={props.comp.headers}>
           {(h, i) => (
-            <text fg={theme.secondary} attributes={TextAttributes.BOLD} flexShrink={0}>
+            <text fg={theme.accent.secondary} attributes={TextAttributes.BOLD} flexShrink={0}>
               {padCell(h, i())}
             </text>
           )}
@@ -533,7 +533,7 @@ function TableRenderer(props: { comp: Of<"table"> }) {
       <box flexDirection="row" gap={tight() ? 1 : 2}>
         <For each={props.comp.headers}>
           {(_, i) => (
-            <text fg={theme.borderSubtle} flexShrink={0}>
+            <text fg={theme.border.subtle} flexShrink={0}>
               {"─".repeat(colWidths()[i()] ?? 3)}
             </text>
           )}
@@ -544,7 +544,7 @@ function TableRenderer(props: { comp: Of<"table"> }) {
         {(row, rIdx) => {
           const rowColor = createMemo(() => {
             const tok = props.comp.rowColors?.[rIdx()]
-            return tok ? statusToColor(theme, tok) : theme.text
+            return tok ? statusToColor(theme, tok) : theme.foreground.default
           })
           return (
             <box flexDirection="row" gap={tight() ? 1 : 2}>
@@ -564,7 +564,7 @@ function TableRenderer(props: { comp: Of<"table"> }) {
         <box flexDirection="row" gap={tight() ? 1 : 2}>
           <For each={props.comp.headers}>
             {(_, i) => (
-              <text fg={theme.borderSubtle} flexShrink={0}>
+              <text fg={theme.border.subtle} flexShrink={0}>
                 {"═".repeat(colWidths()[i()] ?? 3)}
               </text>
             )}
@@ -573,7 +573,7 @@ function TableRenderer(props: { comp: Of<"table"> }) {
         <box flexDirection="row" gap={tight() ? 1 : 2}>
           <For each={props.comp.totals}>
             {(cell, i) => (
-              <text fg={theme.text} attributes={TextAttributes.BOLD} flexShrink={0}>
+              <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} flexShrink={0}>
                 {padCell(cell, i())}
               </text>
             )}
@@ -595,15 +595,15 @@ function KeyValueRenderer(props: { comp: Of<"key_value"> }) {
   function valueColor(status?: string): RGBA {
     switch (status) {
       case "success":
-        return theme.success
+        return theme.status.success.fg
       case "warning":
-        return theme.warning
+        return theme.status.warning.fg
       case "error":
-        return theme.error
+        return theme.status.error.fg
       case "info":
-        return theme.primary
+        return theme.accent.fg
       default:
-        return theme.text
+        return theme.foreground.default
     }
   }
 
@@ -628,14 +628,14 @@ function KeyValueRenderer(props: { comp: Of<"key_value"> }) {
         {(grp) => (
           <box gap={0} marginTop={grp.group ? 1 : 0}>
             <Show when={grp.group}>
-              <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+              <text fg={theme.foreground.muted} attributes={TextAttributes.BOLD}>
                 ── {grp.group} ──
               </text>
             </Show>
             <For each={grp.items}>
               {(item) => (
                 <box flexDirection="row" gap={2}>
-                  <text fg={theme.textMuted} flexShrink={0}>
+                  <text fg={theme.foreground.muted} flexShrink={0}>
                     {item.key.padEnd(keyWidth(), " ")}
                   </text>
                   <text fg={valueColor(item.status)} wrapMode="word" flexGrow={1}>
@@ -665,18 +665,18 @@ function TreeRenderer(props: { comp: Of<"tree"> }) {
           const last = idx() === nodes.length - 1
           const connector = isRoot ? "" : last ? "└─ " : "├─ "
           const nextPrefix = isRoot ? "" : prefix + (last ? "   " : "│  ")
-          const statusColor = node.status ? severityColor(theme, node.status) : theme.text
+          const statusColor = node.status ? severityColor(theme, node.status) : theme.foreground.default
           return (
             <box gap={0}>
               <box flexDirection="row" gap={1}>
-                <text fg={theme.borderSubtle} flexShrink={0}>
+                <text fg={theme.border.subtle} flexShrink={0}>
                   {prefix + connector}
                 </text>
                 <text fg={statusColor} flexShrink={0}>
                   {node.label}
                 </text>
                 <Show when={node.value}>
-                  <text fg={theme.textMuted} flexGrow={1}>
+                  <text fg={theme.foreground.muted} flexGrow={1}>
                     {" " + node.value}
                   </text>
                 </Show>
@@ -725,17 +725,17 @@ function StatTile(props: { stat: StatLike; compact?: boolean }) {
   )
   const trendColor = createMemo<RGBA>(() => {
     const t = props.stat.trend
-    if (!t) return theme.textMuted
+    if (!t) return theme.foreground.muted
     const good = props.stat.trendIsGood !== false // default true
-    if (t === "flat") return theme.textMuted
+    if (t === "flat") return theme.foreground.muted
     const positiveIsUp = t === "up"
-    return positiveIsUp === good ? theme.success : theme.error
+    return positiveIsUp === good ? theme.status.success.fg : theme.status.error.fg
   })
 
   return (
     <box
       border={!props.compact}
-      borderColor={theme.borderSubtle}
+      borderColor={theme.border.subtle}
       paddingLeft={1}
       paddingRight={1}
       paddingTop={props.compact ? 0 : 0}
@@ -746,7 +746,7 @@ function StatTile(props: { stat: StatLike; compact?: boolean }) {
       flexShrink={1}
       minWidth={20}
     >
-      <text fg={theme.textMuted}>{props.stat.label}</text>
+      <text fg={theme.foreground.muted}>{props.stat.label}</text>
       <box flexDirection="row" gap={1} alignItems="center">
         <text fg={valueColor()} attributes={TextAttributes.BOLD}>
           {valueText()}
@@ -762,7 +762,7 @@ function StatTile(props: { stat: StatLike; compact?: boolean }) {
         <text fg={resolveColor(theme, props.stat.color ?? "primary")}>{sparkline(props.stat.sparkline!)}</text>
       </Show>
       <Show when={props.stat.hint}>
-        <text fg={theme.textMuted}>{props.stat.hint}</text>
+        <text fg={theme.foreground.muted}>{props.stat.hint}</text>
       </Show>
     </box>
   )
@@ -856,13 +856,13 @@ function BarChartRenderer(props: { comp: Of<"bar_chart"> }) {
               })
               return (
                 <box flexDirection="row" gap={1}>
-                  <text fg={theme.textMuted} flexShrink={0}>
+                  <text fg={theme.foreground.muted} flexShrink={0}>
                     {item.label.padEnd(labelWidth(), " ")}
                   </text>
                   <text fg={color()} flexShrink={0}>
                     {bar()}
                   </text>
-                  <text fg={theme.text} flexShrink={0}>
+                  <text fg={theme.foreground.default} flexShrink={0}>
                     {suffix()}
                   </text>
                 </box>
@@ -927,7 +927,7 @@ function VerticalBarChart(props: { comp: Of<"bar_chart">; maxVal: number }) {
       <box flexDirection="row" gap={1}>
         <For each={props.comp.items}>
           {() => (
-            <text fg={theme.borderSubtle} flexShrink={0}>
+            <text fg={theme.border.subtle} flexShrink={0}>
               {"─".repeat(cellWidth() - 1)}
             </text>
           )}
@@ -937,7 +937,7 @@ function VerticalBarChart(props: { comp: Of<"bar_chart">; maxVal: number }) {
       <box flexDirection="row" gap={1}>
         <For each={props.comp.items}>
           {(item) => (
-            <text fg={theme.textMuted} flexShrink={0}>
+            <text fg={theme.foreground.muted} flexShrink={0}>
               {item.label.padEnd(cellWidth() - 1).slice(0, cellWidth() - 1)}
             </text>
           )}
@@ -948,7 +948,7 @@ function VerticalBarChart(props: { comp: Of<"bar_chart">; maxVal: number }) {
         <box flexDirection="row" gap={1}>
           <For each={props.comp.items}>
             {(item) => (
-              <text fg={theme.text} flexShrink={0}>
+              <text fg={theme.foreground.default} flexShrink={0}>
                 {`${item.value}${item.unit ?? ""}`.padEnd(cellWidth() - 1).slice(0, cellWidth() - 1)}
               </text>
             )}
@@ -1039,7 +1039,7 @@ function LineChartRenderer(props: { comp: Of<"line_chart"> }) {
     let current: { text: string; color: RGBA } | null = null
     for (const cell of row) {
       const ch = cell?.ch ?? " "
-      const color = cell ? resolveColor(theme, cell.color) : theme.text
+      const color = cell ? resolveColor(theme, cell.color) : theme.foreground.default
       if (current && current.color.r === color.r && current.color.g === color.g && current.color.b === color.b) {
         current.text += ch
       } else {
@@ -1069,10 +1069,10 @@ function LineChartRenderer(props: { comp: Of<"line_chart"> }) {
         {(row, rIdx) => (
           <box flexDirection="row" gap={0} flexShrink={0}>
             <Show when={showAxis()}>
-              <text fg={theme.textMuted} flexShrink={0}>
+              <text fg={theme.foreground.muted} flexShrink={0}>
                 {axisLabel(rIdx())}
               </text>
-              <text fg={theme.borderSubtle} flexShrink={0}>
+              <text fg={theme.border.subtle} flexShrink={0}>
                 {rIdx() === height() - 1 ? "└" : "│"}
               </text>
             </Show>
@@ -1089,10 +1089,10 @@ function LineChartRenderer(props: { comp: Of<"line_chart"> }) {
       {/* X axis labels */}
       <Show when={showAxis() && props.comp.labels && props.comp.labels.length > 0}>
         <box flexDirection="row" gap={0} flexShrink={0}>
-          <text fg={theme.textMuted} flexShrink={0}>
+          <text fg={theme.foreground.muted} flexShrink={0}>
             {" ".repeat(axisWidth)}
           </text>
-          <text fg={theme.textMuted} flexShrink={0}>
+          <text fg={theme.foreground.muted} flexShrink={0}>
             {sparseAxisLabels(props.comp.labels!, width())}
           </text>
         </box>
@@ -1104,7 +1104,7 @@ function LineChartRenderer(props: { comp: Of<"line_chart"> }) {
             {(s) => (
               <box flexDirection="row" gap={1}>
                 <text fg={resolveColor(theme, s.colorToken)}>{s.marker}</text>
-                <text fg={theme.text}>{s.name}</text>
+                <text fg={theme.foreground.default}>{s.name}</text>
               </box>
             )}
           </For>
@@ -1157,13 +1157,13 @@ function HistogramRenderer(props: { comp: Of<"histogram"> }) {
           const bar = createMemo(() => "▆".repeat(filled()) + "·".repeat(empty()))
           return (
             <box flexDirection="row" gap={1}>
-              <text fg={theme.textMuted} flexShrink={0}>
+              <text fg={theme.foreground.muted} flexShrink={0}>
                 {bin.label.padEnd(labelWidth(), " ")}
               </text>
-              <text fg={theme.secondary} flexShrink={0}>
+              <text fg={theme.accent.secondary} flexShrink={0}>
                 {bar()}
               </text>
-              <text fg={theme.text} flexShrink={0}>
+              <text fg={theme.foreground.default} flexShrink={0}>
                 {bin.count}
                 {props.comp.unit ? ` ${props.comp.unit}` : ""}
               </text>
@@ -1186,16 +1186,16 @@ function lerpColor(a: RGBA, b: RGBA, t: number): RGBA {
 function heatmapColor(theme: Theme, t: number, scale: "mono" | "diverge" | "traffic"): RGBA {
   const clamped = Math.max(0, Math.min(1, t))
   if (scale === "mono") {
-    return lerpColor(theme.backgroundElement, theme.primary, clamped)
+    return lerpColor(theme.surface.offset, theme.accent.fg, clamped)
   }
   if (scale === "diverge") {
     // -1..0..1 mapped from 0..0.5..1
-    if (clamped < 0.5) return lerpColor(theme.info, theme.backgroundElement, clamped * 2)
-    return lerpColor(theme.backgroundElement, theme.error, (clamped - 0.5) * 2)
+    if (clamped < 0.5) return lerpColor(theme.status.info.fg, theme.surface.offset, clamped * 2)
+    return lerpColor(theme.surface.offset, theme.status.error.fg, (clamped - 0.5) * 2)
   }
   // traffic: green → yellow → red
-  if (clamped < 0.5) return lerpColor(theme.success, theme.warning, clamped * 2)
-  return lerpColor(theme.warning, theme.error, (clamped - 0.5) * 2)
+  if (clamped < 0.5) return lerpColor(theme.status.success.fg, theme.status.warning.fg, clamped * 2)
+  return lerpColor(theme.status.warning.fg, theme.status.error.fg, (clamped - 0.5) * 2)
 }
 
 function HeatmapRenderer(props: { comp: Of<"heatmap"> }) {
@@ -1220,12 +1220,12 @@ function HeatmapRenderer(props: { comp: Of<"heatmap"> }) {
       <Title title={props.comp.title} />
       {/* Column headers */}
       <box flexDirection="row" gap={0}>
-        <text fg={theme.textMuted} flexShrink={0}>
+        <text fg={theme.foreground.muted} flexShrink={0}>
           {" ".repeat(rowLabelW() + 1)}
         </text>
         <For each={props.comp.colLabels}>
           {(c) => (
-            <text fg={theme.textMuted} flexShrink={0}>
+            <text fg={theme.foreground.muted} flexShrink={0}>
               {c.slice(0, cellWidth).padStart(cellWidth)}
             </text>
           )}
@@ -1235,7 +1235,7 @@ function HeatmapRenderer(props: { comp: Of<"heatmap"> }) {
       <For each={props.comp.rowLabels}>
         {(rowLabel, rIdx) => (
           <box flexDirection="row" gap={0} flexShrink={0}>
-            <text fg={theme.text} flexShrink={0}>
+            <text fg={theme.foreground.default} flexShrink={0}>
               {rowLabel.padEnd(rowLabelW(), " ") + " "}
             </text>
             <For each={props.comp.colLabels}>
@@ -1263,7 +1263,7 @@ function HeatmapRenderer(props: { comp: Of<"heatmap"> }) {
       </For>
       {/* Legend */}
       <box flexDirection="row" gap={1} marginTop={1}>
-        <text fg={theme.textMuted}>
+        <text fg={theme.foreground.muted}>
           {props.comp.unit ? `${formatCompact(min())} ${props.comp.unit}` : formatCompact(min())}
         </text>
         <For each={Array.from({ length: 10 })}>
@@ -1271,12 +1271,12 @@ function HeatmapRenderer(props: { comp: Of<"heatmap"> }) {
             const t = i() / 9
             return (
               <box backgroundColor={heatmapColor(theme, t, scale())}>
-                <text fg={theme.textMuted}> </text>
+                <text fg={theme.foreground.muted}> </text>
               </box>
             )
           }}
         </For>
-        <text fg={theme.textMuted}>
+        <text fg={theme.foreground.muted}>
           {props.comp.unit ? `${formatCompact(max())} ${props.comp.unit}` : formatCompact(max())}
         </text>
       </box>
@@ -1299,23 +1299,23 @@ function GaugeRenderer(props: { comp: Of<"gauge"> }) {
   const barWidth = createMemo(() => Math.max(20, Math.min(60, dims().width - 28)))
   const filled = createMemo(() => Math.round(pct() * barWidth()))
   const empty = createMemo(() => barWidth() - filled())
-  const color = createMemo(() => thresholdColor(theme, pctNum(), props.comp.thresholds, theme.primary))
+  const color = createMemo(() => thresholdColor(theme, pctNum(), props.comp.thresholds, theme.accent.fg))
 
   return (
     <box gap={0}>
       <Title title={props.comp.title} />
-      <text fg={theme.textMuted}>{props.comp.label}</text>
+      <text fg={theme.foreground.muted}>{props.comp.label}</text>
       <box flexDirection="row" gap={1} alignItems="center">
         <text fg={color()} attributes={TextAttributes.BOLD}>
           {"█".repeat(filled())}
         </text>
-        <text fg={theme.borderSubtle}>{"░".repeat(empty())}</text>
+        <text fg={theme.border.subtle}>{"░".repeat(empty())}</text>
       </box>
       <box flexDirection="row" gap={2}>
         <text fg={color()} attributes={TextAttributes.BOLD}>
           {`${props.comp.value}${props.comp.unit ?? ""} / ${props.comp.max}${props.comp.unit ?? ""}`}
         </text>
-        <text fg={theme.textMuted}>{`(${pctNum().toFixed(1)}%)`}</text>
+        <text fg={theme.foreground.muted}>{`(${pctNum().toFixed(1)}%)`}</text>
       </box>
     </box>
   )
@@ -1335,9 +1335,9 @@ function ProgressBarsRenderer(props: { comp: Of<"progress_bars"> }) {
   })
 
   function defaultColor(pct: number): RGBA {
-    if (pct >= 0.9) return theme.error
-    if (pct >= 0.7) return theme.warning
-    return theme.success
+    if (pct >= 0.9) return theme.status.error.fg
+    if (pct >= 0.7) return theme.status.warning.fg
+    return theme.status.success.fg
   }
 
   return (
@@ -1353,16 +1353,16 @@ function ProgressBarsRenderer(props: { comp: Of<"progress_bars"> }) {
           const color = createMemo(() => thresholdColor(theme, pctNum(), props.comp.thresholds, defaultColor(pct())))
           return (
             <box flexDirection="row" gap={1}>
-              <text fg={theme.textMuted} flexShrink={0}>
+              <text fg={theme.foreground.muted} flexShrink={0}>
                 {item.label.padEnd(labelWidth(), " ")}
               </text>
               <text fg={color()} flexShrink={0}>
                 {bar()}
               </text>
-              <text fg={theme.textMuted} flexShrink={0}>
+              <text fg={theme.foreground.muted} flexShrink={0}>
                 {`${Math.round(pctNum())}%`.padStart(4)}
               </text>
-              <text fg={theme.text} flexShrink={0}>
+              <text fg={theme.foreground.default} flexShrink={0}>
                 {`${item.value}/${item.max}${item.unit ?? ""}`}
               </text>
             </box>
@@ -1391,15 +1391,15 @@ function TimelineRenderer(props: { comp: Of<"timeline"> }) {
   function iconColor(status: keyof typeof TIMELINE_ICON): RGBA {
     switch (status) {
       case "done":
-        return theme.success
+        return theme.status.success.fg
       case "active":
-        return theme.primary
+        return theme.accent.fg
       case "pending":
-        return theme.textMuted
+        return theme.foreground.muted
       case "error":
-        return theme.error
+        return theme.status.error.fg
       case "skipped":
-        return theme.textMuted
+        return theme.foreground.muted
     }
   }
 
@@ -1416,7 +1416,7 @@ function TimelineRenderer(props: { comp: Of<"timeline"> }) {
                   {TIMELINE_ICON[event.status]}
                 </text>
                 <text
-                  fg={event.status === "active" || event.status === "error" ? theme.text : theme.textMuted}
+                  fg={event.status === "active" || event.status === "error" ? theme.foreground.default : theme.foreground.muted}
                   attributes={event.status === "active" ? TextAttributes.BOLD : undefined}
                   wrapMode="word"
                   flexGrow={1}
@@ -1424,22 +1424,22 @@ function TimelineRenderer(props: { comp: Of<"timeline"> }) {
                   {event.label}
                 </text>
                 <Show when={event.duration}>
-                  <text fg={theme.secondary} flexShrink={0}>
+                  <text fg={theme.accent.secondary} flexShrink={0}>
                     {event.duration}
                   </text>
                 </Show>
                 <Show when={event.time}>
-                  <text fg={theme.textMuted} flexShrink={0}>
+                  <text fg={theme.foreground.muted} flexShrink={0}>
                     {event.time}
                   </text>
                 </Show>
               </box>
               <Show when={event.detail}>
                 <box flexDirection="row" gap={1}>
-                  <text fg={theme.borderSubtle} flexShrink={0}>
+                  <text fg={theme.border.subtle} flexShrink={0}>
                     {last ? "  " : "│ "}
                   </text>
-                  <text fg={theme.textMuted} wrapMode="word">
+                  <text fg={theme.foreground.muted} wrapMode="word">
                     {event.detail}
                   </text>
                 </box>
@@ -1501,12 +1501,12 @@ function StatusGridRenderer(props: { comp: Of<"status_grid"> }) {
                       <text fg={color()} attributes={TextAttributes.BOLD}>
                         {SEVERITY_ICON[item.status]}
                       </text>
-                      <text fg={theme.text} attributes={TextAttributes.BOLD} flexGrow={1}>
+                      <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} flexGrow={1}>
                         {item.label}
                       </text>
                     </box>
                     <Show when={item.detail}>
-                      <text fg={theme.textMuted} wrapMode="word">
+                      <text fg={theme.foreground.muted} wrapMode="word">
                         {item.detail}
                       </text>
                     </Show>
@@ -1528,28 +1528,28 @@ function StatusGridRenderer(props: { comp: Of<"status_grid"> }) {
 function statusKindFg(theme: Theme, status?: string): RGBA {
   switch (status) {
     case "success":
-      return theme.success
+      return theme.status.success.fg
     case "warning":
-      return theme.warning
+      return theme.status.warning.fg
     case "error":
-      return theme.error
+      return theme.status.error.fg
     case "info":
-      return theme.info
+      return theme.status.info.fg
     default:
-      return theme.text
+      return theme.foreground.default
   }
 }
 
 function CardRenderer(props: { comp: Of<"card"> }) {
   const { theme } = useTheme()
   const badgeColor = createMemo(() =>
-    props.comp.badge ? severityColor(theme, props.comp.badge.status) : theme.primary,
+    props.comp.badge ? severityColor(theme, props.comp.badge.status) : theme.accent.fg,
   )
   return (
-    <box border borderColor={theme.borderActive} paddingLeft={1} paddingRight={1} gap={1} flexDirection="column">
+    <box border borderColor={theme.border.active} paddingLeft={1} paddingRight={1} gap={1} flexDirection="column">
       <box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
         <Show when={props.comp.title}>
-          <text fg={theme.accent} attributes={TextAttributes.BOLD} flexGrow={1}>
+          <text fg={theme.accent.alt} attributes={TextAttributes.BOLD} flexGrow={1}>
             {props.comp.title}
           </text>
         </Show>
@@ -1560,10 +1560,10 @@ function CardRenderer(props: { comp: Of<"card"> }) {
         </Show>
       </box>
       <Show when={props.comp.subtitle}>
-        <text fg={theme.textMuted}>{props.comp.subtitle}</text>
+        <text fg={theme.foreground.muted}>{props.comp.subtitle}</text>
       </Show>
       <Show when={props.comp.body}>
-        <text fg={theme.text} wrapMode="word">
+        <text fg={theme.foreground.default} wrapMode="word">
           {props.comp.body}
         </text>
       </Show>
@@ -1572,7 +1572,7 @@ function CardRenderer(props: { comp: Of<"card"> }) {
           <For each={props.comp.metrics}>
             {(m) => (
               <box flexDirection="column" gap={0} minWidth={14}>
-                <text fg={theme.textMuted}>{m.label}</text>
+                <text fg={theme.foreground.muted}>{m.label}</text>
                 <text fg={statusKindFg(theme, m.status)} attributes={TextAttributes.BOLD}>
                   {formatValue(m.value, m.format, m.unit)}
                 </text>
@@ -1582,7 +1582,7 @@ function CardRenderer(props: { comp: Of<"card"> }) {
         </box>
       </Show>
       <Show when={props.comp.footer}>
-        <text fg={theme.textMuted} wrapMode="word">
+        <text fg={theme.foreground.muted} wrapMode="word">
           ─ {props.comp.footer}
         </text>
       </Show>
@@ -1612,26 +1612,26 @@ function ListRenderer(props: { comp: Of<"list"> }) {
                 <text fg={statusKindFg(theme, item.status)} flexShrink={0}>
                   {bullet()}
                 </text>
-                <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="word" flexGrow={1}>
+                <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="word" flexGrow={1}>
                   {item.primary}
                 </text>
               </box>
               <Show when={item.secondary}>
                 <box flexDirection="row" gap={1}>
-                  <text fg={theme.borderSubtle} flexShrink={0}>
+                  <text fg={theme.border.subtle} flexShrink={0}>
                     {" ".repeat(2)}
                   </text>
-                  <text fg={theme.textMuted} wrapMode="word" flexGrow={1}>
+                  <text fg={theme.foreground.muted} wrapMode="word" flexGrow={1}>
                     {item.secondary}
                   </text>
                 </box>
               </Show>
               <Show when={item.tertiary}>
                 <box flexDirection="row" gap={1}>
-                  <text fg={theme.borderSubtle} flexShrink={0}>
+                  <text fg={theme.border.subtle} flexShrink={0}>
                     {" ".repeat(2)}
                   </text>
-                  <text fg={theme.secondary} wrapMode="word" flexGrow={1}>
+                  <text fg={theme.accent.secondary} wrapMode="word" flexGrow={1}>
                     {item.tertiary}
                   </text>
                 </box>
@@ -1667,16 +1667,16 @@ function AccordionRenderer(props: { comp: Of<"accordion"> }) {
         {(section, i) => {
           const isOpen = createMemo(() => expanded()[i()] === true)
           return (
-            <box border borderColor={theme.borderSubtle} gap={0} flexDirection="column">
+            <box border borderColor={theme.border.subtle} gap={0} flexDirection="column">
               <box flexDirection="row" gap={1} onMouseUp={() => toggle(i())}>
-                <text fg={theme.primary} flexShrink={0}>
+                <text fg={theme.accent.fg} flexShrink={0}>
                   {isOpen() ? "▼" : "▶"}
                 </text>
-                <text fg={theme.text} attributes={TextAttributes.BOLD} flexGrow={1}>
+                <text fg={theme.foreground.default} attributes={TextAttributes.BOLD} flexGrow={1}>
                   {section.title}
                 </text>
                 <Show when={section.subtitle}>
-                  <text fg={theme.textMuted} flexShrink={0}>
+                  <text fg={theme.foreground.muted} flexShrink={0}>
                     {section.subtitle}
                   </text>
                 </Show>
@@ -1684,14 +1684,14 @@ function AccordionRenderer(props: { comp: Of<"accordion"> }) {
               <Show when={isOpen()}>
                 <box paddingLeft={2} gap={0} flexDirection="column">
                   <Show when={section.content}>
-                    <text fg={theme.text} wrapMode="word">
+                    <text fg={theme.foreground.default} wrapMode="word">
                       {section.content}
                     </text>
                   </Show>
                   <For each={section.items ?? []}>
                     {(row) => (
                       <box flexDirection="row" gap={2}>
-                        <text fg={theme.textMuted} flexShrink={0}>
+                        <text fg={theme.foreground.muted} flexShrink={0}>
                           {row.key}
                         </text>
                         <text fg={statusKindFg(theme, row.status)} wrapMode="word" flexGrow={1}>
@@ -1726,22 +1726,22 @@ function CompareRenderer(props: { comp: Of<"compare"> }) {
   }
 
   function winnerFg(side: "left" | "right", winner?: string): RGBA {
-    if (!winner || winner === "none" || winner === "tie") return theme.text
-    if (winner === "tie") return theme.textMuted
-    return winner === side ? theme.success : theme.textMuted
+    if (!winner || winner === "none" || winner === "tie") return theme.foreground.default
+    if (winner === "tie") return theme.foreground.muted
+    return winner === side ? theme.status.success.fg : theme.foreground.muted
   }
 
   return (
     <box gap={0}>
       <Title title={props.comp.title} />
       <box flexDirection="row" gap={2} marginBottom={1}>
-        <text fg={theme.textMuted} flexShrink={0}>
+        <text fg={theme.foreground.muted} flexShrink={0}>
           {" ".repeat(labelW() + 2)}
         </text>
-        <text fg={theme.accent} attributes={TextAttributes.BOLD} flexShrink={0}>
+        <text fg={theme.accent.alt} attributes={TextAttributes.BOLD} flexShrink={0}>
           {clip(props.comp.leftLabel, colW())}
         </text>
-        <text fg={theme.accent} attributes={TextAttributes.BOLD} flexShrink={0}>
+        <text fg={theme.accent.alt} attributes={TextAttributes.BOLD} flexShrink={0}>
           {clip(props.comp.rightLabel, colW())}
         </text>
       </box>
@@ -1749,7 +1749,7 @@ function CompareRenderer(props: { comp: Of<"compare"> }) {
         {(row) => (
           <box gap={0} flexDirection="column">
             <box flexDirection="row" gap={2}>
-              <text fg={theme.textMuted} flexShrink={0}>
+              <text fg={theme.foreground.muted} flexShrink={0}>
                 {row.label.padEnd(labelW(), " ")}
               </text>
               <text fg={winnerFg("left", row.winner)} flexShrink={0}>
@@ -1760,7 +1760,7 @@ function CompareRenderer(props: { comp: Of<"compare"> }) {
               </text>
             </box>
             <Show when={row.note}>
-              <text fg={theme.textMuted} wrapMode="word">
+              <text fg={theme.foreground.muted} wrapMode="word">
                 {" ".repeat(labelW() + 2)}
                 {row.note}
               </text>
@@ -1813,19 +1813,19 @@ function SparklineRowRenderer(props: { comp: Of<"sparkline_row"> }) {
           const color = createMemo(() => resolveColor(theme, row.color ?? "primary"))
           return (
             <box flexDirection="row" gap={1}>
-              <text fg={theme.textMuted} flexShrink={0}>
+              <text fg={theme.foreground.muted} flexShrink={0}>
                 {row.label.padEnd(labelW(), " ")}
               </text>
               <text fg={color()} flexShrink={0}>
                 {sparkline(sampled())}
               </text>
               <Show when={props.comp.showValues !== false}>
-                <text fg={theme.text} flexShrink={0}>
+                <text fg={theme.foreground.default} flexShrink={0}>
                   {latest()}
                 </text>
               </Show>
               <Show when={deltaText()}>
-                <text fg={theme.secondary} flexShrink={0}>
+                <text fg={theme.accent.secondary} flexShrink={0}>
                   {deltaText()}
                 </text>
               </Show>
@@ -1847,7 +1847,7 @@ function SectionRenderer(props: { comp: Of<"section"> }) {
     <box
       gap={1}
       border
-      borderColor={theme.borderSubtle}
+      borderColor={theme.border.subtle}
       paddingLeft={1}
       paddingRight={1}
       paddingTop={0}
@@ -1855,12 +1855,12 @@ function SectionRenderer(props: { comp: Of<"section"> }) {
       flexDirection="column"
     >
       <Show when={props.comp.title}>
-        <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+        <text fg={theme.accent.alt} attributes={TextAttributes.BOLD}>
           {props.comp.title}
         </text>
       </Show>
       <Show when={props.comp.description}>
-        <text fg={theme.textMuted} wrapMode="word">
+        <text fg={theme.foreground.muted} wrapMode="word">
           {props.comp.description}
         </text>
       </Show>
@@ -1974,13 +1974,13 @@ export function ComponentRenderer(props: { component: VizComponent }) {
   return (
     <ErrorBoundary
       fallback={(err) => (
-        <text fg={theme.textMuted}>
+        <text fg={theme.foreground.muted}>
           ⚠ {props.component.type} unavailable
           {err?.message ? ` — ${String(err.message).slice(0, 60)}` : ""}
         </text>
       )}
     >
-      <Show when={renderer()} fallback={<text fg={theme.textMuted}>⚠ {props.component.type} unavailable</text>}>
+      <Show when={renderer()} fallback={<text fg={theme.foreground.muted}>⚠ {props.component.type} unavailable</text>}>
         {(comp) => <Dynamic component={comp()} comp={props.component} />}
       </Show>
     </ErrorBoundary>
@@ -2012,7 +2012,7 @@ export function Renderer(props: VizRendererProps) {
       <box gap={1} flexDirection="column">
         <For each={props.spec.components}>{(comp) => <ComponentRenderer component={comp} />}</For>
         <Show when={props.loading}>
-          <text fg={theme.warning ?? theme.accent}>● streaming…</text>
+          <text fg={theme.status.warning.fg ?? theme.accent.alt}>● streaming…</text>
         </Show>
       </box>
     </VizRegistryContext.Provider>
@@ -2197,18 +2197,18 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
       <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
         <box flexDirection="column" gap={0}>
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+            <text fg={theme.accent.alt} attributes={TextAttributes.BOLD}>
               ◈ {props.spec.title}
             </text>
             <Show when={props.streaming}>
-              <text fg={theme.warning ?? theme.accent}>● live</text>
+              <text fg={theme.status.warning.fg ?? theme.accent.alt}>● live</text>
             </Show>
           </box>
           <Show when={props.spec.subtitle}>
-            <text fg={theme.textMuted}>{props.spec.subtitle}</text>
+            <text fg={theme.foreground.muted}>{props.spec.subtitle}</text>
           </Show>
         </box>
-        <text fg={theme.textMuted}>esc · ? help</text>
+        <text fg={theme.foreground.muted}>esc · ? help</text>
       </box>
 
       <Show when={multiTab()}>
@@ -2222,12 +2222,12 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
                 <box
                   paddingLeft={1}
                   paddingRight={1}
-                  backgroundColor={isActive() ? theme.backgroundElement : undefined}
-                  borderColor={isActive() ? theme.borderActive : undefined}
+                  backgroundColor={isActive() ? theme.surface.offset : undefined}
+                  borderColor={isActive() ? theme.border.active : undefined}
                   onMouseUp={() => setActiveIdx(i())}
                 >
                   <text
-                    fg={isActive() ? theme.primary : theme.textMuted}
+                    fg={isActive() ? theme.accent.fg : theme.foreground.muted}
                     attributes={isActive() ? TextAttributes.BOLD : undefined}
                   >
                     {i() + 1} {icon} {label}
@@ -2239,7 +2239,7 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
         </box>
       </Show>
 
-      <box border borderColor={theme.border} height={contentHeight()} flexShrink={0}>
+      <box border borderColor={theme.border.default} height={contentHeight()} flexShrink={0}>
         <scrollbox height={contentHeight() - 2} focused={true}>
           <box paddingTop={1} paddingBottom={1} paddingLeft={1} paddingRight={1} gap={1}>
             {/* `keyed` remounts on tab change so a per-component ErrorBoundary that
@@ -2255,34 +2255,34 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
         when={showHelp()}
         fallback={
           <box flexDirection="row" gap={2} flexShrink={0}>
-            <text fg={theme.textMuted}>j/k scroll</text>
+            <text fg={theme.foreground.muted}>j/k scroll</text>
             <Show when={multiTab()}>
-              <text fg={theme.textMuted}>tab · 1-9 · 0 (tab 10)</text>
+              <text fg={theme.foreground.muted}>tab · 1-9 · 0 (tab 10)</text>
             </Show>
-            <text fg={theme.textMuted}>e export</text>
-            <text fg={theme.textMuted}>? help</text>
+            <text fg={theme.foreground.muted}>e export</text>
+            <text fg={theme.foreground.muted}>? help</text>
           </box>
         }
       >
         <box
           border
-          borderColor={theme.borderSubtle}
+          borderColor={theme.border.subtle}
           paddingLeft={1}
           paddingRight={1}
           flexDirection="column"
           flexShrink={0}
         >
-          <text fg={theme.secondary} attributes={TextAttributes.BOLD}>
+          <text fg={theme.accent.secondary} attributes={TextAttributes.BOLD}>
             Keybinds
           </text>
-          <text fg={theme.textMuted}>j / k or arrows · scroll content</text>
+          <text fg={theme.foreground.muted}>j / k or arrows · scroll content</text>
           <Show when={multiTab()}>
-            <text fg={theme.textMuted}>tab / shift+tab · next / prev tab</text>
-            <text fg={theme.textMuted}>1 - 9 · tabs 1-9 · 0 · tab 10 · tab cycles 11-30</text>
+            <text fg={theme.foreground.muted}>tab / shift+tab · next / prev tab</text>
+            <text fg={theme.foreground.muted}>1 - 9 · tabs 1-9 · 0 · tab 10 · tab cycles 11-30</text>
           </Show>
-          <text fg={theme.textMuted}>e · copy visualization as markdown</text>
-          <text fg={theme.textMuted}>? · toggle this help</text>
-          <text fg={theme.textMuted}>esc · close</text>
+          <text fg={theme.foreground.muted}>e · copy visualization as markdown</text>
+          <text fg={theme.foreground.muted}>? · toggle this help</text>
+          <text fg={theme.foreground.muted}>esc · close</text>
         </box>
       </Show>
     </box>

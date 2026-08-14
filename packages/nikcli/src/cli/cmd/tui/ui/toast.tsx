@@ -46,8 +46,8 @@ export function Toast() {
           paddingRight={2}
           paddingTop={1}
           paddingBottom={1}
-          backgroundColor={theme.backgroundPanel}
-          borderColor={theme.borderSubtle}
+          backgroundColor={toastSurface(item.variant, theme).bg}
+          borderColor={toastSurface(item.variant, theme).border}
           border={[...GlassBorder.border]}
           customBorderChars={GlassBorder.customBorderChars}
         >
@@ -59,11 +59,11 @@ export function Toast() {
             </box>
             <box flexDirection="column" gap={0} flexGrow={1} minWidth={0}>
               <Show when={item.title}>
-                <text attributes={TextAttributes.BOLD} fg={theme.text}>
+                <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
                   {item.title}
                 </text>
               </Show>
-              <text fg={item.title ? theme.textMuted : theme.text} wrapMode="word" width="100%">
+              <text fg={item.title ? theme.foreground.muted : theme.foreground.default} wrapMode="word" width="100%">
                 {item.message}
               </text>
             </box>
@@ -74,14 +74,21 @@ export function Toast() {
   )
 }
 
+function toastSurface(variant: ToastOptions["variant"], theme: ReturnType<typeof useTheme>["theme"]) {
+  if (variant === "error" || variant === "warning") {
+    return { bg: theme.status[variant].bg, border: theme.status[variant].fg }
+  }
+  return { bg: theme.surface.overlay, border: theme.border.subtle }
+}
+
 function variantTone(variant: ToastOptions["variant"], theme: ReturnType<typeof useTheme>["theme"]) {
   const tones = {
-    info: theme.info,
-    success: theme.success,
-    warning: theme.warning,
-    error: theme.error,
+    info: theme.status.info.fg,
+    success: theme.status.success.fg,
+    warning: theme.status.warning.fg,
+    error: theme.status.error.fg,
   }
-  return tones[variant] ?? theme.info
+  return tones[variant] ?? theme.status.info.fg
 }
 
 function variantIcon(variant: ToastOptions["variant"]) {

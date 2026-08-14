@@ -4,11 +4,12 @@ import { ulid } from "ulid"
 import { Provider } from "@/provider/provider"
 import { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
-import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import type * as SDK from "@nikcli-ai/sdk/httpapi"
 import { Context, Effect, Layer } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Database } from "@/database/database"
+import { ShareRepo } from "./repo"
 
 export namespace ShareNext {
   const log = Log.create({ service: "share-next" })
@@ -48,8 +49,6 @@ export namespace ShareNext {
     items: Record<string, Data>
   }
 
-  const LOCAL_SHARE_PREFIX = ["local_share"]
-
   export interface Interface {
     url(): Effect.Effect<string, unknown>
     init(): Effect.Effect<void, unknown>
@@ -60,39 +59,8 @@ export namespace ShareNext {
 
   export class Service extends Context.Service<Service, Interface>()("ShareNext.Service") {}
 
-  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-    return runPromiseWithLayer(Storage.defaultLayer, effect)
-  }
-
   function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
     return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
-  }
-
-  function storageWrite<T>(key: string[], content: T) {
-    return runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        yield* storage.write(key, content)
-      }),
-    )
-  }
-
-  function storageRead<T>(key: string[]) {
-    return runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        return yield* storage.read<T>(key)
-      }),
-    )
-  }
-
-  function storageRemove(key: string[]) {
-    return runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        yield* storage.remove(key)
-      }),
-    )
   }
 
   function configGet() {
@@ -265,11 +233,11 @@ export namespace ShareNext {
   }
 
   async function get(sessionID: string) {
-    return storageRead<StoredShare>(["session_share", sessionID])
+    return ShareRepo.get(sessionID)
   }
 
   async function getLocal(shareID: string) {
-    return storageRead<LocalShare>([...LOCAL_SHARE_PREFIX, shareID])
+    return ShareRepo.getLocal(shareID) as LocalShare | undefined
   }
 
   async function payload(sessionID: string): Promise<Data[]> {
@@ -320,9 +288,9 @@ export namespace ShareNext {
     const shareID = share.id
     if (!shareID) throw new Error("Local share is missing an id")
 
-    const existing = await getLocal(shareID).catch(() => undefined)
+    const existing = await getLocal(shareID)
 
-    await storageWrite([...LOCAL_SHARE_PREFIX, shareID], {
+    ShareRepo.putLocal({
       id: shareID,
       sessionID: existing?.sessionID ?? sessionID,
       url: share.url,
@@ -355,7 +323,7 @@ export namespace ShareNext {
   }
 
   async function syncNow(sessionID: string, data: Data[]) {
-    const share = await get(sessionID).catch(() => undefined)
+    const share = await get(sessionID)
     if (!share) return
 
     if (share.mode === "local") {
@@ -374,16 +342,21 @@ export namespace ShareNext {
       url: `${normalizeBaseURL(baseUrl)}/share/${encodeURIComponent(id)}`,
     }
     const data = await payload(sessionID)
-    await storageWrite(["session_share", sessionID], share)
-    await storageWrite([...LOCAL_SHARE_PREFIX, id], {
-      id,
-      sessionID,
-      url: share.url,
-      time: {
-        created: Date.now(),
-        updated: Date.now(),
-      },
-      items: toItemMap(data),
+    Database.transaction((tx) => {
+      ShareRepo.put(sessionID, share, tx)
+      ShareRepo.putLocal(
+        {
+          id,
+          sessionID,
+          url: share.url,
+          time: {
+            created: Date.now(),
+            updated: Date.now(),
+          },
+          items: toItemMap(data),
+        },
+        tx,
+      )
     })
     return share
   }
@@ -415,7 +388,7 @@ export namespace ShareNext {
         url: result.url,
       }
 
-      await storageWrite(["session_share", sessionID], share)
+      await ShareRepo.put(sessionID, share)
       await fullSync(sessionID)
       return share
     } catch (error) {
@@ -472,14 +445,14 @@ export namespace ShareNext {
       queue.delete(sessionID)
     }
 
-    const share = await get(sessionID).catch(() => undefined)
+    const share = await get(sessionID)
     if (!share) return
 
     if (share.mode === "local") {
-      if (share.id) {
-        await storageRemove([...LOCAL_SHARE_PREFIX, share.id]).catch(() => undefined)
-      }
-      await storageRemove(["session_share", sessionID]).catch(() => undefined)
+      Database.transaction((tx) => {
+        if (share.id) ShareRepo.removeLocal(share.id, tx)
+        ShareRepo.remove(sessionID, tx)
+      })
       return
     }
 
@@ -499,7 +472,7 @@ export namespace ShareNext {
       })
     }
 
-    await storageRemove(["session_share", sessionID]).catch(() => undefined)
+    await ShareRepo.remove(sessionID)
   }
 
   async function fullSync(sessionID: string) {
@@ -508,7 +481,7 @@ export namespace ShareNext {
   }
 
   async function publicDataImpl(shareID: string) {
-    const share = await getLocal(shareID).catch(() => undefined)
+    const share = await getLocal(shareID)
     if (!share) return
     return Object.values(share.items)
   }

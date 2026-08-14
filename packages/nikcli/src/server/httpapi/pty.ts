@@ -2,7 +2,6 @@ import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/u
 import { Effect, Layer, Schema } from "effect"
 import { Pty } from "@/pty"
 import { PluginPtyEnvironment } from "@/plugin/pty-environment"
-import { Storage } from "../../storage/storage"
 
 /**
  * Effect backend for the `/pty` JSON CRUD surface (Wave 4, Path B).
@@ -65,8 +64,9 @@ export namespace PtyHttpApi {
   })
 
   /**
-   * Mirrors `routes/pty.ts:107` body — `Storage.NotFoundError` is mapped to
-   * a typed 404 so the SDK consumer can catch it.
+   * Mirrors `routes/pty.ts:107` body — `Pty.NotFoundError` is mapped to
+   * a typed 404 so the SDK consumer can catch it. The wire `name` is the
+   * literal `"NotFoundError"`, not `PtyNotFoundError`.
    */
   const NotFoundError = Schema.Struct({
     name: Schema.Literal("NotFoundError"),
@@ -125,12 +125,12 @@ export namespace PtyHttpApi {
   export const ApiLive = HttpApiBuilder.layer(Api)
 
   /**
-   * Translate a `Storage.NotFoundError` to the declared 404 body. Anything
+   * Translate a `Pty.NotFoundError` to the declared 404 body. Anything
    * else propagates as a defect — the service surfaces `never` on success
    * channels for these handlers, so the only expected failure is "missing".
    */
   const asNotFound = (cause: unknown): Effect.Effect<never, NotFoundErrorBody> => {
-    if (cause instanceof Storage.NotFoundError) {
+    if (cause instanceof Pty.NotFoundError) {
       return Effect.fail({
         name: "NotFoundError" as const,
         data: { message: cause.message } as Record<string, unknown>,
@@ -190,7 +190,7 @@ export namespace PtyHttpApi {
         const pty = yield* Pty.Service
         const info = yield* pty.get(params.ptyID)
         if (!info) {
-          throw new Storage.NotFoundError({ message: "Session not found" })
+          throw new Pty.NotFoundError({ message: "Session not found" })
         }
         return info
       }).pipe(catchNotFound),
@@ -200,7 +200,7 @@ export namespace PtyHttpApi {
         const pty = yield* Pty.Service
         const info = yield* pty.update(params.ptyID, toPtyUpdateInput(payload))
         if (!info) {
-          throw new Storage.NotFoundError({ message: "Session not found" })
+          throw new Pty.NotFoundError({ message: "Session not found" })
         }
         return info
       }).pipe(catchNotFound),

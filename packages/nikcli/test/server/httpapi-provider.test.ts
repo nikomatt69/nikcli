@@ -102,6 +102,19 @@ describe("Provider HttpApi bridge", () => {
     expect(await removeResponse.json()).toEqual({ success: true })
     expect(await getAuth(providerID)).toBeUndefined()
   }, 30_000)
+
+  it("omits providers denied by legacy enabled_providers from GET /provider", async () => {
+    const directory = await makeProjectDir()
+    const globalConfig = path.join(process.env.XDG_CONFIG_HOME!, "nikcli.json")
+    await fs.mkdir(path.dirname(globalConfig), { recursive: true })
+    await fs.writeFile(globalConfig, JSON.stringify({ enabled_providers: ["__policy_none__"] }))
+
+    const listResponse = await request("/provider", directory)
+    expect(listResponse.status).toBe(200)
+    const list = (await listResponse.json()) as { all: Array<{ id: string }> }
+    expect(list.all.map((item) => item.id)).not.toContain("openai")
+    expect(list.all.map((item) => item.id)).not.toContain("anthropic")
+  }, 30_000)
 })
 
 afterEach(async () => {

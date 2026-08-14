@@ -54,7 +54,7 @@ function mix(a: RGBA, b: RGBA, t: number): RGBA {
 function themeSeriesPalette(theme: Theme): RGBA[] {
   // Hue rotation by mixing with rotated neighbors. Each rotation shifts
   // along the R→G→B ring so the resulting colors stay saturated.
-  const primary = theme.primary
+  const primary = theme.accent.fg
   const rotated = (base: RGBA, steps: number): RGBA => {
     // 120° hue rotation via channel swap. Three steps covers the full ring.
     let r = base.r * 255
@@ -88,10 +88,10 @@ function themeSeriesPalette(theme: Theme): RGBA[] {
   const lift = (c: RGBA) => (isLow(c) ? shift(c, 60, 60, 60) : c)
 
   return [
-    lift(theme.primary), // 0 — primary
-    lift(theme.success), // 1 — success/positive
-    lift(theme.warning), // 2 — warning/cache
-    lift(theme.accent), // 3 — accent/reasoning
+    lift(theme.accent.fg), // 0 — primary
+    lift(theme.status.success.fg), // 1 — success/positive
+    lift(theme.status.warning.fg), // 2 — warning/cache
+    lift(theme.accent.alt), // 3 — accent/reasoning
     rotated(primary, 1), // 4
     rotated(primary, 2), // 5
     rotated(primary, -1), // 6
@@ -101,12 +101,12 @@ function themeSeriesPalette(theme: Theme): RGBA[] {
 
 function themeSemanticColors(theme: Theme) {
   return {
-    input: theme.primary,
-    output: theme.warning,
-    cache: theme.success,
-    cacheWrite: theme.info,
-    reasoning: theme.accent,
-    alert: theme.error,
+    input: theme.accent.fg,
+    output: theme.status.warning.fg,
+    cache: theme.status.success.fg,
+    cacheWrite: theme.status.info.fg,
+    reasoning: theme.accent.alt,
+    alert: theme.status.error.fg,
   }
 }
 
@@ -497,7 +497,7 @@ export function BrailleLineChart(props: {
       let runColor: RGBA | null = null
       const flush = () => {
         if (runText) {
-          segments.push({ text: runText, color: runColor ?? theme.text })
+          segments.push({ text: runText, color: runColor ?? theme.foreground.default })
         }
         runText = ""
         runColor = null
@@ -506,13 +506,13 @@ export function BrailleLineChart(props: {
         const contributing = rowMask[cx] ?? []
         let color: RGBA
         if (contributing.length === 0) {
-          color = theme.textMuted
+          color = theme.foreground.muted
         } else {
           // Pick the highest-indexed contributing series (matches the
           // pixel-order used during render so segment colors line up
           // with which line is "on top" at that character).
           const idx = contributing[contributing.length - 1]!
-          color = series[idx]?.color ?? theme.text
+          color = series[idx]?.color ?? theme.foreground.default
         }
         if (runColor && colorsEqual(runColor, color)) {
           runText += row[cx]
@@ -548,7 +548,7 @@ export function BrailleLineChart(props: {
                 <text fg={item.color} wrapMode="none">
                   ■
                 </text>
-                <text fg={theme.textMuted}>{item.label}</text>
+                <text fg={theme.foreground.muted}>{item.label}</text>
               </box>
             )}
           </For>
@@ -564,10 +564,10 @@ export function BrailleLineChart(props: {
             return (
               <box flexDirection="row" gap={0}>
                 <Show when={props.showAxis !== false}>
-                  <text fg={theme.textMuted} width={6} wrapMode="none">
+                  <text fg={theme.foreground.muted} width={6} wrapMode="none">
                     {yLabel().padStart(6)}
                   </text>
-                  <text fg={theme.border} wrapMode="none">
+                  <text fg={theme.border.default} wrapMode="none">
                     │
                   </text>
                 </Show>
@@ -589,14 +589,14 @@ export function BrailleLineChart(props: {
       <Show when={props.showAxis !== false && chart().axisLine.length > 0}>
         <box flexDirection="row" gap={0}>
           <text wrapMode="none">{" ".repeat(7)}</text>
-          <text fg={theme.border} wrapMode="none">
+          <text fg={theme.border.default} wrapMode="none">
             {chart().axisLine}
           </text>
         </box>
         <Show when={chart().xLabelRow.trim().length > 0}>
           <box flexDirection="row" gap={0}>
             <text wrapMode="none">{" ".repeat(7)}</text>
-            <text fg={theme.textMuted} wrapMode="none">
+            <text fg={theme.foreground.muted} wrapMode="none">
               {chart().xLabelRow}
             </text>
           </box>
@@ -809,7 +809,7 @@ export function StackedBarChartV2(props: {
         <Show
           when={total() > 0}
           fallback={
-            <text fg={theme.borderSubtle} wrapMode="none">
+            <text fg={theme.border.subtle} wrapMode="none">
               {"░".repeat(Math.max(0, props.width))}
             </text>
           }
@@ -833,10 +833,10 @@ export function StackedBarChartV2(props: {
                 <text fg={seg.color} wrapMode="none">
                   ■
                 </text>
-                <text fg={theme.text} wrapMode="none">
+                <text fg={theme.foreground.default} wrapMode="none">
                   {seg.label}
                 </text>
-                <text fg={theme.textMuted} wrapMode="none">
+                <text fg={theme.foreground.muted} wrapMode="none">
                   {formatTokens(seg.value)} ({seg.pct.toFixed(0)}%)
                 </text>
               </box>
@@ -873,17 +873,17 @@ export function HBarPrecision(props: {
 
   return (
     <box flexDirection="row" gap={1} alignItems="center">
-      <text fg={theme.textMuted} width={10} wrapMode="none">
+      <text fg={theme.foreground.muted} width={10} wrapMode="none">
         {props.label.padEnd(10)}
       </text>
       <text fg={props.color} wrapMode="none">
         {"█".repeat(fullBlocks())}
         {partial()}
       </text>
-      <text fg={theme.borderSubtle} wrapMode="none">
+      <text fg={theme.border.subtle} wrapMode="none">
         {"░".repeat(Math.max(0, props.width - fullBlocks() - (partial() ? 1 : 0)))}
       </text>
-      <text fg={theme.textMuted}>{formatTokens(props.value)}</text>
+      <text fg={theme.foreground.muted}>{formatTokens(props.value)}</text>
       <Show when={props.showPct}>
         <text fg={props.color}>({pct()}%)</text>
       </Show>
@@ -903,7 +903,7 @@ export function HBarPrecision(props: {
 //
 // The sparkline fills the full card width and is rendered with 2 rows of
 // braille (8 pixel rows), giving readable trend shapes in a compact space.
-// The delta indicator uses `theme.success` for "good" and `theme.error` for
+// The delta indicator uses `theme.status.success.fg` for "good" and `theme.status.error.fg` for
 // "bad"; pass `deltaInverse` to flip the polarity (e.g. cost, error rate).
 export function KPICard(props: {
   label: string
@@ -939,8 +939,8 @@ export function KPICard(props: {
 
   const deltaColor = createMemo<RGBA>(() => {
     const info = deltaInfo()
-    if (!info || info.good === null) return theme.textMuted
-    return info.good ? theme.success : theme.error
+    if (!info || info.good === null) return theme.foreground.muted
+    return info.good ? theme.status.success.fg : theme.status.error.fg
   })
 
   return (
@@ -948,13 +948,13 @@ export function KPICard(props: {
       flexDirection="column"
       gap={0}
       border
-      borderColor={props.active ? theme.borderActive : theme.border}
+      borderColor={props.active ? theme.border.active : theme.border.default}
       width={props.width}
       flexShrink={0}
     >
       {/* Header: label (left) + delta (right) */}
       <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1} gap={1}>
-        <text fg={theme.textMuted} wrapMode="none">
+        <text fg={theme.foreground.muted} wrapMode="none">
           {props.label}
         </text>
         <Show when={deltaInfo()}>
@@ -967,7 +967,7 @@ export function KPICard(props: {
         {props.value}
       </text>
       <Show when={props.subtitle}>
-        <text fg={theme.textMuted} paddingLeft={1} paddingRight={1} wrapMode="none">
+        <text fg={theme.foreground.muted} paddingLeft={1} paddingRight={1} wrapMode="none">
           {props.subtitle}
         </text>
       </Show>
@@ -989,10 +989,10 @@ function ModelBar(props: { label: string; value: number; max: number; width: num
     if (props.max <= 0) return 0
     return Math.max(0, Math.min(props.width, Math.round((props.value / props.max) * props.width)))
   })
-  const track = createMemo<RGBA>(() => mix(props.color, theme.backgroundElement, 0.82))
+  const track = createMemo<RGBA>(() => mix(props.color, theme.surface.offset, 0.82))
   return (
     <box flexDirection="row" gap={1} alignItems="center">
-      <text fg={theme.textMuted} width={8} wrapMode="none">
+      <text fg={theme.foreground.muted} width={8} wrapMode="none">
         {props.label.padEnd(8)}
       </text>
       <text fg={props.color} wrapMode="none">
@@ -1001,7 +1001,7 @@ function ModelBar(props: { label: string; value: number; max: number; width: num
       <text fg={track()} wrapMode="none">
         {"█".repeat(Math.max(0, props.width - filled()))}
       </text>
-      <text fg={theme.textMuted} wrapMode="none">
+      <text fg={theme.foreground.muted} wrapMode="none">
         {formatTokens(props.value)}
       </text>
     </box>
@@ -1065,19 +1065,19 @@ export function ModelCard(props: {
   )
 
   return (
-    <box flexDirection="column" gap={0} border borderColor={theme.borderSubtle} paddingLeft={1} paddingRight={1}>
+    <box flexDirection="column" gap={0} border borderColor={theme.border.subtle} paddingLeft={1} paddingRight={1}>
       <box flexDirection="row" gap={2} alignItems="center" flexWrap="wrap">
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        <text fg={theme.foreground.default} attributes={TextAttributes.BOLD}>
           {props.name}
         </text>
-        <text fg={theme.textMuted}>{props.provider}</text>
+        <text fg={theme.foreground.muted}>{props.provider}</text>
       </box>
       <box flexDirection="row" gap={2}>
-        <text fg={theme.textMuted}>Requests:</text>
-        <text fg={theme.text}>{props.requests}</text>
+        <text fg={theme.foreground.muted}>Requests:</text>
+        <text fg={theme.foreground.default}>{props.requests}</text>
         <Show when={props.avgResponseTime != null}>
-          <text fg={theme.textMuted}>Avg:</text>
-          <text fg={theme.text}>{props.avgResponseTime}ms</text>
+          <text fg={theme.foreground.muted}>Avg:</text>
+          <text fg={theme.foreground.default}>{props.avgResponseTime}ms</text>
         </Show>
       </box>
       <For each={rows()}>
@@ -1116,17 +1116,17 @@ export function Gauge(props: {
   const color = createMemo<RGBA>(() => {
     const t = props.thresholds
     if (t) {
-      if (pctNum() >= t[1]) return theme.error
-      if (pctNum() >= t[0]) return theme.warning
+      if (pctNum() >= t[1]) return theme.status.error.fg
+      if (pctNum() >= t[0]) return theme.status.warning.fg
     }
-    return props.color ?? theme.primary
+    return props.color ?? theme.accent.fg
   })
   // Unfilled track: a faint tint of the bar color (toward the panel bg) so the
   // gauge reads as one cohesive object instead of "colored bar + gray gap".
-  const track = createMemo<RGBA>(() => mix(color(), theme.backgroundElement, 0.82))
+  const track = createMemo<RGBA>(() => mix(color(), theme.surface.offset, 0.82))
   return (
     <box flexDirection="column" gap={0}>
-      <text fg={theme.textMuted} wrapMode="none">
+      <text fg={theme.foreground.muted} wrapMode="none">
         {props.label}
       </text>
       <box flexDirection="row" gap={1} alignItems="center">
@@ -1140,7 +1140,7 @@ export function Gauge(props: {
           {pctNum().toFixed(0)}%
         </text>
       </box>
-      <text fg={theme.textMuted} wrapMode="none">
+      <text fg={theme.foreground.muted} wrapMode="none">
         {fmt()(props.value)}
         {props.unit ?? ""} / {fmt()(props.max)}
         {props.unit ?? ""}
@@ -1189,7 +1189,7 @@ export function VerticalBarChart(props: {
         chars.push(VBLOCKS[e] ?? " ")
       }
       const isMax = b.value > 0 && b.value === max()
-      const color = b.color ?? (props.highlightMax && isMax ? theme.primary : (props.color ?? theme.primary))
+      const color = b.color ?? (props.highlightMax && isMax ? theme.accent.fg : (props.color ?? theme.accent.fg))
       return { chars, color, value: b.value, label: b.label }
     }),
   )
@@ -1210,14 +1210,14 @@ export function VerticalBarChart(props: {
         )}
       </For>
       {/* Baseline */}
-      <text fg={theme.borderSubtle} wrapMode="none">
+      <text fg={theme.border.subtle} wrapMode="none">
         {"▔".repeat(cols().length)}
       </text>
       {/* Compact single-line caption — first → last · peak. Avoids the label
           overlap that a space-between row produced on narrow (7/14-day)
           ranges where the columns are only a few characters wide. */}
       <Show when={props.showAxis !== false && cols().length > 1}>
-        <text fg={theme.textMuted} wrapMode="none">
+        <text fg={theme.foreground.muted} wrapMode="none">
           {cols()[0]?.label ?? "0"} → {cols()[cols().length - 1]?.label ?? ""} · peak {fmt()(max())}
         </text>
       </Show>
@@ -1243,7 +1243,7 @@ export function RankedBarList(props: {
   nameWidth?: number
   barWidth?: number
   /** When set, bars for the first `highlight` items are rendered in the
-   *  provided color; the rest use `theme.textMuted`. */
+   *  provided color; the rest use `theme.foreground.muted`. */
   highlight?: number
   /** When set, the value column is formatted with this function. */
   formatValue?: (v: number) => string
@@ -1266,7 +1266,7 @@ export function RankedBarList(props: {
           const isHi = () => props.highlight === undefined || idx() < props.highlight!
           const color = (): RGBA => {
             if (item.color) return item.color
-            return isHi() ? theme.primary : theme.textMuted
+            return isHi() ? theme.accent.fg : theme.foreground.muted
           }
           // 1/8 precision per cell — same encoding as HBarPrecision
           const filled = () => Math.min(barWidth(), Math.max(0, (item.value / max()) * barWidth()))
@@ -1284,17 +1284,17 @@ export function RankedBarList(props: {
           }
           return (
             <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={theme.text} width={nameWidth()} wrapMode="none">
+              <text fg={theme.foreground.default} width={nameWidth()} wrapMode="none">
                 {displayName()}
               </text>
               <text fg={color()} wrapMode="none">
                 {"█".repeat(full())}
                 {frac()}
               </text>
-              <text fg={theme.borderSubtle} wrapMode="none">
+              <text fg={theme.border.subtle} wrapMode="none">
                 {"░".repeat(Math.max(0, barWidth() - full() - (frac() ? 1 : 0)))}
               </text>
-              <text fg={theme.textMuted} wrapMode="none">
+              <text fg={theme.foreground.muted} wrapMode="none">
                 {fmt()(item.value)}
                 {item.subValue ? ` ${item.subValue}` : ""}
               </text>

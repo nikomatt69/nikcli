@@ -82,7 +82,7 @@ export function Dialog(
         }}
         width={width()}
         maxWidth={Math.max(1, dimensions().width - 4)}
-        backgroundColor={theme.backgroundPanel}
+        backgroundColor={theme.surface.overlay}
         paddingTop={1}
         paddingBottom={1}
         paddingLeft={2}

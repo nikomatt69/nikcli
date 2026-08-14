@@ -137,16 +137,6 @@ export const LoopRunSchema = z.object({
 })
 export type LoopRun = z.infer<typeof LoopRunSchema>
 
-/**
- * Per-loop counters, persisted separately from the definition so full-replace
- * definition updates can't clobber them, and separately from run history so
- * `maxRuns` keeps working past the HISTORY_LIMIT trim.
- */
-export const LoopMetaSchema = z.object({
-  startedRuns: z.number().int().nonnegative(),
-})
-export type LoopMeta = z.infer<typeof LoopMetaSchema>
-
 /** Reserved words that collide with the `/goal` command grammar. */
 const RESERVED_OBJECTIVES = new Set(["pause", "resume", "clear", "status"])
 const TOKEN_BUDGET_FLAG = /--token-budget\b/

@@ -55,17 +55,17 @@ export function DialogSessionDeleteFailed(props: {
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
           Failed to Delete Session
         </text>
-        <text fg={theme.textMuted} onMouseUp={() => dialog.clear()}>
+        <text fg={theme.foreground.muted} onMouseUp={() => dialog.clear()}>
           esc
         </text>
       </box>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         {`The session "${props.session}" could not be deleted because the workspace "${props.workspace}" is not available.`}
       </text>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         Choose how you want to recover this broken workspace session.
       </text>
       <box flexDirection="column" paddingBottom={1} gap={1}>
@@ -77,7 +77,7 @@ export function DialogSessionDeleteFailed(props: {
               paddingRight={1}
               paddingTop={1}
               paddingBottom={1}
-              backgroundColor={item.id === store.active ? theme.primary : undefined}
+              backgroundColor={item.id === store.active ? theme.accent.fg : undefined}
               onMouseUp={() => {
                 setStore("active", item.id)
                 void confirm()
@@ -85,11 +85,11 @@ export function DialogSessionDeleteFailed(props: {
             >
               <text
                 attributes={TextAttributes.BOLD}
-                fg={item.id === store.active ? theme.selectedListItemText : theme.text}
+                fg={item.id === store.active ? theme.badge.fg : theme.foreground.default}
               >
                 {item.title}
               </text>
-              <text fg={item.id === store.active ? theme.selectedListItemText : theme.textMuted} wrapMode="word">
+              <text fg={item.id === store.active ? theme.badge.fg : theme.foreground.muted} wrapMode="word">
                 {item.description}
               </text>
             </box>

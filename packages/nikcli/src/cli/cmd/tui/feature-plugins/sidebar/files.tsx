@@ -13,9 +13,9 @@ function View(props: { sessionID: string }) {
       <box>
         <box flexDirection="row" gap={1} onMouseDown={() => list().length > 2 && setOpen((value) => !value)}>
           <Show when={list().length > 2}>
-            <text fg={theme.text}>{open() ? "▼" : "▶"}</text>
+            <text fg={theme.foreground.default}>{open() ? "▼" : "▶"}</text>
           </Show>
-          <text fg={theme.text}>
+          <text fg={theme.foreground.default}>
             <b>Modified Files</b>
           </text>
         </box>
@@ -23,15 +23,15 @@ function View(props: { sessionID: string }) {
           <For each={list()}>
             {(item) => (
               <box flexDirection="row" gap={1} justifyContent="space-between">
-                <text fg={theme.textMuted} wrapMode="none">
+                <text fg={theme.foreground.muted} wrapMode="none">
                   {item.file}
                 </text>
                 <box flexDirection="row" gap={1} flexShrink={0}>
                   <Show when={item.additions}>
-                    <text fg={theme.diffAdded}>+{item.additions}</text>
+                    <text fg={theme.diff.added}>+{item.additions}</text>
                   </Show>
                   <Show when={item.deletions}>
-                    <text fg={theme.diffRemoved}>-{item.deletions}</text>
+                    <text fg={theme.diff.removed}>-{item.deletions}</text>
                   </Show>
                 </box>
               </box>

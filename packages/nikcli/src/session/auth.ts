@@ -14,6 +14,7 @@ import { cmd } from "@/cli/cmd/cmd"
 import { UI } from "@/cli/ui"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
+import { Policy } from "@/policy/policy"
 
 type PluginAuth = NonNullable<Hooks["auth"]>
 
@@ -320,18 +321,7 @@ export const AuthLoginCommand = cmd({
 
         const config = await configGet()
 
-        const disabled = new Set(config.disabled_providers ?? [])
-        const enabled = config.enabled_providers ? new Set(config.enabled_providers) : undefined
-
-        const providers = await ModelsDev.get().then((x) => {
-          const filtered: Record<string, (typeof x)[string]> = {}
-          for (const [key, value] of Object.entries(x)) {
-            if ((enabled ? enabled.has(key) : true) && !disabled.has(key)) {
-              filtered[key] = value
-            }
-          }
-          return filtered
-        })
+        const providers = Policy.filter(config, await ModelsDev.get())
 
         const priority: Record<string, number> = {
           nikcli: 0,

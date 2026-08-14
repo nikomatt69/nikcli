@@ -110,7 +110,7 @@ export function ExplorationSummary(props: { group: ExplorationGroup<ToolEntry>; 
   return (
     <>
       <box paddingLeft={3}>
-        <text paddingLeft={3} fg={theme.textMuted}>
+        <text paddingLeft={3} fg={theme.foreground.muted}>
           ⋮ {groupLabel(props.group)}
         </text>
       </box>
@@ -281,19 +281,19 @@ function BrowserControlView(props: ToolProps<typeof BrowserControlTool>) {
       <Match when={props.output !== undefined}>
         <BlockTool
           title={`# Browser Control · ${label()}`}
-          titleColor={theme.primary}
-          accentColor={theme.primary}
+          titleColor={theme.accent.fg}
+          accentColor={theme.accent.fg}
           part={props.part}
         >
           <box gap={1}>
-            <text fg={theme.textMuted}>{props.output}</text>
+            <text fg={theme.foreground.muted}>{props.output}</text>
           </box>
         </BlockTool>
       </Match>
       <Match when={true}>
         <InlineTool
           icon="◎"
-          iconColor={theme.primary}
+          iconColor={theme.accent.fg}
           pending="Running browser-control action..."
           complete={label()}
           part={props.part}
@@ -316,20 +316,20 @@ function ComputerUse(props: ToolProps<typeof ComputerTool>) {
       <Match when={props.output !== undefined}>
         <BlockTool
           title={`# ${label()} · ${action()}`}
-          titleColor={theme.warning}
-          accentColor={theme.warning}
+          titleColor={theme.status.warning.fg}
+          accentColor={theme.status.warning.fg}
           part={props.part}
         >
           <box gap={1}>
-            <text fg={theme.textMuted}>{props.output}</text>
-            <Show when={liveUrl()}>{(url) => <text fg={theme.textMuted}>Live preview: {url()}</text>}</Show>
+            <text fg={theme.foreground.muted}>{props.output}</text>
+            <Show when={liveUrl()}>{(url) => <text fg={theme.foreground.muted}>Live preview: {url()}</text>}</Show>
           </box>
         </BlockTool>
       </Match>
       <Match when={true}>
         <InlineTool
           icon="▣"
-          iconColor={theme.warning}
+          iconColor={theme.status.warning.fg}
           pending="Waiting for computer use..."
           complete={action()}
           part={props.part}
@@ -356,20 +356,20 @@ function ArtifactView(props: ToolProps<typeof ArtifactTool>) {
       <Match when={props.output !== undefined}>
         <BlockTool
           title={`# Published · ${title()}`}
-          titleColor={theme.primary}
-          accentColor={theme.primary}
+          titleColor={theme.accent.fg}
+          accentColor={theme.accent.fg}
           part={props.part}
         >
           <box gap={1}>
-            <text fg={theme.textMuted}>{detail()}</text>
-            <Show when={url()}>{(value) => <Link href={value()} fg={theme.primary} />}</Show>
+            <text fg={theme.foreground.muted}>{detail()}</text>
+            <Show when={url()}>{(value) => <Link href={value()} fg={theme.accent.fg} />}</Show>
           </box>
         </BlockTool>
       </Match>
       <Match when={true}>
         <InlineTool
           icon="◇"
-          iconColor={theme.primary}
+          iconColor={theme.accent.fg}
           pending={`Publishing ${title()}...`}
           complete={title()}
           part={props.part}
@@ -409,9 +409,9 @@ function InlineTool(props: {
   })
 
   const fg = createMemo(() => {
-    if (permission()) return theme.warning
-    if (props.complete) return theme.textMuted
-    return theme.text
+    if (permission()) return theme.status.warning.fg
+    if (props.complete) return theme.foreground.muted
+    return theme.foreground.default
   })
 
   const error = createMemo(() => (props.part.state.status === "error" ? props.part.state.error : undefined))
@@ -456,7 +456,7 @@ function InlineTool(props: {
         </Show>
       </text>
       <Show when={error() && !denied()}>
-        <text fg={theme.error}>{error()}</text>
+        <text fg={theme.status.error.fg}>{error()}</text>
       </Show>
     </box>
   )
@@ -479,8 +479,8 @@ function BlockTool(props: {
 
   const backgroundColor = createMemo(() => {
     // Fully transparent: paint nothing, let the session background show through.
-    if (props.transparent) return hover() ? theme.backgroundMenu : undefined
-    const base = hover() ? theme.backgroundMenu : theme.backgroundPanel
+    if (props.transparent) return hover() ? theme.surface.overlay : undefined
+    const base = hover() ? theme.surface.overlay : theme.surface.panel
     const accent = props.accentColor
     if (!accent) return base
 
@@ -495,7 +495,7 @@ function BlockTool(props: {
     return RGBA.fromInts(Math.round(tinted.r * 255), Math.round(tinted.g * 255), Math.round(tinted.b * 255), a)
   })
 
-  const borderColor = createMemo(() => props.accentColor ?? theme.background)
+  const borderColor = createMemo(() => props.accentColor ?? theme.surface.base)
   return (
     <box
       border={["left"]}
@@ -514,12 +514,12 @@ function BlockTool(props: {
         props.onClick?.()
       }}
     >
-      <text paddingLeft={3} fg={props.titleColor ?? theme.textMuted}>
+      <text paddingLeft={3} fg={props.titleColor ?? theme.foreground.muted}>
         {props.title}
       </text>
       {props.children}
       <Show when={error()}>
-        <text fg={theme.error}>{error()}</text>
+        <text fg={theme.status.error.fg}>{error()}</text>
       </Show>
     </box>
   )
@@ -587,12 +587,12 @@ function Bash(props: ToolProps<typeof BashTool>) {
           onClick={overflow() ? () => setExpanded((prev) => !prev) : undefined}
         >
           <box gap={1}>
-            <text fg={theme.text}>$ {command() ?? "…"}</text>
+            <text fg={theme.foreground.default}>$ {command() ?? "…"}</text>
             <Show when={output()}>
-              <text fg={theme.text}>{limited()}</text>
+              <text fg={theme.foreground.default}>{limited()}</text>
             </Show>
             <Show when={overflow()}>
-              <text fg={theme.textMuted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>
+              <text fg={theme.foreground.muted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>
             </Show>
           </box>
         </BlockTool>
@@ -662,7 +662,7 @@ function ExecCode(props: ToolProps<any>) {
 
   const success = createMemo(() => meta().success !== false && props.part.state.status !== "error")
   const duration = createMemo(() => meta().durationMs)
-  const accent = createMemo(() => (success() ? theme.success : theme.error))
+  const accent = createMemo(() => (success() ? theme.status.success.fg : theme.status.error.fg))
 
   const title = createMemo(() => {
     const ms = duration() != null ? ` · ${duration()}ms` : ""
@@ -687,10 +687,10 @@ function ExecCode(props: ToolProps<any>) {
           onClick={overflow() ? () => setExpanded((prev) => !prev) : undefined}
         >
           <box gap={1}>
-            <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
+            <line_number fg={theme.foreground.muted} minWidth={3} paddingRight={1}>
               <code
                 conceal={false}
-                fg={theme.text}
+                fg={theme.foreground.default}
                 filetype="typescript"
                 syntaxStyle={syntax()}
                 content={limitedCode()}
@@ -698,18 +698,18 @@ function ExecCode(props: ToolProps<any>) {
             </line_number>
             <CodeModeToolCalls calls={visibleToolCalls()} />
             <Show when={output().length > 0}>
-              <text fg={theme.textMuted}>── output ──</text>
-              <text fg={success() ? theme.text : theme.error}>{limitedOutput()}</text>
+              <text fg={theme.foreground.muted}>── output ──</text>
+              <text fg={success() ? theme.foreground.default : theme.status.error.fg}>{limitedOutput()}</text>
             </Show>
             <Show when={overflow()}>
-              <text fg={theme.textMuted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>
+              <text fg={theme.foreground.muted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>
             </Show>
           </box>
         </BlockTool>
       </Match>
       <Match when={true}>
         <>
-          <InlineTool icon="⚡" iconColor={theme.warning} pending="Running code..." complete={code()} part={props.part}>
+          <InlineTool icon="⚡" iconColor={theme.status.warning.fg} pending="Running code..." complete={code()} part={props.part}>
             {props.tool} {firstLine()}
           </InlineTool>
           <CodeModeToolCalls calls={visibleToolCalls()} />
@@ -734,7 +734,7 @@ function ExecCode(props: ToolProps<any>) {
     return (
       <Show when={callProps.calls.length > 0}>
         <box paddingLeft={3} gap={0}>
-          <text fg={theme.textMuted}>── nested tools ──</text>
+          <text fg={theme.foreground.muted}>── nested tools ──</text>
           <For each={callProps.calls}>
             {(call) => {
               // An interrupted call was cancelled, not failed — a red ✗ next to it
@@ -749,18 +749,18 @@ function ExecCode(props: ToolProps<any>) {
                       : "✗"
               const color =
                 call.status === "running"
-                  ? theme.warning
+                  ? theme.status.warning.fg
                   : call.status === "completed"
-                    ? theme.success
+                    ? theme.status.success.fg
                     : call.status === "interrupted"
-                      ? theme.textMuted
-                      : theme.error
+                      ? theme.foreground.muted
+                      : theme.status.error.fg
               const details = summarizeCodeModeInput(call.input)
               return (
                 <text fg={color}>
                   {marker} {call.tool}
                   <Show when={details.length > 0}>
-                    <span style={{ fg: theme.textMuted }}> {details}</span>
+                    <span style={{ fg: theme.foreground.muted }}> {details}</span>
                   </Show>
                 </text>
               )
@@ -794,10 +794,10 @@ function Write(props: ToolProps<typeof WriteTool>) {
     <Switch>
       <Match when={props.metadata.diagnostics !== undefined}>
         <BlockTool title={"# Wrote " + normalizePath(props.input.filePath!)} part={props.part}>
-          <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
+          <line_number fg={theme.foreground.muted} minWidth={3} paddingRight={1}>
             <code
               conceal={false}
-              fg={theme.text}
+              fg={theme.foreground.default}
               filetype={filetype(props.input.filePath!)}
               syntaxStyle={syntax()}
               content={code()}
@@ -806,7 +806,7 @@ function Write(props: ToolProps<typeof WriteTool>) {
           <Show when={diagnostics().length}>
             <For each={diagnostics()}>
               {(diagnostic) => (
-                <text fg={theme.error}>
+                <text fg={theme.status.error.fg}>
                   Error [{diagnostic.range.start.line}:{diagnostic.range.start.character}]:{" "}
                   {LSP.Diagnostic.message(diagnostic)}
                 </text>
@@ -882,19 +882,19 @@ function WebFetch(props: ToolProps<typeof WebFetchTool>) {
       <Match when={props.output !== undefined && url()}>
         <BlockTool
           title={`# Web fetch: ${host()}`}
-          accentColor={theme.primary}
-          titleColor={theme.primary}
+          accentColor={theme.accent.fg}
+          titleColor={theme.accent.fg}
           onClick={openPreview}
           part={props.part}
         >
           <box gap={0}>
             <box flexDirection="row" justifyContent="space-between" alignItems="center" gap={1}>
-              <text fg={theme.primary} wrapMode="char" flexGrow={1}>
+              <text fg={theme.accent.fg} wrapMode="char" flexGrow={1}>
                 {url()}
               </text>
-              <text fg={theme.textMuted}>open preview</text>
+              <text fg={theme.foreground.muted}>open preview</text>
             </box>
-            <text fg={theme.textMuted}>Click to view this {format()} page in Web Preview</text>
+            <text fg={theme.foreground.muted}>Click to view this {format()} page in Web Preview</text>
           </box>
         </BlockTool>
       </Match>
@@ -968,24 +968,24 @@ function OpenTUIViz(props: ToolProps<typeof OpenTUIVizTool>) {
       <Match when={props.output !== undefined && count() > 0}>
         <BlockTool
           title={`# Visualization: ${title()}`}
-          accentColor={theme.accent ?? theme.primary}
-          titleColor={theme.accent ?? theme.primary}
+          accentColor={theme.accent.alt}
+          titleColor={theme.accent.alt}
           onClick={openViz}
           part={props.part}
           transparent
         >
           <box gap={1}>
             <box flexDirection="row" justifyContent="space-between" alignItems="center">
-              <text fg={theme.accent ?? theme.primary} attributes={TextAttributes.BOLD} flexGrow={1}>
+              <text fg={theme.accent.alt} attributes={TextAttributes.BOLD} flexGrow={1}>
                 ◈ {title()}
               </text>
-              <text fg={theme.textMuted}>open in TUI ↵</text>
+              <text fg={theme.foreground.muted}>open in TUI ↵</text>
             </box>
             <Show when={spec()?.subtitle}>
-              <text fg={theme.textMuted}>{String(spec()?.subtitle)}</text>
+              <text fg={theme.foreground.muted}>{String(spec()?.subtitle)}</text>
             </Show>
             <VizRenderer spec={spec()} />
-            <text fg={theme.textMuted}>
+            <text fg={theme.foreground.muted}>
               {count()} component{count() === 1 ? "" : "s"} · Click to expand in TUI
             </text>
           </box>
@@ -995,29 +995,29 @@ function OpenTUIViz(props: ToolProps<typeof OpenTUIVizTool>) {
         {(partial) => (
           <box
             border
-            borderColor={theme.accent ?? theme.primary}
+            borderColor={theme.accent.alt}
             paddingLeft={1}
             paddingRight={1}
             gap={1}
             flexDirection="column"
           >
             <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={theme.accent ?? theme.primary} attributes={TextAttributes.BOLD} flexGrow={1}>
+              <text fg={theme.accent.alt} attributes={TextAttributes.BOLD} flexGrow={1}>
                 ◈ {partial().title || "Visualization"}
               </text>
-              <text fg={theme.warning ?? theme.accent}>● {partial().streaming ? "generating" : "rendering"}</text>
+              <text fg={theme.status.warning.fg ?? theme.accent.alt}>● {partial().streaming ? "generating" : "rendering"}</text>
             </box>
             <VizRenderer spec={partial()} loading={partial().streaming} />
             <Show
               when={partial().streaming}
               fallback={
-                <text fg={theme.textMuted}>
+                <text fg={theme.foreground.muted}>
                   {partial().components.length} component
                   {partial().components.length === 1 ? "" : "s"} ready…
                 </text>
               }
             >
-              <text fg={theme.textMuted}>
+              <text fg={theme.foreground.muted}>
                 {partial().components.length} component
                 {partial().components.length === 1 ? "" : "s"} streamed…
               </text>
@@ -1084,30 +1084,30 @@ function WebSearch(props: ToolProps<any>) {
       <Match when={results().length > 0}>
         <BlockTool
           title={`# Web search: ${input.query}`}
-          accentColor={theme.primary}
-          titleColor={theme.primary}
+          accentColor={theme.accent.fg}
+          titleColor={theme.accent.fg}
           onClick={choosePreview}
           part={props.part}
         >
           <box gap={0}>
-            <text fg={theme.textMuted}>
+            <text fg={theme.foreground.muted}>
               {results().length} previewable result
               {results().length === 1 ? "" : "s"} found
             </text>
-            <text fg={theme.primary} wrapMode="char">
+            <text fg={theme.accent.fg} wrapMode="char">
               {results()[0]!.host}
             </text>
-            <text fg={theme.textMuted}>
+            <text fg={theme.foreground.muted}>
               Click to {results().length === 1 ? "open the result" : "choose a result"} in Web Preview
             </text>
           </box>
         </BlockTool>
       </Match>
       <Match when={output()}>
-        <BlockTool title={`# Web search: ${input.query}`} accentColor={theme.primary} part={props.part}>
+        <BlockTool title={`# Web search: ${input.query}`} accentColor={theme.accent.fg} part={props.part}>
           <box gap={1}>
-            <text fg={theme.textMuted}>Search completed, but no previewable URLs were extracted.</text>
-            <text fg={theme.text} wrapMode="word">
+            <text fg={theme.foreground.muted}>Search completed, but no previewable URLs were extracted.</text>
+            <text fg={theme.foreground.default} wrapMode="word">
               {output().slice(0, 400)}
               {output().length > 400 ? "..." : ""}
             </text>
@@ -1482,16 +1482,16 @@ export function DialogMonitorLog(props: {
 
   return (
     <box flexDirection="column" width="100%" gap={1}>
-      <text fg={theme.text}>Monitor {props.title}</text>
-      <text fg={theme.textMuted}>{props.command}</text>
-      <text fg={status() === "complete" ? theme.success : status() === "running" ? theme.text : theme.error}>
+      <text fg={theme.foreground.default}>Monitor {props.title}</text>
+      <text fg={theme.foreground.muted}>{props.command}</text>
+      <text fg={status() === "complete" ? theme.status.success.fg : status() === "running" ? theme.foreground.default : theme.status.error.fg}>
         {statusLine()}
       </text>
       <Show when={cwd()}>
-        <text fg={theme.textMuted}>dir {normalizePath(cwd())}</text>
+        <text fg={theme.foreground.muted}>dir {normalizePath(cwd())}</text>
       </Show>
       <Show when={logPath()}>
-        <text fg={theme.textMuted}>log {normalizePath(logPath())}</text>
+        <text fg={theme.foreground.muted}>log {normalizePath(logPath())}</text>
       </Show>
       <scrollbox
         ref={(value: ScrollBoxRenderable) => {
@@ -1500,19 +1500,19 @@ export function DialogMonitorLog(props: {
         height={Math.max(10, dimensions().height - 18)}
         focused={true}
         border={["top", "bottom", "left", "right"]}
-        borderColor={theme.borderSubtle}
+        borderColor={theme.border.subtle}
         paddingLeft={1}
         paddingRight={1}
       >
-        <text fg={theme.text}>{content() || (loading() ? "Loading log output..." : "No output yet")}</text>
+        <text fg={theme.foreground.default}>{content() || (loading() ? "Loading log output..." : "No output yet")}</text>
       </scrollbox>
       <Show when={truncated()}>
-        <text fg={theme.textMuted}>Showing the latest log window.</text>
+        <text fg={theme.foreground.muted}>Showing the latest log window.</text>
       </Show>
       <Show when={error()}>
-        <text fg={theme.error}>{error()}</text>
+        <text fg={theme.status.error.fg}>{error()}</text>
       </Show>
-      <text fg={theme.textMuted}>f follow {follow() ? "on" : "off"} • r refresh • c copy • x stop • esc close</text>
+      <text fg={theme.foreground.muted}>f follow {follow() ? "on" : "off"} • r refresh • c copy • x stop • esc close</text>
     </box>
   )
 }
@@ -1628,17 +1628,17 @@ function Task(props: ToolProps<typeof TaskTool>) {
       part={props.part}
     >
       <box>
-        <text style={{ fg: theme.textMuted }}>
+        <text style={{ fg: theme.foreground.muted }}>
           {input().description}
           <Show when={meta().summary?.length}> ({meta().summary?.length} toolcalls)</Show>
         </text>
         <Show when={kind() === "research" && question()}>
-          <text style={{ fg: theme.textMuted }}>└ {question()}</text>
+          <text style={{ fg: theme.foreground.muted }}>└ {question()}</text>
         </Show>
         <Show when={current()}>
           <text
             style={{
-              fg: current()!.state.status === "error" ? theme.error : theme.textMuted,
+              fg: current()!.state.status === "error" ? theme.status.error.fg : theme.foreground.muted,
             }}
           >
             └ {Locale.titlecase(current()!.tool)}{" "}
@@ -1646,29 +1646,29 @@ function Task(props: ToolProps<typeof TaskTool>) {
           </text>
         </Show>
         <Show when={displaySummary()}>
-          <text style={{ fg: theme.text }}>└ {displaySummary()}</text>
+          <text style={{ fg: theme.foreground.default }}>└ {displaySummary()}</text>
         </Show>
         <Show
           when={childStatusLabel()}
-          fallback={<text style={{ fg: theme.textMuted }}>└ starting background task</text>}
+          fallback={<text style={{ fg: theme.foreground.muted }}>└ starting background task</text>}
         >
-          <text style={{ fg: theme.textMuted }}>└ {childStatusLabel()}</text>
+          <text style={{ fg: theme.foreground.muted }}>└ {childStatusLabel()}</text>
         </Show>
         <Show when={backgroundJob()?.progressSummary && backgroundJob()?.progressSummary !== displaySummary()}>
-          <text style={{ fg: theme.textMuted }}>└ {backgroundJob()!.progressSummary}</text>
+          <text style={{ fg: theme.foreground.muted }}>└ {backgroundJob()!.progressSummary}</text>
         </Show>
         <Show when={rootDelegationID() && isBackground()}>
-          <text style={{ fg: theme.textMuted }}>└ job {rootDelegationID()}</text>
+          <text style={{ fg: theme.foreground.muted }}>└ job {rootDelegationID()}</text>
         </Show>
         <Show when={meta().reused && isBackground()}>
-          <text style={{ fg: theme.textMuted }}>└ reused existing background research</text>
+          <text style={{ fg: theme.foreground.muted }}>└ reused existing background research</text>
         </Show>
       </box>
-      <text fg={theme.text}>
+      <text fg={theme.foreground.default}>
         <Show when={sessionID()} fallback={"waiting for background session"}>
           open session
         </Show>
-        <span style={{ fg: theme.textMuted }}>{" follow background task"}</span>
+        <span style={{ fg: theme.foreground.muted }}>{" follow background task"}</span>
       </text>
     </BlockTool>
   )
@@ -1692,10 +1692,10 @@ function Monitor(props: ToolProps<typeof MonitorTool>) {
   const exitCode = createMemo(() => (typeof meta.exitCode === "number" ? meta.exitCode : undefined))
   const logPath = createMemo(() => (typeof meta.logPath === "string" ? meta.logPath : undefined))
   const statusColor = createMemo(() => {
-    if (status() === "complete") return theme.success
-    if (status() === "running") return theme.text
-    if (status() === "cancelled") return theme.textMuted
-    return theme.error
+    if (status() === "complete") return theme.status.success.fg
+    if (status() === "running") return theme.foreground.default
+    if (status() === "cancelled") return theme.foreground.muted
+    return theme.status.error.fg
   })
 
   const openMonitor = () => {
@@ -1721,21 +1721,21 @@ function Monitor(props: ToolProps<typeof MonitorTool>) {
       <Match when={monitorID()}>
         <BlockTool title={`# Monitor ${title()}`} part={props.part} onClick={openMonitor}>
           <box>
-            <text style={{ fg: theme.textMuted }}>{props.input.command}</text>
+            <text style={{ fg: theme.foreground.muted }}>{props.input.command}</text>
             <text style={{ fg: statusColor() }}>└ {monitorStatusLabel(status(), exitCode())}</text>
             <Show when={recentOutput()}>
-              <text style={{ fg: theme.text }}>└ {recentOutput()}</text>
+              <text style={{ fg: theme.foreground.default }}>└ {recentOutput()}</text>
             </Show>
             <Show when={logPath()}>
-              <text style={{ fg: theme.textMuted }}>└ {normalizePath(logPath())}</text>
+              <text style={{ fg: theme.foreground.muted }}>└ {normalizePath(logPath())}</text>
             </Show>
             <Show when={meta.wake === true}>
-              <text style={{ fg: theme.textMuted }}>└ wakes the session on completion</text>
+              <text style={{ fg: theme.foreground.muted }}>└ wakes the session on completion</text>
             </Show>
           </box>
-          <text fg={theme.text}>
+          <text fg={theme.foreground.default}>
             follow logs
-            <span style={{ fg: theme.textMuted }}> view monitor output</span>
+            <span style={{ fg: theme.foreground.muted }}> view monitor output</span>
           </text>
         </BlockTool>
       </Match>
@@ -1787,23 +1787,23 @@ function Edit(props: ToolProps<typeof EditTool>) {
               showLineNumbers={true}
               width="100%"
               wrapMode={ctx.diffWrapMode()}
-              fg={theme.text}
-              addedBg={theme.diffAddedBg}
-              removedBg={theme.diffRemovedBg}
-              contextBg={theme.diffContextBg}
-              addedSignColor={theme.diffHighlightAdded}
-              removedSignColor={theme.diffHighlightRemoved}
-              lineNumberFg={theme.diffLineNumber}
-              lineNumberBg={theme.diffContextBg}
-              addedLineNumberBg={theme.diffAddedLineNumberBg}
-              removedLineNumberBg={theme.diffRemovedLineNumberBg}
+              fg={theme.foreground.default}
+              addedBg={theme.diff.addedBg}
+              removedBg={theme.diff.removedBg}
+              contextBg={theme.diff.contextBg}
+              addedSignColor={theme.diff.highlightAdded}
+              removedSignColor={theme.diff.highlightRemoved}
+              lineNumberFg={theme.diff.lineNumber}
+              lineNumberBg={theme.diff.contextBg}
+              addedLineNumberBg={theme.diff.addedLineNumberBg}
+              removedLineNumberBg={theme.diff.removedLineNumberBg}
             />
           </box>
           <Show when={diagnostics().length}>
             <box>
               <For each={diagnostics()}>
                 {(diagnostic) => (
-                  <text fg={theme.error}>
+                  <text fg={theme.status.error.fg}>
                     Error [{diagnostic.range.start.line + 1}:{diagnostic.range.start.character + 1}]{" "}
                     {LSP.Diagnostic.message(diagnostic)}
                   </text>
@@ -1845,16 +1845,16 @@ function ApplyPatch(props: ToolProps<typeof ApplyPatchTool>) {
           showLineNumbers={true}
           width="100%"
           wrapMode={ctx.diffWrapMode()}
-          fg={theme.text}
-          addedBg={theme.diffAddedBg}
-          removedBg={theme.diffRemovedBg}
-          contextBg={theme.diffContextBg}
-          addedSignColor={theme.diffHighlightAdded}
-          removedSignColor={theme.diffHighlightRemoved}
-          lineNumberFg={theme.diffLineNumber}
-          lineNumberBg={theme.diffContextBg}
-          addedLineNumberBg={theme.diffAddedLineNumberBg}
-          removedLineNumberBg={theme.diffRemovedLineNumberBg}
+          fg={theme.foreground.default}
+          addedBg={theme.diff.addedBg}
+          removedBg={theme.diff.removedBg}
+          contextBg={theme.diff.contextBg}
+          addedSignColor={theme.diff.highlightAdded}
+          removedSignColor={theme.diff.highlightRemoved}
+          lineNumberFg={theme.diff.lineNumber}
+          lineNumberBg={theme.diff.contextBg}
+          addedLineNumberBg={theme.diff.addedLineNumberBg}
+          removedLineNumberBg={theme.diff.removedLineNumberBg}
         />
       </box>
     )
@@ -1876,7 +1876,7 @@ function ApplyPatch(props: ToolProps<typeof ApplyPatchTool>) {
               <Show
                 when={file.type !== "delete"}
                 fallback={
-                  <text fg={theme.diffRemoved}>
+                  <text fg={theme.diff.removed}>
                     -{file.deletions} line{file.deletions !== 1 ? "s" : ""}
                   </text>
                 }
@@ -1934,8 +1934,8 @@ function Question(props: ToolProps<typeof QuestionTool>) {
             <For each={props.input.questions ?? []}>
               {(q, i) => (
                 <box flexDirection="column">
-                  <text fg={theme.textMuted}>{q.question}</text>
-                  <text fg={theme.text}>{format(props.metadata.answers?.[i()])}</text>
+                  <text fg={theme.foreground.muted}>{q.question}</text>
+                  <text fg={theme.foreground.default}>{format(props.metadata.answers?.[i()])}</text>
                 </box>
               )}
             </For>

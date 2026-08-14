@@ -2,9 +2,10 @@
 
 | Field  | Value                                                            |
 | ------ | ---------------------------------------------------------------- |
-| Status | **Proposed and unimplemented**                                   |
-| Scope  | `src/cli/cmd/serve.ts`, `src/session/prompt.ts`, `session_info`  |
+| Status | **Implemented** 2026-08-14 (was roadmap S2)                       |
+| Scope  | `src/cli/cmd/serve.ts`, `src/session/prompt-state.ts`, `src/session/repo.ts`, `session_info` |
 | Buys   | `nikcli upgrade` and a server redeploy stop silently killing turns |
+| Tests  | `test/session/restart-continuation.test.ts`                      |
 
 ## Summary
 
@@ -48,9 +49,11 @@ The name records the fact, not one consumer's policy, and the timestamp gives op
 
 Inside the existing graceful path in `serve.ts`, before instance disposal:
 
-1. Snapshot the session ids currently owned by `PromptState` for every live instance.
-2. Set `time_suspended = Date.now()` for those rows in one statement.
+1. Snapshot the session ids this **process** is running (`PromptState.activeSessions()`).
+2. Set `time_suspended = Date.now()` for those rows in one statement (`SessionRepo.suspend`).
 3. Proceed with the existing abort-and-drain.
+
+**Implementation note.** Step 1 does not iterate instances. `PromptState.State` is instance-scoped — correct for ownership, useless here, because "what is this process running?" has no instance to ask it in. `PromptState` keeps a flat process-level `Set<string>` alongside the per-instance map, maintained in `start`, `finish`, and the instance finalizer. Session ids are globally unique, so the flat set is exact, and its scope matches what a graceful shutdown can actually promise.
 
 Ordering matters: suspend before interrupting. A crash between the two leaves a session marked suspended that was never interrupted, and a spurious resume is a re-entry into a loop that is idle — cheap and correct. The reverse order loses the turn on a crash, which is the failure being fixed.
 
@@ -58,9 +61,11 @@ Ordering matters: suspend before interrupting. A crash between the two leaves a 
 
 At server start, per data directory:
 
-1. Read suspended rows.
-2. For each, **atomically** clear `time_suspended` and schedule one `SessionPrompt.loop(sessionID)`. The clear-and-schedule must be one transaction so two servers racing on the same directory cannot both resume the same session.
+1. Claim suspended rows with a single `UPDATE session_info SET time_suspended = NULL WHERE time_suspended IS NOT NULL RETURNING id, directory` (`SessionRepo.consumeSuspended`). One statement rather than a transaction around a read and a write: only one racing server can observe a given row as non-null, so a session is resumed at most once by construction.
+2. For each claimed row, bind the instance from its `directory` and start one `SessionPrompt.loop(sessionID)`, fire-and-forget. A resumed turn can run for minutes and startup must not wait on it; failures are logged and never fatal.
 3. Resume is advisory: `loop` re-reads projected history and exits immediately if the turn is already finished.
+
+The resume sweep is wired into **`ServeCommand` only**, not `Server.listen`. Embedded servers — the TUI's own worker, tests — share the data directory but are not the process that should adopt someone else's abandoned turn.
 
 That last point is what makes this safe with no new execution semantics. `loop` already derives continuation from history rather than from in-memory state, so resuming a completed turn is a no-op and resuming an incomplete one continues from the last durable step.
 
@@ -73,8 +78,12 @@ That last point is what makes this safe with no new execution semantics. `loop` 
 
 ## Verification
 
-- A session suspended and resumed on the same durable history reaches the same terminal state as an uninterrupted one.
-- A session whose turn had already finished resumes as a no-op and clears its flag.
-- Two servers started concurrently on one directory resume each session exactly once.
-- A `SIGKILL` leaves no `time_suspended` rows and no resume attempts.
-- `time_suspended` never appears in an HTTP response body or in the generated clients.
+Covered by `test/session/restart-continuation.test.ts`:
+
+- a suspension round-trips and carries the `directory` needed to bind the instance;
+- a second claim comes back empty — each suspension is consumed exactly once;
+- nothing was suspended ⇒ nothing is claimed (the hard-crash shape);
+- the mark survives an unrelated `upsert` and `update`, because neither names `time_suspended` in its `set` clause. This is the one that would rot silently: adding the column to either write path would clear every pending suspension on the next unrelated session touch.
+- `Session.Info` read back from the repo has no `timeSuspended` / `time_suspended` property — the column cannot reach the wire, because `Session.Info` is reconstructed from the `data` column alone.
+
+Not covered by a test, and worth stating: end-to-end resume of a real interrupted turn. It needs a live provider loop across two server processes, which the unit suite cannot express — the pieces it rests on (`loop` deriving continuation from history) are covered in [session.md](./session.md).

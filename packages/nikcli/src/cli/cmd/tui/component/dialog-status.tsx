@@ -41,16 +41,16 @@ export function DialogStatus() {
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        <text fg={theme.foreground.default} attributes={TextAttributes.BOLD}>
           Status
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <text fg={theme.foreground.muted}>esc</text>
       </box>
-      <text fg={theme.textMuted}>Nikcli v{Installation.VERSION}</text>
-      <text fg={theme.textMuted}>a fork of opencode — github.com/anomalyco/opencode</text>
-      <Show when={Object.keys(sync.data.mcp).length > 0} fallback={<text fg={theme.text}>No MCP Servers</text>}>
+      <text fg={theme.foreground.muted}>Nikcli v{Installation.VERSION}</text>
+      <text fg={theme.foreground.muted}>a fork of opencode — github.com/anomalyco/opencode</text>
+      <Show when={Object.keys(sync.data.mcp).length > 0} fallback={<text fg={theme.foreground.default}>No MCP Servers</text>}>
         <box>
-          <text fg={theme.text}>{Object.keys(sync.data.mcp).length} MCP Servers</text>
+          <text fg={theme.foreground.default}>{Object.keys(sync.data.mcp).length} MCP Servers</text>
           <For each={Object.entries(sync.data.mcp)}>
             {([key, item]) => (
               <box flexDirection="row" gap={1}>
@@ -59,20 +59,20 @@ export function DialogStatus() {
                   style={{
                     fg: (
                       {
-                        connected: theme.success,
-                        failed: theme.error,
-                        disabled: theme.textMuted,
-                        needs_auth: theme.warning,
-                        needs_client_registration: theme.error,
-                      } as Record<string, typeof theme.success>
+                        connected: theme.status.success.fg,
+                        failed: theme.status.error.fg,
+                        disabled: theme.foreground.muted,
+                        needs_auth: theme.status.warning.fg,
+                        needs_client_registration: theme.status.error.fg,
+                      } as Record<string, typeof theme.status.success.fg>
                     )[item.status],
                   }}
                 >
                   •
                 </text>
-                <text fg={theme.text} wrapMode="word">
+                <text fg={theme.foreground.default} wrapMode="word">
                   <b>{key}</b>{" "}
-                  <span style={{ fg: theme.textMuted }}>
+                  <span style={{ fg: theme.foreground.muted }}>
                     <Switch fallback={item.status}>
                       <Match when={item.status === "connected"}>Connected</Match>
                       <Match when={item.status === "failed" && item}>{(val) => val().error}</Match>
@@ -93,7 +93,7 @@ export function DialogStatus() {
       </Show>
       {sync.data.lsp.length > 0 && (
         <box>
-          <text fg={theme.text}>{sync.data.lsp.length} LSP Servers</text>
+          <text fg={theme.foreground.default}>{sync.data.lsp.length} LSP Servers</text>
           <For each={sync.data.lsp}>
             {(item) => (
               <box flexDirection="row" gap={1}>
@@ -101,36 +101,36 @@ export function DialogStatus() {
                   flexShrink={0}
                   style={{
                     fg: {
-                      connected: theme.success,
-                      error: theme.error,
+                      connected: theme.status.success.fg,
+                      error: theme.status.error.fg,
                     }[item.status],
                   }}
                 >
                   •
                 </text>
-                <text fg={theme.text} wrapMode="word">
-                  <b>{item.id}</b> <span style={{ fg: theme.textMuted }}>{item.root}</span>
+                <text fg={theme.foreground.default} wrapMode="word">
+                  <b>{item.id}</b> <span style={{ fg: theme.foreground.muted }}>{item.root}</span>
                 </text>
               </box>
             )}
           </For>
         </box>
       )}
-      <Show when={enabledFormatters().length > 0} fallback={<text fg={theme.text}>No Formatters</text>}>
+      <Show when={enabledFormatters().length > 0} fallback={<text fg={theme.foreground.default}>No Formatters</text>}>
         <box>
-          <text fg={theme.text}>{enabledFormatters().length} Formatters</text>
+          <text fg={theme.foreground.default}>{enabledFormatters().length} Formatters</text>
           <For each={enabledFormatters()}>
             {(item) => (
               <box flexDirection="row" gap={1}>
                 <text
                   flexShrink={0}
                   style={{
-                    fg: theme.success,
+                    fg: theme.status.success.fg,
                   }}
                 >
                   •
                 </text>
-                <text wrapMode="word" fg={theme.text}>
+                <text wrapMode="word" fg={theme.foreground.default}>
                   <b>{item.name}</b>
                 </text>
               </box>
@@ -138,23 +138,23 @@ export function DialogStatus() {
           </For>
         </box>
       </Show>
-      <Show when={plugins().length > 0} fallback={<text fg={theme.text}>No Plugins</text>}>
+      <Show when={plugins().length > 0} fallback={<text fg={theme.foreground.default}>No Plugins</text>}>
         <box>
-          <text fg={theme.text}>{plugins().length} Plugins</text>
+          <text fg={theme.foreground.default}>{plugins().length} Plugins</text>
           <For each={plugins()}>
             {(item) => (
               <box flexDirection="row" gap={1}>
                 <text
                   flexShrink={0}
                   style={{
-                    fg: theme.success,
+                    fg: theme.status.success.fg,
                   }}
                 >
                   •
                 </text>
-                <text wrapMode="word" fg={theme.text}>
+                <text wrapMode="word" fg={theme.foreground.default}>
                   <b>{item.name}</b>
-                  {item.version && <span style={{ fg: theme.textMuted }}> @{item.version}</span>}
+                  {item.version && <span style={{ fg: theme.foreground.muted }}> @{item.version}</span>}
                 </text>
               </box>
             )}

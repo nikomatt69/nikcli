@@ -27,8 +27,8 @@
 import { Effect } from "effect"
 import { AnalyticsRollup } from "./rollup"
 import { Config } from "@/config/config"
+import { Database } from "@/database/database"
 import { Installation } from "@/installation"
-import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
 import { runPromiseWithLayer } from "@/effect"
 
@@ -44,17 +44,13 @@ export namespace AnalyticsShare {
   /** Rollups store micro-cent integers; the wire keeps a USD number for older collectors. */
   const MICRO_CENTS_PER_USD = 100_000_000
 
-  const STATE_KEY = ["analytics", "share-state"]
-
   interface State {
     /** Random, local, never published. */
     installID: string
-    /** Last day already reported, `YYYY-MM-DD`. */
-    lastDay?: string
   }
 
-  function storage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-    return runPromiseWithLayer(Storage.defaultLayer, effect)
+  function native() {
+    return Database.syncNative()
   }
 
   function dayKey(at: number): string {
@@ -73,26 +69,27 @@ export namespace AnalyticsShare {
     return crypto.randomUUID()
   }
 
-  async function readState(): Promise<State> {
-    const existing = await storage(
-      Effect.gen(function* () {
-        const store = yield* Storage.Service
-        return yield* store.read<State>(STATE_KEY)
-      }),
-    ).catch(() => undefined)
-    if (existing?.installID) return existing
+  function readState(): State {
+    const row = native()
+      .query<{ install_id: string }, []>(`SELECT install_id FROM analytics_share WHERE id = 'local'`)
+      .get()
+    if (row?.install_id) return { installID: row.install_id }
     const fresh: State = { installID: newInstallID() }
-    await writeState(fresh)
+    writeState(fresh)
     return fresh
   }
 
-  async function writeState(state: State): Promise<void> {
-    await storage(
-      Effect.gen(function* () {
-        const store = yield* Storage.Service
-        yield* store.write(STATE_KEY, state)
-      }),
-    ).catch(() => undefined)
+  function writeState(state: State): void {
+    try {
+      native()
+        .query(
+          `INSERT INTO analytics_share (id, install_id, created_at) VALUES ('local', ?, ?)
+           ON CONFLICT(id) DO UPDATE SET install_id = excluded.install_id`,
+        )
+        .run(state.installID, Date.now())
+    } catch {
+      // Reporting must never be something the user notices.
+    }
   }
 
   /** The `analytics` block of the global config, or nothing if it is unreadable. */
@@ -179,7 +176,7 @@ export namespace AnalyticsShare {
     // in that moment, which is the consent the default stands in for otherwise.
     if (!enabled(analytics?.share) && options?.force !== true) return 0
 
-    const state = await readState()
+    const state = readState()
     // Yesterday is the newest whole day; today is still accumulating, so it is
     // only sent when asked for — a partial day would be replaced by the complete
     // one tomorrow, which the (install, day, model) key makes safe.

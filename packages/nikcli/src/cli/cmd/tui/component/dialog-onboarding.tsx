@@ -43,7 +43,7 @@ function errorMessage(error: unknown): string {
 function SectionLabel(props: { title: string }) {
   const { theme } = useTheme()
   return (
-    <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+    <text fg={theme.accent.alt} attributes={TextAttributes.BOLD}>
       {props.title}
     </text>
   )
@@ -53,10 +53,10 @@ function BulletRow(props: { text: string }) {
   const { theme } = useTheme()
   return (
     <box flexDirection="row" gap={1}>
-      <text flexShrink={0} fg={theme.success}>
+      <text flexShrink={0} fg={theme.status.success.fg}>
         {"●"}
       </text>
-      <text fg={theme.text} flexShrink={1} wrapMode="word">
+      <text fg={theme.foreground.default} flexShrink={1} wrapMode="word">
         {props.text}
       </text>
     </box>
@@ -68,9 +68,9 @@ function TwoColRow(props: { width: number; label: string; desc: string; labelFg?
   return (
     <box flexDirection="row">
       <box width={props.width} flexShrink={0}>
-        <text fg={(props.labelFg as any) ?? theme.primary}>{props.label}</text>
+        <text fg={(props.labelFg as any) ?? theme.accent.fg}>{props.label}</text>
       </box>
-      <text fg={theme.textMuted} flexShrink={1} wrapMode="word">
+      <text fg={theme.foreground.muted} flexShrink={1} wrapMode="word">
         {props.desc}
       </text>
     </box>
@@ -104,7 +104,7 @@ function WizardBreadcrumb(props: { current: number; total: number }) {
         {(name, i) => (
           <Show when={i() < props.total}>
             <text
-              fg={i() === props.current ? theme.primary : theme.borderSubtle}
+              fg={i() === props.current ? theme.accent.fg : theme.border.subtle}
               attributes={i() === props.current ? TextAttributes.BOLD : undefined}
             >
               {i() > 0 ? "  ·  " : ""}
@@ -160,7 +160,7 @@ function WelcomeContent() {
   const { theme } = useTheme()
   return (
     <box gap={2}>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         A terminal-native AI coding assistant. Chat with AI models, run autonomous agents and automate development tasks
         — all without leaving your terminal.
       </text>
@@ -199,12 +199,12 @@ function FsRow(props: {
 }) {
   const { theme } = useTheme()
   const icon = props.icon ?? (props.sensitive ? "●" : props.ephemeral ? "◦" : "·")
-  const iconFg = props.iconFg ?? (props.sensitive ? theme.warning : props.ephemeral ? theme.textMuted : theme.textMuted)
-  const pathFg = theme.text
+  const iconFg = props.iconFg ?? (props.sensitive ? theme.status.warning.fg : props.ephemeral ? theme.foreground.muted : theme.foreground.muted)
+  const pathFg = theme.foreground.default
   const indent = "  ".repeat(props.indent)
   return (
     <box flexDirection="row">
-      <text flexShrink={0} fg={theme.borderSubtle}>
+      <text flexShrink={0} fg={theme.border.subtle}>
         {indent}
       </text>
       <text flexShrink={0} fg={iconFg}>
@@ -214,7 +214,7 @@ function FsRow(props: {
         {props.path}
       </text>
       <text flexShrink={0}> </text>
-      <text fg={theme.textMuted} flexShrink={1} wrapMode="word">
+      <text fg={theme.foreground.muted} flexShrink={1} wrapMode="word">
         {props.desc}
       </text>
     </box>
@@ -225,10 +225,10 @@ function FsSectionHeader(props: { title: string; subtitle: string }) {
   const { theme } = useTheme()
   return (
     <box gap={0}>
-      <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+      <text fg={theme.accent.alt} attributes={TextAttributes.BOLD}>
         {props.title}
       </text>
-      <text fg={theme.textMuted}>{props.subtitle}</text>
+      <text fg={theme.foreground.muted}>{props.subtitle}</text>
     </box>
   )
 }
@@ -242,7 +242,7 @@ function FilesystemContent() {
   const { theme } = useTheme()
   return (
     <box gap={2}>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         Nikcli stores all data under standard XDG directories. Nothing hidden outside these locations. All data stays on
         your machine — no telemetry.
       </text>
@@ -303,12 +303,12 @@ function FilesystemContent() {
 
       {/* ── Legend ───────────────────────────────────────────────── */}
       <box>
-        <text fg={theme.textMuted} wrapMode="word">
-          <span style={{ fg: theme.warning }}>● sensitive</span>
+        <text fg={theme.foreground.muted} wrapMode="word">
+          <span style={{ fg: theme.status.warning.fg }}>● sensitive</span>
           {"  "}
-          <span style={{ fg: theme.textMuted }}>◦ ephemeral (safe to delete)</span>
+          <span style={{ fg: theme.foreground.muted }}>◦ ephemeral (safe to delete)</span>
           {"  "}
-          <span style={{ fg: theme.textMuted }}>· normal</span>
+          <span style={{ fg: theme.foreground.muted }}>· normal</span>
         </text>
       </box>
     </box>
@@ -354,7 +354,7 @@ function ProviderContent() {
   const { theme } = useTheme()
   return (
     <box gap={2}>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         Connect at least one AI provider to start chatting. You can connect multiple providers and switch models at any
         time via Ctrl+P → "Switch model".
       </text>
@@ -364,18 +364,18 @@ function ProviderContent() {
           <For each={PROVIDERS_INFO}>
             {(p) => (
               <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={p.recommended ? theme.success : theme.borderSubtle}>
+                <text flexShrink={0} fg={p.recommended ? theme.status.success.fg : theme.border.subtle}>
                   {p.recommended ? "★" : "·"}
                 </text>
                 <box width={16} flexShrink={0}>
                   <text
-                    fg={p.recommended ? theme.primary : theme.text}
+                    fg={p.recommended ? theme.accent.fg : theme.foreground.default}
                     attributes={p.recommended ? TextAttributes.BOLD : undefined}
                   >
                     {p.name}
                   </text>
                 </box>
-                <text fg={theme.textMuted} flexShrink={1} wrapMode="word">
+                <text fg={theme.foreground.muted} flexShrink={1} wrapMode="word">
                   {p.desc}
                 </text>
               </box>
@@ -383,7 +383,7 @@ function ProviderContent() {
           </For>
         </box>
       </box>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         After setup, add more providers anytime via Ctrl+P → "Connect provider".
       </text>
     </box>
@@ -394,7 +394,7 @@ function TestContent() {
   const { theme } = useTheme()
   return (
     <box gap={2}>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         Quick sanity check: we verify a provider is connected and ready to accept a request. This catches a mis-typed
         API key or expired token before you send your first real prompt.
       </text>
@@ -479,15 +479,15 @@ function StatusRow(props: { ok: boolean; label: string; detail: string }) {
   const { theme } = useTheme()
   return (
     <box flexDirection="row" gap={1}>
-      <text flexShrink={0} fg={props.ok ? theme.success : theme.borderSubtle}>
+      <text flexShrink={0} fg={props.ok ? theme.status.success.fg : theme.border.subtle}>
         {props.ok ? "●" : "○"}
       </text>
       <box width={20} flexShrink={0}>
-        <text fg={props.ok ? theme.text : theme.textMuted} attributes={props.ok ? TextAttributes.BOLD : undefined}>
+        <text fg={props.ok ? theme.foreground.default : theme.foreground.muted} attributes={props.ok ? TextAttributes.BOLD : undefined}>
           {props.label}
         </text>
       </box>
-      <text fg={props.ok ? theme.text : theme.textMuted} flexShrink={1} wrapMode="word">
+      <text fg={props.ok ? theme.foreground.default : theme.foreground.muted} flexShrink={1} wrapMode="word">
         {props.detail}
       </text>
     </box>
@@ -523,12 +523,12 @@ function ExtrasContent(props: {
   const { theme } = useTheme()
   return (
     <box gap={2}>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         Toggle the optional capabilities you want to preconfigure now. You can always wire them up later via
-        <span style={{ fg: theme.accent }}> Ctrl+P → Commands </span>
-        or the matching slash command. Use <span style={{ fg: theme.primary }}>↑/↓</span> to move,
-        <span style={{ fg: theme.primary }}> space/enter </span>
-        to toggle, then <span style={{ fg: theme.primary }}>enter on Continue</span>.
+        <span style={{ fg: theme.accent.alt }}> Ctrl+P → Commands </span>
+        or the matching slash command. Use <span style={{ fg: theme.accent.fg }}>↑/↓</span> to move,
+        <span style={{ fg: theme.accent.fg }}> space/enter </span>
+        to toggle, then <span style={{ fg: theme.accent.fg }}>enter on Continue</span>.
       </text>
       <box gap={1}>
         <SectionLabel title="Feature flags" />
@@ -539,21 +539,21 @@ function ExtrasContent(props: {
               const isOn = () => props.enabled[item.key]
               return (
                 <box flexDirection="row" gap={1}>
-                  <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                  <text flexShrink={0} fg={isCursor() ? theme.accent.fg : theme.border.subtle}>
                     {isCursor() ? "›" : " "}
                   </text>
-                  <text flexShrink={0} fg={isOn() ? theme.success : theme.textMuted}>
+                  <text flexShrink={0} fg={isOn() ? theme.status.success.fg : theme.foreground.muted}>
                     {isOn() ? "[x]" : "[ ]"}
                   </text>
                   <box width={22} flexShrink={0}>
                     <text
-                      fg={isOn() ? theme.text : theme.textMuted}
+                      fg={isOn() ? theme.foreground.default : theme.foreground.muted}
                       attributes={isCursor() ? TextAttributes.BOLD : undefined}
                     >
                       {item.label}
                     </text>
                   </box>
-                  <text fg={theme.textMuted} flexShrink={1} wrapMode="word">
+                  <text fg={theme.foreground.muted} flexShrink={1} wrapMode="word">
                     {item.desc}
                   </text>
                 </box>
@@ -563,11 +563,11 @@ function ExtrasContent(props: {
         </box>
       </box>
       <box flexDirection="row" gap={1}>
-        <text flexShrink={0} fg={props.cursor === EXTRAS.length ? theme.primary : theme.borderSubtle}>
+        <text flexShrink={0} fg={props.cursor === EXTRAS.length ? theme.accent.fg : theme.border.subtle}>
           {props.cursor === EXTRAS.length ? "›" : " "}
         </text>
         <text
-          fg={props.cursor === EXTRAS.length ? theme.primary : theme.text}
+          fg={props.cursor === EXTRAS.length ? theme.accent.fg : theme.foreground.default}
           attributes={props.cursor === EXTRAS.length ? TextAttributes.BOLD : undefined}
         >
           Continue →
@@ -626,9 +626,9 @@ function ImageContent(props: {
 
   return (
     <box gap={2}>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         Pick the image model Nikcli should use by default for image generation. Skip to configure later via
-        <span style={{ fg: theme.accent }}> Ctrl+P → Image Models</span>.
+        <span style={{ fg: theme.accent.alt }}> Ctrl+P → Image Models</span>.
       </text>
       <SectionLabel title={`Available image models (${options().length})`} />
       <box gap={0}>
@@ -637,18 +637,18 @@ function ImageContent(props: {
             const isCursor = () => props.cursor === i()
             return (
               <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                <text flexShrink={0} fg={isCursor() ? theme.accent.fg : theme.border.subtle}>
                   {isCursor() ? "›" : " "}
                 </text>
                 <box width={28} flexShrink={0}>
                   <text
-                    fg={isCursor() ? theme.text : theme.text}
+                    fg={isCursor() ? theme.foreground.default : theme.foreground.default}
                     attributes={isCursor() ? TextAttributes.BOLD : undefined}
                   >
                     {item.title}
                   </text>
                 </box>
-                <text fg={theme.textMuted} flexShrink={1} wrapMode="word">
+                <text fg={theme.foreground.muted} flexShrink={1} wrapMode="word">
                   {item.provider}
                 </text>
               </box>
@@ -656,18 +656,18 @@ function ImageContent(props: {
           }}
         </For>
         <Show when={options().length === 0}>
-          <text fg={theme.textMuted}>
+          <text fg={theme.foreground.muted}>
             No image-capable models found among your connected providers. Connect OpenAI, Google or xAI first.
           </text>
         </Show>
       </box>
       {/* Skip row */}
       <box flexDirection="row" gap={1}>
-        <text flexShrink={0} fg={props.cursor === options().length ? theme.primary : theme.borderSubtle}>
+        <text flexShrink={0} fg={props.cursor === options().length ? theme.accent.fg : theme.border.subtle}>
           {props.cursor === options().length ? "›" : " "}
         </text>
         <text
-          fg={props.cursor === options().length ? theme.primary : theme.textMuted}
+          fg={props.cursor === options().length ? theme.accent.fg : theme.foreground.muted}
           attributes={props.cursor === options().length ? TextAttributes.BOLD : undefined}
         >
           Skip — configure later
@@ -729,12 +729,12 @@ function TTSContent(props: {
 
   return (
     <box gap={2}>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         Choose a Text-to-Speech provider and voice. ElevenLabs needs its own key (you can paste it after selection);
         OpenRouter reuses the key you already entered for the AI provider.
       </text>
       <Show when={props.status}>
-        <text fg={theme.success}>{props.status}</text>
+        <text fg={theme.status.success.fg}>{props.status}</text>
       </Show>
       <SectionLabel title="TTS providers & voices" />
       <box gap={0}>
@@ -744,16 +744,16 @@ function TTSContent(props: {
             if (row.kind === "provider") {
               return (
                 <box flexDirection="row" gap={1}>
-                  <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                  <text flexShrink={0} fg={isCursor() ? theme.accent.fg : theme.border.subtle}>
                     {isCursor() ? "›" : " "}
                   </text>
                   <text
-                    fg={isCursor() ? theme.primary : theme.text}
+                    fg={isCursor() ? theme.accent.fg : theme.foreground.default}
                     attributes={isCursor() ? TextAttributes.BOLD : undefined}
                   >
                     {row.provider.name}
                   </text>
-                  <text fg={theme.textMuted} flexShrink={1} wrapMode="word">
+                  <text fg={theme.foreground.muted} flexShrink={1} wrapMode="word">
                     {" "}
                     — {row.provider.desc}
                   </text>
@@ -763,19 +763,19 @@ function TTSContent(props: {
             if (row.kind === "voice") {
               return (
                 <box flexDirection="row" gap={1}>
-                  <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                  <text flexShrink={0} fg={isCursor() ? theme.accent.fg : theme.border.subtle}>
                     {isCursor() ? "›" : " "}
                   </text>
                   <text flexShrink={0}>{"  "}</text>
                   <box width={20} flexShrink={0}>
                     <text
-                      fg={isCursor() ? theme.text : theme.textMuted}
+                      fg={isCursor() ? theme.foreground.default : theme.foreground.muted}
                       attributes={isCursor() ? TextAttributes.BOLD : undefined}
                     >
                       {row.voice.name}
                     </text>
                   </box>
-                  <text fg={theme.textMuted} flexShrink={1} wrapMode="word">
+                  <text fg={theme.foreground.muted} flexShrink={1} wrapMode="word">
                     {row.voice.id}
                   </text>
                 </box>
@@ -783,11 +783,11 @@ function TTSContent(props: {
             }
             return (
               <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                <text flexShrink={0} fg={isCursor() ? theme.accent.fg : theme.border.subtle}>
                   {isCursor() ? "›" : " "}
                 </text>
                 <text
-                  fg={isCursor() ? theme.primary : theme.textMuted}
+                  fg={isCursor() ? theme.accent.fg : theme.foreground.muted}
                   attributes={isCursor() ? TextAttributes.BOLD : undefined}
                 >
                   Skip — configure later
@@ -836,9 +836,9 @@ function RemoteContent(props: {
   const { theme } = useTheme()
   return (
     <box gap={2}>
-      <text fg={theme.textMuted} wrapMode="word">
+      <text fg={theme.foreground.muted} wrapMode="word">
         Pick the default tunnel provider used when you start a Remote Session. You can change it any time via
-        <span style={{ fg: theme.accent }}> Ctrl+P → Remote Access</span>.
+        <span style={{ fg: theme.accent.alt }}> Ctrl+P → Remote Access</span>.
       </text>
       <SectionLabel title="Tunnel providers" />
       <box gap={0}>
@@ -847,18 +847,18 @@ function RemoteContent(props: {
             const isCursor = () => props.cursor === i()
             return (
               <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                <text flexShrink={0} fg={isCursor() ? theme.accent.fg : theme.border.subtle}>
                   {isCursor() ? "›" : " "}
                 </text>
                 <box width={16} flexShrink={0}>
                   <text
-                    fg={isCursor() ? theme.text : theme.text}
+                    fg={isCursor() ? theme.foreground.default : theme.foreground.default}
                     attributes={isCursor() ? TextAttributes.BOLD : undefined}
                   >
                     {p.name}
                   </text>
                 </box>
-                <text fg={theme.textMuted} flexShrink={1} wrapMode="word">
+                <text fg={theme.foreground.muted} flexShrink={1} wrapMode="word">
                   {p.desc}
                 </text>
               </box>
@@ -866,11 +866,11 @@ function RemoteContent(props: {
           }}
         </For>
         <box flexDirection="row" gap={1}>
-          <text flexShrink={0} fg={props.cursor === REMOTE_PROVIDERS.length ? theme.primary : theme.borderSubtle}>
+          <text flexShrink={0} fg={props.cursor === REMOTE_PROVIDERS.length ? theme.accent.fg : theme.border.subtle}>
             {props.cursor === REMOTE_PROVIDERS.length ? "›" : " "}
           </text>
           <text
-            fg={props.cursor === REMOTE_PROVIDERS.length ? theme.primary : theme.textMuted}
+            fg={props.cursor === REMOTE_PROVIDERS.length ? theme.accent.fg : theme.foreground.muted}
             attributes={props.cursor === REMOTE_PROVIDERS.length ? TextAttributes.BOLD : undefined}
           >
             Skip — configure later
@@ -1291,10 +1291,10 @@ function OnboardingWizard(props: { onComplete: () => void }) {
         flexDirection="row"
         justifyContent="space-between"
       >
-        <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+        <text fg={theme.accent.fg} attributes={TextAttributes.BOLD}>
           {STEP_TITLES[step()]}
         </text>
-        <text fg={theme.borderSubtle}>nikcli</text>
+        <text fg={theme.border.subtle}>nikcli</text>
       </box>
 
       {/* Step breadcrumb */}
@@ -1304,7 +1304,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
       {/* Top separator */}
       <box paddingLeft={2} paddingRight={2}>
-        <text fg={theme.borderSubtle}>{"─".repeat(Math.min(72, dimensions().width - 4))}</text>
+        <text fg={theme.border.subtle}>{"─".repeat(Math.min(72, dimensions().width - 4))}</text>
       </box>
 
       {/* Content */}
@@ -1387,36 +1387,36 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
       {/* Bottom separator */}
       <box paddingLeft={2} paddingRight={2}>
-        <text fg={theme.borderSubtle}>{"─".repeat(Math.min(72, dimensions().width - 4))}</text>
+        <text fg={theme.border.subtle}>{"─".repeat(Math.min(72, dimensions().width - 4))}</text>
       </box>
 
       {/* Footer */}
       <box paddingLeft={2} paddingRight={2} paddingTop={1} flexDirection="row" justifyContent="space-between">
         <Show when={step() !== STEP.ACCOUNT}>
-          <text fg={theme.textMuted}>
+          <text fg={theme.foreground.muted}>
             {"↵ "}
-            <span style={{ fg: theme.text }}>{continueHint()}</span>
+            <span style={{ fg: theme.foreground.default }}>{continueHint()}</span>
           </text>
         </Show>
         <Show when={step() === STEP.ACCOUNT}>
-          <text fg={theme.textMuted}>Complete sign-in or registration in your browser · esc cancel</text>
+          <text fg={theme.foreground.muted}>Complete sign-in or registration in your browser · esc cancel</text>
         </Show>
         <box flexDirection="row" gap={2} alignItems="center">
           <Show when={step() !== STEP.WELCOME && step() !== STEP.ACCOUNT && step() !== STEP.AI_PROVIDER}>
             <box
               paddingLeft={2}
               paddingRight={2}
-              borderColor={theme.borderSubtle}
+              borderColor={theme.border.subtle}
               onMouseUp={() => {
                 dialog.replace(() => <DialogProviderList />)
                 props.onComplete()
               }}
             >
-              <text fg={theme.textMuted}>Skip — finish onboarding</text>
+              <text fg={theme.foreground.muted}>Skip — finish onboarding</text>
             </box>
           </Show>
-          <text fg={theme.textMuted}>
-            <span style={{ fg: theme.borderSubtle }}>step </span>
+          <text fg={theme.foreground.muted}>
+            <span style={{ fg: theme.border.subtle }}>step </span>
             {displayIndex()}/{totalSteps()}
           </text>
         </box>

@@ -1,25 +1,25 @@
 /**
  * Loops — persisted CRUD layer.
  *
- * Definitions live in `Storage` under `["loop", projectID, loopID]`; per-run
- * history under `["loop_run", projectID, loopID, runID]`. All writes are guarded
- * by sanitization so corrupt or partial records are dropped, not surfaced.
+ * Definitions and per-run history live in SQL (`loop`, `loop_run`) behind
+ * `LoopRepo`; see `specs/storage/remove-json-storage.md`. They used to live in
+ * the JSON tree under `["loop", projectID, loopID]` and
+ * `["loop_run", projectID, loopID, runID]`.
+ *
+ * The exported functions stay `async` even though every operation underneath
+ * is now synchronous: the callers are async, and changing their shape is a
+ * separate change from moving the storage.
  */
 
-import { Effect } from "effect"
-import { runPromiseWithLayer } from "../effect"
 import { Instance } from "../project/instance"
-import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
 import { RunSandbox } from "../worktree/sandbox"
+import { LoopRepo } from "./repo"
 import {
   HISTORY_LIMIT,
-  LoopMetaSchema,
   generateID,
   sanitizeDefinition,
-  sanitizeRun,
   type LoopDefinition,
-  type LoopMeta,
   type LoopPullRequestRef,
   type LoopRun,
   type LoopWorktree,
@@ -27,117 +27,32 @@ import {
 
 const log = Log.create({ service: "loop.manager" })
 
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
-function defKey(id: string): string[] {
-  return ["loop", Instance.project.id, id]
-}
-
-function defListPrefix(): string[] {
-  return ["loop", Instance.project.id]
-}
-
-function runKey(loopID: string, runID: string): string[] {
-  return ["loop_run", Instance.project.id, loopID, runID]
-}
-
-function runListPrefix(loopID: string): string[] {
-  return ["loop_run", Instance.project.id, loopID]
-}
-
-function runListAllPrefix(): string[] {
-  return ["loop_run", Instance.project.id]
-}
-
-function metaKey(loopID: string): string[] {
-  return ["loop_meta", Instance.project.id, loopID]
-}
-
-/**
- * List a prefix and read every record in a single Effect program (one layer
- * build for the whole batch instead of one per record). Unreadable records
- * resolve to `undefined`.
- */
-function readAllByPrefix(prefix: string[]): Promise<unknown[]> {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      const keys = yield* storage.list(prefix)
-      return yield* Effect.forEach(
-        keys,
-        (k) => storage.read<unknown>(k).pipe(Effect.catch(() => Effect.succeed(undefined))),
-        { concurrency: 10 },
-      )
-    }),
-  ).catch(() => [] as unknown[])
-}
-
-async function readRunsByPrefix(prefix: string[]): Promise<LoopRun[]> {
-  const records = await readAllByPrefix(prefix)
-  return records.map(sanitizeRun).filter((r): r is LoopRun => r !== undefined)
-}
-
-async function readDef(id: string): Promise<LoopDefinition | undefined> {
-  try {
-    const raw = await runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        return yield* storage.read<unknown>(defKey(id))
-      }),
-    )
-    return sanitizeDefinition(raw)
-  } catch (error) {
-    if (error instanceof Storage.NotFoundError) return undefined
-    log.warn("read loop failed", { id, error })
-    return undefined
-  }
-}
-
-async function writeDef(def: LoopDefinition): Promise<void> {
-  await runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(defKey(def.id), def)
-    }),
-  )
-}
-
-async function removeDef(id: string): Promise<void> {
-  await runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.remove(defKey(id))
-    }),
-  )
+function projectID(): string {
+  return Instance.project.id
 }
 
 export async function list(): Promise<LoopDefinition[]> {
-  const records = await readAllByPrefix(defListPrefix())
-  return records
-    .map(sanitizeDefinition)
-    .filter((r): r is LoopDefinition => r !== undefined)
-    .sort((a, b) => b.createdAt - a.createdAt)
+  return LoopRepo.list(projectID())
 }
 
 export async function get(id: string): Promise<LoopDefinition | undefined> {
-  return readDef(id)
+  return LoopRepo.get(projectID(), id)
 }
 
 export async function upsert(def: LoopDefinition): Promise<LoopDefinition> {
   const sanitized = sanitizeDefinition(def)
   if (!sanitized) throw new Error("Invalid loop definition")
+  const project = projectID()
   // `worktree` is engine-owned state, not part of the user-editable
   // definition. Clients that round-trip a whole definition on edit (the TUI
   // dialog, a REST PUT) omit it, and dropping it would strand the loop's
   // sandbox and branch a fresh one on the next run — so it is sticky unless
   // the caller explicitly supplies one.
   if (!sanitized.worktree) {
-    const existing = await readDef(sanitized.id)
+    const existing = LoopRepo.get(project, sanitized.id)
     if (existing?.worktree) sanitized.worktree = existing.worktree
   }
-  await writeDef(sanitized)
+  LoopRepo.upsert(project, sanitized)
   log.info("upsert", {
     id: sanitized.id,
     name: sanitized.name,
@@ -147,9 +62,12 @@ export async function upsert(def: LoopDefinition): Promise<LoopDefinition> {
 }
 
 export async function remove(id: string): Promise<boolean> {
-  const existing = await get(id)
+  const project = projectID()
+  const existing = LoopRepo.get(project, id)
   if (!existing) return false
-  await removeDef(id)
+  // Cascade: the definition and every run it owns go in one transaction, so a
+  // crash cannot leave runs pointing at a loop that no longer exists.
+  LoopRepo.remove(project, id)
   // Best-effort sandbox cleanup. `release` keeps the worktree whenever it
   // still holds work, so deleting a loop never destroys an agent's output.
   if (existing.worktree) {
@@ -158,18 +76,6 @@ export async function remove(id: string): Promise<boolean> {
       sandbox: existing.worktree,
     }).catch(() => false)
   }
-  // Cascade: drop every run record + the meta counter so we don't leak orphan entries.
-  await runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      const runKeys = yield* storage.list(runListPrefix(id))
-      yield* Effect.forEach(
-        [...runKeys, metaKey(id)],
-        (key) => storage.remove(key).pipe(Effect.catch(() => Effect.succeed(undefined))),
-        { concurrency: 10 },
-      )
-    }),
-  ).catch(() => {})
   return true
 }
 
@@ -207,19 +113,14 @@ export async function orphanRun(
   endedAt: number = Date.now(),
 ): Promise<LoopRun | undefined> {
   try {
-    return await runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        return yield* storage.update<LoopRun>(runKey(loopID, runID), (draft) => {
-          if (draft.status === "running") {
-            draft.status = "orphaned"
-            draft.ok = false
-            draft.endedAt = endedAt
-            draft.error = draft.error ?? "Process exited before the run finished"
-          }
-        })
-      }),
-    )
+    return LoopRepo.updateRun(projectID(), loopID, runID, (draft) => {
+      if (draft.status === "running") {
+        draft.status = "orphaned"
+        draft.ok = false
+        draft.endedAt = endedAt
+        draft.error = draft.error ?? "Process exited before the run finished"
+      }
+    })
   } catch (error) {
     log.warn("orphanRun failed", { loopID, runID, error })
     return undefined
@@ -228,54 +129,35 @@ export async function orphanRun(
 
 /** Find every run across every loop that is still in `"running"` status. */
 export async function listRunningRuns(): Promise<LoopRun[]> {
-  const records = await readRunsByPrefix(runListAllPrefix())
-  return records.filter((r) => r.status === "running")
+  return LoopRepo.listRunsByStatus(projectID(), "running")
 }
 
-// ── Run counter (meta record) ─────────────────────────────────────────────────
-
-async function readMeta(loopID: string): Promise<LoopMeta | undefined> {
-  try {
-    const raw = await runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        return yield* storage.read<unknown>(metaKey(loopID))
-      }),
-    )
-    const parsed = LoopMetaSchema.safeParse(raw)
-    return parsed.success ? parsed.data : undefined
-  } catch {
-    return undefined
-  }
-}
-
-async function writeMeta(loopID: string, meta: LoopMeta): Promise<void> {
-  await runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(metaKey(loopID), meta)
-    }),
-  )
-}
+// ── Run counter ───────────────────────────────────────────────────────────────
 
 /**
- * Lifetime number of started runs. Backed by the meta counter, not the run
- * history (which `trimRuns` caps at HISTORY_LIMIT), so `maxRuns` larger than
- * the history window still triggers. Missing counters are initialized from
- * the surviving history records (one-time migration for pre-counter loops).
+ * Lifetime number of started runs. Backed by the `started_runs` counter, not
+ * the run history (which `trimRuns` caps at HISTORY_LIMIT), so `maxRuns`
+ * larger than the history window still triggers. A null counter is
+ * initialized from the surviving history records (one-time migration for
+ * pre-counter loops).
  */
 export async function countRuns(loopID: string): Promise<number> {
-  const meta = await readMeta(loopID)
-  if (meta) return meta.startedRuns
-  const runs = await readRunsByPrefix(runListPrefix(loopID))
-  await writeMeta(loopID, { startedRuns: runs.length }).catch(() => {})
-  return runs.length
+  const project = projectID()
+  const counted = LoopRepo.startedRuns(project, loopID)
+  if (counted !== undefined) return counted
+  const fromHistory = LoopRepo.countRunRecords(project, loopID)
+  try {
+    LoopRepo.setStartedRuns(project, loopID, fromHistory)
+  } catch (error) {
+    log.warn("run counter seed failed", { loopID, error })
+  }
+  return fromHistory
 }
 
 /** Overwrite the lifetime run counter. Used after manual run cap edits. */
 export async function resetRunCounter(loopID: string, startedRuns = 0): Promise<void> {
   try {
-    await writeMeta(loopID, { startedRuns })
+    LoopRepo.setStartedRuns(projectID(), loopID, startedRuns)
   } catch (error) {
     log.warn("resetRunCounter failed", { loopID, error })
   }
@@ -284,6 +166,7 @@ export async function resetRunCounter(loopID: string, startedRuns = 0): Promise<
 // ── Runs ──────────────────────────────────────────────────────────────────────
 
 export async function startRun(loopID: string, sessionID?: string): Promise<LoopRun> {
+  const project = projectID()
   const now = Date.now()
   const run: LoopRun = {
     id: generateID("loop_run"),
@@ -294,21 +177,13 @@ export async function startRun(loopID: string, sessionID?: string): Promise<Loop
     ok: false,
     ...(sessionID ? { sessionID } : {}),
   }
-  await runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(runKey(loopID, run.id), run)
-    }),
-  )
+  LoopRepo.putRun(project, run)
   // Bump the lifetime counter; on first contact derive it from history (the
   // record above is already included in that count).
   try {
-    const meta = await readMeta(loopID)
-    if (meta) await writeMeta(loopID, { startedRuns: meta.startedRuns + 1 })
-    else
-      await writeMeta(loopID, {
-        startedRuns: (await readRunsByPrefix(runListPrefix(loopID))).length,
-      })
+    if (LoopRepo.incrementStartedRuns(project, loopID) === undefined) {
+      LoopRepo.setStartedRuns(project, loopID, LoopRepo.countRunRecords(project, loopID))
+    }
   } catch (error) {
     log.warn("run counter bump failed", { loopID, error })
   }
@@ -318,15 +193,10 @@ export async function startRun(loopID: string, sessionID?: string): Promise<Loop
 /** Renew the lease on a running run. No-op if the run already finished. */
 export async function touchRun(loopID: string, runID: string): Promise<void> {
   try {
-    await runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        yield* storage.update<LoopRun>(runKey(loopID, runID), (draft) => {
-          if (draft.status !== "running") return
-          draft.heartbeatAt = Date.now()
-        })
-      }),
-    )
+    LoopRepo.updateRun(projectID(), loopID, runID, (draft) => {
+      if (draft.status !== "running") return
+      draft.heartbeatAt = Date.now()
+    })
   } catch (error) {
     log.warn("touchRun failed", { loopID, runID, error })
   }
@@ -335,14 +205,9 @@ export async function touchRun(loopID: string, runID: string): Promise<void> {
 /** Attach the session to a running run without touching status/endedAt. */
 export async function attachRunSession(loopID: string, runID: string, sessionID: string): Promise<void> {
   try {
-    await runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        yield* storage.update<LoopRun>(runKey(loopID, runID), (draft) => {
-          draft.sessionID = sessionID
-        })
-      }),
-    )
+    LoopRepo.updateRun(projectID(), loopID, runID, (draft) => {
+      draft.sessionID = sessionID
+    })
   } catch (error) {
     log.warn("attachRunSession failed", { loopID, runID, error })
   }
@@ -355,14 +220,9 @@ export async function attachRunPullRequest(
   pullRequest: LoopPullRequestRef,
 ): Promise<void> {
   try {
-    await runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        yield* storage.update<LoopRun>(runKey(loopID, runID), (draft) => {
-          draft.pullRequest = pullRequest
-        })
-      }),
-    )
+    LoopRepo.updateRun(projectID(), loopID, runID, (draft) => {
+      draft.pullRequest = pullRequest
+    })
   } catch (error) {
     log.warn("attachRunPullRequest failed", { loopID, runID, error })
   }
@@ -379,20 +239,17 @@ export async function finishRun(
     sessionID?: string
   },
 ): Promise<LoopRun | undefined> {
+  const project = projectID()
   try {
-    const next = await runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        return yield* storage.update<LoopRun>(runKey(loopID, runID), (draft) => {
-          draft.status = patch.status
-          draft.ok = patch.ok
-          draft.endedAt = patch.endedAt
-          if (patch.error !== undefined) draft.error = patch.error
-          if (patch.sessionID !== undefined) draft.sessionID = patch.sessionID
-        })
-      }),
-    )
-    await trimRuns(loopID)
+    const next = LoopRepo.updateRun(project, loopID, runID, (draft) => {
+      draft.status = patch.status
+      draft.ok = patch.ok
+      draft.endedAt = patch.endedAt
+      if (patch.error !== undefined) draft.error = patch.error
+      if (patch.sessionID !== undefined) draft.sessionID = patch.sessionID
+    })
+    if (next === undefined) return undefined
+    LoopRepo.trimRuns(project, loopID, HISTORY_LIMIT)
     return next
   } catch (error) {
     log.warn("finishRun failed", { loopID, runID, error })
@@ -400,42 +257,10 @@ export async function finishRun(
   }
 }
 
-async function trimRuns(loopID: string): Promise<void> {
-  // Drop oldest (filenames end with `${runID}.json`; the trailing .json is stripped
-  // by listImpl, so the last segment is the runID). Single Effect program: the
-  // cheap key-count check, the reads, and the removals share one layer build.
-  await runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      const keys = yield* storage.list(runListPrefix(loopID))
-      if (keys.length <= HISTORY_LIMIT) return
-      const records = yield* Effect.forEach(
-        keys,
-        (k) =>
-          storage.read<unknown>(k).pipe(
-            Effect.map(sanitizeRun),
-            Effect.catch(() => Effect.succeed(undefined)),
-          ),
-        { concurrency: 10 },
-      )
-      const sortable = records.filter((r): r is LoopRun => r !== undefined)
-      sortable.sort((a, b) => a.startedAt - b.startedAt)
-      const toDrop = sortable.slice(0, sortable.length - HISTORY_LIMIT)
-      yield* Effect.forEach(
-        toDrop,
-        (r) => storage.remove(runKey(loopID, r.id)).pipe(Effect.catch(() => Effect.succeed(undefined))),
-        { concurrency: 10 },
-      )
-    }),
-  ).catch(() => {})
-}
-
 export async function listRuns(loopID: string, limit = HISTORY_LIMIT): Promise<LoopRun[]> {
-  const records = await readRunsByPrefix(runListPrefix(loopID))
-  return records.sort((a, b) => b.startedAt - a.startedAt).slice(0, limit)
+  return LoopRepo.listRuns(projectID(), loopID, limit)
 }
 
 export async function listAllRunsAcrossLoops(limit = 100): Promise<LoopRun[]> {
-  const records = await readRunsByPrefix(runListAllPrefix())
-  return records.sort((a, b) => b.startedAt - a.startedAt).slice(0, limit)
+  return LoopRepo.listRunsByProject(projectID(), limit)
 }

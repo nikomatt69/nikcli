@@ -129,21 +129,47 @@ export namespace ToolRegistry {
     return true
   }
 
-  type State = {
-    custom: Tool.Info[]
+  type DerivedState = {
+    readonly tools: Tool.Info[]
+  }
+
+  type RuntimeEntry = {
+    readonly token: number
+    readonly tool: Tool.Info
+  }
+
+  type RuntimeState = {
+    entries: RuntimeEntry[]
+    nextToken: number
+  }
+
+  /**
+   * Last registration for an id wins. Built-ins, then config-dir/plugin tools,
+   * then runtime `register()` entries — closing a handle reveals the previous
+   * occupant of that id.
+   */
+  export function lastWins<T extends { id: string }>(tools: readonly T[]): T[] {
+    const map = new Map<string, T>()
+    for (const tool of tools) map.set(tool.id, tool)
+    return [...map.values()]
+  }
+
+  export type Handle = {
+    readonly close: Effect.Effect<void>
   }
 
   export type Resolved = {
     id: string
     description: string
     parameters: z.ZodType
+    output?: z.ZodType
     execute: Tool.Def["execute"]
     executeAsync: Tool.Def["executeAsync"]
     formatValidationError: Tool.Def["formatValidationError"]
   }
 
   export interface Interface {
-    readonly register: (tool: Tool.Info) => Effect.Effect<void, unknown>
+    readonly register: (tool: Tool.Info) => Effect.Effect<Handle>
     readonly ids: () => Effect.Effect<string[], unknown>
     readonly tools: (
       model: {
@@ -249,9 +275,9 @@ export namespace ToolRegistry {
   export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
-      const state = yield* InstanceState.make<State>(
-        Effect.fn("ToolRegistry.state")(function* () {
-          const custom = [] as Tool.Info[]
+      const derived = yield* InstanceState.make<DerivedState>(
+        Effect.fn("ToolRegistry.derived")(function* () {
+          const tools = [] as Tool.Info[]
           const glob = new Bun.Glob("{tool,tools}/*.{js,ts}")
           const ctx = yield* InstanceState.context
           const config = yield* Effect.promise(() => configGet(ctx))
@@ -299,7 +325,7 @@ export namespace ToolRegistry {
 
                 const mod = yield* Effect.promise(() => import(match))
                 for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
-                  custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
+                  tools.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
                 }
               }
             }
@@ -314,34 +340,42 @@ export namespace ToolRegistry {
           ).pipe(Effect.orDie)
           for (const plugin of plugins) {
             for (const [id, def] of Object.entries(plugin.tool ?? {})) {
-              custom.push(fromPlugin(id, def))
+              tools.push(fromPlugin(id, def))
             }
           }
 
-          return { custom }
+          return { tools }
         }),
-        // Deliberately not `reloadable`: `register` below appends runtime-registered
-        // tools (sdk-next `tools.register`, plugins) into this same `custom` array
-        // and they exist nowhere else, so invalidating on a config change would
-        // drop them silently. `all()` re-reads the config-derived parts per call.
+        // Config-dir files and plugin.tool contributions are a derivation of
+        // disk + loaded plugins, so they join instance hot reload. Runtime
+        // `register()` lives in the cache below and is not opted in.
+        { reloadable: true },
+      )
+
+      const runtime = yield* InstanceState.make<RuntimeState>(() =>
+        Effect.succeed({ entries: [] as RuntimeEntry[], nextToken: 1 }),
       )
 
       const register: Interface["register"] = Effect.fn("ToolRegistry.register")(function* (tool: Tool.Info) {
-        const { custom } = yield* InstanceState.get(state)
-        const idx = custom.findIndex((t) => t.id === tool.id)
-        if (idx >= 0) {
-          custom.splice(idx, 1, tool)
-          return
-        }
-        custom.push(tool)
+        const state = yield* InstanceState.get(runtime)
+        const token = state.nextToken++
+        state.entries.push({ token, tool })
+        return {
+          close: Effect.gen(function* () {
+            const current = yield* InstanceState.get(runtime)
+            const idx = current.entries.findIndex((entry) => entry.token === token)
+            if (idx >= 0) current.entries.splice(idx, 1)
+          }),
+        } satisfies Handle
       })
 
       const all: () => Effect.Effect<Tool.Info[], unknown> = Effect.fn("ToolRegistry.all")(function* () {
-        const custom = yield* InstanceState.get(state).pipe(Effect.map((x) => x.custom))
+        const contributed = yield* InstanceState.get(derived).pipe(Effect.map((x) => x.tools))
+        const registered = yield* InstanceState.get(runtime).pipe(Effect.map((x) => x.entries))
         const ctx = yield* InstanceState.context
         const config = yield* Effect.promise(() => configGet(ctx))
 
-        return [
+        return lastWins([
           InvalidTool,
           ...(["app", "cli", "desktop"].includes(Flag.NIKCLI_CLIENT) ? [QuestionTool] : []),
           BashTool,
@@ -388,8 +422,9 @@ export namespace ToolRegistry {
           ...(Flag.NIKCLI_EXPERIMENTAL_CODE_MODE ? [CodeModeTool] : []),
           ...(Flag.NIKCLI_EXPERIMENTAL_BROWSER_CONTROL_TOOL ? [BrowserControlTool] : []),
           ...(Flag.NIKCLI_EXPERIMENTAL_COMPUTER_TOOL ? [ComputerTool] : []),
-          ...custom,
-        ]
+          ...contributed,
+          ...registered.map((entry) => entry.tool),
+        ])
       })
 
       const ids: Interface["ids"] = Effect.fn("ToolRegistry.ids")(function* () {
@@ -440,6 +475,7 @@ export namespace ToolRegistry {
                   id: t.id,
                   description: def.description,
                   parameters: def.parameters,
+                  output: def.output,
                   execute: def.execute,
                   executeAsync: def.executeAsync,
                   formatValidationError: def.formatValidationError,

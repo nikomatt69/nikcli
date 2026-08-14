@@ -1459,7 +1459,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
       width={dimensions().width}
       height={dimensions().height}
       flexDirection="column"
-      backgroundColor={theme.background}
+      backgroundColor={theme.surface.base}
       onMouseUp={async () => {
         if (Flag.NIKCLI_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) {
           renderer.clearSelection()

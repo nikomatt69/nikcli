@@ -33,26 +33,28 @@ A tool returns exactly one shape:
 ```ts
 interface Tool.Result<M> {
   title: string                        // UI label
-  output: string                       // model-facing content, stored durably
+  output: string                       // model-facing content, stored durably, truncated by the wrapper
   metadata: M                          // compact JSON for tool-specific UI
+  value?: unknown                      // schema-validated machine success, when a codec is declared
   attachments?: MessageV2.FilePart[]   // images and files handed back to the model
 }
 ```
 
-There is no separate schema-validated machine `output` distinct from model-facing content: `output` is a string and is both. Code Mode (`src/codemode/tool-runtime.ts`) consumes that same string; it does not receive a validated encoded value.
+`output` is always the model-facing string. A tool **may** declare an `output` zod codec on its definition; when it does, `execute` must also return `value`, the wrapper parses that value after the body runs, and a malformed success fails that call alone. Code Mode (`src/codemode/tool-runtime.ts`) receives `Tool.encoded(result, codec)` — the validated `value` when a codec exists, otherwise the string. Truncation never rewrites `value`. A tool without a codec is unchanged: no `value`, Code Mode still sees the string.
 
-> **Consequence.** A tool cannot declare an output schema, so Code Mode cannot type its own call results, and the registry cannot reject a malformed success. This is the largest remaining divergence from the upstream tool contract. See ROADMAP item T2.
+Built-in tools are not required to declare a codec. Adding one is additive.
 
 ## Validation And Truncation Belong To The Wrapper
 
-`Tool.define`'s wrapper does four things around every call, so no individual tool repeats them:
+`Tool.define`'s wrapper does five things around every call, so no individual tool repeats them:
 
-1. **Parse.** `parameters.parse(args)` runs before `execute`. A `ZodError` becomes an `Error` carrying either the tool's own `formatValidationError` message or a generic "rewrite the input so it satisfies the expected schema" instruction. Invalid input never reaches the tool.
+1. **Parse input.** `parameters.parse(args)` runs before `execute`. A `ZodError` becomes an `Error` carrying either the tool's own `formatValidationError` message or a generic "rewrite the input so it satisfies the expected schema" instruction. Invalid input never reaches the tool.
 2. **Default metadata.** `ctx.metadata` is wrapped so `truncated` defaults to `false` rather than being absent.
-3. **Truncate.** Unless the tool already set `metadata.truncated`, the output goes through `Truncate.output(...)` with the resolving agent. When content is cut, `metadata.truncated` becomes `true` and `metadata.outputPath` points at the retained full text.
-4. **Fail soft on truncation.** A failing truncation falls back to the raw output. The comment in the source is the reason it is written that way: a `try/catch` around a `yield*` would not see Effect failures, and a rejected `Effect.promise` would kill the fiber as a defect.
+3. **Parse output.** When the tool declared an `output` codec, `codec.parse(result.value)` runs after `execute`. A malformed or missing success becomes an `Error` for that call only; siblings are not failed.
+4. **Truncate.** Unless the tool already set `metadata.truncated`, the **model-facing** `output` string goes through `Truncate.output(...)` with the resolving agent. When content is cut, `metadata.truncated` becomes `true` and `metadata.outputPath` points at the retained full text. The encoded `value` is left intact.
+5. **Fail soft on truncation.** A failing truncation falls back to the raw output. The comment in the source is the reason it is written that way: a `try/catch` around a `yield*` would not see Effect failures, and a rejected `Effect.promise` would kill the fiber as a defect.
 
-A tool that sets `metadata.truncated` itself is trusted and skipped — that is how producers with their own capture limits (process output, web fetch) keep ownership of their loss reporting.
+A tool that sets `metadata.truncated` itself is trusted and skipped — that is how producers with their own capture limits (process output, web fetch) keep ownership of their loss reporting. Output-codec validation still runs first.
 
 ## Every Call Carries Its Invocation Identity
 
@@ -77,15 +79,14 @@ Cancellation is an `AbortSignal`, not Effect interruption. Tools pass `ctx.abort
 
 Permissions are formulated by the tool through `ctx.ask`, which merges the agent ruleset with the session ruleset. The registry does not inject a permission helper, and sharing the tool type does not imply equal authority: built-ins capture trusted services that plugin tools cannot reach.
 
-## Registration Is A Flat Instance-Scoped List
+## Registration Is An Overlay Stack
 
-The registry keeps one `custom: Tool.Info[]` per instance, built once in `InstanceState`:
+The registry keeps two per-instance caches:
 
-1. Config-directory `{tool,tools}/*.{js,ts}` files — **only** when `NIKCLI_ALLOW_PLUGIN_AUTOLOAD` is set or `tool.allow` is non-empty. Each candidate must match the allowlist by absolute path, basename, or stem, and if `tool.pin[...]` names it, its SHA-256 must match or it is refused.
-2. Tools contributed by loaded plugins.
-3. Runtime registrations through `register(tool)` — the sdk-next `tools.register` path.
+1. **Derived** (reloadable). Config-directory `{tool,tools}/*.{js,ts}` files — **only** when `NIKCLI_ALLOW_PLUGIN_AUTOLOAD` is set or `tool.allow` is non-empty. Each candidate must match the allowlist by absolute path, basename, or stem, and if `tool.pin[...]` names it, its SHA-256 must match or it is refused. Then tools contributed by loaded plugins via `plugin.tool`.
+2. **Runtime** (not reloadable). Registrations through `register(tool)` — the sdk-next `tools.register` path.
 
-`register` replaces by id if present, otherwise appends. There is **no scope, no removal, and no overlay stack**: a later registration for a name destroys the earlier one permanently, and closing a plugin cannot reveal what it shadowed. The `InstanceState` entry is deliberately not `reloadable`, because a config-driven invalidation would silently drop runtime registrations that exist nowhere else.
+`register` always appends and returns a `Handle`. Closing the handle removes exactly that stack entry. Resolution is last-wins by id across built-ins, then derived, then runtime, so a later registration shadows the earlier occupant of the same name and closing it reveals the next-latest. The derived cache is `reloadable: true`; invalidating it rebuilds config-dir and plugin tools from disk without dropping the runtime stack.
 
 ## Resolution Is Per Request, Ordered, And Filtered
 
@@ -121,9 +122,11 @@ A Bun `plugin()` resolver is installed at module load so config-directory tools 
 
 - **Single execution.** A wrapped tool can execute only the `execute` its author supplied.
 - **Validated input.** Invalid input never executes the tool.
-- **Wrapper-owned truncation.** Output bounding happens once, in the wrapper, unless the tool claims it.
+- **Validated output.** When an output codec is declared, a success that does not satisfy it never becomes a completed call.
+- **Wrapper-owned truncation.** Output bounding happens once, in the wrapper, unless the tool claims it, and it applies only to the model-facing string.
 - **Durable identity.** Invocation records use the exact session, agent, assistant message, and call ids the runner supplied.
 - **Byte-stable advertisement.** An equivalent tool set serializes identically across machines, locales, and registration orders.
+- **Last-wins overlay.** A later `register` for an id shadows the previous occupant; closing that handle reveals the next-latest.
 - **Shared visibility.** The set the model is offered and the set `search_tools` advertises come from one predicate.
 - **Per-call rejection.** An unavailable or invalid call fails alone; it never fails a sibling call.
 - **Interruption is a signal, not a result.** An aborted call is not a tool failure; it is reconciled at request assembly (see [session](./session.md)).

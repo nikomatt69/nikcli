@@ -73,23 +73,23 @@ export function SubagentFooter() {
         paddingRight={1}
         {...SplitBorder}
         border={["left"]}
-        borderColor={theme.border}
+        borderColor={theme.border.default}
         flexShrink={0}
-        backgroundColor={theme.backgroundPanel}
+        backgroundColor={theme.surface.panel}
       >
         <box flexDirection="row" justifyContent="space-between" gap={1}>
           <box flexDirection="row" gap={1}>
-            <text fg={theme.text}>
+            <text fg={theme.foreground.default}>
               <b>{subagentInfo().label}</b>
             </text>
             <Show when={subagentInfo().total > 0}>
-              <text style={{ fg: theme.textMuted }}>
+              <text style={{ fg: theme.foreground.muted }}>
                 ({subagentInfo().index} of {subagentInfo().total})
               </text>
             </Show>
             <Show when={usage()}>
               {(item) => (
-                <text fg={theme.textMuted} wrapMode="none">
+                <text fg={theme.foreground.muted} wrapMode="none">
                   {[item().context, item().cost].filter(Boolean).join(" · ")}
                 </text>
               )}
@@ -100,30 +100,30 @@ export function SubagentFooter() {
               onMouseOver={() => setHover("parent")}
               onMouseOut={() => setHover(null)}
               onMouseUp={() => command.trigger("session.parent")}
-              backgroundColor={hover() === "parent" ? theme.backgroundElement : theme.backgroundPanel}
+              backgroundColor={hover() === "parent" ? theme.surface.offset : theme.surface.panel}
             >
-              <text fg={theme.text}>
-                Parent <span style={{ fg: theme.textMuted }}>{keybind.print("session_parent")}</span>
+              <text fg={theme.foreground.default}>
+                Parent <span style={{ fg: theme.foreground.muted }}>{keybind.print("session_parent")}</span>
               </text>
             </box>
             <box
               onMouseOver={() => setHover("prev")}
               onMouseOut={() => setHover(null)}
               onMouseUp={() => command.trigger("session.child.previous")}
-              backgroundColor={hover() === "prev" ? theme.backgroundElement : theme.backgroundPanel}
+              backgroundColor={hover() === "prev" ? theme.surface.offset : theme.surface.panel}
             >
-              <text fg={theme.text}>
-                Prev <span style={{ fg: theme.textMuted }}>{keybind.print("session_child_cycle_reverse")}</span>
+              <text fg={theme.foreground.default}>
+                Prev <span style={{ fg: theme.foreground.muted }}>{keybind.print("session_child_cycle_reverse")}</span>
               </text>
             </box>
             <box
               onMouseOver={() => setHover("next")}
               onMouseOut={() => setHover(null)}
               onMouseUp={() => command.trigger("session.child.next")}
-              backgroundColor={hover() === "next" ? theme.backgroundElement : theme.backgroundPanel}
+              backgroundColor={hover() === "next" ? theme.surface.offset : theme.surface.panel}
             >
-              <text fg={theme.text}>
-                Next <span style={{ fg: theme.textMuted }}>{keybind.print("session_child_cycle")}</span>
+              <text fg={theme.foreground.default}>
+                Next <span style={{ fg: theme.foreground.muted }}>{keybind.print("session_child_cycle")}</span>
               </text>
             </box>
           </box>

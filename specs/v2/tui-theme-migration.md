@@ -1,35 +1,15 @@
 # TUI Theme Migration
 
-| Field  | Value                                                            |
-| ------ | ---------------------------------------------------------------- |
-| Status | **Proposed and unimplemented**                                   |
-| Scope  | `src/cli/cmd/tui/context/theme.tsx` and its 98 theme documents    |
+| Field  | Value                                              |
+| ------ | -------------------------------------------------- |
+| Status | **U3 and U2 done**                                 |
+| Scope  | `src/cli/cmd/tui/context/theme.tsx` and its 98 theme documents |
 
 ## Where It Stands
 
-Themes are flat color maps. A document declares `defs` (raw hex, usually a 12-step ramp plus named hues) and then a `dark` / `light` pair of **flat semantic-ish keys**: `background`, `backgroundPanel`, `backgroundElement`, `border`, `borderActive`, `borderSubtle`, `text`, `textMuted`, `primary`, `secondary`, `accent`, `error`, `warning`, `success`, `info`, the `diff*` family, the `markdown*` family, and `syntax*`.
+Theme **documents** are still flat color maps. A document declares `defs` and then a `dark` / `light` pair of keys: `background`, `backgroundPanel`, `backgroundElement`, `border`, `borderActive`, `borderSubtle`, `text`, `textMuted`, `primary`, `secondary`, `accent`, `error`, `warning`, `success`, `info`, the `diff*` family, the `markdown*` family, and `syntax*`.
 
-Components read those keys directly. Measured across the TUI:
-
-| Token               | Reads |
-| ------------------- | -----: |
-| `textMuted`         | 746   |
-| `text`              | 359   |
-| `primary`           | 207   |
-| `warning`           | 111   |
-| `error` / `borderSubtle` | 102 each |
-| `success`           | 101   |
-| `backgroundElement` | 81    |
-| `accent`            | 74    |
-| `backgroundPanel`   | 37    |
-| `background`        | 33    |
-
-Two structural problems follow:
-
-1. **Foregrounds and backgrounds are unpaired.** `warning` is a single color. A component that wants a warning *badge* has to invent a background, and whether the result is readable depends on the theme. `selectedListItemText` exists precisely because one such pair was needed and got hardcoded as a one-off.
-2. **There is no surface vocabulary.** `background`, `backgroundPanel`, and `backgroundElement` are three levels with no stated contract, so a new component picks one by imitation. Overlay and offset surfaces do not exist at all; dialogs pick `backgroundPanel` and hope.
-
-With 98 theme documents, any new token is 98 edits unless it is derived. So the migration must be **derivation-first**: new tokens are computed from existing ones by default, and a theme overrides only where the derivation is wrong.
+`deriveSemanticTokens` computes the nested vocabulary from those resolved colors. No theme JSON gained keys. The `Theme` type is nested-only. Flat document keys remain on the runtime object for plugin `TuiThemeCurrent`, and documents are still written with the original flat names.
 
 ## Target
 
@@ -38,26 +18,30 @@ Semantic tokens that always carry the pair, plus explicit surface levels:
 ```
 surface.base / surface.panel / surface.offset / surface.overlay
 foreground.default / foreground.muted / foreground.subtle
-accent.{fg,bg,border}
+accent.{fg,bg,border,alt,secondary}
 status.{error,warning,success,info}.{fg,bg}
 border.{default,subtle,active,focus}
+badge.{fg,bg}
 ```
+
+`accent.fg` is `primary`. `accent.alt` is the document `accent` hue. `accent.secondary` is the document `secondary` hue. `thinkingOpacity` stays a presentation token defaulting to `0.6`.
 
 ## Checklist
 
-- [ ] Add semantic accent foreground and border tokens so components stop reading `primary` and `accent` for both roles.
-- [ ] Add paired badge/label foreground+background tokens and retire the ad-hoc `selectedListItemText`.
-- [ ] Add strong `warning` and `error` background treatments with matching readable foregrounds.
-- [ ] Add `surface.offset` and `surface.overlay`, derived from the existing panel/element colors, and use them as the contextual defaults for dialogs and popovers.
-- [ ] Use `foreground.default` for active cursors, `surface.offset` for disabled cursors, and a lighter accent for focused form borders.
-- [ ] Decide whether "thinking" opacity stays a fixed `0.6` or becomes a presentation token of its own.
-- [ ] Generate syntax styles from resolved tokens rather than from flat `syntax*` reads.
-- [ ] Migrate surfaces one at a time behind a compatibility proxy, then delete the proxy once no flat reads remain.
+- [x] U3: lazy-load built-in theme JSON — only `nikcli` is parsed at module load; the selected theme loads on demand; previously unwired documents are in the catalog.
+- [x] Derive `accent.{fg,bg,border}` from `primary` / a lighter mix so fill and border are not the same color.
+- [x] Derive `badge.{fg,bg}` (contrast on `primary`, or explicit `selectedListItemText`) and use it in shared dialog primitives. Flat `selectedListItemText` remains until remaining call sites move.
+- [x] Derive `status.{error,warning,success,info}.{fg,bg}` and use the strong warning/error pair on toasts.
+- [x] Derive `surface.offset` / `surface.overlay` from element/menu colors. Dialog chrome, toasts, and the prompt autocomplete popover use overlay; focused inputs use offset.
+- [x] Active prompt cursor uses `foreground.default`; disabled cursor uses `surface.offset`; focused form borders use `border.focus`.
+- [x] Keep "thinking" opacity as a presentation token at `0.6`.
+- [x] Generate syntax styles from nested `syntax` / `markdown` / `diff` tokens (still derived from the flat document keys).
+- [x] Remaining UI reads of `selectedListItemText` use `badge.fg`. The document field stays as the optional badge-foreground override.
+- [x] Migrate TUI callers off flat `text` / `textMuted` / `primary` / status / surface / border / diff keys onto the nested vocabulary.
+- [x] Drop remaining `theme.secondary` and bare `theme.accent` RGBA reads (`accent.alt` / `accent.secondary`), then delete the `asDual` compatibility proxy and the `ThemeColors` intersection on `Theme`.
 
 ## Constraint That Is Easy To Miss
 
-`theme.tsx` statically imports **92 of the 98** theme JSON documents with `with { type: "json" }`. Every one of them is parsed into the TUI bundle at startup, whether or not the user's theme is among them. Any change that grows the per-theme document therefore grows startup cost for all themes at once.
+U3 (landed): built-in JSON is lazy. `theme-catalog.ts` eagerly parses only `nikcli.json`. Every other document — including the six that previously shipped unwired (`arctic`, `muted`, `osaka-jade`, `oxocarbon`, `vivid`, `zinc`) — is a static `import()` loader, so bun compile still embeds the files and the runtime only parses the selected theme plus the fallback. The picker lists catalog ids via `names()` without loading documents. Plugin `addTheme` / `hasTheme` is unchanged. Do **not** go back to static `with { type: "json" }` imports of the whole set.
 
-Fixing that is a separate change — lazy-load the selected theme, keep one built-in eagerly — but it should land **before** tokens are added, not after, or the token expansion pays a multiplier. See ROADMAP item U3.
-
-Six documents ship as JSON but are imported by nothing and referenced nowhere else in the repo: `arctic`, `muted`, `osaka-jade`, `oxocarbon`, `vivid`, `zinc`. Either wire them up or delete them — a theme no code can select is a trap for the next person adding one. (Themes can also arrive at runtime through `registerTheme`, which is how plugin themes work; that path is unaffected.)
+Do not treat `accent.fg` as the document `accent` hue. `accent.fg` is `primary`. The extra hue is `accent.alt`. See ROADMAP item U2 (landed).

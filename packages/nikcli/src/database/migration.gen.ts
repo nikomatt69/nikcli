@@ -13,6 +13,16 @@ import sessionEntry from "./migration/20260805000000_session_entry"
 import dropSessionV2Event from "./migration/20260805120000_drop_session_v2_event"
 import sessionEntryIdOrder from "./migration/20260805130000_session_entry_id_order"
 import analyticsStat from "./migration/20260811000000_analytics_stat"
+import loopSql from "./migration/20260814000000_loop_sql"
+import sessionTimeSuspended from "./migration/20260814010000_session_time_suspended"
+import domainSql from "./migration/20260814020000_domain_sql"
+import projectSql from "./migration/20260814030000_project_sql"
+import analyticsShare from "./migration/20260814040000_analytics_share"
+import sessionGoal from "./migration/20260814050000_session_goal"
+import backgroundRun from "./migration/20260814060000_background_run"
+import routine from "./migration/20260814070000_routine"
+import sessionDiff from "./migration/20260814080000_session_diff"
+import workspaceJson from "./migration/20260814090000_workspace_json"
 
 export const migrations = [
   initial,
@@ -29,4 +39,14 @@ export const migrations = [
   dropSessionV2Event,
   sessionEntryIdOrder,
   analyticsStat,
+  loopSql,
+  sessionTimeSuspended,
+  domainSql,
+  projectSql,
+  analyticsShare,
+  sessionGoal,
+  backgroundRun,
+  routine,
+  sessionDiff,
+  workspaceJson,
 ] satisfies DatabaseMigration.Migration[]

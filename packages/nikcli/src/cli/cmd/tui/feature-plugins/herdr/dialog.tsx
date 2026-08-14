@@ -40,17 +40,17 @@ export function DialogHerdrStatus() {
 
   return (
     <box flexDirection="column" gap={1} paddingX={1} paddingY={1}>
-      <text fg={theme.text}>
+      <text fg={theme.foreground.default}>
         <b>Herdr Integration</b>
-        <span style={{ fg: theme.textMuted }}> · https://herdr.dev</span>
+        <span style={{ fg: theme.foreground.muted }}> · https://herdr.dev</span>
       </text>
 
       <Show when={info()}>{(value) => <InstallBlock info={value()} theme={theme} />}</Show>
 
       <box flexDirection="row" gap={2}>
-        <text fg={theme.text}>
+        <text fg={theme.foreground.default}>
           Bridge:{" "}
-          <span style={{ fg: enabled() ? theme.success : theme.textMuted }}>{enabled() ? "enabled" : "disabled"}</span>
+          <span style={{ fg: enabled() ? theme.status.success.fg : theme.foreground.muted }}>{enabled() ? "enabled" : "disabled"}</span>
         </text>
       </box>
 
@@ -59,10 +59,10 @@ export function DialogHerdrStatus() {
       </Show>
 
       <box flexDirection="row" gap={2}>
-        <text fg={theme.primary} onMouseDown={toggle}>
+        <text fg={theme.accent.fg} onMouseDown={toggle}>
           [Toggle bridge]
         </text>
-        <text fg={theme.primary} onMouseDown={refresh}>
+        <text fg={theme.accent.fg} onMouseDown={refresh}>
           [Refresh]
         </text>
       </box>
@@ -75,18 +75,18 @@ function InstallBlock(props: { info: HerdrInstallInfo; theme: ReturnType<typeof 
   const info = props.info
   return (
     <box flexDirection="column" gap={0}>
-      <text fg={theme.text}>
+      <text fg={theme.foreground.default}>
         Binary:{" "}
-        <span style={{ fg: info.installed ? theme.success : theme.warning }}>{info.binPath ?? "(not installed)"}</span>
+        <span style={{ fg: info.installed ? theme.status.success.fg : theme.status.warning.fg }}>{info.binPath ?? "(not installed)"}</span>
       </text>
-      <text fg={theme.text}>
+      <text fg={theme.foreground.default}>
         Server:{" "}
-        <span style={{ fg: info.serverRunning ? theme.success : theme.warning }}>
+        <span style={{ fg: info.serverRunning ? theme.status.success.fg : theme.status.warning.fg }}>
           {info.serverRunning ? "running" : "not running"}
         </span>
       </text>
-      <text fg={theme.text}>
-        Socket: <span style={{ fg: theme.textMuted }}>{info.socketPath ?? "(none)"}</span>
+      <text fg={theme.foreground.default}>
+        Socket: <span style={{ fg: theme.foreground.muted }}>{info.socketPath ?? "(none)"}</span>
       </text>
     </box>
   )
@@ -97,39 +97,39 @@ function SnapshotBlock(props: { snap: HerdrSnapshot; theme: ReturnType<typeof us
   const snap = props.snap
   return (
     <box flexDirection="column" gap={0}>
-      <text fg={theme.text}>
+      <text fg={theme.foreground.default}>
         <b>Snapshot</b>{" "}
-        <span style={{ fg: theme.textMuted }}>
+        <span style={{ fg: theme.foreground.muted }}>
           ({snap.workspaces.length} workspaces / {snap.tabs.length} tabs / {snap.panes.length} panes /{" "}
           {snap.agents.length} agents)
         </span>
       </text>
       <Show when={snap.workspaces.length === 0}>
-        <text fg={theme.textMuted}>{`No workspaces known yet. Start herdr, then refresh.`}</text>
+        <text fg={theme.foreground.muted}>{`No workspaces known yet. Start herdr, then refresh.`}</text>
       </Show>
       <For each={snap.workspaces}>
         {(w) => (
-          <text fg={theme.text}>
+          <text fg={theme.foreground.default}>
             • {w.label ?? w.id}
             <Show when={w.cwd}>
-              <span style={{ fg: theme.textMuted }}> — {w.cwd}</span>
+              <span style={{ fg: theme.foreground.muted }}> — {w.cwd}</span>
             </Show>
             <Show when={w.worktree}>
-              <span style={{ fg: theme.accent }}> [worktree {w.worktree!.branch}]</span>
+              <span style={{ fg: theme.accent.alt }}> [worktree {w.worktree!.branch}]</span>
             </Show>
           </text>
         )}
       </For>
       <Show when={snap.agents.length > 0}>
-        <text fg={theme.text}>
+        <text fg={theme.foreground.default}>
           <b>Agents</b>
         </text>
         <For each={snap.agents}>
           {(a) => (
-            <text fg={theme.text}>
+            <text fg={theme.foreground.default}>
               • {a.agent ?? "unknown"} ({a.state ?? "unknown"})
               <Show when={a.message}>
-                <span style={{ fg: theme.textMuted }}> — {a.message}</span>
+                <span style={{ fg: theme.foreground.muted }}> — {a.message}</span>
               </Show>
             </text>
           )}

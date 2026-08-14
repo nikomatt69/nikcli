@@ -67,6 +67,20 @@ export const analyticsStat = sqliteTable(
 )
 
 /**
+ * The local install UUID for anonymous reporting.
+ *
+ * One row (`id = 'local'`). Replaces `["analytics","share-state"]`. The
+ * published-period cursor already lives on {@link analyticsPublish}; this
+ * table only has to remember the identifier the collector keys replacements
+ * on.
+ */
+export const analyticsShare = sqliteTable("analytics_share", {
+  id: text("id").primaryKey(),
+  installId: text("install_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+})
+
+/**
  * What has already been published, so a period is sent once and only resent when
  * it is recomputed. Kept separate from {@link analyticsStat} so clearing the
  * publish history never risks deleting the usage itself.

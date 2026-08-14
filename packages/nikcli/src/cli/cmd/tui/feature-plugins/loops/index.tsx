@@ -44,11 +44,11 @@ function Sidebar(props: { api: TuiPluginApi }) {
     <Show when={loops().length > 0}>
       <box>
         <box flexDirection="row" gap={1} justifyContent="space-between">
-          <text fg={props.api.theme.current.text}>
+          <text fg={props.api.theme.current.foreground.default}>
             <b>Loops</b>
           </text>
           <Show when={running() > 0}>
-            <text fg={props.api.theme.current.warning}>{running()} running</text>
+            <text fg={props.api.theme.current.status.warning.fg}>{running()} running</text>
           </Show>
         </box>
         <For each={loops()}>{(def) => <Row api={props.api} def={def} />}</For>

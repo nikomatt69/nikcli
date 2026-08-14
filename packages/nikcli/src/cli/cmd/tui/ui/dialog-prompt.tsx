@@ -45,11 +45,11 @@ export function DialogPrompt(props: DialogPromptProps) {
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
       <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={props.busy ? theme.textMuted : theme.text}>
+        <text attributes={TextAttributes.BOLD} fg={props.busy ? theme.foreground.muted : theme.foreground.default}>
           {props.title}
         </text>
         <Show when={!props.busy}>
-          <text fg={theme.textMuted}>esc</text>
+          <text fg={theme.foreground.muted}>esc</text>
         </Show>
       </box>
       <box gap={1}>
@@ -80,16 +80,16 @@ export function DialogPrompt(props: DialogPromptProps) {
             ref={(val: TextareaRenderable) => (textarea = val)}
             initialValue={props.value}
             placeholder={props.placeholder ?? "Enter text"}
-            textColor={theme.text}
-            focusedTextColor={theme.text}
-            cursorColor={theme.text}
+            textColor={theme.foreground.default}
+            focusedTextColor={theme.foreground.default}
+            cursorColor={theme.foreground.default}
           />
         </Show>
       </box>
       <box paddingBottom={1} gap={1} flexDirection="row">
-        <Show when={!props.busy} fallback={<text fg={theme.textMuted}>Please wait…</text>}>
-          <text fg={theme.text}>
-            <span style={{ fg: theme.primary }}>{submitKey()}</span> <span style={{ fg: theme.textMuted }}>submit</span>
+        <Show when={!props.busy} fallback={<text fg={theme.foreground.muted}>Please wait…</text>}>
+          <text fg={theme.foreground.default}>
+            <span style={{ fg: theme.accent.fg }}>{submitKey()}</span> <span style={{ fg: theme.foreground.muted }}>submit</span>
           </text>
         </Show>
       </box>

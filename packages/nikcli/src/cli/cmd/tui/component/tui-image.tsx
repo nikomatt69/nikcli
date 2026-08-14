@@ -538,23 +538,23 @@ function TuiImage(props: { url: string; maxColumns: number; maxRows: number; wri
       marginTop={1}
       paddingLeft={1}
       border={["left"]}
-      borderColor={theme.border}
+      borderColor={theme.border.default}
       flexDirection="column"
       flexShrink={0}
     >
       <Switch>
         <Match when={state().status === "loading"}>
-          <text fg={theme.textMuted}>Loading image preview...</text>
+          <text fg={theme.foreground.muted}>Loading image preview...</text>
         </Match>
         <Match when={state().status === "error" ? (state() as { status: "error"; message: string }) : undefined}>
-          {(error) => <text fg={theme.textMuted}>Image preview unavailable: {error().message}</text>}
+          {(error) => <text fg={theme.foreground.muted}>Image preview unavailable: {error().message}</text>}
         </Match>
         <Match
           when={state().status === "ready" ? (state() as { status: "ready"; data: TuiImageData }).data : undefined}
         >
           {(data) => (
             <>
-              <text fg={theme.textMuted}>
+              <text fg={theme.foreground.muted}>
                 image | {data().host} | {data().renderer}
                 {data().placeholder ? " (native)" : ""}
               </text>

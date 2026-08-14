@@ -1,10 +1,10 @@
 # Retire `src/storage/storage.ts`
 
-| Field  | Value                                                             |
-| ------ | ----------------------------------------------------------------- |
-| Status | **Proposed and partially unblocked**                              |
-| Scope  | `src/storage/storage.ts`, its 19 consumer modules                 |
-| Buys   | One durability model, one transaction boundary, one error type    |
+| Field  | Value                                                                                           |
+| ------ | ----------------------------------------------------------------------------------------------- |
+| Status | **Completed 2026-08-14** — both storage modules are deleted and all production imports are gone |
+| Scope  | `src/storage/storage.ts`, remaining derived-cache / ephemeral consumers                         |
+| Buys   | One durability model, one transaction boundary, one error type                                  |
 
 ## Goal
 
@@ -12,31 +12,23 @@ Remove the remaining production uses of the JSON key-value store so that everyth
 
 This is the successor to [SQL + Drizzle adoption](./nikcli-sql-drizzle-adoption.md), which already landed the central database, the migration journal, and domain-owned schemas. Sessions, messages, parts, todos, permissions, and sync events moved in `20260611*`. What remains is the long tail.
 
-This is **not** a request to delete `Storage` in one change. The target is that no production module imports it, after which the file goes.
+This is **not** a request to delete `Storage` in one change. The target is that no production module imports it, after which the file goes. That target is met.
 
-## What Is Still On JSON
+## What Remains On Disk
 
-`Storage.Service` is imported by 19 modules:
+Runtime no longer imports `src/storage/storage.ts` or `src/storage/effect.ts`; both files are gone. Leftover `storage/*.json` trees stay on disk for downgrade only, and current runtime reads ignore them. Do not add a new JSON key-value module.
 
-```
-analytics/analytics.ts     loop/manager.ts          session/message-v2.ts
-analytics/share.ts         mission/manager.ts       session/revert.ts
-artifact/index.ts          mobile/routine.ts        session/stats.ts
-background/run.ts          monitor/manager.ts       session/summary.ts
-cli/cmd/run.ts             server/mobile/helpers.ts share/share-next.ts
-cli/cmd/stats.ts           storage/effect.ts        tool/memory_search.ts
-cli/cmd/usage.ts
-```
+They fell into four groups:
 
-They fall into four groups, and the groups want different treatment:
+**1. Domain state that should be SQL.** ~~`loop/manager.ts`~~ **Done.** ~~`mission/manager.ts`, `monitor/manager.ts`, `share-next.ts`, `artifact/index.ts`~~ **Done 2026-08-14** (`20260814020000_domain_sql`). ~~`project/project.ts`~~ **Done 2026-08-14** (`20260814030000_project_sql`). ~~`session/goal.ts`~~ **Done 2026-08-14** (`20260814050000_session_goal`). Same repository shape as loops: `data` holds the whole record, columns beside it only where something queries or orders by them, sanitization on the read side. Project directories absorb the former `["project_directory", id]` sibling the same way `loop.started_runs` absorbed `loop_meta`: a nullable column excluded from the definition upsert, so a missing value still means "never written, bootstrap from sandboxes".
 
-**1. Domain state that should be SQL.** `loop/manager.ts` is the clearest case: loop definitions, per-run records, and metadata are read, listed, updated, and removed by key prefix — a table with three columns, implemented as a directory tree. `mission/manager.ts` and `monitor/manager.ts` are the same shape. `share-next.ts` and `artifact/index.ts` hold durable records too.
+**2. Derived caches.** Decisions in step 4 below. Stats / usage / memory_search JSON walks are **deleted**. Analytics JSON snapshots are **deleted**; share-state **moved**. ~~`session_diff`~~ **Moved 2026-08-14** (`20260814080000_session_diff`). It was not deleted because unreferenced snapshot trees can be collected by `gc --prune=7.days`, while imported shares may contain only the ready-made diff and no snapshot hashes.
 
-**2. Derived caches.** `session/stats.ts`, `analytics/*`, `cli/cmd/{stats,usage}.ts`, and `tool/memory_search.ts` mostly persist things that can be recomputed. These can move to SQL for consistency or be deleted in favor of queries — decide per module, and prefer deleting.
+**3. Ephemeral or process-local state.** ~~PTY `Storage.NotFoundError`~~ **Done 2026-08-14** (`Pty.NotFoundError`, wire literal `"NotFoundError"`). ~~`background/run.ts`~~ **Done 2026-08-14** (`20260814060000_background_run`). ~~`mobile/routine.ts`~~ **Done 2026-08-14** (`20260814070000_routine`). ~~`server/mobile/helpers.ts` Storage wrappers~~ **Done 2026-08-14**.
 
-**3. Ephemeral or process-local state.** PTY records, TUI state, and `background/run.ts` handles. Some of this should not be durable at all.
+**4. Workspace JSON.** ~~Runtime JSON backfill~~ **Done 2026-08-14**. The one-time backfill is journaled as `20260814090000_workspace_json`; runtime does not scan workspace JSON. `Workspace.NotFoundError` replaces borrowed `Storage.NotFoundError`, while the HTTP wire literal stays `"NotFoundError"`.
 
-**4. The error types.** `session/index.ts` still declares `Session.Error = BusyError | Storage.NotFoundError | Storage.IOError` and maps unknown rejections into `Storage.IOError`, even though session rows are SQL now. These types outlived their storage and are the reason a grep for `Storage.` in `session/` looks worse than the reality.
+**5. The error types.** ~~`session/index.ts` still declares `Session.Error = BusyError | Storage.NotFoundError | Storage.IOError`.~~ **Done 2026-08-14.** `src/session/error.ts` owns `SessionNotFoundError` and `SessionIOError`. `SessionError.isNotFound` matches only the session-domain class. `asSessionError` no longer translates a storage error.
 
 ## Why It Is Worth Doing
 
@@ -48,13 +40,46 @@ They fall into four groups, and the groups want different treatment:
 
 ## Order Of Work
 
-1. **Untangle the error types first.** Give `Session` its own `NotFoundError` / `IOError` and stop re-exporting `Storage`'s. This is mechanical, touches no persistence, and removes the largest source of misleading grep hits.
-2. **`loop/manager.ts` → SQL.** The best-defined domain, and the one whose key-prefix listing is most obviously a query. Use it to establish the repository shape the rest follow.
-3. **`mission/manager.ts`, `monitor/manager.ts`, `share-next.ts`, `artifact/index.ts`.** Same shape as 2.
-4. **Decide the derived-cache group.** For each, either move it or delete it. Do not move a cache that a query could replace.
-5. **Delete `storage/storage.ts` and `storage/effect.ts`.** Keep the JSON tree on disk; a downgrade must still find it.
+1. ~~**Untangle the error types first.**~~ **Done 2026-08-14.** `Session` owns its `NotFoundError` / `IOError` in `session/error.ts`, a module neither `index.ts` nor `message-v2.ts` can import through the other (they form a cycle).
+
+   The trap worth recording: the HTTP response schemas pin the literal `name: "NotFoundError"`, and two boundaries — `server/server-router.ts` and `server/httpapi/prompt.ts` — were forwarding `error._tag`, which happened to equal that literal only because the error was `Storage`'s. Any domain that takes ownership of its errors must emit the wire literal explicitly.
+
+2. ~~**`loop/manager.ts` → SQL.**~~ **Done 2026-08-14** (`20260814000000_loop_sql`). The repository shape the rest should follow is `src/loop/repo.ts`: a `LoopRepo` namespace of synchronous functions over `Database.syncDb()`, taking `projectId` as an explicit first argument, with `data` holding the whole record and columns beside it only where something queries or orders by them. Sanitization moved to the read side, in one place.
+
+   Three things this surfaced that the next domain will hit too:
+
+   - A **counter that must survive a full-replace write** does not need its own record kind. `loop_meta` existed only because writing the whole definition would clobber it; as a column excluded from the upsert's `set` clause, the problem disappears — and the increment becomes one statement instead of read-then-write.
+   - **Nullability carries meaning.** `started_runs` stays nullable so "never counted" is distinguishable from "counted zero"; that is what drives the one-time derive-from-history path.
+   - **Tests coupled to the key layout break, and should.** `test/loop/engine.test.ts` wiped `["loop"]`/`["loop_run"]`/`["loop_meta"]` prefixes in `afterEach` and mutated run records through `Storage.update`. Both moved to the repo. Budget for this in every domain that follows.
+
+3. ~~**`mission/manager.ts`, `monitor/manager.ts`, `share-next.ts`, `artifact/index.ts`.**~~ **Done 2026-08-14** (`20260814020000_domain_sql`). Same repository shape as loops. `session.getShare` reads `ShareRepo` rather than the JSON key. Monitor `reconcile` lists `running` rows in one query instead of scanning every key. JSON files stay on disk as the downgrade fallback; inserts are `OR IGNORE`.
+4. ~~**Decide the derived-cache group.**~~ **Decided 2026-08-14.** Table below. Project identity (`20260814030000_project_sql`) and the analytics snapshot delete + share-state move (`20260814040000_analytics_share`) landed the same day. Remaining moves and deletes follow that table; do not start a move that the table marks delete.
+5. ~~**Delete `storage/storage.ts` and `storage/effect.ts`.**~~ **Done 2026-08-14.** The JSON tree stays on disk; a downgrade must still find it. `test/storage/effect-service.test.ts` went with the module. Leftover-JSON trap tests write files with `fs` under `Global.Path.data/storage`.
 
 Steps 1 and 2 are independently valuable and independently revertible. Nothing after step 2 blocks on anything before it except the repository shape.
+
+## Step 4 — Move Or Delete
+
+Prefer deleting a cache a query can replace. Domain state that is not a cache moves, using `LoopRepo` as the shape. "Later" means after the listed dependency, not a new decision.
+
+| Module                                                                   | Decision                                                              | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project/project.ts`                                                     | **Move** (landed `20260814030000_project_sql`)                        | Identity + sandboxes + the directory list. Everything else enumerated projects by walking `["project"]`. Directories are a nullable JSON column on `project`, not a second table: `NULL` still means "never written, bootstrap from sandboxes", matching the old missing-key path.                                                                                                                                                                                                                                                                                   |
+| `session/stats.ts`, `cli/cmd/{stats,usage}.ts`                           | **Delete** JSON project walk (landed with Project SQL)                | They only listed `["project"]` then `SessionRepo.getByProject`. They now call `ProjectRepo.list()`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `tool/memory_search.ts`                                                  | **Delete** (landed)                                                   | `collectSessions` already used `SessionRepo`. The `Storage` helpers were dead.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `analytics/analytics.ts` JSON (`global` / `daily` / `session`)           | **Delete** (landed 2026-08-14)                                        | Duplicate of `message_info`. `getGlobal` / `getDaily` / `getSession` query SQL; `record*` is a no-op. Leftover JSON is not read at runtime.                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `analytics/share.ts` `["analytics","share-state"]`                       | **Move** (landed `20260814040000_analytics_share`)                    | Install UUID sits in one-row `analytics_share`. Published days already live on `analytics_publish`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `session/goal.ts` `["goal", sessionID]`                                  | **Move** (landed `20260814050000_session_goal`)                       | Live session-scoped state (status, budget, iterations), same class as todos. Not a cache. One row per session behind `GoalRepo`.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `session_diff` (`summary.ts`, `revert.ts`, `index.ts`, `cli/cmd/run.ts`) | **Move** (landed `20260814080000_session_diff`)                       | Not a rebuildable cache. `SessionSummary.computeDiff` can call `Snapshot.diffFull` only while the snapshot gitdir still has the `write-tree` hashes on step-start / step-finish parts. Those trees are unreachable (no ref) and `gc --prune=7.days` drops them, after which recompute returns `[]` while the stored `FileDiff[]` still has inline `before` / `after` / `patch`. Share import (`cli/cmd/run.ts`) also writes a ready-made list that may never have had snapshot hashes. One row per session behind `SessionDiffRepo`; a missing row is an empty list. |
+| `background/run.ts`                                                      | **Move** (landed `20260814060000_background_run`)                     | Owner/lease/heartbeat exist so a new process can detect orphans. That is durability, same argument as monitors. Composite key `(project_id, id)` because generated names are only unique within a project.                                                                                                                                                                                                                                                                                                                                                           |
+| `mobile/routine.ts`                                                      | **Move** (landed `20260814070000_routine`)                            | Cron schedules are restored at bootstrap. Same shape as loops. Composite key `(project_id, id)` because generated names are only unique within a project.                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `server/httpapi/pty.ts`, `server/mobile/pty.ts`                          | **Delete** Storage (landed 2026-08-14)                                | PTY records already live in `Pty.Service` (in-memory). `Pty.NotFoundError` (`PtyNotFoundError`) maps to the HTTP wire literal `"NotFoundError"`.                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `server/mobile/helpers.ts`                                               | **Delete** Storage wrappers (landed 2026-08-14)                       | Session search already uses `SessionRepo.listAll()`. The helpers were leftover and unused.                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `workspace/db.ts` `migrateFromStorage`                                   | **Delete** runtime JSON read (landed `20260814090000_workspace_json`) | Workspaces are SQL. The leftover JSON scan is a numbered migration (`OR IGNORE`); runtime no longer reads JSON.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `workspace/index.ts`                                                     | **Delete** Storage (landed 2026-08-14)                                | `Workspace.NotFoundError` (`WorkspaceNotFoundError`); same wire literal `"NotFoundError"`. Session delete during workspace remove matches `SessionError.isNotFound`.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `session/error.ts` Storage import                                        | **Delete last** (landed 2026-08-14)                                   | `SessionError.isNotFound` matches only `SessionNotFoundError`. `storage.ts` / `effect.ts` deleted in the same change.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+
+Implementation order after this table: ~~goals~~ **done**, ~~background runs~~ **done**, ~~routines~~ **done**, ~~session_diff~~ **done**, ~~PTY / helpers / workspace~~ **done**, ~~error-type import~~ **done**, ~~step 5~~ **done**.
 
 ## Invariants To Preserve
 

@@ -39,33 +39,33 @@ export function RevertBanner(props: { readonly count: number; readonly diffFiles
       flexShrink={0}
       border={["left"]}
       customBorderChars={SplitBorder.customBorderChars}
-      borderColor={theme.backgroundPanel}
+      borderColor={theme.surface.panel}
     >
       <box
         paddingTop={1}
         paddingBottom={1}
         paddingLeft={2}
-        backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
+        backgroundColor={hover() ? theme.surface.offset : theme.surface.panel}
       >
-        <text fg={theme.textMuted}>
+        <text fg={theme.foreground.muted}>
           {lang.t(props.count === 1 ? "session.revert.bannerCount" : "session.revert.bannerCountPlural", {
             count: props.count,
           })}
         </text>
-        <text fg={theme.textMuted}>
-          <span style={{ fg: theme.text }}>{keybind.print("messages_redo")}</span> {lang.t("session.revert.bannerHint")}
+        <text fg={theme.foreground.muted}>
+          <span style={{ fg: theme.foreground.default }}>{keybind.print("messages_redo")}</span> {lang.t("session.revert.bannerHint")}
         </text>
         <Show when={props.diffFiles?.length}>
           <box marginTop={1}>
             <For each={props.diffFiles}>
               {(file) => (
-                <text fg={theme.text}>
+                <text fg={theme.foreground.default}>
                   {file.filename}
                   <Show when={file.additions > 0}>
-                    <span style={{ fg: theme.diffAdded }}> +{file.additions}</span>
+                    <span style={{ fg: theme.diff.added }}> +{file.additions}</span>
                   </Show>
                   <Show when={file.deletions > 0}>
-                    <span style={{ fg: theme.diffRemoved }}> -{file.deletions}</span>
+                    <span style={{ fg: theme.diff.removed }}> -{file.deletions}</span>
                   </Show>
                 </text>
               )}

@@ -1414,8 +1414,8 @@ export function Session() {
                 paddingLeft: 1,
                 visible: showScrollbar(),
                 trackOptions: {
-                  backgroundColor: theme.backgroundElement,
-                  foregroundColor: theme.border,
+                  backgroundColor: theme.surface.offset,
+                  foregroundColor: theme.border.default,
                 },
               }}
               stickyScroll={true}
@@ -1583,10 +1583,10 @@ function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; 
             paddingTop={1}
             paddingBottom={1}
             paddingLeft={2}
-            backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
+            backgroundColor={hover() ? theme.surface.offset : theme.surface.panel}
             flexShrink={0}
           >
-            <Show when={text()}>{(value) => <text fg={theme.text}>{value()}</text>}</Show>
+            <Show when={text()}>{(value) => <text fg={theme.foreground.default}>{value()}</text>}</Show>
             <TuiImageList
               text={text() ?? ""}
               urls={imagePreviewUrls()}
@@ -1598,17 +1598,17 @@ function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; 
                 <For each={files()}>
                   {(file) => {
                     const bg = createMemo(() => {
-                      if (file.mime.startsWith("image/")) return theme.accent
-                      if (file.mime === "application/pdf") return theme.primary
-                      return theme.secondary
+                      if (file.mime.startsWith("image/")) return theme.accent.alt
+                      if (file.mime === "application/pdf") return theme.accent.fg
+                      return theme.accent.secondary
                     })
                     return (
-                      <text fg={theme.text}>
-                        <span style={{ bg: bg(), fg: theme.background }}> {MIME_BADGE[file.mime] ?? file.mime} </span>
+                      <text fg={theme.foreground.default}>
+                        <span style={{ bg: bg(), fg: theme.surface.base }}> {MIME_BADGE[file.mime] ?? file.mime} </span>
                         <span
                           style={{
-                            bg: theme.backgroundElement,
-                            fg: theme.textMuted,
+                            bg: theme.surface.offset,
+                            fg: theme.foreground.muted,
                           }}
                         >
                           {" "}
@@ -1624,13 +1624,13 @@ function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; 
               when={queued()}
               fallback={
                 <Show when={ctx.showTimestamps()}>
-                  <text fg={theme.textMuted}>
-                    <span style={{ fg: theme.textMuted }}>{Locale.todayTimeOrDateTime(props.turn.createdAt)}</span>
+                  <text fg={theme.foreground.muted}>
+                    <span style={{ fg: theme.foreground.muted }}>{Locale.todayTimeOrDateTime(props.turn.createdAt)}</span>
                   </text>
                 </Show>
               }
             >
-              <text fg={theme.textMuted}>
+              <text fg={theme.foreground.muted}>
                 <span style={{ bg: color(), fg: queuedFg(), bold: true }}> QUEUED </span>
               </text>
             </Show>
@@ -1643,7 +1643,7 @@ function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; 
           border={["top"]}
           title=" Compaction "
           titleAlignment="center"
-          borderColor={theme.borderActive}
+          borderColor={theme.border.active}
         />
       </Show>
     </>
@@ -1780,11 +1780,11 @@ function AssistantMessage(props: { turn: Turn; last: boolean; usage?: TurnUsage.
           paddingBottom={1}
           paddingLeft={2}
           marginTop={1}
-          backgroundColor={theme.backgroundPanel}
+          backgroundColor={theme.surface.panel}
           customBorderChars={SplitBorder.customBorderChars}
-          borderColor={theme.error}
+          borderColor={theme.status.error.fg}
         >
-          <text fg={theme.textMuted}>{friendlyErrorMessage(error())}</text>
+          <text fg={theme.foreground.muted}>{friendlyErrorMessage(error())}</text>
         </box>
       </Show>
       <Switch>
@@ -1795,20 +1795,20 @@ function AssistantMessage(props: { turn: Turn; last: boolean; usage?: TurnUsage.
                 style={{
                   fg:
                     error()?.name === "MessageAbortedError"
-                      ? theme.textMuted
+                      ? theme.foreground.muted
                       : local.agent.color(props.turn.request?.agent ?? ""),
                 }}
               >
                 ▣{" "}
               </span>{" "}
-              <span style={{ fg: theme.text }}>{Locale.titlecase(props.turn.request?.mode ?? "")}</span>
+              <span style={{ fg: theme.foreground.default }}>{Locale.titlecase(props.turn.request?.mode ?? "")}</span>
               <Show when={props.turn.request?.modelID}>
-                <span style={{ fg: theme.textMuted }}> · {props.turn.request?.modelID}</span>
+                <span style={{ fg: theme.foreground.muted }}> · {props.turn.request?.modelID}</span>
               </Show>
             </text>
             <Show when={stats()}>
               {(value) => (
-                <text fg={theme.textMuted}>
+                <text fg={theme.foreground.muted}>
                   {" · "}
                   {Locale.duration(value().duration)}
                   <Show when={value().tps > 0}> · {value().tps.toFixed(0)} tok/s</Show>
@@ -1816,7 +1816,7 @@ function AssistantMessage(props: { turn: Turn; last: boolean; usage?: TurnUsage.
               )}
             </Show>
             <Show when={error()?.name === "MessageAbortedError"}>
-              <text fg={theme.textMuted}> · interrupted</text>
+              <text fg={theme.foreground.muted}> · interrupted</text>
             </Show>
           </box>
         </Match>
@@ -1847,19 +1847,19 @@ function TurnTokens(props: { turn: TurnUsage.Turn }) {
 
   return (
     <box paddingLeft={3} flexDirection="column">
-      <text fg={theme.textMuted}>{row("Step", "New", "Cached", "Total")}</text>
+      <text fg={theme.foreground.muted}>{row("Step", "New", "Cached", "Total")}</text>
       <For each={props.turn.steps}>
         {(step) => (
-          <text fg={theme.textMuted}>
+          <text fg={theme.foreground.muted}>
             {row(step.finish, num(step.newTokens), num(step.cached), num(step.total))}
             <Show when={step.cacheBust !== undefined}>
-              <span style={{ fg: theme.warning }}> ⚠ cache bust −{num(step.cacheBust!)}</span>
+              <span style={{ fg: theme.status.warning.fg }}> ⚠ cache bust −{num(step.cacheBust!)}</span>
             </Show>
           </text>
         )}
       </For>
       <Show when={props.turn.steps.length > 1}>
-        <text fg={theme.textMuted}>
+        <text fg={theme.foreground.muted}>
           {row("turn", num(props.turn.newTokens), num(props.turn.cached), num(props.turn.total))}
         </text>
       </Show>
@@ -1900,8 +1900,8 @@ function RetryPart(props: { entry: ViewEntry }) {
   return (
     <box paddingLeft={3} marginTop={1} flexShrink={0}>
       <text>
-        <span style={{ fg: theme.warning }}>⟳ </span>
-        <span style={{ fg: theme.textMuted }}>
+        <span style={{ fg: theme.status.warning.fg }}>⟳ </span>
+        <span style={{ fg: theme.foreground.muted }}>
           {attempt() === undefined ? "Retrying" : `Retry ${attempt()}`}
           {" · "}
           {friendlyErrorMessage(props.entry.error)}
@@ -1927,12 +1927,12 @@ function SubtaskPart(props: { entry: ViewEntry }) {
     <box paddingLeft={3} marginTop={1} flexShrink={0}>
       <text>
         <span style={{ fg: local.agent.color(agent()) }}>◆ </span>
-        <span style={{ fg: theme.text }}>{Locale.titlecase(agent() || "task")}</span>
+        <span style={{ fg: theme.foreground.default }}>{Locale.titlecase(agent() || "task")}</span>
         <Show when={description()}>
-          <span style={{ fg: theme.textMuted }}> · {description()}</span>
+          <span style={{ fg: theme.foreground.muted }}> · {description()}</span>
         </Show>
         <Show when={props.entry.background === true}>
-          <span style={{ fg: theme.textMuted }}> · background</span>
+          <span style={{ fg: theme.foreground.muted }}> · background</span>
         </Show>
       </text>
     </box>
@@ -1946,7 +1946,7 @@ function SyntheticPart(props: { entry: ViewEntry }) {
   return (
     <Show when={text()}>
       <box paddingLeft={3} marginTop={1} flexShrink={0}>
-        <text fg={theme.textMuted}>{text()}</text>
+        <text fg={theme.foreground.muted}>{text()}</text>
       </box>
     </Show>
   )
@@ -1964,7 +1964,7 @@ function UnknownPart(props: { entry: ViewEntry }) {
   const { theme } = useTheme()
   return (
     <box paddingLeft={3} marginTop={1} flexShrink={0}>
-      <text fg={theme.textMuted}>◌ {props.entry.type}</text>
+      <text fg={theme.foreground.muted}>◌ {props.entry.type}</text>
     </box>
   )
 }
@@ -1996,7 +1996,7 @@ function ReasoningPart(props: { last: boolean; streaming: boolean; entry: ViewEn
     cellPadding: tight() ? 0 : 1,
     borders: true,
     outerBorder: !tight(),
-    borderColor: theme.borderSubtle,
+    borderColor: theme.border.subtle,
   }))
   const done = createMemo(() => {
     const end = props.entry.completed as number | undefined
@@ -2016,7 +2016,7 @@ function ReasoningPart(props: { last: boolean; streaming: boolean; entry: ViewEn
         flexDirection="column"
         border={["left"]}
         customBorderChars={SplitBorder.customBorderChars}
-        borderColor={theme.backgroundElement}
+        borderColor={theme.surface.offset}
       >
         <ReasoningHeader done={done()} title={summary().title} duration={duration()} />
         <Show when={summary().body}>
@@ -2028,7 +2028,7 @@ function ReasoningPart(props: { last: boolean; streaming: boolean; entry: ViewEn
                 content={split().settled}
                 conceal={ctx.conceal()}
                 concealCode={false}
-                fg={theme.textMuted}
+                fg={theme.foreground.muted}
                 tableOptions={tableOptions()}
               />
             </Show>
@@ -2040,7 +2040,7 @@ function ReasoningPart(props: { last: boolean; streaming: boolean; entry: ViewEn
                   content={split().live}
                   conceal={ctx.conceal()}
                   concealCode={false}
-                  fg={theme.textMuted}
+                  fg={theme.foreground.muted}
                   tableOptions={tableOptions()}
                 />
               </box>
@@ -2058,11 +2058,11 @@ function ReasoningHeader(props: { done: boolean; title: string | null; duration?
     <Switch>
       <Match when={!props.done}>
         <box flexDirection="row">
-          <Spinner color={theme.warning}>{props.title ? "Thinking: " + props.title : "Thinking"}</Spinner>
+          <Spinner color={theme.status.warning.fg}>{props.title ? "Thinking: " + props.title : "Thinking"}</Spinner>
         </box>
       </Match>
       <Match when={props.done}>
-        <text fg={theme.warning} wrapMode="none">
+        <text fg={theme.status.warning.fg} wrapMode="none">
           <span>Thought</span>
           <Show when={props.title || props.duration}>
             <span>: </span>
@@ -2113,7 +2113,7 @@ function TextPart(props: { last: boolean; streaming: boolean; entry: ViewEntry; 
     cellPadding: tight() ? 0 : 1,
     borders: true,
     outerBorder: !tight(),
-    borderColor: theme.borderSubtle,
+    borderColor: theme.border.subtle,
   }))
 
   return (
@@ -2129,7 +2129,7 @@ function TextPart(props: { last: boolean; streaming: boolean; entry: ViewEntry; 
             content={split().settled}
             conceal={ctx.conceal()}
             concealCode={false}
-            fg={theme.text}
+            fg={theme.foreground.default}
             tableOptions={tableOptions()}
           />
         </Show>
@@ -2141,7 +2141,7 @@ function TextPart(props: { last: boolean; streaming: boolean; entry: ViewEntry; 
               content={split().live}
               conceal={ctx.conceal()}
               concealCode={false}
-              fg={theme.text}
+              fg={theme.foreground.default}
               tableOptions={tableOptions()}
             />
           </box>
