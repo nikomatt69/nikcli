@@ -1,14 +1,14 @@
 # Retire `src/storage/storage.ts`
 
-| Field  | Value                                                                                           |
-| ------ | ----------------------------------------------------------------------------------------------- |
-| Status | **Completed 2026-08-14** — both storage modules are deleted and all production imports are gone |
-| Scope  | `src/storage/storage.ts`, remaining derived-cache / ephemeral consumers                         |
-| Buys   | One durability model, one transaction boundary, one error type                                  |
+| Field  | Value                                                                                        |
+| ------ | -------------------------------------------------------------------------------------------- |
+| Status | **Retired 2026-08-14** — both storage modules are deleted; production storage imports: **0** |
+| Scope  | JSON-backed domains, derived caches, workspace backfill, and storage-owned errors            |
+| Buys   | One durability model, one transaction boundary, one error type                               |
 
 ## Goal
 
-Remove the remaining production uses of the JSON key-value store so that everything durable lives in `nikcli.db`.
+The retirement completed on 2026-08-14: durable state lives in `nikcli.db`, and no production module imports the former JSON key-value store.
 
 This is the successor to [SQL + Drizzle adoption](./nikcli-sql-drizzle-adoption.md), which already landed the central database, the migration journal, and domain-owned schemas. Sessions, messages, parts, todos, permissions, and sync events moved in `20260611*`. What remains is the long tail.
 
@@ -16,7 +16,15 @@ This is **not** a request to delete `Storage` in one change. The target is that 
 
 ## What Remains On Disk
 
-Runtime no longer imports `src/storage/storage.ts` or `src/storage/effect.ts`; both files are gone. Leftover `storage/*.json` trees stay on disk for downgrade only, and current runtime reads ignore them. Do not add a new JSON key-value module.
+Runtime no longer imports `src/storage/storage.ts` or `src/storage/effect.ts`; both files are gone. Leftover `storage/*.json` trees stay on disk for downgrade only. A numbered migration may inspect them once when its journal entry is absent, but normal domain reads and writes ignore them. Do not add a new JSON key-value module.
+
+## Completion Record — 2026-08-14
+
+- `session_diff` is preserved in SQL through `SessionDiffRepo`: imported shares may carry only a ready-made `FileDiff[]`, and unreferenced snapshot `write-tree` objects can disappear under `gc --prune=7.days`, so neither source is reliably rebuildable. `20260814080000_session_diff` backfills valid legacy rows with `INSERT OR IGNORE`.
+- `20260814090000_workspace_json` makes the workspace backfill journaled and idempotent with `INSERT OR IGNORE`; runtime no longer scans workspace JSON.
+- Legacy JSON remains on disk for downgrade only. Runtime reads and writes ignore it, including conflicting and JSON-only session-diff and workspace records.
+- PTY and workspace now own their domain errors. In particular, `Pty.NotFoundError` has the internal tag `PtyNotFoundError`, while HTTP boundaries deliberately preserve the public wire literal `"NotFoundError"`.
+- `src/storage/storage.ts` and `src/storage/effect.ts` are deleted, with zero production imports. Remaining `storage/` references describe migration inputs, downgrade data, or unrelated storage concepts.
 
 They fell into four groups:
 

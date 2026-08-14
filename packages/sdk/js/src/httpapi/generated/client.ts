@@ -371,6 +371,8 @@ import type {
   SessionDiffOutput,
   SessionMessagesInput,
   SessionMessagesOutput,
+  SessionPendingInput,
+  SessionPendingOutput,
   SessionMessageInput,
   SessionMessageOutput,
   SessionMessageRemoveInput,
@@ -2907,6 +2909,17 @@ export function make(options: ClientOptions) {
           },
           requestOptions,
         ),
+      pending: (input: SessionPendingInput, requestOptions?: RequestOptions) =>
+        request<SessionPendingOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/pending`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
       message: (input: SessionMessageInput, requestOptions?: RequestOptions) =>
         request<SessionMessageOutput>(
           {
@@ -3509,6 +3522,7 @@ export function make(options: ClientOptions) {
             path: `/session/${encodeURIComponent(input.sessionID)}/message`,
             body: {
               messageID: input["messageID"],
+              delivery: input["delivery"],
               model: input["model"],
               agent: input["agent"],
               noReply: input["noReply"],
@@ -3531,6 +3545,7 @@ export function make(options: ClientOptions) {
             path: `/session/${encodeURIComponent(input.sessionID)}/prompt_async`,
             body: {
               messageID: input["messageID"],
+              delivery: input["delivery"],
               model: input["model"],
               agent: input["agent"],
               noReply: input["noReply"],

@@ -14,8 +14,12 @@ export namespace PromptState {
 
   export type Entry = {
     abort: AbortController;
+    reserved?: boolean;
+    batches: Map<string, string>;
     cancelling?: boolean;
     callbacks: {
+      messageID?: string;
+      waitFor: "reply" | "promotion";
       resolve(input: MessageV2.WithParts): void;
       reject(error?: Error): void;
     }[];
@@ -117,16 +121,96 @@ export namespace PromptState {
    * model loop can listen for cancellation. When the session is already
    * running, returns undefined and the caller should queue instead.
    */
-  export function start(sessionID: string) {
+  function create(sessionID: string, reserved: boolean) {
     const s = state();
     if (s[sessionID]) return;
     const controller = new AbortController();
     s[sessionID] = {
       abort: controller,
+      reserved,
+      batches: new Map(),
       callbacks: [],
     };
     active.add(sessionID);
     return controller;
+  }
+
+  export function reserve(sessionID: string) {
+    return create(sessionID, true);
+  }
+
+  export function start(sessionID: string, reserved?: AbortController) {
+    const current = state()[sessionID];
+    if (reserved && current?.abort === reserved && current.reserved) {
+      current.reserved = false;
+      return reserved;
+    }
+    return create(sessionID, false);
+  }
+
+  export function owned(sessionID: string): boolean {
+    return !!state()[sessionID];
+  }
+
+  export function wait(
+    sessionID: string,
+    messageID?: string,
+    waitFor: "reply" | "promotion" = "reply",
+  ) {
+    return new Promise<MessageV2.WithParts>((resolve, reject) => {
+      const entry = state()[sessionID];
+      if (!entry) {
+        reject(new Error(`Session ${sessionID} has no active prompt owner`));
+        return;
+      }
+      entry.callbacks.push({ messageID, waitFor, resolve, reject });
+    });
+  }
+
+  export function promoted(
+    sessionID: string,
+    messages: MessageV2.WithParts[],
+  ): void {
+    if (messages.length === 0) return;
+    const entry = state()[sessionID];
+    if (!entry) return;
+    const target = messages[messages.length - 1].info.id;
+    for (const message of messages) entry.batches.set(message.info.id, target);
+
+    const promoted = new Map(
+      messages.map((message) => [message.info.id, message]),
+    );
+    const remaining: Entry["callbacks"] = [];
+    for (const callback of entry.callbacks) {
+      const message = callback.messageID
+        ? promoted.get(callback.messageID)
+        : undefined;
+      if (callback.waitFor === "promotion" && message)
+        callback.resolve(message);
+      else remaining.push(callback);
+    }
+    entry.callbacks = remaining;
+  }
+
+  export function resolve(
+    sessionID: string,
+    message: MessageV2.WithParts,
+  ): void {
+    const entry = state()[sessionID];
+    if (!entry || message.info.role !== "assistant") return;
+    const remaining: Entry["callbacks"] = [];
+    for (const callback of entry.callbacks) {
+      const target = callback.messageID
+        ? (entry.batches.get(callback.messageID) ?? callback.messageID)
+        : undefined;
+      if (
+        callback.waitFor === "reply" &&
+        (!target || target === message.info.parentID)
+      )
+        callback.resolve(message);
+      else remaining.push(callback);
+    }
+    entry.callbacks = remaining;
   }
 
   /**
@@ -140,7 +224,7 @@ export namespace PromptState {
     if (!match || match.abort !== controller) return;
     if (!match.cancelling) {
       match.cancelling = true;
-      rejectWaiters(match.callbacks);
+      await Effect.runPromise(rejectWaiters(match.callbacks));
       match.callbacks = [];
     }
     await setStatus(sessionID, { type: "idle" });
@@ -164,10 +248,10 @@ export namespace PromptState {
         match.abort.abort();
       }
       if (match.cancelling) {
-        await rejectWaiters(match.callbacks);
+        await Effect.runPromise(rejectWaiters(match.callbacks));
       } else {
         match.cancelling = true;
-        rejectWaiters(match.callbacks);
+        await Effect.runPromise(rejectWaiters(match.callbacks));
         match.callbacks = [];
       }
       // A cancelled turn must not be offered to the next server. `finish`

@@ -1055,6 +1055,34 @@ export type BooleanResult = boolean
 
 export type Todo = { content: string; status: string; priority: string; id: string }
 
+export type TextPartInput = {
+  type: "text"
+  text: string
+  synthetic?: boolean | undefined
+  ignored?: boolean | undefined
+  time?: { start: number; end?: number | undefined } | undefined
+  metadata?: { [x: string]: any } | undefined
+  id?: string | undefined
+}
+
+export type AgentPartInput = {
+  type: "agent"
+  name: string
+  source?: { value: string; start: number; end: number } | undefined
+  id?: string | undefined
+}
+
+export type SubtaskPartInput = {
+  type: "subtask"
+  prompt: string
+  description: string
+  agent: string
+  model?: { providerID: string; modelID: string } | undefined
+  command?: string | undefined
+  background?: boolean | undefined
+  id?: string | undefined
+}
+
 export type SessionV2EntryList = Array<any>
 
 export type SessionV2State = any
@@ -1311,6 +1339,11 @@ export type EventMessageRemoved = { type: "message.removed"; properties: { sessi
 export type EventMessagePartRemoved = {
   type: "message.part.removed"
   properties: { sessionID: string; messageID: string; partID: string }
+}
+
+export type EventSessionPendingPromoted = {
+  type: "session.pending.promoted"
+  properties: { sessionID: string; pendingIDs: Array<string>; messageIDs: Array<string> }
 }
 
 export type EventTuiPromptAppend = { type: "tui.prompt.append"; properties: { text: string } }
@@ -2117,6 +2150,15 @@ export type FilePart = {
   source?: FilePartSource | undefined
 }
 
+export type FilePartInput = {
+  type: "file"
+  mime: string
+  filename?: string | undefined
+  url: string
+  source?: FilePartSource | undefined
+  id?: string | undefined
+}
+
 export type EventQuestionAsked = { type: "question.asked"; properties: QuestionRequest1 }
 
 export type AgentConfig = {
@@ -2169,6 +2211,8 @@ export type ToolStateCompleted = {
   time: { start: number; end: number; compacted?: number | undefined }
   attachments?: Array<FilePart> | undefined
 }
+
+export type PromptPartInput = TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput
 
 export type Config = {
   $schema?: string | undefined
@@ -2421,6 +2465,20 @@ export type EventMessageUpdated = { type: "message.updated"; properties: { info:
 
 export type ToolState = ToolStatePending | ToolStateRunning | ToolStateCompleted | ToolStateError
 
+export type SessionPendingPromptInput = {
+  sessionID: string
+  messageID?: string | undefined
+  delivery?: "steer" | "queue" | undefined
+  model?: { providerID: string; modelID: string } | undefined
+  agent?: string | undefined
+  noReply?: boolean | undefined
+  tools?: { [x: string]: boolean } | undefined
+  format?: OutputFormat | undefined
+  system?: string | undefined
+  variant?: string | undefined
+  parts: Array<PromptPartInput>
+}
+
 export type ToolPart = {
   id: string
   sessionID: string
@@ -2430,6 +2488,15 @@ export type ToolPart = {
   tool: string
   state: ToolState
   metadata?: { [x: string]: any } | undefined
+}
+
+export type SessionPendingInput2 = {
+  id: string
+  sessionID: string
+  delivery: "steer" | "queue"
+  messageID: string
+  data: SessionPendingPromptInput
+  createdAt: number
 }
 
 export type Part =
@@ -2445,6 +2512,8 @@ export type Part =
   | AgentPart
   | RetryPart
   | CompactionPart
+
+export type SessionPendingInputList = Array<SessionPendingInput2>
 
 export type MobileSessionDetail = {
   info: Session
@@ -2499,6 +2568,7 @@ export type Event =
   | EventSessionDeleted
   | EventSessionDiff
   | EventSessionError
+  | EventSessionPendingPromoted
   | EventTuiPromptAppend
   | EventTuiCommandExecute
   | EventTuiToastShow
@@ -7418,6 +7488,10 @@ export type SessionMessagesInput = {
 
 export type SessionMessagesOutput = MessageList
 
+export type SessionPendingInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type SessionPendingOutput = SessionPendingInputList
+
 export type SessionMessageInput = {
   readonly sessionID: { readonly sessionID: string; readonly messageID: string }["sessionID"]
   readonly messageID: { readonly sessionID: string; readonly messageID: string }["messageID"]
@@ -8054,6 +8128,7 @@ export type SessionPromptPromptInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
   readonly messageID?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8131,8 +8206,89 @@ export type SessionPromptPromptInput = {
         }
     >
   }["messageID"]
+  readonly delivery?: {
+    readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?:
+      | (
+          | { readonly type: "text" }
+          | {
+              readonly type: "json_schema"
+              readonly schema: { readonly [x: string]: any }
+              readonly retryCount: number
+            }
+        )
+      | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<
+      | {
+          readonly type: "text"
+          readonly text: string
+          readonly synthetic?: boolean | undefined
+          readonly ignored?: boolean | undefined
+          readonly time?: { readonly start: number; readonly end?: number | undefined } | undefined
+          readonly metadata?: { readonly [x: string]: any } | undefined
+          readonly id?: string | undefined
+        }
+      | {
+          readonly type: "file"
+          readonly mime: string
+          readonly filename?: string | undefined
+          readonly url: string
+          readonly source?:
+            | (
+                | {
+                    readonly text: { readonly value: string; readonly start: number; readonly end: number }
+                    readonly type: "file"
+                    readonly path: string
+                  }
+                | {
+                    readonly text: { readonly value: string; readonly start: number; readonly end: number }
+                    readonly type: "symbol"
+                    readonly path: string
+                    readonly range: {
+                      readonly start: { readonly line: number; readonly character: number }
+                      readonly end: { readonly line: number; readonly character: number }
+                    }
+                    readonly name: string
+                    readonly kind: number
+                  }
+                | {
+                    readonly text: { readonly value: string; readonly start: number; readonly end: number }
+                    readonly type: "resource"
+                    readonly clientName: string
+                    readonly uri: string
+                  }
+              )
+            | undefined
+          readonly id?: string | undefined
+        }
+      | {
+          readonly type: "agent"
+          readonly name: string
+          readonly source?: { readonly value: string; readonly start: number; readonly end: number } | undefined
+          readonly id?: string | undefined
+        }
+      | {
+          readonly type: "subtask"
+          readonly prompt: string
+          readonly description: string
+          readonly agent: string
+          readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+          readonly command?: string | undefined
+          readonly background?: boolean | undefined
+          readonly id?: string | undefined
+        }
+    >
+  }["delivery"]
   readonly model?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8212,6 +8368,7 @@ export type SessionPromptPromptInput = {
   }["model"]
   readonly agent?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8291,6 +8448,7 @@ export type SessionPromptPromptInput = {
   }["agent"]
   readonly noReply?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8370,6 +8528,7 @@ export type SessionPromptPromptInput = {
   }["noReply"]
   readonly tools?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8449,6 +8608,7 @@ export type SessionPromptPromptInput = {
   }["tools"]
   readonly format?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8528,6 +8688,7 @@ export type SessionPromptPromptInput = {
   }["format"]
   readonly system?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8607,6 +8768,7 @@ export type SessionPromptPromptInput = {
   }["system"]
   readonly variant?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8686,6 +8848,7 @@ export type SessionPromptPromptInput = {
   }["variant"]
   readonly parts: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8771,6 +8934,7 @@ export type SessionPromptPromptAsyncInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
   readonly messageID?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8848,8 +9012,89 @@ export type SessionPromptPromptAsyncInput = {
         }
     >
   }["messageID"]
+  readonly delivery?: {
+    readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?:
+      | (
+          | { readonly type: "text" }
+          | {
+              readonly type: "json_schema"
+              readonly schema: { readonly [x: string]: any }
+              readonly retryCount: number
+            }
+        )
+      | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<
+      | {
+          readonly type: "text"
+          readonly text: string
+          readonly synthetic?: boolean | undefined
+          readonly ignored?: boolean | undefined
+          readonly time?: { readonly start: number; readonly end?: number | undefined } | undefined
+          readonly metadata?: { readonly [x: string]: any } | undefined
+          readonly id?: string | undefined
+        }
+      | {
+          readonly type: "file"
+          readonly mime: string
+          readonly filename?: string | undefined
+          readonly url: string
+          readonly source?:
+            | (
+                | {
+                    readonly text: { readonly value: string; readonly start: number; readonly end: number }
+                    readonly type: "file"
+                    readonly path: string
+                  }
+                | {
+                    readonly text: { readonly value: string; readonly start: number; readonly end: number }
+                    readonly type: "symbol"
+                    readonly path: string
+                    readonly range: {
+                      readonly start: { readonly line: number; readonly character: number }
+                      readonly end: { readonly line: number; readonly character: number }
+                    }
+                    readonly name: string
+                    readonly kind: number
+                  }
+                | {
+                    readonly text: { readonly value: string; readonly start: number; readonly end: number }
+                    readonly type: "resource"
+                    readonly clientName: string
+                    readonly uri: string
+                  }
+              )
+            | undefined
+          readonly id?: string | undefined
+        }
+      | {
+          readonly type: "agent"
+          readonly name: string
+          readonly source?: { readonly value: string; readonly start: number; readonly end: number } | undefined
+          readonly id?: string | undefined
+        }
+      | {
+          readonly type: "subtask"
+          readonly prompt: string
+          readonly description: string
+          readonly agent: string
+          readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+          readonly command?: string | undefined
+          readonly background?: boolean | undefined
+          readonly id?: string | undefined
+        }
+    >
+  }["delivery"]
   readonly model?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -8929,6 +9174,7 @@ export type SessionPromptPromptAsyncInput = {
   }["model"]
   readonly agent?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -9008,6 +9254,7 @@ export type SessionPromptPromptAsyncInput = {
   }["agent"]
   readonly noReply?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -9087,6 +9334,7 @@ export type SessionPromptPromptAsyncInput = {
   }["noReply"]
   readonly tools?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -9166,6 +9414,7 @@ export type SessionPromptPromptAsyncInput = {
   }["tools"]
   readonly format?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -9245,6 +9494,7 @@ export type SessionPromptPromptAsyncInput = {
   }["format"]
   readonly system?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -9324,6 +9574,7 @@ export type SessionPromptPromptAsyncInput = {
   }["system"]
   readonly variant?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
@@ -9403,6 +9654,7 @@ export type SessionPromptPromptAsyncInput = {
   }["variant"]
   readonly parts: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
     readonly agent?: string | undefined
     readonly noReply?: boolean | undefined
