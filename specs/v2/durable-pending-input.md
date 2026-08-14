@@ -1,17 +1,17 @@
 # Decision: Durable Pending Input
 
-| Field  | Value                                                                 |
-| ------ | --------------------------------------------------------------------- |
-| Status | **Proposed** (roadmap S1). Do not implement until this record is accepted. |
-| Scope  | `src/session/prompt.ts`, `src/session/prompt-state.ts`, a new `session_pending` table, prompt HTTP admission |
+| Field  | Value                                                                                                            |
+| ------ | ---------------------------------------------------------------------------------------------------------------- |
+| Status | **Proposed** (roadmap S1). Do not implement until this record is accepted.                                       |
+| Scope  | `src/session/prompt.ts`, `src/session/prompt-state.ts`, a new `session_pending` table, prompt HTTP admission     |
 | Buys   | Steer a running turn, queue a follow-up that waits for idle, and a compaction barrier that actually blocks input |
-| Blocks | S4 (the v2 write path has nothing to swap to without this), and any credible hard-crash recovery of *input* |
+| Blocks | S4 (the v2 write path has nothing to swap to without this), and any credible hard-crash recovery of _input_      |
 
 ## Summary
 
 Admission today writes the user message straight into visible Session History. There is no pending row, no promotion transaction, and no delivery mode. A second caller joins the active loop and receives the owner's result. Compaction cannot keep new input off the next model request.
 
-The change is one durable queue in front of history: `session_pending`. Admission inserts a pending row. A single promotion transaction moves a batch into visible history at a **safe step boundary**. Delivery mode chooses *when* that transaction runs.
+The change is one durable queue in front of history: `session_pending`. Admission inserts a pending row. A single promotion transaction moves a batch into visible history at a **safe step boundary**. Delivery mode chooses _when_ that transaction runs.
 
 Live execution stays process-local (`PromptState`). Pending input does not.
 
@@ -26,7 +26,7 @@ Verified against `packages/nikcli/src/session` on 2026-08-14:
 - Cancellation (`PromptState.cancel` / instance dispose) aborts the owner and rejects every parked waiter with `MessageV2.AbortedError`. Admitted messages stay. There is nothing "pending" to preserve, because pending does not exist.
 - Compaction (`session/compaction.ts`) decides `"continue" | "stop"` for the running loop. It has no handle that means "do not promote input until this compaction finishes".
 
-Graceful restart (S2) already continues an interrupted *turn* from history. It cannot continue input that was never distinguished from history, and it cannot restore a join-on-active waiter.
+Graceful restart (S2) already continues an interrupted _turn_ from history. It cannot continue input that was never distinguished from history, and it cannot restore a join-on-active waiter.
 
 ## Decision
 
@@ -54,10 +54,10 @@ A pending row is **not** a user message. It is not in `message_info`, not in `se
 
 ### Delivery modes
 
-| Mode    | When the promotion transaction runs                                      | What the model sees                                      |
-| ------- | ------------------------------------------------------------------------ | -------------------------------------------------------- |
-| `steer` | At the next **safe step boundary** of an active loop, or immediately if idle | The next LLM call, after the current step commits        |
-| `queue` | When `PromptState` has no owner for the session (loop idle)              | A new turn, after the current one has exited             |
+| Mode    | When the promotion transaction runs                                          | What the model sees                               |
+| ------- | ---------------------------------------------------------------------------- | ------------------------------------------------- |
+| `steer` | At the next **safe step boundary** of an active loop, or immediately if idle | The next LLM call, after the current step commits |
+| `queue` | When `PromptState` has no owner for the session (loop idle)                  | A new turn, after the current one has exited      |
 
 Default for today's `prompt` / `prompt_async` is **`queue` when a loop owns the session, otherwise promote immediately** — that preserves "my message is in history before 204" for the idle case that `prompt_async` was built for, and stops the idle-path from growing a pending row the user never asked to inspect.
 
@@ -113,7 +113,7 @@ Callers that today park on `PromptState` callbacks for a second `prompt()` must 
 - **A `hidden` / `pending` flag on `message_info`.** Every list, compact, export, and `toModelMessage` path would have to filter it. A missed filter leaks input to the model — the exact bug this item exists to make unrepresentable. A separate table makes "not in history" structural.
 - **Treat join-on-active as the second-prompt API.** The waiter receives the owner's result, not a turn for its own text. Steering and queueing are different products; collapsing them keeps the current confusion.
 - **Promote one row per boundary, never a batch.** A user who steers three lines during one tool call would get three step-allowance resets and three user turns. The ROADMAP rule is one reset per batch.
-- **Promote inside the compaction transaction.** Compaction's job is to rewrite *existing* history. Mixing in new user text makes the summary and the new input race. Barrier first, promote after.
+- **Promote inside the compaction transaction.** Compaction's job is to rewrite _existing_ history. Mixing in new user text makes the summary and the new input race. Barrier first, promote after.
 
 ## What Is Explicitly Not Covered
 
@@ -131,7 +131,7 @@ Callers that today park on `PromptState` callbacks for a second `prompt()` must 
 4. Promotion at the loop boundary and on idle entry. `step = 0` once per batch.
 5. Compaction barrier: `process` does not observe pending rows; promotion waits until it returns.
 6. Identity (retry vs conflict) and the pending list + `session.pending.promoted` event.
-7. Callers that currently join-on-active *after admitting* move to wait-on-promotion. Status-only join-on-active stays.
+7. Callers that currently join-on-active _after admitting_ move to wait-on-promotion. Status-only join-on-active stays.
 
 Steps 1–2 are inert. Step 3 is the first behavior change (a busy-session `prompt_async` stops appearing in history before the current step finishes). Existing tests that admit during a live loop and assert the user message is already in `MessageV2.stream` will break, and should — they are coupled to the layout this item ends.
 

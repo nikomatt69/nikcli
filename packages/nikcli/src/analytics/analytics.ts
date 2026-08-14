@@ -244,10 +244,7 @@ export namespace Analytics {
 
       const byProvider: GlobalAnalytics["byProvider"] = {}
       for (const row of db
-        .query<
-          { provider: string; sessions: number; messages: number; tokens: number; cost: number },
-          []
-        >(
+        .query<{ provider: string; sessions: number; messages: number; tokens: number; cost: number }, []>(
           `SELECT
              json_extract(info, '$.providerID') AS provider,
              COUNT(DISTINCT session_id) AS sessions,
@@ -314,10 +311,7 @@ export namespace Analytics {
 
       const byProject: GlobalAnalytics["byProject"] = {}
       for (const row of db
-        .query<
-          { projectID: string; sessions: number; tokens: number; cost: number; lastActive: number },
-          []
-        >(
+        .query<{ projectID: string; sessions: number; tokens: number; cost: number; lastActive: number }, []>(
           `SELECT
              s.project_id AS projectID,
              COUNT(DISTINCT s.id) AS sessions,
@@ -486,10 +480,7 @@ export namespace Analytics {
       }
 
       for (const row of db
-        .query<
-          { date: string; tool: string; calls: number; success: number; error: number },
-          [string, string]
-        >(
+        .query<{ date: string; tool: string; calls: number; success: number; error: number }, [string, string]>(
           `SELECT
              date(m.created_at / 1000, 'unixepoch') AS date,
              COALESCE(json_extract(p.info, '$.tool'), 'unknown') AS tool,

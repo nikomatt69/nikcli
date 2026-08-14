@@ -173,7 +173,9 @@ export function DialogProfile() {
       value: current,
       // An empty submit is swallowed by the prompt itself, so clearing a field
       // needs a value that means "nothing".
-      description: () => <text fg={theme.foreground.muted}>{`${meta.hint}${current ? " Enter - to clear." : ""}`}</text>,
+      description: () => (
+        <text fg={theme.foreground.muted}>{`${meta.hint}${current ? " Enter - to clear." : ""}`}</text>
+      ),
     })
     if (result !== null) {
       await apply({ [field]: result.trim() === "-" ? "" : result } as Profile.Input, `${meta.title} saved`)

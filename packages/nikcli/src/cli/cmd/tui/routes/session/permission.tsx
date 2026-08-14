@@ -162,7 +162,9 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
               </Match>
               <Match when={true}>
                 <box paddingLeft={1} gap={1}>
-                  <text fg={theme.foreground.muted}>This will allow the following patterns until Nikcli is restarted</text>
+                  <text fg={theme.foreground.muted}>
+                    This will allow the following patterns until Nikcli is restarted
+                  </text>
                   <box>
                     <For each={props.request.always}>
                       {(pattern) => (
@@ -485,7 +487,13 @@ function Prompt<const T extends Record<string, string>>(props: {
                   props.onSelect(option)
                 }}
               >
-                <text fg={option === store.selected ? selectedForeground(theme, theme.status.warning.fg) : theme.foreground.muted}>
+                <text
+                  fg={
+                    option === store.selected
+                      ? selectedForeground(theme, theme.status.warning.fg)
+                      : theme.foreground.muted
+                  }
+                >
                   {props.options[option]}
                 </text>
               </box>

@@ -181,7 +181,9 @@ export function DialogSync() {
         </text>
         <text fg={kindColor()}>{kindLabel()}</text>
       </box>
-      <text fg={theme.foreground.muted}>Unified event log for sessions + workspace, with optional hub-and-spoke remote</text>
+      <text fg={theme.foreground.muted}>
+        Unified event log for sessions + workspace, with optional hub-and-spoke remote
+      </text>
 
       <Show
         when={!showForm()}
@@ -278,9 +280,7 @@ export function DialogSync() {
                   backgroundColor={form.busy ? theme.surface.panel : theme.accent.fg}
                   onMouseUp={() => void save()}
                 >
-                  <text fg={form.busy ? theme.foreground.muted : theme.badge.fg}>
-                    {form.busy ? "Saving…" : "Save"}
-                  </text>
+                  <text fg={form.busy ? theme.foreground.muted : theme.badge.fg}>{form.busy ? "Saving…" : "Save"}</text>
                 </box>
               </box>
             </box>

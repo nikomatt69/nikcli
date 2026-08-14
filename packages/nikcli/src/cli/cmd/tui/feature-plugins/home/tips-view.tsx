@@ -41,7 +41,9 @@ export function Tips() {
       </text>
       <text flexShrink={1}>
         <For each={parts}>
-          {(part) => <span style={{ fg: part.highlight ? theme.foreground.default : theme.foreground.muted }}>{part.text}</span>}
+          {(part) => (
+            <span style={{ fg: part.highlight ? theme.foreground.default : theme.foreground.muted }}>{part.text}</span>
+          )}
         </For>
       </text>
     </box>

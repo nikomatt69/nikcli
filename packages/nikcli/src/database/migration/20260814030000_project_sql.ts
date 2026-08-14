@@ -46,9 +46,7 @@ function importProjects(database: BunDatabase, storageDir: string) {
      (id, data, directories, created_at, updated_at)
      VALUES (?, ?, NULL, ?, ?)`,
   )
-  const fillDirectories = database.query(
-    `UPDATE project SET directories = ? WHERE id = ? AND directories IS NULL`,
-  )
+  const fillDirectories = database.query(`UPDATE project SET directories = ? WHERE id = ? AND directories IS NULL`)
 
   let projects = 0
   const projectRoot = path.join(storageDir, "project")

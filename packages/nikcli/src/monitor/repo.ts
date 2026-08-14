@@ -1,7 +1,7 @@
-import { and, eq } from "drizzle-orm";
-import { Database } from "@/database/database";
-import { monitor } from "./monitor.sql";
-import type { Monitor } from "./manager";
+import { and, eq } from "drizzle-orm"
+import { Database } from "@/database/database"
+import { monitor } from "./monitor.sql"
+import type { Monitor } from "./manager"
 
 /**
  * SQL-backed repository for monitor records.
@@ -12,10 +12,10 @@ import type { Monitor } from "./manager";
  */
 export namespace MonitorRepo {
   function db() {
-    return Database.syncDb();
+    return Database.syncDb()
   }
 
-  type Executor = Database.TxOrDb;
+  type Executor = Database.TxOrDb
 
   function toRow(record: Monitor.Record) {
     return {
@@ -25,34 +25,28 @@ export namespace MonitorRepo {
       data: JSON.stringify(record),
       createdAt: record.time.created,
       updatedAt: record.time.updated,
-    };
+    }
   }
 
   function readRecord(data: string): Monitor.Record | undefined {
     try {
-      return JSON.parse(data) as Monitor.Record;
+      return JSON.parse(data) as Monitor.Record
     } catch {
-      return undefined;
+      return undefined
     }
   }
 
-  export function get(
-    sessionId: string,
-    id: string,
-  ): Monitor.Record | undefined {
+  export function get(sessionId: string, id: string): Monitor.Record | undefined {
     const row = db()
       .select({ data: monitor.data })
       .from(monitor)
       .where(and(eq(monitor.sessionId, sessionId), eq(monitor.id, id)))
-      .get();
-    return row ? readRecord(row.data) : undefined;
+      .get()
+    return row ? readRecord(row.data) : undefined
   }
 
-  export function upsert(
-    record: Monitor.Record,
-    executor: Executor = db(),
-  ): void {
-    const row = toRow(record);
+  export function upsert(record: Monitor.Record, executor: Executor = db()): void {
+    const row = toRow(record)
     executor
       .insert(monitor)
       .values(row)
@@ -65,19 +59,15 @@ export namespace MonitorRepo {
           updatedAt: row.updatedAt,
         },
       })
-      .run();
+      .run()
   }
 
   /** Every monitor still marked `running`, across every session. */
   export function listRunning(): Monitor.Record[] {
-    const rows = db()
-      .select({ data: monitor.data })
-      .from(monitor)
-      .where(eq(monitor.status, "running"))
-      .all();
+    const rows = db().select({ data: monitor.data }).from(monitor).where(eq(monitor.status, "running")).all()
     return rows.flatMap((row) => {
-      const record = readRecord(row.data);
-      return record ? [record] : [];
-    });
+      const record = readRecord(row.data)
+      return record ? [record] : []
+    })
   }
 }

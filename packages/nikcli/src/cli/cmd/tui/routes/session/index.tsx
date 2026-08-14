@@ -1625,7 +1625,9 @@ function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; 
               fallback={
                 <Show when={ctx.showTimestamps()}>
                   <text fg={theme.foreground.muted}>
-                    <span style={{ fg: theme.foreground.muted }}>{Locale.todayTimeOrDateTime(props.turn.createdAt)}</span>
+                    <span style={{ fg: theme.foreground.muted }}>
+                      {Locale.todayTimeOrDateTime(props.turn.createdAt)}
+                    </span>
                   </text>
                 </Show>
               }

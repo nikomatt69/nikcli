@@ -49,11 +49,7 @@ export namespace ProjectRepo {
   }
 
   export function get(id: string): Project.Info | undefined {
-    const row = db()
-      .select({ data: project.data })
-      .from(project)
-      .where(eq(project.id, id))
-      .get()
+    const row = db().select({ data: project.data }).from(project).where(eq(project.id, id)).get()
     return row ? readInfo(row.data) : undefined
   }
 
@@ -102,11 +98,7 @@ export namespace ProjectRepo {
    * is a stored empty list and must not re-bootstrap.
    */
   export function directories(id: string): Project.Directory[] | undefined {
-    const row = db()
-      .select({ directories: project.directories })
-      .from(project)
-      .where(eq(project.id, id))
-      .get()
+    const row = db().select({ directories: project.directories }).from(project).where(eq(project.id, id)).get()
     if (!row || row.directories == null) return undefined
     try {
       const parsed = JSON.parse(row.directories) as unknown

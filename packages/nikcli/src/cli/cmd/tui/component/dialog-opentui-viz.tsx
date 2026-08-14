@@ -1416,7 +1416,11 @@ function TimelineRenderer(props: { comp: Of<"timeline"> }) {
                   {TIMELINE_ICON[event.status]}
                 </text>
                 <text
-                  fg={event.status === "active" || event.status === "error" ? theme.foreground.default : theme.foreground.muted}
+                  fg={
+                    event.status === "active" || event.status === "error"
+                      ? theme.foreground.default
+                      : theme.foreground.muted
+                  }
                   attributes={event.status === "active" ? TextAttributes.BOLD : undefined}
                   wrapMode="word"
                   flexGrow={1}

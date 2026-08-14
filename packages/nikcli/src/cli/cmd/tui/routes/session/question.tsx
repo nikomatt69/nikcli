@@ -280,7 +280,11 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
                     backgroundColor={isActive() ? theme.accent.alt : theme.surface.offset}
                     onMouseUp={() => selectTab(index())}
                   >
-                    <text fg={isActive() ? theme.badge.fg : isAnswered() ? theme.foreground.default : theme.foreground.muted}>
+                    <text
+                      fg={
+                        isActive() ? theme.badge.fg : isAnswered() ? theme.foreground.default : theme.foreground.muted
+                      }
+                    >
                       {q.header}
                     </text>
                   </box>
@@ -315,12 +319,26 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
                     <box onMouseOver={() => moveTo(i())} onMouseUp={() => selectOption()}>
                       <box flexDirection="row">
                         <box backgroundColor={active() ? theme.surface.offset : undefined} paddingRight={1}>
-                          <text fg={active() ? tint(theme.foreground.muted, theme.accent.secondary, 0.6) : theme.foreground.muted}>
+                          <text
+                            fg={
+                              active()
+                                ? tint(theme.foreground.muted, theme.accent.secondary, 0.6)
+                                : theme.foreground.muted
+                            }
+                          >
                             {`${i() + 1}.`}
                           </text>
                         </box>
                         <box backgroundColor={active() ? theme.surface.offset : undefined}>
-                          <text fg={active() ? theme.accent.secondary : picked() ? theme.status.success.fg : theme.foreground.default}>
+                          <text
+                            fg={
+                              active()
+                                ? theme.accent.secondary
+                                : picked()
+                                  ? theme.status.success.fg
+                                  : theme.foreground.default
+                            }
+                          >
                             {multi() ? `[${picked() ? "✓" : " "}] ${opt.label}` : opt.label}
                           </text>
                         </box>
@@ -340,12 +358,24 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
                 <box onMouseOver={() => moveTo(options().length)} onMouseUp={() => selectOption()}>
                   <box flexDirection="row">
                     <box backgroundColor={other() ? theme.surface.offset : undefined} paddingRight={1}>
-                      <text fg={other() ? tint(theme.foreground.muted, theme.accent.secondary, 0.6) : theme.foreground.muted}>
+                      <text
+                        fg={
+                          other() ? tint(theme.foreground.muted, theme.accent.secondary, 0.6) : theme.foreground.muted
+                        }
+                      >
                         {`${options().length + 1}.`}
                       </text>
                     </box>
                     <box backgroundColor={other() ? theme.surface.offset : undefined}>
-                      <text fg={other() ? theme.accent.secondary : customPicked() ? theme.status.success.fg : theme.foreground.default}>
+                      <text
+                        fg={
+                          other()
+                            ? theme.accent.secondary
+                            : customPicked()
+                              ? theme.status.success.fg
+                              : theme.foreground.default
+                        }
+                      >
                         {multi() ? `[${customPicked() ? "✓" : " "}] Type your own answer` : "Type your own answer"}
                       </text>
                     </box>

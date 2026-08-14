@@ -307,7 +307,15 @@ export function DialogWorkspaceList() {
               ? "Detached"
               : undefined,
           gutter: (
-            <text fg={status === "connected" ? theme.status.success.fg : status === "error" ? theme.status.error.fg : theme.foreground.muted}>
+            <text
+              fg={
+                status === "connected"
+                  ? theme.status.success.fg
+                  : status === "error"
+                    ? theme.status.error.fg
+                    : theme.foreground.muted
+              }
+            >
               ●
             </text>
           ),

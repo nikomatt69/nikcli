@@ -48,7 +48,10 @@ export function DialogStatus() {
       </box>
       <text fg={theme.foreground.muted}>Nikcli v{Installation.VERSION}</text>
       <text fg={theme.foreground.muted}>a fork of opencode — github.com/anomalyco/opencode</text>
-      <Show when={Object.keys(sync.data.mcp).length > 0} fallback={<text fg={theme.foreground.default}>No MCP Servers</text>}>
+      <Show
+        when={Object.keys(sync.data.mcp).length > 0}
+        fallback={<text fg={theme.foreground.default}>No MCP Servers</text>}
+      >
         <box>
           <text fg={theme.foreground.default}>{Object.keys(sync.data.mcp).length} MCP Servers</text>
           <For each={Object.entries(sync.data.mcp)}>

@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.283.0 (August 2026)
+
+## Core
+
+- Add detailed integration plans for happy circuit and swift star (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(plans): add detailed integration plans for happy circuit and swift star
+
 ## v1.277.0 (August 2026)
 
 ## Core

@@ -50,7 +50,9 @@ export function Tips(props: { ads?: AdsConfig }) {
       <text flexShrink={0} style={{ fg: theme.status.warning.fg }}>{`● ${label()} `}</text>
       <text flexShrink={1}>
         <For each={parts()}>
-          {(part) => <span style={{ fg: part.highlight ? theme.foreground.default : theme.foreground.muted }}>{part.text}</span>}
+          {(part) => (
+            <span style={{ fg: part.highlight ? theme.foreground.default : theme.foreground.muted }}>{part.text}</span>
+          )}
         </For>
       </text>
     </box>

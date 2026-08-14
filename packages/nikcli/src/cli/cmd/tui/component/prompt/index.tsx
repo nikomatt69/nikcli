@@ -2195,7 +2195,8 @@ export function Prompt(props: PromptProps) {
                   <box flexDirection="row" gap={1} flexShrink={0}>
                     <text fg={theme.foreground.muted}>·</text>
                     <text fg={g().color} wrapMode="none">
-                      <span style={{ bold: true }}>goal</span> <span style={{ fg: theme.foreground.muted }}>{g().status}</span>
+                      <span style={{ bold: true }}>goal</span>{" "}
+                      <span style={{ fg: theme.foreground.muted }}>{g().status}</span>
                     </text>
                   </box>
                 )}

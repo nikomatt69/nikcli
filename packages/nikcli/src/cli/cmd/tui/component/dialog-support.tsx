@@ -625,8 +625,9 @@ export function DialogSupport() {
         />
         <text fg={theme.foreground.muted}>
           <span style={{ fg: theme.accent.fg }}>enter</span> send · paste file path to attach ·{" "}
-          <span style={{ fg: theme.accent.fg }}>ctrl+o</span> model · <span style={{ fg: theme.accent.fg }}>ctrl+y</span>{" "}
-          copy reply · <span style={{ fg: theme.accent.fg }}>ctrl+l</span> new conversation ·{" "}
+          <span style={{ fg: theme.accent.fg }}>ctrl+o</span> model ·{" "}
+          <span style={{ fg: theme.accent.fg }}>ctrl+y</span> copy reply ·{" "}
+          <span style={{ fg: theme.accent.fg }}>ctrl+l</span> new conversation ·{" "}
           <span style={{ fg: theme.accent.fg }}>esc</span> close
         </text>
       </box>

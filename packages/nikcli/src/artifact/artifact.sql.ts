@@ -1,10 +1,4 @@
-import {
-  sqliteTable,
-  text,
-  integer,
-  index,
-  primaryKey,
-} from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core"
 
 // ============================================================================
 // Artifacts — SQL backend for the former ["artifact", sessionID, id] tree
@@ -27,9 +21,6 @@ export const artifact = sqliteTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.sessionId, table.id] }),
-    sessionUpdatedIdx: index("idx_artifact_session_updated").on(
-      table.sessionId,
-      table.updatedAt,
-    ),
+    sessionUpdatedIdx: index("idx_artifact_session_updated").on(table.sessionId, table.updatedAt),
   }),
-);
+)

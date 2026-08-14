@@ -98,9 +98,9 @@ describe("tool output schemas", () => {
       input: { type: "object" },
       output: z.toJSONSchema(CountOutput, { io: "output" }) as ConfinedTool.JsonSchema,
       run: (input) =>
-        def.execute((input ?? {}) as z.infer<typeof def.parameters>, ctx).pipe(
-          Effect.map((result) => Tool.encoded(result, def.output)),
-        ),
+        def
+          .execute((input ?? {}) as z.infer<typeof def.parameters>, ctx)
+          .pipe(Effect.map((result) => Tool.encoded(result, def.output))),
     })
 
     const result = await Effect.runPromise(

@@ -50,7 +50,9 @@ export function DialogHerdrStatus() {
       <box flexDirection="row" gap={2}>
         <text fg={theme.foreground.default}>
           Bridge:{" "}
-          <span style={{ fg: enabled() ? theme.status.success.fg : theme.foreground.muted }}>{enabled() ? "enabled" : "disabled"}</span>
+          <span style={{ fg: enabled() ? theme.status.success.fg : theme.foreground.muted }}>
+            {enabled() ? "enabled" : "disabled"}
+          </span>
         </text>
       </box>
 
@@ -77,7 +79,9 @@ function InstallBlock(props: { info: HerdrInstallInfo; theme: ReturnType<typeof 
     <box flexDirection="column" gap={0}>
       <text fg={theme.foreground.default}>
         Binary:{" "}
-        <span style={{ fg: info.installed ? theme.status.success.fg : theme.status.warning.fg }}>{info.binPath ?? "(not installed)"}</span>
+        <span style={{ fg: info.installed ? theme.status.success.fg : theme.status.warning.fg }}>
+          {info.binPath ?? "(not installed)"}
+        </span>
       </text>
       <text fg={theme.foreground.default}>
         Server:{" "}

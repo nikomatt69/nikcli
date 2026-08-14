@@ -1,7 +1,7 @@
-import { and, desc, eq } from "drizzle-orm";
-import { Database } from "@/database/database";
-import { artifact } from "./artifact.sql";
-import type { Artifact } from "./index";
+import { and, desc, eq } from "drizzle-orm"
+import { Database } from "@/database/database"
+import { artifact } from "./artifact.sql"
+import type { Artifact } from "./index"
 
 /**
  * SQL-backed repository for published artifacts.
@@ -12,18 +12,18 @@ import type { Artifact } from "./index";
  */
 export namespace ArtifactRepo {
   function db() {
-    return Database.syncDb();
+    return Database.syncDb()
   }
 
-  type Executor = Database.TxOrDb;
+  type Executor = Database.TxOrDb
 
-  type StoredRecord = Artifact.Info & { secret: string };
+  type StoredRecord = Artifact.Info & { secret: string }
 
   function readRecord(data: string): StoredRecord | undefined {
     try {
-      return JSON.parse(data) as StoredRecord;
+      return JSON.parse(data) as StoredRecord
     } catch {
-      return undefined;
+      return undefined
     }
   }
 
@@ -32,14 +32,11 @@ export namespace ArtifactRepo {
       .select({ data: artifact.data })
       .from(artifact)
       .where(and(eq(artifact.sessionId, sessionId), eq(artifact.id, id)))
-      .get();
-    return row ? readRecord(row.data) : undefined;
+      .get()
+    return row ? readRecord(row.data) : undefined
   }
 
-  export function upsert(
-    record: StoredRecord,
-    executor: Executor = db(),
-  ): void {
+  export function upsert(record: StoredRecord, executor: Executor = db()): void {
     executor
       .insert(artifact)
       .values({
@@ -56,7 +53,7 @@ export namespace ArtifactRepo {
           updatedAt: record.time.updated,
         },
       })
-      .run();
+      .run()
   }
 
   /** Newest-updated first. Secrets still present; the manager strips them. */
@@ -66,10 +63,10 @@ export namespace ArtifactRepo {
       .from(artifact)
       .where(eq(artifact.sessionId, sessionId))
       .orderBy(desc(artifact.updatedAt))
-      .all();
+      .all()
     return rows.flatMap((row) => {
-      const record = readRecord(row.data);
-      return record ? [record] : [];
-    });
+      const record = readRecord(row.data)
+      return record ? [record] : []
+    })
   }
 }

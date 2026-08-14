@@ -19,14 +19,14 @@ These documents explain V2 behavior that is difficult to recover from one source
 
 ## Decisions And Proposals
 
-| Document                                                                | Status                     | Job                                                                       |
-| ----------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------- |
-| [Catalog/config/plugin lifecycle](./catalog-config-plugin-lifecycle.md) | Accepted and implemented   | Record why visible provider state is an invalidatable per-instance cache. |
-| [Event stream](./event-stream-architecture.md)                          | Accepted and implemented   | One encoded feed, one lag budget per connection.                          |
-| [Instruction sync](./instruction-sync-proposal.md)                      | Proposed and unimplemented | Make instruction state value deltas instead of a per-request rebuild.     |
-| [Durable pending input](./durable-pending-input.md)                     | Proposed                   | Pending row + promotion transaction; steer vs queue; compaction barrier.  |
-| [Restart continuation](./session-restart-continuation.md)               | Accepted and implemented   | Continue interrupted sessions after a graceful server restart.            |
-| [Provider policy](./provider-policy.md)                                 | Accepted and implemented   | Define ordered `provider.use` decisions and legacy compatibility.         |
+| Document                                                                | Status                     | Job                                                                                  |
+| ----------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
+| [Catalog/config/plugin lifecycle](./catalog-config-plugin-lifecycle.md) | Accepted and implemented   | Record why visible provider state is an invalidatable per-instance cache.            |
+| [Event stream](./event-stream-architecture.md)                          | Accepted and implemented   | One encoded feed, one lag budget per connection.                                     |
+| [Instruction sync](./instruction-sync-proposal.md)                      | Proposed and unimplemented | Make instruction state value deltas instead of a per-request rebuild.                |
+| [Durable pending input](./durable-pending-input.md)                     | Proposed                   | Pending row + promotion transaction; steer vs queue; compaction barrier.             |
+| [Restart continuation](./session-restart-continuation.md)               | Accepted and implemented   | Continue interrupted sessions after a graceful server restart.                       |
+| [Provider policy](./provider-policy.md)                                 | Accepted and implemented   | Define ordered `provider.use` decisions and legacy compatibility.                    |
 | [TUI theme migration](./tui-theme-migration.md)                         | U3 and U2 done             | Nested tokens derived from flat colors. `Theme` is nested-only; documents stay flat. |
 
 ## Historical Context
