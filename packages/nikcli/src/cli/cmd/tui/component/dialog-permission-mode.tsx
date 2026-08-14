@@ -6,8 +6,8 @@ import { useSDK } from "@tui/context/sdk"
 import { useTheme } from "@tui/context/theme"
 import { useToast } from "@tui/ui/toast"
 import { DialogSelect, type DialogSelectOption, type DialogSelectRef } from "@tui/ui/dialog-select"
-import { Keybind } from "@/util/keybind"
-import { Locale } from "@/util/locale"
+import { Keybind } from "@tui/util/keybind"
+import { Locale } from "@nikcli-ai/util/locale"
 import {
   PERMISSION_ITEMS,
   PERMISSION_PRESETS,

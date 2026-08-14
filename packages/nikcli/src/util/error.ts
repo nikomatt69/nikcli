@@ -1,4 +1,4 @@
-import { isRecord } from "./record"
+import { isRecord } from "@nikcli-ai/util/record"
 
 export function errorFormat(error: unknown): string {
   if (error instanceof Error) {

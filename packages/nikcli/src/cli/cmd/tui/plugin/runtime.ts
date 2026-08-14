@@ -16,7 +16,7 @@ import { Config } from "@/config/config"
 import { TuiConfig } from "@/config/tui"
 import { Log } from "@/util/log"
 import { errorData, errorMessage } from "@/util/error"
-import { isRecord } from "@/util/record"
+import { isRecord } from "@nikcli-ai/util/record"
 import { withInstanceAsync } from "@/effect"
 import {
   checkPluginCompatibility,

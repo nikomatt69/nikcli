@@ -1,6 +1,6 @@
 import { createMemo } from "solid-js"
 import { useSync } from "@tui/context/sync"
-import { Keybind } from "@/util/keybind"
+import { Keybind } from "@tui/util/keybind"
 import { pipe, mapValues } from "remeda"
 import type { KeybindsConfig } from "@nikcli-ai/sdk/httpapi"
 import type { ParsedKey, Renderable } from "@opentui/core"

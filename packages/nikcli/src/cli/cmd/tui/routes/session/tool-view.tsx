@@ -24,29 +24,29 @@ import { Prompt } from "@tui/component/prompt"
 import { TuiPluginRuntime } from "@tui/plugin"
 import { type AssistantMessage, type Part, type ToolPart } from "@nikcli-ai/sdk/httpapi"
 import { useLocal } from "@tui/context/local"
-import { Locale } from "@/util/locale"
+import { Locale } from "@nikcli-ai/util/locale"
 import { reasoningSummary } from "@tui/context/thinking"
-import { Token } from "@/util/token"
-import type { Tool } from "@/tool/tool"
-import type { ReadTool } from "@/tool/read"
-import type { WriteTool } from "@/tool/write"
-import type { BashTool } from "@/tool/bash"
-import type { GlobTool } from "@/tool/glob"
-import type { TodoWriteTool } from "@/tool/todo"
-import type { GrepTool } from "@/tool/grep"
-import type { ListTool } from "@/tool/ls"
-import type { EditTool } from "@/tool/edit"
-import type { ApplyPatchTool } from "@/tool/apply_patch"
-import type { WebFetchTool } from "@/tool/webfetch"
-import type { TaskTool } from "@/tool/task"
-import type { MonitorTool } from "@/tool/monitor"
-import type { QuestionTool } from "@/tool/question"
-import type { BrowserControlTool } from "@/tool/browser-control"
-import type { ComputerTool } from "@/tool/computer"
-import type { ArtifactTool } from "@/tool/artifact"
+import { Token } from "@nikcli-ai/util/token"
+import {
+  diagnosticMessage,
+  type ApplyPatchShape,
+  type ArtifactShape,
+  type BashShape,
+  type BrowserControlShape,
+  type ComputerShape,
+  type Diagnostic,
+  type EditShape,
+  type GlobShape,
+  type GrepShape,
+  type ListShape,
+  type QuestionShape,
+  type ReadShape,
+  type ToolShape,
+  type TodoWriteShape,
+  type WriteShape,
+} from "@tui/util/tool-shapes"
 
-import { normalizeVizComponents, type OpenTUIVizTool } from "@/tool/opentui"
-import { LSP } from "@/lsp"
+import { normalizeVizComponents } from "@/tool/opentui"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -262,16 +262,16 @@ export function ToolPartView(props: { last: boolean; streaming: boolean; entry: 
   )
 }
 
-type ToolProps<T extends Tool.Info> = {
-  input: Partial<Tool.InferParameters<T>>
-  metadata: Partial<Tool.InferMetadata<T>>
+type ToolProps<S extends ToolShape = ToolShape> = {
+  input: Partial<S["input"]>
+  metadata: Partial<S["metadata"]>
   permission: Record<string, any>
   tool: string
   output?: string
   part: ToolEntry
 }
 
-function BrowserControlView(props: ToolProps<typeof BrowserControlTool>) {
+function BrowserControlView(props: ToolProps<BrowserControlShape>) {
   const { theme } = useTheme()
   const action = createMemo(() => props.metadata.action ?? props.input.action ?? "browser_control")
   const label = createMemo(() => (props.metadata.name ? `${action()} · ${props.metadata.name}` : action()))
@@ -305,7 +305,7 @@ function BrowserControlView(props: ToolProps<typeof BrowserControlTool>) {
   )
 }
 
-function ComputerUse(props: ToolProps<typeof ComputerTool>) {
+function ComputerUse(props: ToolProps<ComputerShape>) {
   const { theme } = useTheme()
   const action = createMemo(() => props.input.action ?? "computer")
   const mode = createMemo(() => (props.metadata as Record<string, any>).mode as string | undefined)
@@ -341,7 +341,7 @@ function ComputerUse(props: ToolProps<typeof ComputerTool>) {
   )
 }
 
-function ArtifactView(props: ToolProps<typeof ArtifactTool>) {
+function ArtifactView(props: ToolProps<ArtifactShape>) {
   const { theme } = useTheme()
   const title = createMemo(() => props.metadata.title ?? props.input.title ?? "Artifact")
   const url = createMemo(() => props.metadata.url)
@@ -525,7 +525,7 @@ function BlockTool(props: {
   )
 }
 
-function Bash(props: ToolProps<typeof BashTool>) {
+function Bash(props: ToolProps<BashShape>) {
   const { theme } = useTheme()
   const sync = useSync()
   const output = createMemo(() => stripAnsi(props.metadata.output?.trim() ?? ""))
@@ -778,7 +778,7 @@ function summarizeCodeModeInput(value?: Record<string, unknown>) {
   return summary.length > 120 ? summary.slice(0, 119) + "…" : summary
 }
 
-function Write(props: ToolProps<typeof WriteTool>) {
+function Write(props: ToolProps<WriteShape>) {
   const { theme, syntax } = useTheme()
   const code = createMemo(() => {
     if (!props.input.content) return ""
@@ -808,7 +808,7 @@ function Write(props: ToolProps<typeof WriteTool>) {
               {(diagnostic) => (
                 <text fg={theme.status.error.fg}>
                   Error [{diagnostic.range.start.line}:{diagnostic.range.start.character}]:{" "}
-                  {LSP.Diagnostic.message(diagnostic)}
+                  {diagnosticMessage(diagnostic)}
                 </text>
               )}
             </For>
@@ -824,7 +824,7 @@ function Write(props: ToolProps<typeof WriteTool>) {
   )
 }
 
-function Glob(props: ToolProps<typeof GlobTool>) {
+function Glob(props: ToolProps<GlobShape>) {
   return (
     <InlineTool icon="✱" pending="Finding files..." complete={props.input.pattern} part={props.part}>
       Glob "{props.input.pattern}" <Show when={props.input.path}>in {normalizePath(props.input.path)} </Show>
@@ -833,7 +833,7 @@ function Glob(props: ToolProps<typeof GlobTool>) {
   )
 }
 
-function Read(props: ToolProps<typeof ReadTool>) {
+function Read(props: ToolProps<ReadShape>) {
   return (
     <InlineTool icon="→" pending="Reading file..." complete={props.input.filePath} part={props.part}>
       Read {normalizePath(props.input.filePath!)} {input(props.input, ["filePath"])}
@@ -841,7 +841,7 @@ function Read(props: ToolProps<typeof ReadTool>) {
   )
 }
 
-function Grep(props: ToolProps<typeof GrepTool>) {
+function Grep(props: ToolProps<GrepShape>) {
   return (
     <InlineTool icon="✱" pending="Searching content..." complete={props.input.pattern} part={props.part}>
       Grep "{props.input.pattern}" <Show when={props.input.path}>in {normalizePath(props.input.path)} </Show>
@@ -850,7 +850,7 @@ function Grep(props: ToolProps<typeof GrepTool>) {
   )
 }
 
-function List(props: ToolProps<typeof ListTool>) {
+function List(props: ToolProps<ListShape>) {
   const dir = createMemo(() => {
     if (props.input.path) {
       return normalizePath(props.input.path)
@@ -864,7 +864,7 @@ function List(props: ToolProps<typeof ListTool>) {
   )
 }
 
-function WebFetch(props: ToolProps<typeof WebFetchTool>) {
+function WebFetch(props: ToolProps<any>) {
   const input = props.input as any
   const { theme } = useTheme()
   const dialog = useDialog()
@@ -907,7 +907,7 @@ function WebFetch(props: ToolProps<typeof WebFetchTool>) {
   )
 }
 
-function OpenTUIViz(props: ToolProps<typeof OpenTUIVizTool>) {
+function OpenTUIViz(props: ToolProps<any>) {
   const { theme } = useTheme()
   const dialog = useDialog()
   const metadata = props.metadata as any
@@ -1517,7 +1517,7 @@ export function DialogMonitorLog(props: {
   )
 }
 
-function Task(props: ToolProps<typeof TaskTool>) {
+function Task(props: ToolProps<any>) {
   const { theme } = useTheme()
   const { navigate } = useRoute()
   const local = useLocal()
@@ -1674,7 +1674,7 @@ function Task(props: ToolProps<typeof TaskTool>) {
   )
 }
 
-function Monitor(props: ToolProps<typeof MonitorTool>) {
+function Monitor(props: ToolProps<any>) {
   const { theme } = useTheme()
   const dialog = useDialog()
 
@@ -1753,7 +1753,7 @@ function Monitor(props: ToolProps<typeof MonitorTool>) {
   )
 }
 
-function Edit(props: ToolProps<typeof EditTool>) {
+function Edit(props: ToolProps<EditShape>) {
   const ctx = use()
   const { theme, syntax } = useTheme()
 
@@ -1771,7 +1771,7 @@ function Edit(props: ToolProps<typeof EditTool>) {
   const diagnostics = createMemo(() => {
     const filePath = Filesystem.normalizePath(props.input.filePath ?? "")
     const arr = props.metadata.diagnostics?.[filePath] ?? []
-    return arr.filter((x: LSP.Diagnostic) => x.severity === 1).slice(0, 3)
+    return arr.filter((x: Diagnostic) => x.severity === 1).slice(0, 3)
   })
 
   return (
@@ -1805,7 +1805,7 @@ function Edit(props: ToolProps<typeof EditTool>) {
                 {(diagnostic) => (
                   <text fg={theme.status.error.fg}>
                     Error [{diagnostic.range.start.line + 1}:{diagnostic.range.start.character + 1}]{" "}
-                    {LSP.Diagnostic.message(diagnostic)}
+                    {diagnosticMessage(diagnostic)}
                   </text>
                 )}
               </For>
@@ -1822,7 +1822,7 @@ function Edit(props: ToolProps<typeof EditTool>) {
   )
 }
 
-function ApplyPatch(props: ToolProps<typeof ApplyPatchTool>) {
+function ApplyPatch(props: ToolProps<ApplyPatchShape>) {
   const ctx = use()
   const { theme, syntax } = useTheme()
 
@@ -1896,7 +1896,7 @@ function ApplyPatch(props: ToolProps<typeof ApplyPatchTool>) {
   )
 }
 
-function TodoWrite(props: ToolProps<typeof TodoWriteTool>) {
+function TodoWrite(props: ToolProps<TodoWriteShape>) {
   return (
     <Switch>
       <Match when={props.metadata.todos?.length}>
@@ -1917,7 +1917,7 @@ function TodoWrite(props: ToolProps<typeof TodoWriteTool>) {
   )
 }
 
-function Question(props: ToolProps<typeof QuestionTool>) {
+function Question(props: ToolProps<QuestionShape>) {
   const { theme } = useTheme()
   const count = createMemo(() => props.input.questions?.length ?? 0)
 

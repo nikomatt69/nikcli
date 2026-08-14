@@ -8,7 +8,7 @@ import { useRoute } from "@tui/context/route"
 import { Skill } from "@/skill"
 import { Global } from "@/global"
 import { useToast } from "@tui/ui/toast"
-import { Keybind } from "@/util/keybind"
+import { Keybind } from "@tui/util/keybind"
 
 function detectSource(location: string) {
   const normalized = location.replaceAll("\\", "/")

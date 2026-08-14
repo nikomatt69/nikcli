@@ -5,7 +5,7 @@ import { LLM } from "./llm"
 import { MessageV2 } from "./message-v2"
 import { Provider } from "../provider/provider"
 import { Session } from "."
-import { iife } from "@/util/iife"
+import { iife } from "@nikcli-ai/util/iife"
 
 const log = Log.create({ service: "session.prompt.title" })
 

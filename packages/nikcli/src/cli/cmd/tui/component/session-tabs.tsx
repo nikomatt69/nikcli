@@ -18,18 +18,8 @@ const TAB_MAX_WIDTH = 28
 const FIXED_CHROME_WIDTH = 17
 const TAB_GAP = 1
 const OVERFLOW_WIDTH = 6
-const CLOSE_ALL_WIDTH = 7
-// Below this the strip keeps every column for the tabs themselves: at 50 columns reserving the
-// button costs a whole visible tab, which is a worse trade than hiding a convenience action.
-const CLOSE_ALL_MIN_TERMINAL_WIDTH = 60
-
-/**
- * Whether the strip shows the close-all button — and therefore has to reserve its cells.
- * Layout and render must agree on this, or the tabs overflow the terminal by exactly its width.
- */
-export function showsCloseAll(tabCount: number, terminalWidth: number) {
-  return tabCount > 0 && terminalWidth >= CLOSE_ALL_MIN_TERMINAL_WIDTH
-}
+// `+ new` and `× all` share one column, so the pair costs the width of a single button.
+const CHROME_BUTTON_WIDTH = 8
 
 export type SessionTabLayout = {
   ids: string[]
@@ -54,8 +44,7 @@ export function layoutSessionTabs(
   activeID: string | undefined,
   terminalWidth: number,
 ): SessionTabLayout {
-  const chrome = FIXED_CHROME_WIDTH + (showsCloseAll(ids.length, terminalWidth) ? CLOSE_ALL_WIDTH : 0)
-  const available = Math.max(TAB_MIN_WIDTH, terminalWidth - chrome)
+  const available = Math.max(TAB_MIN_WIDTH, terminalWidth - FIXED_CHROME_WIDTH)
   const initialCapacity = Math.max(1, Math.floor((available + TAB_GAP) / (TAB_MIN_WIDTH + TAB_GAP)))
   const capacity =
     ids.length > initialCapacity
@@ -235,43 +224,43 @@ export function SessionTabs() {
           </box>
         </Show>
       </box>
-      <Show when={showsCloseAll(tabs.ids().length, dimensions().width)}>
+      {/*
+        Stacked, one row each, so the close-all action costs no horizontal cells: the strip's
+        reserved chrome stays exactly the width of `+ new` and the tabs keep every column they had.
+      */}
+      <box width={CHROME_BUTTON_WIDTH} height={3} flexShrink={0} flexDirection="column" justifyContent="center">
         <box
-          width={CLOSE_ALL_WIDTH}
-          height={3}
-          flexShrink={0}
+          height={1}
           flexDirection="row"
-          paddingTop={1}
-          paddingBottom={1}
           justifyContent="center"
-          onMouseDown={tabs.closeAll}
+          onMouseDown={tabs.createSession}
+          backgroundColor={route.data.type === "home" ? theme.surface.offset : undefined}
+          border={route.data.type === "home" ? ["left"] : undefined}
+          borderColor={route.data.type === "home" ? theme.accent.fg : undefined}
+          customBorderChars={route.data.type === "home" ? SplitBorder.customBorderChars : undefined}
         >
-          <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
-            {"× all"}
+          <text
+            fg={route.data.type === "home" ? theme.accent.fg : theme.foreground.muted}
+            attributes={route.data.type === "home" ? TextAttributes.BOLD : undefined}
+            wrapMode="none"
+          >
+            {" + new"}
           </text>
         </box>
-      </Show>
-      <box
-        width={8}
-        height={3}
-        flexShrink={0}
-        flexDirection="row"
-        paddingTop={1}
-        paddingBottom={1}
-        justifyContent="center"
-        onMouseDown={tabs.createSession}
-        backgroundColor={route.data.type === "home" ? theme.surface.offset : undefined}
-        border={route.data.type === "home" ? ["left"] : undefined}
-        borderColor={route.data.type === "home" ? theme.accent.fg : undefined}
-        customBorderChars={route.data.type === "home" ? SplitBorder.customBorderChars : undefined}
-      >
-        <text
-          fg={route.data.type === "home" ? theme.accent.fg : theme.foreground.muted}
-          attributes={route.data.type === "home" ? TextAttributes.BOLD : undefined}
-          wrapMode="none"
+        <box
+          height={1}
+          flexDirection="row"
+          justifyContent="center"
+          onMouseDown={tabs.closeAll}
+          backgroundColor={theme.surface.offset}
+          border={["left"]}
+          borderColor={theme.status.error.fg}
+          customBorderChars={SplitBorder.customBorderChars}
         >
-          {" + new"}
-        </text>
+          <text fg={theme.status.error.fg} attributes={TextAttributes.BOLD} wrapMode="none">
+            {" × all"}
+          </text>
+        </box>
       </box>
     </box>
   )

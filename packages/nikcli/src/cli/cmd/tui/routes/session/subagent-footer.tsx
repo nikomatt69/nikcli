@@ -6,7 +6,7 @@ import { SplitBorder } from "@tui/component/border"
 import type { AssistantMessage } from "@nikcli-ai/sdk/httpapi"
 import { useCommandDialog } from "@tui/component/dialog-command"
 import { useKeybind } from "../../context/keybind"
-import { Locale } from "@/util/locale"
+import { Locale } from "@nikcli-ai/util/locale"
 import { useTerminalDimensions } from "@opentui/solid"
 
 export function SubagentFooter() {

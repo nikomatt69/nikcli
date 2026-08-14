@@ -5,7 +5,7 @@ import { useSync } from "@tui/context/sync"
 import { useKV } from "@tui/context/kv"
 import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
-import { Keybind } from "@/util/keybind"
+import { Keybind } from "@tui/util/keybind"
 import { buildRelayText, linkSessions, relayToSession, sessionLinkOf, unlinkSession } from "../util/session-link"
 
 /** Picker used from the session tab bar to link two sessions and relay the latest turn between them on demand. */

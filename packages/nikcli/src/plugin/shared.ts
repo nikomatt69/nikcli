@@ -3,7 +3,7 @@ import { fileURLToPath, pathToFileURL } from "url"
 import semver from "semver"
 import { BunProc } from "@/bun"
 import { Filesystem } from "@/util/filesystem"
-import { isRecord } from "@/util/record"
+import { isRecord } from "@nikcli-ai/util/record"
 
 // Old npm package names for plugins that are now built-in
 export const DEPRECATED_PLUGIN_PACKAGES = ["nikcli-openai-codex-auth", "nikcli-copilot-auth"]

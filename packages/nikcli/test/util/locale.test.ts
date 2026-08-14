@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { Locale } from "@/util/locale"
+import { Locale } from "@nikcli-ai/util/locale"
 import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Locale", () => {

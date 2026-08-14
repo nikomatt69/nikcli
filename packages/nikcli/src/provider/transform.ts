@@ -4,7 +4,7 @@ import type { JSONSchema7 } from "@ai-sdk/provider"
 import { Provider } from "./provider"
 import * as CachePolicy from "./cache-policy"
 import type { ModelsDev } from "./models"
-import { iife } from "@/util/iife"
+import { iife } from "@nikcli-ai/util/iife"
 import { Log } from "@/util/log"
 
 const log = Log.create({ service: "provider.transform" })

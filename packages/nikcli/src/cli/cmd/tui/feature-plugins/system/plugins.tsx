@@ -1,4 +1,4 @@
-import { Keybind } from "@/util/keybind"
+import { Keybind } from "@tui/util/keybind"
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule, TuiPluginStatus } from "@nikcli-ai/plugin/tui"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { fileURLToPath } from "url"

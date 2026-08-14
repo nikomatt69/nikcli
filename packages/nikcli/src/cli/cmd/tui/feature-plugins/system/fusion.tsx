@@ -1,4 +1,4 @@
-import { Keybind } from "@/util/keybind"
+import { Keybind } from "@tui/util/keybind"
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { createMemo, createSignal } from "solid-js"

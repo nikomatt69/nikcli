@@ -3,7 +3,7 @@
  * These helpers convert between AI SDK data shapes and @nikcli-ai/llm's canonical forms.
  */
 import type { ModelMessage } from "ai"
-import { isRecord } from "@/util/record"
+import { isRecord } from "@nikcli-ai/util/record"
 
 // Check if messages contain any tool-call content
 export function hasToolCalls(messages: readonly ModelMessage[]): boolean {

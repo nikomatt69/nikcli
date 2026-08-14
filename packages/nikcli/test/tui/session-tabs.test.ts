@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { layoutSessionTabs, showsCloseAll, truncateTabTitle } from "@tui/component/session-tabs"
+import { layoutSessionTabs, truncateTabTitle } from "@tui/component/session-tabs"
 
 describe("session tab layout", () => {
   test("keeps all tabs visible when the terminal has room", () => {
@@ -7,7 +7,7 @@ describe("session tab layout", () => {
 
     expect(result.ids).toEqual(["a", "b", "c"])
     expect(result.hidden).toBe(0)
-    expect(result.width).toBe(23)
+    expect(result.width).toBe(26)
   })
 
   test("keeps the active tab visible in a narrow terminal", () => {
@@ -26,24 +26,17 @@ describe("session tab layout", () => {
     expect(result.hidden).toBe(3)
   })
 
-  test("reserves the close-all button's cells when it is shown", () => {
-    // The button is chrome: whatever it occupies has to come off the tabs, or they render past
-    // the right edge of the terminal.
-    expect(showsCloseAll(3, 100)).toBe(true)
-    const shown = layoutSessionTabs(["a", "b", "c"], "b", 100)
-    const hypothetical = Math.floor((100 - 17 - 2) / 3) - 1
+  test("spends no horizontal cells on the close-all button", () => {
+    // `+ new` and `× all` are stacked in one 8-wide column, so reserved chrome is a logo plus a
+    // single button. If either ever gets its own column, this drops and the tabs must shrink with
+    // it — a mismatch renders them past the right edge of the terminal.
+    const LOGO = 9
+    const BUTTON = 8
+    const [gaps, count] = [2, 3]
 
-    expect(shown.width).toBe(hypothetical - Math.ceil(7 / 3))
-  })
-
-  test("hides the close-all button rather than spend a tab on it", () => {
-    expect(showsCloseAll(5, 50)).toBe(false)
-    // Same result as before the button existed, so narrow terminals lose nothing.
-    expect(layoutSessionTabs(["a", "b", "c", "d", "e"], "b", 50).ids).toEqual(["b", "c"])
-  })
-
-  test("shows no close-all button with nothing open", () => {
-    expect(showsCloseAll(0, 200)).toBe(false)
+    expect(layoutSessionTabs(["a", "b", "c"], "b", 100).width).toBe(
+      Math.floor((100 - LOGO - BUTTON - gaps) / count) - 1,
+    )
   })
 
   test("normalizes and truncates long titles", () => {

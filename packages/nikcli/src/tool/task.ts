@@ -7,7 +7,7 @@ import { MessageV2 } from "../session/message-v2";
 import { Identifier } from "../id/id";
 import { Agent } from "../agent/agent";
 import { SessionPrompt } from "../session/prompt";
-import { iife } from "@/util/iife";
+import { iife } from "@nikcli-ai/util/iife";
 import { defer } from "@/util/defer";
 import { Config } from "../config/config";
 import { PermissionNext } from "@/permission/next";

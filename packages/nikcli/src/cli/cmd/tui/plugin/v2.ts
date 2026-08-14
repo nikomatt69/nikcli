@@ -1,7 +1,7 @@
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 import type { Context, Destination, Route } from "@nikcli-ai/plugin/v2/tui/context"
 import type { Definition } from "@nikcli-ai/plugin/v2/tui/plugin"
-import { isRecord } from "@/util/record"
+import { isRecord } from "@nikcli-ai/util/record"
 
 const ROUTE_PREFIX = "__nikcli_v2_tui__:"
 

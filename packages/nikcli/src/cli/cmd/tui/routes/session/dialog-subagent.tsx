@@ -7,7 +7,7 @@ import { useSDK } from "@tui/context/sdk"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { type DialogContext } from "@tui/ui/dialog"
-import { Keybind } from "@/util/keybind"
+import { Keybind } from "@tui/util/keybind"
 import { useTheme } from "@tui/context/theme"
 import { dismissBackground, getBackgroundDismissed } from "../../util/background"
 

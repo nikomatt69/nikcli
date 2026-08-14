@@ -7,7 +7,7 @@
 import type { LLMRequest } from "@nikcli-ai/llm"
 import type { ModelMessage } from "ai"
 import type { Provider } from "@/provider/provider"
-import { isRecord } from "@/util/record"
+import { isRecord } from "@nikcli-ai/util/record"
 
 type ToolInput = {
   readonly description?: string

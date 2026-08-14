@@ -15,7 +15,7 @@ import { Auth } from "../auth"
 import { Account } from "../account"
 import { Env } from "../env"
 import { Flag } from "../flag/flag"
-import { iife } from "@/util/iife"
+import { iife } from "@nikcli-ai/util/iife"
 import { type DeepMutable, zodObject } from "@/util/effect-zod"
 import { Context, Effect, Exit, Layer, Schema, ScopedCache } from "effect"
 import {

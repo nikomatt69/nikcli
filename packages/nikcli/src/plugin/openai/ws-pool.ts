@@ -1,6 +1,6 @@
 import WebSocket from "ws"
 import { Log } from "../../util/log"
-import { isRecord } from "@/util/record"
+import { isRecord } from "@nikcli-ai/util/record"
 import { OpenAIWebSocket } from "./ws"
 
 export const TITLE_HEADER = "x-nikcli-title"

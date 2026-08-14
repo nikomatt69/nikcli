@@ -13,7 +13,7 @@ import { DialogModel } from "./dialog-model"
 import { useKeyboard } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "../ui/toast"
-import { Keybind } from "@/util/keybind"
+import { Keybind } from "@tui/util/keybind"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
   nikcli: 0,

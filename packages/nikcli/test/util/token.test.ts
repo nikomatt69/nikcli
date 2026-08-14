@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { Token } from "@/util/token"
+import { Token } from "@nikcli-ai/util/token"
 import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Token", () => {

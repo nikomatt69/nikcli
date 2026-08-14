@@ -11,7 +11,7 @@ import { ConfigPaths } from "@/config/paths"
 import { Global } from "@/global"
 import { Filesystem } from "@/util/filesystem"
 import { Flock } from "@/util/flock"
-import { isRecord } from "@/util/record"
+import { isRecord } from "@nikcli-ai/util/record"
 
 import { parsePluginSpecifier, readPluginPackage, resolvePluginTarget } from "./shared"
 
