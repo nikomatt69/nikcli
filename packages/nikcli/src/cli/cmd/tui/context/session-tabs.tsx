@@ -40,6 +40,8 @@ export type SessionTabsContext = {
   active(): string | undefined
   open(sessionID: string): void
   close(sessionID: string): void
+  /** Closes every open tab and lands on the home route. No-op when nothing is open. */
+  closeAll(): void
   cycle(direction: 1 | -1): void
   /** Browser-style history over focused tabs. */
   back(): boolean
@@ -143,6 +145,16 @@ export function SessionTabsProvider(props: ParentProps) {
     })
   }
 
+  function closeAll() {
+    if (openTabs().length === 0) return
+    // Focus history is left alone: `step` already skips ids that are no longer open, so with an
+    // empty tab list back/forward simply report that there is nowhere to go.
+    batch(() => {
+      persist([])
+      createSession()
+    })
+  }
+
   function cycle(direction: 1 | -1) {
     const all = ids()
     if (all.length === 0) return
@@ -221,6 +233,7 @@ export function SessionTabsProvider(props: ParentProps) {
     active,
     open: open_,
     close,
+    closeAll,
     cycle,
     back: () => step(-1),
     forward: () => step(1),

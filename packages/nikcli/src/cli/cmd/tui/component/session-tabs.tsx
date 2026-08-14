@@ -18,6 +18,18 @@ const TAB_MAX_WIDTH = 28
 const FIXED_CHROME_WIDTH = 17
 const TAB_GAP = 1
 const OVERFLOW_WIDTH = 6
+const CLOSE_ALL_WIDTH = 7
+// Below this the strip keeps every column for the tabs themselves: at 50 columns reserving the
+// button costs a whole visible tab, which is a worse trade than hiding a convenience action.
+const CLOSE_ALL_MIN_TERMINAL_WIDTH = 60
+
+/**
+ * Whether the strip shows the close-all button — and therefore has to reserve its cells.
+ * Layout and render must agree on this, or the tabs overflow the terminal by exactly its width.
+ */
+export function showsCloseAll(tabCount: number, terminalWidth: number) {
+  return tabCount > 0 && terminalWidth >= CLOSE_ALL_MIN_TERMINAL_WIDTH
+}
 
 export type SessionTabLayout = {
   ids: string[]
@@ -42,7 +54,8 @@ export function layoutSessionTabs(
   activeID: string | undefined,
   terminalWidth: number,
 ): SessionTabLayout {
-  const available = Math.max(TAB_MIN_WIDTH, terminalWidth - FIXED_CHROME_WIDTH)
+  const chrome = FIXED_CHROME_WIDTH + (showsCloseAll(ids.length, terminalWidth) ? CLOSE_ALL_WIDTH : 0)
+  const available = Math.max(TAB_MIN_WIDTH, terminalWidth - chrome)
   const initialCapacity = Math.max(1, Math.floor((available + TAB_GAP) / (TAB_MIN_WIDTH + TAB_GAP)))
   const capacity =
     ids.length > initialCapacity
@@ -222,6 +235,22 @@ export function SessionTabs() {
           </box>
         </Show>
       </box>
+      <Show when={showsCloseAll(tabs.ids().length, dimensions().width)}>
+        <box
+          width={CLOSE_ALL_WIDTH}
+          height={3}
+          flexShrink={0}
+          flexDirection="row"
+          paddingTop={1}
+          paddingBottom={1}
+          justifyContent="center"
+          onMouseDown={tabs.closeAll}
+        >
+          <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
+            {"× all"}
+          </text>
+        </box>
+      </Show>
       <box
         width={8}
         height={3}
