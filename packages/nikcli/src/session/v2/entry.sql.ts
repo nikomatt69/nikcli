@@ -5,9 +5,9 @@ import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqli
 // ============================================================================
 
 /**
- * One row per flat `SessionEntry`, written by the session projectors in the
- * same transaction as the v1 message/part row it derives from, so the two can
- * never drift.
+ * One row per flat `SessionEntry`. Slice 1 of the v2 write path persists
+ * this row from the event payload before `message_info` / `message_part`.
+ * See specs/v2/session-v2-write-path.md.
  *
  * `ref` is the entry's stable identity within a session: the originating v1
  * part id for streamed entries, or a synthesized `<messageID>#start` /

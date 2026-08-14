@@ -148,6 +148,51 @@ function num(value: number | null | undefined): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0
 }
 
+/**
+ * Cheap stand-in for "has anything analytics reads changed?".
+ *
+ * Counting rows uses the primary key index and costs a few hundred
+ * milliseconds, against the tens of seconds a real recount takes.
+ */
+function fingerprint(): string {
+  const db = native()
+  const messages = db.query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM message_info`).get()
+  const parts = db.query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM message_part`).get()
+  const sessions = db
+    .query<{ n: number; at: number | null }, []>(`SELECT COUNT(*) AS n, MAX(updated_at) AS at FROM session_info`)
+    .get()
+  return `${num(messages?.n)}:${num(parts?.n)}:${num(sessions?.n)}:${num(sessions?.at)}`
+}
+
+/**
+ * `message_part.info` carries every tool payload — ~600MB on a long-lived
+ * install — and SQLite has no index on `type`, so counting tool calls is a full
+ * scan no matter how narrow the date range. Recomputing that on each panel open,
+ * and again after every assistant reply, is what made these endpoints take tens
+ * of seconds each.
+ *
+ * Results are memoized against the fingerprint of the tables they read, so a
+ * history that has not moved is never paid for twice. A write of any kind
+ * changes the fingerprint, so this cannot serve a stale answer.
+ */
+const memo = new Map<string, { key: string; value: unknown }>()
+
+function cached<A>(slot: string, compute: () => A): A {
+  let key: string
+  try {
+    key = fingerprint()
+  } catch {
+    // Fingerprint is an optimisation, never a correctness gate: if it cannot be
+    // read, fall through and compute.
+    return compute()
+  }
+  const hit = memo.get(slot)
+  if (hit && hit.key === key) return hit.value as A
+  const value = compute()
+  memo.set(slot, { key, value })
+  return value
+}
+
 export namespace Analytics {
   /**
    * Recording is a no-op. Totals are queried from `message_info` /
@@ -211,6 +256,16 @@ export namespace Analytics {
 
   export async function getGlobal(): Promise<GlobalAnalytics> {
     try {
+      return cached("global", computeGlobal)
+    } catch (error) {
+      log.error("Failed to read global analytics", { error })
+      return emptyGlobal()
+    }
+  }
+
+  // Throws rather than falling back, so a failed read is never memoized.
+  function computeGlobal(): GlobalAnalytics {
+    {
       const db = native()
       const totals = db
         .query<
@@ -366,14 +421,20 @@ export namespace Analytics {
         byModel,
         byProject,
       }
-    } catch (error) {
-      log.error("Failed to read global analytics", { error })
-      return emptyGlobal()
     }
   }
 
   export async function getDaily(from: string, to: string): Promise<DailyAnalytics[]> {
     try {
+      return cached(`daily:${from}:${to}`, () => computeDaily(from, to))
+    } catch (error) {
+      log.error("Failed to read daily analytics", { error })
+      return []
+    }
+  }
+
+  function computeDaily(from: string, to: string): DailyAnalytics[] {
+    {
       const db = native()
       const days = new Map<string, DailyAnalytics>()
 
@@ -512,9 +573,6 @@ export namespace Analytics {
       }
 
       return [...days.values()].sort((a, b) => a.date.localeCompare(b.date))
-    } catch (error) {
-      log.error("Failed to read daily analytics", { error })
-      return []
     }
   }
 
@@ -558,6 +616,75 @@ export namespace Analytics {
     }
   }
 
+  /** Per-session assistant aggregate, guarded so user turns contribute nothing. */
+  const sessionToken = (field: string) =>
+    `COALESCE(SUM(CASE WHEN role = 'assistant' THEN COALESCE(json_extract(info, '$.tokens.${field}'), 0) ELSE 0 END), 0)`
+
+  /**
+   * Per-session aggregates computed in one pass over each table.
+   *
+   * `getSession` can afford correlated subqueries because every one of them is
+   * an indexed lookup against a single session. Running the same shape for the
+   * whole list re-read every assistant message of every session twice just to
+   * find the newest provider and model — ~56s on a 2.4k-session history, since
+   * `message_info.info` averages 5KB a row. Aggregating once and joining by
+   * session id produces byte-identical rows in about 8s.
+   */
+  const SESSION_SELECT_ALL = `
+    WITH msg AS (
+      SELECT
+        session_id AS sid,
+        COALESCE(SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END), 0) AS messages,
+        ${sessionToken("input")} AS input,
+        ${sessionToken("output")} AS output,
+        ${sessionToken("reasoning")} AS reasoning,
+        ${sessionToken("cache.read")} AS cacheRead,
+        ${sessionToken("cache.write")} AS cacheWrite,
+        COALESCE(SUM(CASE WHEN role = 'assistant' THEN COALESCE(json_extract(info, '$.cost'), 0) ELSE 0 END), 0) AS cost
+      FROM message_info
+      GROUP BY session_id
+    ),
+    -- Newest assistant turn that named a model. Provider and model are taken
+    -- from the same row so a session can never report a mismatched pair.
+    latest AS (
+      SELECT sid, providerID, modelID FROM (
+        SELECT
+          session_id AS sid,
+          json_extract(info, '$.providerID') AS providerID,
+          json_extract(info, '$.modelID') AS modelID,
+          ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY created_at DESC) AS rn
+        FROM message_info
+        WHERE ${HAS_MODEL}
+      ) WHERE rn = 1
+    ),
+    tools AS (
+      SELECT session_id AS sid, COUNT(*) AS toolCalls
+      FROM message_part
+      WHERE type = 'tool'
+      GROUP BY session_id
+    )
+    SELECT
+      s.id AS sessionID,
+      s.project_id AS projectID,
+      s.directory,
+      s.title,
+      latest.providerID AS providerID,
+      latest.modelID AS modelID,
+      COALESCE(msg.messages, 0) AS messages,
+      COALESCE(msg.input, 0) AS input,
+      COALESCE(msg.output, 0) AS output,
+      COALESCE(msg.reasoning, 0) AS reasoning,
+      COALESCE(msg.cacheRead, 0) AS cacheRead,
+      COALESCE(msg.cacheWrite, 0) AS cacheWrite,
+      COALESCE(msg.cost, 0) AS cost,
+      COALESCE(tools.toolCalls, 0) AS toolCalls,
+      s.created_at AS created,
+      s.updated_at AS completed
+    FROM session_info s
+    LEFT JOIN msg ON msg.sid = s.id
+    LEFT JOIN latest ON latest.sid = s.id
+    LEFT JOIN tools ON tools.sid = s.id`
+
   const SESSION_SELECT = `
     SELECT
       s.id AS sessionID,
@@ -597,10 +724,12 @@ export namespace Analytics {
 
   export async function getAllSessions(): Promise<SessionAnalytics[]> {
     try {
-      return native()
-        .query<Parameters<typeof sessionRow>[0], []>(`${SESSION_SELECT} GROUP BY s.id ORDER BY s.updated_at DESC`)
-        .all()
-        .map(sessionRow)
+      return cached("sessions", () =>
+        native()
+          .query<Parameters<typeof sessionRow>[0], []>(`${SESSION_SELECT_ALL} ORDER BY s.updated_at DESC`)
+          .all()
+          .map(sessionRow),
+      )
     } catch (error) {
       log.error("Failed to read session analytics list", { error })
       return []
@@ -802,14 +931,7 @@ export function mergeSessionAnalyticsLists(a: SessionAnalytics[], b: SessionAnal
   return [...map.values()].sort((x, y) => y.time.completed - x.time.completed)
 }
 
-/**
- * Leftover JSON snapshots are no longer a runtime source. The HTTP handlers
- * query SQL; this stays so the TUI refresh path does not have to know.
- */
-export async function loadPersistedAnalyticsFromDataRoot(_dataRoot: string): Promise<{
-  global: GlobalAnalytics | null
-  daily: DailyAnalytics[]
-  sessions: SessionAnalytics[]
-}> {
-  return { global: null, daily: [], sessions: [] }
-}
+// Leftover JSON snapshots are no longer a runtime source: everything is derived
+// from `message_info` / `session_info` / `message_part`. The loader that used to
+// read them was kept as a stub returning empties, which silently reported "no
+// history" to its one caller — the TUI panel — long after the data was fine.

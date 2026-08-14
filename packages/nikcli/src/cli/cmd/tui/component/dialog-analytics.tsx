@@ -4,7 +4,7 @@ import { useSync } from "@tui/context/sync"
 import { useSDK } from "@tui/context/sdk"
 import { useAnalytics } from "../context/analytics"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
-import { For, Show, createSignal, createMemo, onMount, onCleanup, type ParentProps } from "solid-js"
+import { For, Show, createSignal, createMemo, createEffect, onMount, onCleanup, type ParentProps } from "solid-js"
 import {
   aggregateAnalytics,
   mergeWithHistorical,
@@ -157,12 +157,22 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
       const prev = scrollPos()
       if (prev.top !== top || prev.max !== max) setScrollPos({ top, max })
     }, 80)
+    // Live refreshes are billed to the server worker, so they only run while
+    // this panel is on screen.
+    const unwatch = analyticsCtx.watch()
     onCleanup(() => {
       clearInterval(spin)
       clearInterval(poll)
+      unwatch()
     })
 
     await loadAnalytics()
+  })
+
+  // Projects and Sessions are the two tabs that read per-session rows.
+  createEffect(() => {
+    const tab = activeTab()
+    if (tab === "sessions" || tab === "projects") void ensureSessionsLoaded()
   })
 
   // Scroll indicator state derived from the polled position.
@@ -205,6 +215,37 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
     }
   }
 
+  // The live pass, kept so the lazily fetched session list can be folded into
+  // the same aggregate later without redoing it.
+  let liveBase: AggregatedStats | null = null
+
+  /** Fold whatever history has loaded so far into the live aggregate. */
+  function withHistory(live: AggregatedStats, gotHistorical: boolean): AggregatedStats {
+    let merged = gotHistorical
+      ? mergeWithHistorical(live, { global: analyticsCtx.global(), daily: analyticsCtx.daily() })
+      : live
+    const persisted = analyticsCtx.sessions()
+    if (persisted.length > 0) {
+      merged = { ...merged, sessions: mergeSessionsFromApi(merged.sessions, persisted) }
+      merged = augmentAggregatedStatsFromPersistedSessions(merged, persisted)
+    }
+    return merged
+  }
+
+  /**
+   * `/analytics/sessions` aggregates every message of every session and is by
+   * far the slowest of the three. Overview, Tokens, Models and Tools are all
+   * served by `/global` + `/daily`, so it is fetched only once a tab that
+   * actually reads per-session rows is opened.
+   */
+  const [sessionsRequested, setSessionsRequested] = createSignal(false)
+  async function ensureSessionsLoaded() {
+    if (!sdk.url || sessionsRequested()) return
+    setSessionsRequested(true)
+    await analyticsCtx.refreshSessions()
+    if (liveBase) setStats(withHistory(liveBase, source() === "live+history"))
+  }
+
   async function loadAnalytics() {
     setLoading(true)
     setLoadError(undefined)
@@ -218,35 +259,31 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
         workspaceList: sync.data.workspaceList,
         background_job: sync.data.background_job,
       })
+      liveBase = liveStats
 
-      try {
-        if (sdk.url) {
-          const gotHistorical = await analyticsCtx.refresh()
-          setSource(gotHistorical ? "live+history" : "live")
-          let stats: AggregatedStats = gotHistorical
-            ? mergeWithHistorical(liveStats, {
-                global: analyticsCtx.global(),
-                daily: analyticsCtx.daily(),
-              })
-            : liveStats
-          const persistedSessions = analyticsCtx.sessions()
-          if (persistedSessions.length > 0) {
-            stats = {
-              ...stats,
-              sessions: mergeSessionsFromApi(stats.sessions, persistedSessions),
-            }
-            stats = augmentAggregatedStatsFromPersistedSessions(stats, persistedSessions)
-          }
-          setStats(stats)
-        } else {
-          setSource("live")
-          setStats(liveStats)
-        }
-      } catch {
-        setSource("live")
-        setStats(liveStats)
-      }
+      // Show the live pass straight away and upgrade in place once history
+      // arrives. The first uncached read walks the whole message history, and a
+      // panel showing today's numbers now beats a spinner showing nothing.
+      setSource("live")
+      setStats(liveStats)
       setRefreshedAt(Date.now())
+      setLoading(false)
+
+      if (!sdk.url) return
+
+      const gotHistorical = await analyticsCtx.refresh().catch(() => false)
+      if (gotHistorical) {
+        setSource("live+history")
+        setStats(withHistory(liveStats, true))
+        setRefreshedAt(Date.now())
+      }
+
+      // An explicit reload should also re-pull the session list, but only if
+      // something already asked for it.
+      if (sessionsRequested()) {
+        setSessionsRequested(false)
+        void ensureSessionsLoaded()
+      }
     } catch (e) {
       console.error("Failed to load analytics:", e)
       setLoadError(e instanceof Error ? e.message : "Analytics could not be loaded")
@@ -451,6 +488,7 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
                         last30Days={last30Days()}
                         source={source()}
                         refreshedAt={refreshedAt()}
+                        historyLoading={analyticsCtx.loading()}
                       />
                     </Show>
                     <Show when={tab === "tokens"}>
@@ -518,13 +556,25 @@ function EmptyState(props: { icon?: string; message: string }) {
   )
 }
 
-function DataSourceBanner(props: { stats: AggregatedStats; source: AnalyticsSource; refreshedAt: number }) {
+function DataSourceBanner(props: {
+  stats: AggregatedStats
+  source: AnalyticsSource
+  refreshedAt: number
+  historyLoading: boolean
+}) {
   const { theme } = useTheme()
   const firstDay = () => props.stats.days.find((day) => day.tokens > 0 || day.messages > 0 || day.cost > 0)?.date
   const lastDay = () =>
     [...props.stats.days].reverse().find((day) => day.tokens > 0 || day.messages > 0 || day.cost > 0)?.date
   const range = () => (firstDay() && lastDay() ? `${firstDay()} → ${lastDay()}` : "current activity")
-  const sourceLabel = () => (props.source === "live+history" ? "live sync + persisted history" : "live sync")
+  // The panel renders the live pass first, so say so rather than presenting a
+  // partial window as the whole history.
+  const sourceLabel = () =>
+    props.source === "live+history"
+      ? "live sync + persisted history"
+      : props.historyLoading
+        ? "live sync · loading history…"
+        : "live sync"
   const refreshed = () =>
     props.refreshedAt > 0
       ? new Date(props.refreshedAt).toLocaleTimeString([], {
@@ -1051,6 +1101,7 @@ function OverviewTab(props: {
   last30Days: typeof props.stats.days
   source: AnalyticsSource
   refreshedAt: number
+  historyLoading: boolean
 }) {
   const { theme } = useTheme()
   const g = () => props.stats.global
@@ -1198,7 +1249,12 @@ function OverviewTab(props: {
 
   return (
     <box flexDirection="column" gap={2}>
-      <DataSourceBanner stats={props.stats} source={props.source} refreshedAt={props.refreshedAt} />
+      <DataSourceBanner
+        stats={props.stats}
+        source={props.source}
+        refreshedAt={props.refreshedAt}
+        historyLoading={props.historyLoading}
+      />
 
       {/* KPI Cards — each carries a 14-cell sparkline + 7-day delta. Wrap so
           the four cards reflow to 2×2 instead of overflowing on narrow

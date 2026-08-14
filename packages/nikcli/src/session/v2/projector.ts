@@ -142,16 +142,24 @@ export namespace SessionProjector {
 
           const target = live(info.sessionID)
 
-          if (info.time.completed) {
+          if (info.time.completed !== undefined || info.error) {
             if (target.inflight !== info.id) return
+            // Persist rewrites `start` on every message update (in-flight cost,
+            // then the seal). Publish it here too so a live client matches
+            // `/v2/entries`.
+            publishEntry(info.sessionID, startEntry(info))
             publishEntry(info.sessionID, completeEntry(info))
-            // storage is authoritative from here on: drop the live tail
             drop(target)
             publish(info.sessionID)
             return
           }
 
-          if (target.inflight === info.id) return
+          if (target.inflight === info.id) {
+            // finish-step updates cost/tokens/finish on the message before
+            // `time.completed`; republish start so live matches the persisted row.
+            publishEntry(info.sessionID, startEntry(info))
+            return
+          }
           // a new assistant message went in flight: restart the reduction
           drop(target)
           target.inflight = info.id
@@ -189,12 +197,11 @@ export namespace SessionProjector {
           // or not: the live stream is the v2 read model, so a consumer that
           // only listens to it must not miss anything.
           //
-          // A user message's parts are the exception — they fold into that
-          // message's single `user` entry rather than becoming entries of
-          // their own, exactly as the persisted projection does. Publishing
-          // them separately would give a streaming client an entry the
-          // projection does not have.
-          if (isUserMessage(part.sessionID, part.messageID)) {
+          // Text, file and agent parts of a user message fold into that
+          // message's single `user` entry. Everything else — including
+          // compaction / snapshot / patch on a user message — is its own
+          // entry, exactly as the persisted projection does.
+          if (isUserMessage(part.sessionID, part.messageID) && SessionEntry.foldsIntoUser(part)) {
             publishStored(part.sessionID, SessionEntry.refForMessage(part.messageID, "user"))
           } else {
             const entry = SessionEntry.fromV1Part(part, {
@@ -219,9 +226,8 @@ export namespace SessionProjector {
           const { sessionID, messageID, partID } = event.properties
           if (isUserMessage(sessionID, messageID)) {
             publishStored(sessionID, SessionEntry.refForMessage(messageID, "user"))
-          } else {
-            void Bus.publish(Event.EntryRemoved, { sessionID, entryID: SessionEntry.idForPart(messageID, partID) })
           }
+          void Bus.publish(Event.EntryRemoved, { sessionID, entryID: SessionEntry.idForPart(messageID, partID) })
           const target = s.sessions.get(sessionID)
           if (!target || target.inflight !== messageID) return
           target.seen.delete(partID)
@@ -256,32 +262,13 @@ export namespace SessionProjector {
   // ============================================================================
 
   function startEntry(info: MessageV2.Assistant): SessionEntry.Entry {
-    return SessionEntry.Request.parse({
-      id: SessionEntry.idForMessage(info.id, "start"),
-      sessionID: info.sessionID,
-      messageID: info.id,
-      timestamp: info.time.created,
-      type: "start",
-      providerID: info.providerID,
-      modelID: info.modelID,
-      agent: info.agent,
-      mode: info.mode,
-    })
+    return SessionEntry.fromV1Assistant(info).find((entry) => entry.type === "start")!
   }
 
   function completeEntry(info: MessageV2.Assistant): SessionEntry.Entry {
-    return SessionEntry.Complete.parse({
-      id: SessionEntry.idForMessage(info.id, "complete"),
-      sessionID: info.sessionID,
-      messageID: info.id,
-      timestamp: info.time.completed ?? info.time.created,
-      type: "complete",
-      reason: info.error ? "error" : "completed",
-      cost: info.cost,
-      tokens: info.tokens,
-      finish: info.finish,
-      error: info.error,
-    })
+    const complete = SessionEntry.fromV1Assistant(info).find((entry) => entry.type === "complete")
+    if (!complete) throw new Error("assistant message has no complete entry")
+    return complete
   }
 
   /**

@@ -69,12 +69,13 @@ State the wins, so nobody re-plans them:
 - **Scoped tool registration** (was T1, landed 2026-08-14). `ToolRegistry.register` returns a handle whose `close` removes exactly that stack entry and reveals the next-latest occupant of the id. Config-dir and plugin tools live in a reloadable derived cache; runtime registrations live in a separate non-reloadable cache, so a hot reload cannot drop sdk-next tools. See [v2/tools.md](./v2/tools.md) §"Registration Is An Overlay Stack".
 - **Durable pending input** (was S1, landed 2026-08-14). Busy input lives in `session_pending` until atomic batched promotion, outside transcript history. The TUI restores queued message cards with `press ctrl-enter to send`: Enter queues, Ctrl/Cmd+Enter with text steers the new input, and the same shortcut with an empty composer changes the oldest queued card to steering until promotion. Canonical retry identity, targeted waiters, safe compaction boundaries, cancellation, and graceful restart remain intact without claiming hard-crash recovery or clustered ownership. See [v2/durable-pending-input.md](./v2/durable-pending-input.md).
 - **Instruction sync** (was S3, landed 2026-08-14). Request assembly admits a `session.instructions.updated` delta of content hashes, stores bodies once in `instruction_blob`, and renders the system prefix from the fold. A failed later read keeps the last stored value. Successful compaction moves the epoch without re-reading sources. TUI and desktop show changed keys from the delta (not prose or hashes). See [v2/instruction-sync-proposal.md](./v2/instruction-sync-proposal.md).
+- **V2 write path slice 2** (S4, 2026-08-14). `SessionEntry` holds the fields `toModelMessages` and revert need. Message/part projectors persist those entries first, then write v1 as `toV1*` of them. `prompt_data` stays on `message_info`. `SessionV2.prompt` still delegates. See [v2/session-v2-write-path.md](./v2/session-v2-write-path.md).
 
 ---
 
 ## Finish current work
 
-Empty. Correctness items with no new public surface have landed. Next work is Horizon 2 (S4).
+Empty. Slices 1–2 of S4 landed with the write-path spec. Slice 3 (HTTP / `SessionV2.prompt` as the public write API) remains.
 
 ---
 
@@ -82,7 +83,7 @@ Empty. Correctness items with no new public surface have landed. Next work is Ho
 
 Contracts. These change what the system promises, so each needs its spec landed before its code.
 
-Empty. S4 still needs a dedicated write-path spec before its code; U1 is structural.
+Empty. S4's write-path spec is [v2/session-v2-write-path.md](./v2/session-v2-write-path.md). U1 is structural.
 
 ---
 
@@ -94,10 +95,11 @@ Structure. Large, and each depends on Horizon 2.
 
 ### Move writes to v2 (S4)
 
-- **Buys** — One engine. Today `SessionV2` is an honest strangler: reads are native entries, writes delegate to the v1 `Session`/`SessionPrompt` services so behavior stays exactly the production engine's.
-- **Evidence** — The status comment at the top of `src/session/v2/index.ts` says so, and `SessionV2.prompt` is a pass-through to `SessionPrompt.prompt`.
+- **Buys** — One engine. Today `SessionV2` is an honest strangler: reads are native entries; slices 1–2 persist those entries from the event before the v1 row and derive v1 from them.
+- **Evidence** — [session-v2-write-path.md](./v2/session-v2-write-path.md). `SessionV2.prompt` is still a pass-through to `SessionPrompt.prompt` (slice 3).
 - **Depends on** — S1, now landed. The new write path must preserve its pending-input contract.
 - **Done when** — Writes produce entries directly; the v1 projection becomes derived; `MessageV2` remains authoritative for the LLM layer, which is not in scope for this item.
+- **Remaining** — Slice 3 (HTTP/`SessionV2.prompt` share one write helper).
 
 ---
 

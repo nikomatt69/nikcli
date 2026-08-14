@@ -5,18 +5,51 @@ import { SessionEntry } from "./entry"
 import { SessionEntryRepo } from "./entry-repo"
 
 /**
- * v1 message/part → flat v2 entry projection.
+ * Event payload → flat v2 entry write.
  *
- * Runs inside the transaction that writes the v1 row, so the entry table is
- * a true projection rather than a cache that can fall behind. Each function
- * touches only the entries the incoming change can affect: a streamed part
- * is one row, and a message-level change is the two or three rows that frame
- * the step.
+ * Runs inside the same transaction as the v1 row, and is a function of the
+ * payload plus already-committed rows — not of the row this event is about
+ * to write. That lets the projector persist `session_entry` first. See
+ * specs/v2/session-v2-write-path.md.
+ *
+ * Each function touches only the entries the incoming change can affect: a
+ * streamed part is one row, and a message-level change is the two or three
+ * rows that frame the step.
+ *
+ * Callers persist v1 by converting the returned entries through
+ * `SessionEntry.toV1Message` / `toV1WrittenPart`.
  */
 export namespace SessionEntryProjection {
   type Executor = Database.TxOrDb
 
   const messageRef = SessionEntry.refForMessage
+
+  /**
+   * Parts that belong on a user entry, with this event's part applied in
+   * memory so the write does not depend on `message_part` already holding it.
+   */
+  function partsForUser(messageID: string, incoming?: MessageV2.Part, without?: string): MessageV2.Part[] {
+    let parts = MessageRepo.listParts(messageID)
+    if (without) parts = parts.filter((part) => part.id !== without)
+    if (!incoming) return parts
+    const index = parts.findIndex((part) => part.id === incoming.id)
+    if (index < 0) return [...parts, incoming]
+    const next = parts.slice()
+    next[index] = incoming
+    return next
+  }
+
+  function upsertMessage(tx: Executor, entry: SessionEntry.Entry, kind: SessionEntry.MessageKind) {
+    const messageID = entry.messageID
+    if (!messageID) return
+    SessionEntryRepo.upsert(
+      {
+        entry,
+        ref: messageRef(messageID, kind),
+      },
+      tx,
+    )
+  }
 
   /**
    * Project a message: the `user` entry, or the `start` / `complete` /
@@ -25,68 +58,16 @@ export namespace SessionEntryProjection {
    * The parts in between are projected by `part`, not here — rewriting them
    * on every message update would make a long step quadratic.
    */
-  export function message(tx: Executor, info: MessageV2.Info): void {
+  export function message(tx: Executor, info: MessageV2.Info): SessionEntry.Entry[] {
     if (info.role === "user") {
-      user(tx, info)
-      return
+      return [user(tx, info)]
     }
 
-    SessionEntryRepo.upsert(
-      {
-        entry: SessionEntry.Request.parse({
-          id: SessionEntry.idForMessage(info.id, "start"),
-          sessionID: info.sessionID,
-          messageID: info.id,
-          timestamp: info.time.created,
-          type: "start",
-          providerID: info.providerID,
-          modelID: info.modelID,
-          agent: info.agent,
-          mode: info.mode,
-        }),
-        ref: messageRef(info.id, "start"),
-      },
-      tx,
-    )
-
-    const completed = info.time.completed
-    if (completed !== undefined || info.error) {
-      SessionEntryRepo.upsert(
-        {
-          entry: SessionEntry.Complete.parse({
-            id: SessionEntry.idForMessage(info.id, "complete"),
-            sessionID: info.sessionID,
-            messageID: info.id,
-            timestamp: completed ?? info.time.created,
-            type: "complete",
-            reason: info.error ? "error" : "completed",
-            cost: info.cost,
-            tokens: info.tokens,
-            finish: info.finish,
-            error: info.error,
-          }),
-          ref: messageRef(info.id, "complete"),
-        },
-        tx,
-      )
+    const framing = SessionEntry.fromV1Assistant(info)
+    for (const entry of framing) {
+      upsertMessage(tx, entry, entry.type)
     }
-
-    if (info.summary) {
-      SessionEntryRepo.upsert(
-        {
-          entry: SessionEntry.Compaction.parse({
-            id: SessionEntry.idForMessage(info.id, "compaction"),
-            sessionID: info.sessionID,
-            messageID: info.id,
-            timestamp: completed ?? info.time.created,
-            type: "compaction",
-            auto: true,
-          }),
-          ref: messageRef(info.id, "compaction"),
-        },
-        tx,
-      )
-    }
+    return framing
   }
 
   /**
@@ -94,46 +75,30 @@ export namespace SessionEntryProjection {
    * it is rebuilt from the message's parts rather than projected per part.
    * User messages are small and written once, so the reread is cheap.
    *
-   * Only the parts the user actually typed count: the engine appends its own
-   * text parts to the user message (the plan-mode `<system-reminder>`, the
-   * build-mode switch), and folding those into `text` printed the whole
-   * reminder back at the user underneath their prompt.
+   * Only the parts the user actually typed count toward display `text`: the
+   * engine appends its own text parts to the user message (the plan-mode
+   * `<system-reminder>`, the build-mode switch), and folding those into
+   * `text` printed the whole reminder back at the user underneath their
+   * prompt. Those parts still live on `texts` so v1 derivation keeps them.
    */
-  function user(tx: Executor, info: MessageV2.Info): void {
-    const parts = MessageRepo.listParts(info.id)
-    const text = parts
-      .filter((part): part is MessageV2.TextPart => part.type === "text" && !part.synthetic && !part.ignored)
-      .map((part) => part.text)
-      .join("\n")
-
-    SessionEntryRepo.upsert(
-      {
-        entry: SessionEntry.User.parse({
-          id: SessionEntry.idForMessage(info.id, "user"),
-          sessionID: info.sessionID,
-          messageID: info.id,
-          timestamp: info.time.created,
-          type: "user",
-          text,
-          files: parts.filter((part) => part.type === "file"),
-          agents: parts.filter((part) => part.type === "agent"),
-        }),
-        ref: messageRef(info.id, "user"),
-      },
-      tx,
-    )
+  function user(tx: Executor, info: MessageV2.Info, incoming?: MessageV2.Part, without?: string): SessionEntry.User {
+    if (info.role !== "user") {
+      throw new Error("SessionEntryProjection.user requires a user message")
+    }
+    const entry = SessionEntry.fromV1User(info, partsForUser(info.id, incoming, without))
+    upsertMessage(tx, entry, "user")
+    return entry
   }
 
   /**
-   * Project a part. Parts of a user message fold back into that message's
-   * single `user` entry; everything else is one entry of its own, upserted
-   * on the part id so a stream of deltas stays one row.
+   * Project a part. Text, file and agent parts of a user message fold back
+   * into that message's single `user` entry; everything else is one entry
+   * of its own, upserted on the part id so a stream of deltas stays one row.
    */
-  export function part(tx: Executor, input: MessageV2.Part): void {
+  export function part(tx: Executor, input: MessageV2.Part): SessionEntry.Entry | undefined {
     const info = MessageRepo.getMessage(input.sessionID, input.messageID)
-    if (info?.role === "user") {
-      user(tx, info)
-      return
+    if (info?.role === "user" && SessionEntry.foldsIntoUser(input)) {
+      return user(tx, info, input)
     }
 
     const entry = SessionEntry.fromV1Part(input, {
@@ -149,13 +114,13 @@ export namespace SessionEntryProjection {
       },
       tx,
     )
+    return entry
   }
 
   export function partRemoved(tx: Executor, sessionID: string, messageID: string, partID: string): void {
     const info = MessageRepo.getMessage(sessionID, messageID)
     if (info?.role === "user") {
-      user(tx, info)
-      return
+      user(tx, info, undefined, partID)
     }
     SessionEntryRepo.removeRef(sessionID, partID, tx)
   }
@@ -179,8 +144,10 @@ export namespace SessionEntryProjection {
     SessionEntryRepo.clear(sessionID, tx)
     for (const msg of messages) {
       message(tx, msg.info)
-      if (msg.info.role === "user") continue
-      for (const item of msg.parts) part(tx, item)
+      for (const item of msg.parts) {
+        if (msg.info.role === "user" && SessionEntry.foldsIntoUser(item)) continue
+        part(tx, item)
+      }
     }
   }
 
@@ -194,8 +161,8 @@ export namespace SessionEntryProjection {
    * client that opened it from an event to draw nothing. Projecting at the
    * end of the import closes it.
    *
-   * Must run *after* the rows are written: the projection reads them back
-   * (a part folds into its message's entry).
+   * Must run *after* the v1 rows are written: a user entry still folds
+   * already-committed parts.
    */
   export function rebuild(sessionID: string, messages: MessageV2.WithParts[]): void {
     Database.transaction((tx) => backfill(tx, sessionID, messages))

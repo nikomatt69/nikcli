@@ -88,6 +88,8 @@ describe("SessionV2.toEntries", () => {
     expect(start.modelID).toBe("test-model")
     expect(start.providerID).toBe("test-provider")
     expect(start.agent).toBe("build")
+    expect(start.parentID).toBe(info.parentID)
+    expect(start.path).toEqual({ cwd: "/tmp", root: "/tmp" })
 
     const failed = entries[4] as SessionEntry.Tool
     expect(failed.callID).toBe("call-bad")
@@ -188,6 +190,9 @@ describe("SessionV2.toEntries", () => {
     expect(user.text).toBe("do the thing")
     expect(user.files).toHaveLength(1)
     expect(user.agents).toHaveLength(1)
+    expect(user.agent).toBe("build")
+    expect(user.model).toEqual({ providerID: "p", modelID: "m" })
+    expect(user.texts).toHaveLength(1)
   })
 
   it("keeps engine-authored text out of the user entry", () => {

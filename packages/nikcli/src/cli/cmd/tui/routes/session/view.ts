@@ -159,6 +159,15 @@ export function fromEntries(entries: readonly ViewEntry[]): Turn[] {
       continue
     }
 
+    if (
+      entry.type === "snapshot" ||
+      entry.type === "patch" ||
+      entry.type === "step-start" ||
+      entry.type === "step-finish"
+    ) {
+      continue
+    }
+
     turn.body.push(entry)
   }
 

@@ -2,9 +2,9 @@ import z from "zod"
 import { SyncEvent } from "@/sync/sync-event"
 import { MessageV2 } from "./message-v2"
 import { MessageRepo } from "./message-repo"
+import { SessionEntry } from "./v2/entry"
 import { SessionRepo } from "./repo"
 import { SessionEntryProjection } from "./v2/projection"
-import { Log } from "@/util/log"
 import { Session } from "./index"
 import { SessionPending } from "./pending"
 import { InstructionRepo } from "./instruction-repo"
@@ -25,24 +25,12 @@ import { InstructionRepo } from "./instruction-repo"
  * streamed token, so logging it would be one durable row per delta — the
  * per-token disk write problem. Its projection is an upsert that already
  * carries the latest state, so it is projected and published but not logged.
+ *
+ * Slice 2 of the v2 write path writes `session_entry` first, then persists
+ * v1 as `toV1*` of those entries. A throw rolls back both — see
+ * specs/v2/session-v2-write-path.md.
  */
 export namespace SessionSync {
-  const log = Log.create({ service: "session.sync" })
-
-  /**
-   * Run the v2 entry projection without letting it take the v1 write with
-   * it. The projection is derived data; the message and part rows are the
-   * contract. A schema the projection cannot make sense of is a bug worth
-   * shouting about, not a reason to roll back the conversation.
-   */
-  function project(what: string, fn: () => void) {
-    try {
-      fn()
-    } catch (error) {
-      log.error("v2 entry projection failed", { what, error })
-    }
-  }
-
   const SessionInfo = z.custom<Session.Info>()
   const MessageInfo = z.custom<MessageV2.Info>()
   const MessagePart = z.custom<MessageV2.Part>()
@@ -170,37 +158,40 @@ export namespace SessionSync {
     }),
 
     SyncEvent.project(Deleted, (tx, data) => {
+      SessionEntryProjection.sessionRemoved(tx, data.sessionID)
       SessionPending.removeSession(data.sessionID, tx)
       InstructionRepo.removeSession(data.sessionID, tx)
       SessionRepo.remove(data.sessionID, tx)
-      project("session.removed", () => SessionEntryProjection.sessionRemoved(tx, data.sessionID))
     }),
 
-    // The v2 entry projection runs in the same transaction as the v1 write,
-    // and always after it: `SessionEntryProjection` reads the row it is
-    // deriving from (a part folds into its message's entry, and a user
-    // message aggregates its parts).
+    // Entries first. v1 is derived from the entries just written;
+    // prompt_data stays on message_info as the S1 remainder.
     SyncEvent.project(MessageUpdated, (tx, data) => {
-      MessageRepo.upsertMessage(data.info, tx)
+      const written = SessionEntryProjection.message(tx, data.info)
+      const derived = SessionEntry.toV1Message(written)
+      if (!derived) throw new Error("session entry projection produced no v1 message")
+      MessageRepo.upsertMessage(derived, tx)
       if (data.promptData !== undefined) {
         MessageRepo.setPromptData(data.info.id, data.promptData, tx)
       }
-      project("message", () => SessionEntryProjection.message(tx, data.info))
     }),
 
     SyncEvent.project(MessageRemoved, (tx, data) => {
+      SessionEntryProjection.messageRemoved(tx, data.messageID)
       MessageRepo.removeMessage(data.sessionID, data.messageID, tx)
-      project("message.removed", () => SessionEntryProjection.messageRemoved(tx, data.messageID))
     }),
 
     SyncEvent.project(PartUpdated, (tx, data) => {
-      MessageRepo.upsertPart(data.part, tx)
-      project("part", () => SessionEntryProjection.part(tx, data.part))
+      const written = SessionEntryProjection.part(tx, data.part)
+      if (!written) throw new Error("session entry projection produced no v1 part")
+      const derived = SessionEntry.toV1WrittenPart(written, data.part)
+      if (!derived) throw new Error("session entry projection produced no v1 part")
+      MessageRepo.upsertPart(derived, tx)
     }),
 
     SyncEvent.project(PartRemoved, (tx, data) => {
+      SessionEntryProjection.partRemoved(tx, data.sessionID, data.messageID, data.partID)
       MessageRepo.removePart(data.messageID, data.partID, tx)
-      project("part.removed", () => SessionEntryProjection.partRemoved(tx, data.sessionID, data.messageID, data.partID))
     }),
 
     SyncEvent.project(InstructionsUpdated, (tx, data, event) => {

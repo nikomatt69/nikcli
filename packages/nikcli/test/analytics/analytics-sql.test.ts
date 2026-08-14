@@ -86,6 +86,160 @@ describe("analytics SQL", () => {
     })
   })
 
+  // getAllSessions used to run the same correlated subqueries as getSession, once
+  // per session. It now aggregates each table in a single pass and joins on the
+  // session id, so the two have to keep agreeing row for row.
+  it("aggregates the session list identically to a single-session read", async () => {
+    await withIsolatedDatabase(async () => {
+      const { Database } = await import("@/database/database")
+      const { Analytics } = await import("@/analytics/analytics")
+      const db = Database.syncNative()
+      const day = at("2026-08-02")
+
+      const session = (id: string, project: string, title: string, created: number, updated: number) =>
+        db
+          .query(
+            `INSERT INTO session_info (id, project_id, title, directory, version, data, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(id, project, title, `/tmp/${id}`, "1", "{}", created, updated)
+
+      const message = (
+        id: string,
+        sessionID: string,
+        role: string,
+        created: number,
+        info: Record<string, unknown>,
+      ) =>
+        db
+          .query(`INSERT INTO message_info (id, session_id, role, info, created_at) VALUES (?, ?, ?, ?, ?)`)
+          .run(id, sessionID, role, JSON.stringify(info), created)
+
+      const PART_INSERT = `INSERT INTO message_part (id, message_id, session_id, type, info, sort_key)
+         VALUES (?, ?, ?, ?, ?, ?)`
+
+      const toolPart = (id: string, messageID: string, sessionID: string, tool: string) =>
+        db
+          .query(PART_INSERT)
+          .run(id, messageID, sessionID, "tool", JSON.stringify({ tool, state: { status: "completed" } }), "0")
+
+      const assistant = (model: string, tokens: number) => ({
+        providerID: "openai",
+        modelID: model,
+        cost: 0.5,
+        time: { created: day, completed: day + 1_000 },
+        tokens: { input: tokens, output: tokens, reasoning: tokens, cache: { read: tokens, write: tokens } },
+      })
+
+      session("ses_multi", "proj_x", "multi", day, day + 9_000)
+      // Two models in one session: provider/model must come from the newest turn.
+      message("msg_1", "ses_multi", "assistant", day, assistant("gpt-4", 10))
+      message("msg_2", "ses_multi", "assistant", day + 5_000, assistant("gpt-5", 100))
+      // User turns and model-less failures must not reach any total.
+      message("msg_3", "ses_multi", "user", day + 6_000, { text: "hi" })
+      message("msg_4", "ses_multi", "assistant", day + 7_000, { cost: 999, tokens: { input: 999 } })
+      toolPart("part_1", "msg_1", "ses_multi", "read")
+      toolPart("part_2", "msg_2", "ses_multi", "bash")
+
+      // A session that never produced a message still belongs in the list.
+      session("ses_empty", "proj_y", "empty", day, day + 1_000)
+
+      const listed = await Analytics.getAllSessions()
+      expect(listed.map((row) => row.sessionID)).toEqual(["ses_multi", "ses_empty"])
+
+      for (const row of listed) {
+        expect(row).toEqual((await Analytics.getSession(row.sessionID))!)
+      }
+
+      const multi = listed.find((row) => row.sessionID === "ses_multi")!
+      expect(multi.providerID).toBe("openai")
+      expect(multi.modelID).toBe("gpt-5")
+      // msg_4 carries no model, so it counts as a message but adds no tokens.
+      expect(multi.messages).toBe(3)
+      expect(multi.tokens.input).toBe(1109)
+      expect(multi.tokens.cacheWrite).toBe(110)
+      expect(multi.toolCalls).toBe(2)
+
+      const empty = listed.find((row) => row.sessionID === "ses_empty")!
+      expect(empty.messages).toBe(0)
+      expect(empty.toolCalls).toBe(0)
+      expect(empty.providerID).toBe("unknown")
+      expect(empty.tokens.input).toBe(0)
+    })
+  })
+
+  // Reads are memoized against a row-count fingerprint, because scanning the
+  // tool payloads in message_part costs seconds. A write has to invalidate it.
+  it("re-reads totals once new messages land", async () => {
+    await withIsolatedDatabase(async () => {
+      const { Database } = await import("@/database/database")
+      const { Analytics } = await import("@/analytics/analytics")
+      const db = Database.syncNative()
+      const day = at("2026-08-03")
+      const stamp = day + 1_000
+
+      db.query(
+        `INSERT INTO session_info (id, project_id, title, directory, version, data, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run("ses_cache", "proj_c", "cache", "/tmp/c", "1", "{}", day, stamp)
+
+      const write = (id: string, tokens: number) => {
+        db.query(`INSERT INTO message_info (id, session_id, role, info, created_at) VALUES (?, ?, ?, ?, ?)`).run(
+          id,
+          "ses_cache",
+          "assistant",
+          JSON.stringify({
+            providerID: "openai",
+            modelID: "gpt-4",
+            cost: 1,
+            time: { created: day, completed: stamp },
+            tokens: { input: tokens, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+          }),
+          day,
+        )
+        db.query(
+          `INSERT INTO message_part (id, message_id, session_id, type, info, sort_key) VALUES (?, ?, ?, ?, ?, ?)`,
+        ).run(
+          `part_${id}`,
+          id,
+          "ses_cache",
+          "tool",
+          JSON.stringify({ tool: "read", state: { status: "completed" } }),
+          "0",
+        )
+      }
+
+      write("msg_c1", 10)
+      const first = await Analytics.getGlobal()
+      expect(first.totals.messages).toBe(1)
+      expect(first.totals.tokens.input).toBe(10)
+      expect(first.totals.toolCalls).toBe(1)
+
+      // Same input, same answer — and the cached value must be usable as-is.
+      expect(await Analytics.getGlobal()).toEqual(first)
+      const dayKey = "2026-08-03"
+      expect(await Analytics.getDaily(dayKey, dayKey)).toEqual(await Analytics.getDaily(dayKey, dayKey))
+      expect(await Analytics.getAllSessions()).toEqual(await Analytics.getAllSessions())
+
+      write("msg_c2", 32)
+
+      const second = await Analytics.getGlobal()
+      expect(second.totals.messages).toBe(2)
+      expect(second.totals.tokens.input).toBe(42)
+      expect(second.totals.toolCalls).toBe(2)
+
+      const daily = await Analytics.getDaily(dayKey, dayKey)
+      expect(daily[0]?.messages).toBe(2)
+      expect(daily[0]?.tokens.input).toBe(42)
+      expect(daily[0]?.toolCalls).toBe(2)
+
+      const sessions = await Analytics.getAllSessions()
+      expect(sessions[0]?.messages).toBe(2)
+      expect(sessions[0]?.tokens.input).toBe(42)
+      expect(sessions[0]?.toolCalls).toBe(2)
+    })
+  })
+
   it("does not write analytics JSON after the snapshots have moved", async () => {
     await withIsolatedDatabase(async ({ home }) => {
       const { Database } = await import("@/database/database")

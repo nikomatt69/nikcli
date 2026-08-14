@@ -4,16 +4,12 @@ import { sessionEntry } from "./entry.sql"
 import { SessionEntry } from "./entry"
 
 /**
- * SQL-backed store for flat v2 entries — the persisted v2 read model.
+ * SQL-backed store for flat v2 entries.
  *
- * Rows are written by the session projectors (session/projectors.ts) in the
- * same transaction as the v1 message/part row they derive from, so `entries()`
- * reads a view that cannot have drifted from storage.
- *
- * Identity is `ref`, not the entry id: a streaming part is re-emitted many
- * times and every emission has to land on the same row. The entry id assigned
- * on first sight is preserved across upserts, because consumers key renders
- * on it.
+ * Slice 1 of the v2 write path persists these rows from the event payload
+ * before the v1 message/part row. Identity is `ref`, not the entry id: a
+ * streaming part is re-emitted many times and every emission has to land on
+ * the same row.
  */
 export namespace SessionEntryRepo {
   type Executor = Database.TxOrDb

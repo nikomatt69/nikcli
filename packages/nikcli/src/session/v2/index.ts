@@ -16,22 +16,17 @@ import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 /**
- * STATUS: v2 read model, live — write path still delegates to v1.
+ * STATUS: v2 read model live; write path slice 2 — entries are lossless,
+ * v1 is derived from them.
  *
- * SessionV2 is the entry/event/stepper redesign explored in
- * specs/v2/message-shape.md, migrated by strangler:
+ * SessionV2 is the entry/event/stepper redesign, migrated by strangler:
  *
- * - reads (`entries`, `state`, `pending`) are first-class: storage is
- *   authoritative for completed messages (converted losslessly via
- *   `toEntries`), and `SessionProjector` translates the v1 engine's live
- *   bus events into `SessionEvent`s reduced through `Stepper.stepWith` —
- *   the in-flight tail is already native v2 state, see projector.ts
- * - writes (`create`, `prompt`) delegate to the v1 Session/SessionPrompt
- *   services, so behavior (retry, abort, tool state machine, snapshots,
- *   permissions) is exactly the production engine's
+ * - reads (`entries`, `state`, `pending`) are first-class
+ * - message/part projectors write `session_entry` from the event payload
+ *   before the v1 row; v1 is `toV1*` of those entries
+ * - `create` / `prompt` still delegate to Session / SessionPrompt (slice 3)
  *
- * Consumers can adopt the v2 API today without behavior change; swapping
- * the engine underneath is a later, isolated step.
+ * See specs/v2/session-v2-write-path.md.
  */
 export namespace SessionV2 {
   const log = Log.create({ service: "session-v2" })
@@ -277,102 +272,31 @@ export namespace SessionV2 {
    * Convert a v1 message to flat v2 entries — lossless for everything the v2
    * shape models: an assistant step becomes a `start` entry, one entry per
    * part (text, reasoning, tool with its full state, subtask, retry,
-   * compaction) and a sealing `complete` entry carrying cost, tokens, finish
-   * reason and any terminal message error.
+   * compaction, snapshot, patch, step-start, step-finish) and a sealing
+   * `complete` entry carrying cost, tokens, finish reason and any terminal
+   * message error.
    */
   function convertMessage(msg: MessageV2.WithParts, sessionID: string): SessionEntry.Entry[] {
-    const entries: SessionEntry.Entry[] = []
-    const timestamp = msg.info.time?.created ?? Date.now()
     const messageID = msg.info.id
 
     if (msg.info.role === "user") {
-      // Synthetic text parts are the engine talking to the model on the user's
-      // message (plan-mode reminder, build-mode switch) — never part of what
-      // the user typed, so they stay out of the user entry's text.
-      const textParts = msg.parts
-        .filter((p): p is MessageV2.TextPart => p.type === "text" && !p.synthetic && !p.ignored)
-        .map((p) => p.text)
-        .join("\n")
-
-      const files = msg.parts.filter((p) => p.type === "file") as MessageV2.FilePart[]
-      const agents = msg.parts.filter((p) => p.type === "agent") as MessageV2.AgentPart[]
-
-      entries.push(
-        SessionEntry.User.parse({
-          id: Identifier.ascending("event"),
-          sessionID,
-          messageID,
-          timestamp,
-          type: "user",
-          text: textParts,
-          files,
-          agents,
-        }),
-      )
-
-      // A user message can still carry non-prompt parts (a compaction marker,
-      // a delegated subtask) — those are entries in their own right.
+      const entries: SessionEntry.Entry[] = [SessionEntry.fromV1User(msg.info, msg.parts)]
       for (const part of msg.parts) {
-        if (part.type === "text" || part.type === "file" || part.type === "agent") continue
+        if (SessionEntry.foldsIntoUser(part)) continue
         const converted = SessionEntry.fromV1Part(part, { sessionID, messageID })
         if (converted) entries.push(converted)
       }
-
       return entries
     }
 
-    if (msg.info.role === "assistant") {
-      entries.push(
-        SessionEntry.Request.parse({
-          id: Identifier.ascending("event"),
-          sessionID,
-          messageID,
-          timestamp,
-          type: "start",
-          providerID: msg.info.providerID,
-          modelID: msg.info.modelID,
-          agent: msg.info.agent,
-          mode: msg.info.mode,
-        }),
-      )
-
-      for (const part of msg.parts) {
-        const converted = SessionEntry.fromV1Part(part, { sessionID, messageID })
-        if (converted) entries.push(converted)
-      }
-
-      const completed = msg.info.time?.completed
-      if (completed !== undefined || msg.info.error) {
-        entries.push(
-          SessionEntry.Complete.parse({
-            id: Identifier.ascending("event"),
-            sessionID,
-            messageID,
-            timestamp: completed ?? timestamp,
-            type: "complete",
-            reason: msg.info.error ? "error" : "completed",
-            cost: msg.info.cost,
-            tokens: msg.info.tokens,
-            finish: msg.info.finish,
-            error: msg.info.error,
-          }),
-        )
-      }
-
-      if (msg.info.summary) {
-        entries.push(
-          SessionEntry.Compaction.parse({
-            id: Identifier.ascending("event"),
-            sessionID,
-            messageID,
-            timestamp: completed ?? timestamp,
-            type: "compaction",
-            auto: true,
-          }),
-        )
-      }
+    const framing = SessionEntry.fromV1Assistant(msg.info)
+    const start = framing.filter((entry) => entry.type === "start")
+    const rest = framing.filter((entry) => entry.type !== "start")
+    const parts: SessionEntry.Entry[] = []
+    for (const part of msg.parts) {
+      const converted = SessionEntry.fromV1Part(part, { sessionID, messageID })
+      if (converted) parts.push(converted)
     }
-
-    return entries
+    return [...start, ...parts, ...rest]
   }
 }

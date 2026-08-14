@@ -20,6 +20,7 @@ const [
   { Session },
   { SessionV2 },
   { SessionEntryRepo },
+  { SessionEntry },
   { MessageRepo },
   { SessionEntryProjection },
   { Database },
@@ -31,6 +32,7 @@ const [
   import("../../src/session"),
   import("../../src/session/v2"),
   import("../../src/session/v2/entry-repo"),
+  import("../../src/session/v2/entry"),
   import("../../src/session/message-repo"),
   import("../../src/session/v2/projection"),
   import("../../src/database/database"),
@@ -595,6 +597,169 @@ describe("live and persisted projections agree", () => {
         expect(live).toEqual(persisted)
 
         for (const unsubscribe of unsubscribes) unsubscribe()
+      },
+    })
+  })
+
+  it("projects a user part before upsertPart", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const session = await runSession(
+          Effect.gen(function* () {
+            const s = yield* service()
+            return yield* s.createNext({ directory: projectDir, title: "payload-pure" })
+          }),
+        )
+        const userID = Identifier.ascending("message")
+        const info = {
+          id: userID,
+          sessionID: session.id,
+          role: "user" as const,
+          time: { created: 1 },
+          agent: "build",
+          model: { providerID: "p", modelID: "m" },
+        }
+        const part = {
+          id: Identifier.ascending("part"),
+          sessionID: session.id,
+          messageID: userID,
+          type: "text" as const,
+          text: "from payload",
+        }
+
+        Database.transaction((tx) => {
+          SessionEntryProjection.message(tx, info as any)
+          MessageRepo.upsertMessage(info as any, tx)
+          SessionEntryProjection.part(tx, part as any)
+        })
+
+        expect(MessageRepo.listParts(userID)).toEqual([])
+        const user = SessionEntryRepo.list(session.id).find((entry) => entry.type === "user")
+        expect(user).toMatchObject({ type: "user", text: "from payload" })
+        expect(SessionEntry.toV1WrittenPart(user!, part as any)).toMatchObject({ id: part.id, text: "from payload" })
+      },
+    })
+  })
+
+  it("rebuilds a user entry when the part is not yet deleted", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const { session, userID } = await conversation()
+        const parts = MessageRepo.listParts(userID)
+        expect(parts.length).toBeGreaterThan(0)
+        const partID = parts[0]!.id
+
+        Database.transaction((tx) => {
+          SessionEntryProjection.partRemoved(tx, session.id, userID, partID)
+        })
+
+        expect(MessageRepo.listParts(userID).some((part) => part.id === partID)).toBe(true)
+        const user = SessionEntryRepo.list(session.id).find((entry) => entry.type === "user")
+        expect(user).toMatchObject({ type: "user", text: "" })
+      },
+    })
+  })
+
+  it("rolls back the v1 row when entry projection throws", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const session = await runSession(
+          Effect.gen(function* () {
+            const s = yield* service()
+            return yield* s.createNext({ directory: projectDir, title: "rollback" })
+          }),
+        )
+        const userID = Identifier.ascending("message")
+        await expect(
+          runSession(
+            Effect.gen(function* () {
+              const s = yield* service()
+              yield* s.updateMessage({
+                id: userID,
+                sessionID: session.id,
+                role: "user",
+                time: { created: "bad" },
+                agent: "build",
+                model: { providerID: "p", modelID: "m" },
+              } as any)
+            }),
+          ),
+        ).rejects.toThrow()
+        expect(MessageRepo.getMessage(session.id, userID)).toBeUndefined()
+      },
+    })
+  })
+
+  it("persists v1 as toV1 of the entries just written", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const { session, userID, assistantID, assistant } = await conversation()
+
+        const userInfo = MessageRepo.getMessage(session.id, userID)
+        const userEntry = SessionEntryRepo.list(session.id).find((entry) => entry.type === "user")
+        expect(userInfo).toEqual(JSON.parse(JSON.stringify(SessionEntry.toV1Message([userEntry!]))))
+        expect(userInfo).toMatchObject({
+          role: "user",
+          agent: "build",
+          model: { providerID: "p", modelID: "m" },
+        })
+
+        const start = SessionEntryRepo.list(session.id).find((entry) => entry.type === "start")
+        expect(MessageRepo.getMessage(session.id, assistantID)).toEqual(
+          JSON.parse(JSON.stringify(SessionEntry.toV1Message([start!]))),
+        )
+        expect(MessageRepo.getMessage(session.id, assistantID)).toMatchObject({
+          parentID: userID,
+          path: { cwd: projectDir, root: projectDir },
+        })
+
+        const stepStart = {
+          id: Identifier.ascending("part"),
+          sessionID: session.id,
+          messageID: assistantID,
+          type: "step-start" as const,
+          snapshot: "snap-a",
+        }
+        const patch = {
+          id: Identifier.ascending("part"),
+          sessionID: session.id,
+          messageID: assistantID,
+          type: "patch" as const,
+          hash: "hash-a",
+          files: ["a.ts"],
+        }
+
+        await runSession(
+          Effect.gen(function* () {
+            const s = yield* service()
+            yield* s.updatePart(stepStart as any)
+            yield* s.updatePart(patch as any)
+            yield* s.updateMessage({
+              ...assistant,
+              time: { created: 2, completed: 3 },
+              finish: "stop",
+            } as any)
+          }),
+        )
+
+        const storedStart = SessionEntryRepo.list(session.id).find((entry) => entry.type === "start")
+        const storedComplete = SessionEntryRepo.list(session.id).find((entry) => entry.type === "complete")
+        expect(MessageRepo.getMessage(session.id, assistantID)).toEqual(
+          JSON.parse(JSON.stringify(SessionEntry.toV1Message([storedStart!, storedComplete!]))),
+        )
+
+        const stepEntry = SessionEntryRepo.list(session.id).find((entry) => entry.type === "step-start")
+        const patchEntry = SessionEntryRepo.list(session.id).find((entry) => entry.type === "patch")
+        expect(MessageRepo.listParts(assistantID).find((part) => part.id === stepStart.id)).toEqual(
+          SessionEntry.toV1Part(stepEntry!),
+        )
+        expect(MessageRepo.listParts(assistantID).find((part) => part.id === patch.id)).toEqual(
+          SessionEntry.toV1Part(patchEntry!),
+        )
       },
     })
   })

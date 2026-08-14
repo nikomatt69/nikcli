@@ -40,14 +40,18 @@ async function drawn() {
 }
 
 describe("entry coverage", () => {
-  it("the union is exactly the ten types the renderer was written against", () => {
+  it("the union is exactly the types the renderer was written against", () => {
     const types = SessionEntry.Entry.options.map((option) => option.shape.type.value as string).sort()
     expect(types).toEqual([
       "compaction",
       "complete",
+      "patch",
       "reasoning",
       "retry",
+      "snapshot",
       "start",
+      "step-finish",
+      "step-start",
       "subtask",
       "synthetic",
       "text",

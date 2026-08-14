@@ -19,10 +19,24 @@ import { MessageV2 } from "../message-v2"
  *   reducer must replace in place rather than append.
  * - `sessionID` / `messageID` — nikcli's event log and HTTP routes are
  *   session-scoped and correlate rows back to the v1 message.
+ *
+ * Slice 2 of the write path keeps every field `toModelMessages` and revert
+ * need on an entry, so the v1 projector can be `toV1*` of the rows just
+ * written. `prompt_data` stays on `message_info` — it is admission identity
+ * (S1), not conversation content.
  */
 export namespace SessionEntry {
   export const ID = Identifier.schema("event")
   export type ID = z.infer<typeof ID>
+
+  const EMPTY_PATH = { cwd: "", root: "" }
+  const EMPTY_TOKENS: MessageV2.Assistant["tokens"] = {
+    input: 0,
+    output: 0,
+    reasoning: 0,
+    cache: { read: 0, write: 0 },
+  }
+  const EMPTY_MODEL = { providerID: "", modelID: "" }
 
   // ============================================================================
   // Derived identity
@@ -107,7 +121,13 @@ export namespace SessionEntry {
   // Input entries
   // ============================================================================
 
-  /** The user's prompt. */
+  /**
+   * The user's prompt. `text` is the display join of what they typed;
+   * `texts` keeps the individual text parts (including synthetic / ignored)
+   * so v1 can be derived without collapsing ids. File and agent parts ride
+   * here as full v1 objects. Compaction, subtask, snapshot, patch, and
+   * step markers on a user message are streamed entries of their own.
+   */
   export const User = z
     .object({
       ...Base,
@@ -115,6 +135,14 @@ export namespace SessionEntry {
       text: z.string(),
       files: MessageV2.FilePart.array().default([]),
       agents: MessageV2.AgentPart.array().default([]),
+      texts: MessageV2.TextPart.array().default([]),
+      agent: MessageV2.User.shape.agent.default(""),
+      model: MessageV2.User.shape.model.default(EMPTY_MODEL),
+      system: MessageV2.User.shape.system,
+      format: MessageV2.User.shape.format,
+      tools: MessageV2.User.shape.tools,
+      variant: MessageV2.User.shape.variant,
+      summary: MessageV2.User.shape.summary,
     })
     .meta({ ref: "SessionEntry.User" })
   export type User = z.infer<typeof User>
@@ -138,6 +166,11 @@ export namespace SessionEntry {
   /**
    * Start of an assistant step — carries what the request was made with.
    * `type` is "start" (not "request") to match opencode's literal.
+   *
+   * Cost, tokens, finish, error and structured also live here so an
+   * in-flight `message.updated` (finish-step writes those before
+   * `time.completed`) can still derive the v1 row. The sealing `complete`
+   * entry is authoritative once it exists.
    */
   export const Request = z
     .object({
@@ -151,8 +184,20 @@ export namespace SessionEntry {
       agent: z.string().default(""),
       /** The agent mode the turn ran in — rendered as the step's label. */
       mode: z.string().default(""),
+      parentID: z.string().default(""),
+      path: z
+        .object({
+          cwd: z.string(),
+          root: z.string(),
+        })
+        .default(EMPTY_PATH),
       variant: z.string().optional(),
       snapshot: z.string().optional(),
+      cost: z.number().optional(),
+      tokens: MessageV2.Assistant.shape.tokens.optional(),
+      finish: z.string().optional(),
+      error: MessageV2.AssistantError.optional(),
+      structured: MessageV2.Assistant.shape.structured,
     })
     .meta({ ref: "SessionEntry.Request" })
   export type Request = z.infer<typeof Request>
@@ -160,7 +205,8 @@ export namespace SessionEntry {
   /**
    * End of an assistant step — cost, tokens and finish reason. Terminal
    * message errors (abort, auth, overflow) ride on `error` so the conversion
-   * from a v1 message stays lossless.
+   * from a v1 message stays lossless. `completed` is `info.time.completed`
+   * when the engine set it; `timestamp` is the seal time used for sorting.
    */
   export const Complete = z
     .object({
@@ -171,6 +217,8 @@ export namespace SessionEntry {
       tokens: MessageV2.Assistant.shape.tokens,
       finish: z.string().optional(),
       error: MessageV2.AssistantError.optional(),
+      completed: z.number().optional(),
+      structured: MessageV2.Assistant.shape.structured,
     })
     .meta({ ref: "SessionEntry.Complete" })
   export type Complete = z.infer<typeof Complete>
@@ -212,6 +260,7 @@ export namespace SessionEntry {
       ignored: z.boolean().optional(),
       synthetic: z.boolean().optional(),
       completed: z.number().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
       ref: Ref,
     })
     .meta({ ref: "SessionEntry.Text" })
@@ -224,6 +273,7 @@ export namespace SessionEntry {
       type: z.literal("reasoning"),
       text: z.string(),
       completed: z.number().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
       ref: Ref,
     })
     .meta({ ref: "SessionEntry.Reasoning" })
@@ -267,19 +317,109 @@ export namespace SessionEntry {
     .meta({ ref: "SessionEntry.Subtask" })
   export type Subtask = z.infer<typeof Subtask>
 
+  /** A workspace snapshot hash. Revert and summary read these off v1 parts. */
+  export const Snapshot = z
+    .object({
+      ...Base,
+      type: z.literal("snapshot"),
+      snapshot: z.string(),
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.Snapshot" })
+  export type Snapshot = z.infer<typeof Snapshot>
+
+  /** Files changed during a step. Revert walks these after the revert point. */
+  export const Patch = z
+    .object({
+      ...Base,
+      type: z.literal("patch"),
+      hash: z.string(),
+      files: z.array(z.string()),
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.Patch" })
+  export type Patch = z.infer<typeof Patch>
+
+  /**
+   * Step-start part. Overlaps the message-level `start` entry but is not the
+   * same row: the part carries a snapshot hash `start` does not, and
+   * `toModelMessages` emits it as its own UI part.
+   */
+  export const StepStart = z
+    .object({
+      ...Base,
+      type: z.literal("step-start"),
+      snapshot: z.string().optional(),
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.StepStart" })
+  export type StepStart = z.infer<typeof StepStart>
+
+  /** Step-finish part. Same overlap with `complete` as step-start with `start`. */
+  export const StepFinish = z
+    .object({
+      ...Base,
+      type: z.literal("step-finish"),
+      reason: z.string(),
+      snapshot: z.string().optional(),
+      cost: z.number(),
+      tokens: MessageV2.Assistant.shape.tokens,
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.StepFinish" })
+  export type StepFinish = z.infer<typeof StepFinish>
+
   // ============================================================================
   // Union
   // ============================================================================
 
   export const Entry = z
-    .discriminatedUnion("type", [User, Synthetic, Request, Text, Reasoning, Tool, Subtask, Complete, Retry, Compaction])
+    .discriminatedUnion("type", [
+      User,
+      Synthetic,
+      Request,
+      Text,
+      Reasoning,
+      Tool,
+      Subtask,
+      Snapshot,
+      Patch,
+      StepStart,
+      StepFinish,
+      Complete,
+      Retry,
+      Compaction,
+    ])
     .meta({ ref: "SessionEntry" })
   export type Entry = z.infer<typeof Entry>
 
   /** Entry kinds that carry a `ref` and are therefore upsert targets. */
-  export type Streamed = Text | Reasoning | Tool | Subtask | Retry | Compaction | Synthetic
+  export type Streamed =
+    | Text
+    | Reasoning
+    | Tool
+    | Subtask
+    | Retry
+    | Compaction
+    | Synthetic
+    | Snapshot
+    | Patch
+    | StepStart
+    | StepFinish
 
-  const STREAMED = new Set(["text", "reasoning", "tool", "subtask", "retry", "compaction", "synthetic"])
+  const STREAMED = new Set([
+    "text",
+    "reasoning",
+    "tool",
+    "subtask",
+    "retry",
+    "compaction",
+    "synthetic",
+    "snapshot",
+    "patch",
+    "step-start",
+    "step-finish",
+  ])
 
   export function isStreamed(entry: Entry): entry is Streamed {
     return STREAMED.has(entry.type)
@@ -290,11 +430,32 @@ export namespace SessionEntry {
     return isStreamed(entry) ? entry.ref : undefined
   }
 
-  const ASSISTANT = new Set(["start", "text", "reasoning", "tool", "subtask", "complete", "retry"])
+  const ASSISTANT = new Set([
+    "start",
+    "text",
+    "reasoning",
+    "tool",
+    "subtask",
+    "complete",
+    "retry",
+    "snapshot",
+    "patch",
+    "step-start",
+    "step-finish",
+  ])
 
   /** True for entries produced by an assistant step (as opposed to input). */
   export function isAssistant(entry: Entry): boolean {
     return ASSISTANT.has(entry.type)
+  }
+
+  /**
+   * User-typed text, files and agents fold into the single `user` entry.
+   * Everything else on a user message (compaction, subtask, snapshot, patch,
+   * step markers) is a streamed entry of its own.
+   */
+  export function foldsIntoUser(part: MessageV2.Part): boolean {
+    return part.type === "text" || part.type === "file" || part.type === "agent"
   }
 
   // ============================================================================
@@ -328,8 +489,7 @@ export namespace SessionEntry {
 
   /**
    * Convert a single v1 message part to its v2 entry. Returns undefined for
-   * part kinds the v2 shape does not model as entries (step markers,
-   * snapshots, patches, and file/agent parts — those ride on the User entry).
+   * file/agent parts — those ride on the User entry, not as rows of their own.
    *
    * Deterministic: the same part always converts to the same entry, which is
    * what lets the live and persisted projections agree without coordinating.
@@ -354,6 +514,7 @@ export namespace SessionEntry {
           ignored: part.ignored,
           synthetic: part.synthetic,
           completed: part.time?.end,
+          metadata: part.metadata,
         })
       case "reasoning":
         return Reasoning.parse({
@@ -362,6 +523,7 @@ export namespace SessionEntry {
           type: "reasoning",
           text: part.text,
           completed: part.time?.end,
+          metadata: part.metadata,
         })
       case "tool":
         return Tool.parse({
@@ -400,9 +562,335 @@ export namespace SessionEntry {
           type: "compaction",
           auto: part.auto,
         })
+      case "snapshot":
+        return Snapshot.parse({
+          ...base,
+          timestamp: ctx.timestamp ?? createdAt(part),
+          type: "snapshot",
+          snapshot: part.snapshot,
+        })
+      case "patch":
+        return Patch.parse({
+          ...base,
+          timestamp: ctx.timestamp ?? createdAt(part),
+          type: "patch",
+          hash: part.hash,
+          files: part.files,
+        })
+      case "step-start":
+        return StepStart.parse({
+          ...base,
+          timestamp: ctx.timestamp ?? createdAt(part),
+          type: "step-start",
+          snapshot: part.snapshot,
+        })
+      case "step-finish":
+        return StepFinish.parse({
+          ...base,
+          timestamp: ctx.timestamp ?? createdAt(part),
+          type: "step-finish",
+          reason: part.reason,
+          snapshot: part.snapshot,
+          cost: part.cost,
+          tokens: part.tokens,
+        })
       default:
         return undefined
     }
+  }
+
+  /**
+   * Reverse of `fromV1Part` for streamed types. Message-level entries
+   * (`user`, `start`, `complete`) are not parts.
+   *
+   * `v1 → entry → v1` may fill `time.start` from the entry timestamp when the
+   * original part omitted it. `entry → v1 → entry` is identity for the
+   * modeled subset.
+   */
+  export function toV1Part(entry: Entry): MessageV2.Part | undefined {
+    const messageID = entry.messageID
+    const id = refOf(entry)
+    if (!messageID || !id) return
+
+    switch (entry.type) {
+      case "text":
+        return {
+          id,
+          sessionID: entry.sessionID,
+          messageID,
+          type: "text",
+          text: entry.text,
+          ignored: entry.ignored,
+          synthetic: entry.synthetic,
+          metadata: entry.metadata,
+          time: { start: entry.timestamp, end: entry.completed },
+        }
+      case "reasoning":
+        return {
+          id,
+          sessionID: entry.sessionID,
+          messageID,
+          type: "reasoning",
+          text: entry.text,
+          metadata: entry.metadata,
+          time: { start: entry.timestamp, end: entry.completed },
+        }
+      case "tool":
+        return {
+          id,
+          sessionID: entry.sessionID,
+          messageID,
+          type: "tool",
+          callID: entry.callID,
+          tool: entry.name,
+          state: entry.state,
+          metadata: entry.metadata,
+        }
+      case "subtask":
+        return {
+          id,
+          sessionID: entry.sessionID,
+          messageID,
+          type: "subtask",
+          prompt: entry.prompt,
+          description: entry.description,
+          agent: entry.agent,
+          model: entry.model,
+          command: entry.command,
+          background: entry.background,
+        }
+      case "retry":
+        return {
+          id,
+          sessionID: entry.sessionID,
+          messageID,
+          type: "retry",
+          attempt: entry.attempt,
+          error: entry.error,
+          time: { created: entry.timestamp },
+        }
+      case "compaction":
+        return {
+          id,
+          sessionID: entry.sessionID,
+          messageID,
+          type: "compaction",
+          auto: entry.auto,
+        }
+      case "snapshot":
+        return {
+          id,
+          sessionID: entry.sessionID,
+          messageID,
+          type: "snapshot",
+          snapshot: entry.snapshot,
+        }
+      case "patch":
+        return {
+          id,
+          sessionID: entry.sessionID,
+          messageID,
+          type: "patch",
+          hash: entry.hash,
+          files: [...entry.files],
+        }
+      case "step-start":
+        return {
+          id,
+          sessionID: entry.sessionID,
+          messageID,
+          type: "step-start",
+          snapshot: entry.snapshot,
+        }
+      case "step-finish":
+        return {
+          id,
+          sessionID: entry.sessionID,
+          messageID,
+          type: "step-finish",
+          reason: entry.reason,
+          snapshot: entry.snapshot,
+          cost: entry.cost,
+          tokens: entry.tokens,
+        }
+      default:
+        return undefined
+    }
+  }
+
+  /**
+   * Build the `user` entry from a v1 user message and the parts that fold
+   * into it. Non-folding parts are converted separately via `fromV1Part`.
+   */
+  export function fromV1User(info: MessageV2.User, parts: readonly MessageV2.Part[]): User {
+    const texts = parts.filter((part): part is MessageV2.TextPart => part.type === "text")
+    return User.parse({
+      id: idForMessage(info.id, "user"),
+      sessionID: info.sessionID,
+      messageID: info.id,
+      timestamp: info.time.created,
+      type: "user",
+      text: texts
+        .filter((part) => !part.synthetic && !part.ignored)
+        .map((part) => part.text)
+        .join("\n"),
+      texts,
+      files: parts.filter((part): part is MessageV2.FilePart => part.type === "file"),
+      agents: parts.filter((part): part is MessageV2.AgentPart => part.type === "agent"),
+      agent: info.agent,
+      model: info.model,
+      system: info.system,
+      format: info.format,
+      tools: info.tools,
+      variant: info.variant,
+      summary: info.summary,
+    })
+  }
+
+  /**
+   * Message-level entries for an assistant step: `start`, and `complete` /
+   * `compaction` when the v1 row has them. Parts are converted separately.
+   */
+  export function fromV1Assistant(info: MessageV2.Assistant): Array<Request | Complete | Compaction> {
+    const start = Request.parse({
+      id: idForMessage(info.id, "start"),
+      sessionID: info.sessionID,
+      messageID: info.id,
+      timestamp: info.time.created,
+      type: "start",
+      providerID: info.providerID,
+      modelID: info.modelID,
+      agent: info.agent,
+      mode: info.mode,
+      parentID: info.parentID,
+      path: info.path,
+      cost: info.cost,
+      tokens: info.tokens,
+      finish: info.finish,
+      error: info.error,
+      structured: info.structured,
+    })
+    const entries: Array<Request | Complete | Compaction> = [start]
+
+    const completed = info.time.completed
+    if (completed !== undefined || info.error) {
+      entries.push(
+        Complete.parse({
+          id: idForMessage(info.id, "complete"),
+          sessionID: info.sessionID,
+          messageID: info.id,
+          timestamp: completed ?? info.time.created,
+          type: "complete",
+          reason: info.error ? "error" : "completed",
+          cost: info.cost,
+          tokens: info.tokens,
+          finish: info.finish,
+          error: info.error,
+          completed,
+          structured: info.structured,
+        }),
+      )
+    }
+
+    if (info.summary) {
+      entries.push(
+        Compaction.parse({
+          id: idForMessage(info.id, "compaction"),
+          sessionID: info.sessionID,
+          messageID: info.id,
+          timestamp: completed ?? info.time.created,
+          type: "compaction",
+          auto: true,
+        }),
+      )
+    }
+
+    return entries
+  }
+
+  /** Framing entries for a v1 message. User parts must be passed to `fromV1User`. */
+  export function fromV1Message(info: MessageV2.Info): Entry[] {
+    if (info.role === "user") return [fromV1User(info, [])]
+    return fromV1Assistant(info)
+  }
+
+  /** Text, file and agent parts stored on the user entry. */
+  export function partsFromUser(entry: User): MessageV2.Part[] {
+    return [...entry.texts, ...entry.files, ...entry.agents]
+  }
+
+  export function toV1User(entry: User): MessageV2.User | undefined {
+    if (!entry.messageID) return
+    return {
+      id: entry.messageID,
+      sessionID: entry.sessionID,
+      role: "user",
+      time: { created: entry.timestamp },
+      agent: entry.agent,
+      model: entry.model,
+      system: entry.system,
+      format: entry.format,
+      tools: entry.tools,
+      variant: entry.variant,
+      summary: entry.summary,
+    }
+  }
+
+  export function toV1Assistant(
+    start: Request,
+    complete?: Complete,
+    summary?: boolean,
+  ): MessageV2.Assistant | undefined {
+    if (!start.messageID) return
+    return {
+      id: start.messageID,
+      sessionID: start.sessionID,
+      role: "assistant",
+      time: {
+        created: start.timestamp,
+        ...(complete?.completed !== undefined ? { completed: complete.completed } : {}),
+      },
+      parentID: start.parentID,
+      modelID: start.modelID,
+      providerID: start.providerID,
+      mode: start.mode,
+      agent: start.agent,
+      path: start.path ?? EMPTY_PATH,
+      cost: complete?.cost ?? start.cost ?? 0,
+      tokens: complete?.tokens ?? start.tokens ?? EMPTY_TOKENS,
+      finish: complete?.finish ?? start.finish,
+      error: complete?.error ?? start.error,
+      structured: complete?.structured ?? start.structured,
+      ...(summary ? { summary: true } : {}),
+    }
+  }
+
+  /**
+   * Rebuild a v1 message from the framing entries just written (`user`, or
+   * `start` plus optional `complete` / message-level `compaction`).
+   */
+  export function toV1Message(entries: readonly Entry[]): MessageV2.Info | undefined {
+    const user = entries.find((entry): entry is User => entry.type === "user")
+    if (user) return toV1User(user)
+
+    const start = entries.find((entry): entry is Request => entry.type === "start")
+    if (!start) return
+    const complete = entries.find((entry): entry is Complete => entry.type === "complete")
+    const compaction = entries.some(
+      (entry) => entry.type === "compaction" && entry.id === idForMessage(start.messageID ?? "", "compaction"),
+    )
+    return toV1Assistant(start, complete, compaction)
+  }
+
+  /**
+   * The v1 part this write should persist. Folded user parts are recovered
+   * from the user entry; streamed parts go through `toV1Part`.
+   */
+  export function toV1WrittenPart(entry: Entry, incoming: MessageV2.Part): MessageV2.Part | undefined {
+    if (entry.type === "user") {
+      return partsFromUser(entry).find((part) => part.id === incoming.id)
+    }
+    return toV1Part(entry)
   }
 
   // ============================================================================
