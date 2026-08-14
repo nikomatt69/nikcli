@@ -1,9 +1,9 @@
 import fs from "fs/promises"
 import path from "path"
 import z from "zod"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import { Project } from "@/project/project"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 

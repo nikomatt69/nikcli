@@ -20,7 +20,7 @@
  * gives them a registered contract.
  */
 import { z } from "zod"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Sync, type SyncEventRecord } from "./index"
 
 const log = Log.create({ service: "sync-events" })

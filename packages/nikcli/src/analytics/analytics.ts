@@ -1,6 +1,6 @@
 import z from "zod"
 import { Database } from "@/database/database"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "analytics" })
 

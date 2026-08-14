@@ -1,5 +1,5 @@
 import { Config } from "../config/config"
-import { Flag } from "../flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 import { getToken as getFigmaToken } from "./api/figma"
 import { getToken as getGithubToken } from "./api/github"
 import { getBotToken as getSlackBotToken } from "./api/slack"

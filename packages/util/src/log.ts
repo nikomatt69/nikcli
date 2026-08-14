@@ -1,7 +1,7 @@
 import path from "path"
 import fs from "fs/promises"
-import { Global } from "../global"
-import { zod } from "@/util/effect-zod"
+import { Global } from "./global"
+import { zod } from "./effect-zod"
 import { safeStringify } from "./redact"
 import { Schema } from "effect"
 

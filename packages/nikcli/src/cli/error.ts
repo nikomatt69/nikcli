@@ -1,6 +1,6 @@
-import { Log } from "@/util/log"
-import { UserFacingError } from "@/util/user-error"
-import { safeStringify } from "@/util/redact"
+import { Log } from "@nikcli-ai/util/log"
+import { UserFacingError } from "@nikcli-ai/util/user-error"
+import { safeStringify } from "@nikcli-ai/util/redact"
 
 const log = Log.create({ service: "error-formatter" })
 

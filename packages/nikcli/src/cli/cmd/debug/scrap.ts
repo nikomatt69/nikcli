@@ -1,6 +1,6 @@
 import { EOL } from "os"
 import { Project } from "../../../project/project"
-import { Log } from "../../../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { cmd } from "../cmd"
 import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"

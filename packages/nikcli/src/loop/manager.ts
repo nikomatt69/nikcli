@@ -12,7 +12,7 @@
  */
 
 import { Instance } from "../project/instance"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { RunSandbox } from "../worktree/sandbox"
 import { LoopRepo } from "./repo"
 import {

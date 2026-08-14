@@ -11,7 +11,7 @@
  * bootstrap out while keeping the explicit commands working.
  */
 import { Instance } from "@/project/instance"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { SyncConfig } from "./sync-config"
 
 const log = Log.create({ service: "sync.cli-init" })

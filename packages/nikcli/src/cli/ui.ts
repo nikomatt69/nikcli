@@ -2,7 +2,7 @@ import { EOL } from "os"
 import { Schema } from "effect"
 import { remoteService } from "./remote"
 import { logo as cliLogo } from "./logo"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "ui" })
 

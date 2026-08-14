@@ -6,7 +6,7 @@ import { useSync } from "@tui/context/sync"
 import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
 import { useKeybind } from "../context/keybind"
-import { Identifier } from "@/id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import { DialogWorkspaceCreate } from "./dialog-workspace-create"
 import { DialogWorkspaceFileChanges } from "./dialog-workspace-file-changes"
 

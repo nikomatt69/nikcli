@@ -6,7 +6,7 @@ import { createMemo, createResource, createSignal, Match, onMount, Switch } from
 import { useSDK } from "@tui/context/sdk"
 import { useRoute } from "@tui/context/route"
 import { Skill } from "@/skill"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import { useToast } from "@tui/ui/toast"
 import { Keybind } from "@tui/util/keybind"
 

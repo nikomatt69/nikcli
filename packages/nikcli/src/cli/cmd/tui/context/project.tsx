@@ -3,7 +3,7 @@ import type { Path, Workspace } from "@nikcli-ai/sdk/httpapi"
 import { createStore, reconcile } from "solid-js/store"
 import { createSimpleContext } from "./helper"
 import { useSDK } from "./sdk"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "project-context" })
 

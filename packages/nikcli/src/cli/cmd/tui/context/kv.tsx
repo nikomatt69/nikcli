@@ -1,4 +1,4 @@
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import { createSignal, type Setter } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createSimpleContext } from "./helper"

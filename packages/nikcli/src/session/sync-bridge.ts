@@ -15,7 +15,7 @@
  */
 import { Bus } from "@/bus"
 import { Instance } from "@/project/instance"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Sync } from "@/sync"
 import { SNAPSHOT_INTERVAL } from "@/sync/snapshot"
 import { SessionRepo } from "./repo"

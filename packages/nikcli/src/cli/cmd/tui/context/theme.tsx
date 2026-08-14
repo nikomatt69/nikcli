@@ -14,8 +14,8 @@ import { contrastFg, deriveSemanticTokens, tint, type SemanticTokens } from "./t
 import { useKV } from "./kv"
 import { useRenderer } from "@opentui/solid"
 import { createStore, produce } from "solid-js/store"
-import { Global } from "@/global"
-import { Filesystem } from "@/util/filesystem"
+import { Global } from "@nikcli-ai/util/global"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 
 export { BUILT_IN_THEME_IDS } from "./theme-catalog"
 export { tint, contrastFg, type SemanticTokens } from "./theme-tokens"

@@ -1,7 +1,7 @@
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { Instance } from "@/project/instance"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Schema } from "effect"
 import { Session } from "../index"
 import { MessageRepo } from "../message-repo"

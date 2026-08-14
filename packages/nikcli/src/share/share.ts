@@ -2,7 +2,7 @@ import { Bus } from "../bus"
 import { Installation } from "../installation"
 import { Session } from "../session"
 import { MessageV2 } from "../session/message-v2"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 

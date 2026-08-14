@@ -1,7 +1,7 @@
 import { Cause, Effect, Exit, Layer, Logger, Option, Tracer } from "effect"
 import { FetchHttpClient } from "effect/unstable/http"
 import { OtlpLogger, OtlpSerialization, OtlpTracer } from "effect/unstable/observability"
-import { Flag } from "../flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 import { TelemetryRecord } from "./telemetry-bus"
 
 // Build version/channel from the globals injected at compile time, mirroring

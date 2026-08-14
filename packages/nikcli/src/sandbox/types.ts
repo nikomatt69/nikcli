@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { zod } from "@/util/effect-zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import type { Target } from "@/workspace/adaptors/types"
 
 export namespace Sandbox {

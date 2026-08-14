@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 import { Database } from "@/database/database"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { account, config } from "./account.sql"
 import type { AccountRow, ConfigRow } from "./schema"
 

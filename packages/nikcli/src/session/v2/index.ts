@@ -1,5 +1,5 @@
 import z from "zod"
-import { Identifier } from "@/id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import { Session } from "../index"
 import { MessageRepo } from "../message-repo"
 import { MessageV2 } from "../message-v2"
@@ -12,10 +12,10 @@ import { Database } from "@/database/database"
 import { SessionProjector } from "./projector"
 import { SessionPrompt } from "../prompt"
 import { Stepper } from "./stepper"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Effect } from "effect"
 import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { zodObject } from "@/util/effect-zod"
+import { zodObject } from "@nikcli-ai/util/effect-zod"
 
 /**
  * STATUS: v2 read model live; write path slices 1–3 — entries persist first,

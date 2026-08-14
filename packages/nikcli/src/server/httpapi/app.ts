@@ -1,6 +1,6 @@
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Skill } from "@/skill"
 
 /**

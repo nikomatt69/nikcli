@@ -1,4 +1,4 @@
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { SyncEvent } from "./sync-event"
 
 const log = Log.create({ service: "sync-projectors" })

@@ -1,7 +1,7 @@
 import { produce, enablePatches } from "immer"
 import { SessionEvent } from "./event"
 import { SessionEntry } from "./entry"
-import { Identifier } from "@/id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 
 // Enable immer patches for replay functionality
 enablePatches()

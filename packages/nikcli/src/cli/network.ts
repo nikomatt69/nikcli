@@ -2,7 +2,7 @@ import type { Argv } from "yargs"
 import { Config } from "../config/config"
 import { runPromiseWithLayer } from "@/effect"
 import { Effect } from "effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import z from "zod"
 
 const log = Log.create({ service: "network" })

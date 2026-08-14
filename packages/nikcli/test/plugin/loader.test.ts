@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { createHash } from "crypto"
-import { Flag } from "@/flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 import { ToolRegistry } from "@/tool/registry"
 
 /**

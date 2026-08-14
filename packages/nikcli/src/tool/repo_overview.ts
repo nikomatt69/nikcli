@@ -1,6 +1,6 @@
 import path from "path"
 import z from "zod"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import { assertExternalDirectory } from "./external-directory"
 import { Tool } from "./tool"
 import DESCRIPTION from "./repo_overview.txt"

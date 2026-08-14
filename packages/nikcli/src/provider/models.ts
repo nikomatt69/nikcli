@@ -1,13 +1,13 @@
-import { Global } from "../global"
-import { Log } from "../util/log"
+import { Global } from "@nikcli-ai/util/global"
+import { Log } from "@nikcli-ai/util/log"
 import path from "path"
 import { data } from "./models-macro" with { type: "macro" }
 import { Installation } from "../installation"
-import { Flag } from "../flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 import { cursorModelsDevProvider } from "../plugin/cursor"
 import { NIKCLI_INFERENCE_ID, nikcliInferenceModelsDevProvider } from "./nikcli-inference"
 import { patchReasoningOptions } from "./variants-catalog-patch"
-import { type DeepMutable, zodObject } from "@/util/effect-zod"
+import { type DeepMutable, zodObject } from "@nikcli-ai/util/effect-zod"
 import { Schema } from "effect"
 
 export namespace ModelsDev {

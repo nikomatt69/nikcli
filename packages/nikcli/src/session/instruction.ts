@@ -4,10 +4,10 @@ import { createHash } from "crypto"
 import { Effect, Layer, Context } from "effect"
 import { Config } from "@/config/config"
 import { InstanceState, type InstanceContext } from "@/effect"
-import { Flag } from "@/flag/flag"
-import { Filesystem } from "@/util/filesystem"
+import { Flag } from "@nikcli-ai/util/flag"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { workMap } from "@/util/queue"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import type { MessageV2 } from "./message-v2"
 
 export const INSTRUCTION_HASH_RE = /^[0-9a-f]{64}$/

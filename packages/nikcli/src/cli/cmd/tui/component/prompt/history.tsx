@@ -1,5 +1,5 @@
 import path from "path"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import { onMount } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { clone } from "remeda"
@@ -10,7 +10,7 @@ import {
   dehydratePromptEntry,
   hydratePromptEntry,
   PromptBlob,
-} from "../../util/prompt-blob"
+} from "@nikcli-ai/util/prompt-blob"
 import { PromptStashStore } from "@/prompt/stash-store"
 import type { AgentPart, FilePart, TextPart } from "@nikcli-ai/sdk/httpapi"
 

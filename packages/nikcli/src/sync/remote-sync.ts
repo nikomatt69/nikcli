@@ -20,7 +20,7 @@
  * `createHttpRemoteTransport` + `realScheduler`, while tests inject
  * `createInMemoryRemoteTransport` + `createInMemoryScheduler`.
  */
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Database } from "@/database/database"
 import { eq } from "drizzle-orm"
 import { syncEvent } from "./sync.sql"

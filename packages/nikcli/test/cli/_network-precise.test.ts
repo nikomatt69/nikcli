@@ -14,7 +14,7 @@ preserveTestEnv(["NIKCLI_TEST_HOME", "XDG_CONFIG_HOME"])
 await fs.mkdir(path.join(process.env.XDG_CONFIG_HOME, "nikcli"), { recursive: true })
 
 const { Config } = await import("@/config/config")
-const { Global } = await import("@/global")
+const { Global } = await import("@nikcli-ai/util/global")
 const { ConfigMarkdown } = await import("@/config/markdown")
 const { FormatError } = await import("@/cli/error")
 const { MCP } = await import("@/mcp")

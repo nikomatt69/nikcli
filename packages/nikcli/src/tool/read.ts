@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { zod } from "@/util/effect-zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import * as fs from "fs"
 import * as path from "path"
 import { Tool } from "./tool"
@@ -7,10 +7,10 @@ import { LSP } from "../lsp"
 import { FileTime } from "../file/time"
 import DESCRIPTION from "./read.txt"
 import { Instance } from "../project/instance"
-import { Identifier } from "../id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000

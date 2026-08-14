@@ -3,7 +3,7 @@ import { Session } from "../session"
 import { Workspace } from "."
 import { WorkspaceContext } from "./workspace-context"
 import { ServerProxy } from "../server/proxy"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 

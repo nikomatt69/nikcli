@@ -1,8 +1,8 @@
 import fs from "fs/promises"
 import path from "path"
 import z from "zod"
-import { Log } from "../util/log"
-import { lazyAsync } from "../util/lazy"
+import { Log } from "@nikcli-ai/util/log"
+import { lazyAsync } from "@nikcli-ai/util/lazy"
 
 export namespace Ripgrep {
   const log = Log.create({ service: "ripgrep" })

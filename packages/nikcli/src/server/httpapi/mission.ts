@@ -11,7 +11,7 @@ import {
   MissionDefinitionSchema,
   type MissionDefinition,
 } from "@/mission/schema"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 export namespace MissionHttpApi {
   const log = Log.create({ service: "httpapi.mission" })

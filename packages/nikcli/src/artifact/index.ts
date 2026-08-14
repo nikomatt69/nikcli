@@ -1,5 +1,5 @@
 import path from "path"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { UserDB } from "@/user/users"
 import { ArtifactRepo } from "./repo"
 

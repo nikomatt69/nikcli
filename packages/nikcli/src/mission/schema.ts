@@ -19,8 +19,8 @@
 
 import z from "zod"
 import { Schema } from "effect"
-import { zod } from "@/util/effect-zod"
-import { Log } from "../util/log"
+import { zod } from "@nikcli-ai/util/effect-zod"
+import { Log } from "@nikcli-ai/util/log"
 import { DEFAULT_LOOP_AGENT, isValidModel } from "../loop/schema"
 
 export const HISTORY_LIMIT = 100

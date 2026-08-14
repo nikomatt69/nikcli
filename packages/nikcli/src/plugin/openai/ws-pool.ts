@@ -1,5 +1,5 @@
 import WebSocket from "ws"
-import { Log } from "../../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { isRecord } from "@nikcli-ai/util/record"
 import { OpenAIWebSocket } from "./ws"
 

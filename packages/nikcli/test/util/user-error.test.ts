@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { UserFacingError, userFacingParts } from "@/util/user-error"
+import { UserFacingError, userFacingParts } from "@nikcli-ai/util/user-error"
 import { Effect, Exit } from "effect"
 
 describe("UserFacingError (Schema.TaggedErrorClass)", () => {

@@ -1,5 +1,5 @@
 import type { McpServer } from "@agentclientprotocol/sdk"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 /**
  * In-memory store of ACP session state.

@@ -1,7 +1,7 @@
 import z from "zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./browser-control.txt"
-import { Identifier } from "../id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import type { MessageV2 } from "../session/message-v2"
 import { BrowserControl } from "../browser-control/browser-control"
 import { rpc } from "@nikcli-ai/browser-control"

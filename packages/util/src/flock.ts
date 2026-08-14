@@ -2,8 +2,8 @@ import path from "path"
 import os from "os"
 import { randomBytes, randomUUID } from "crypto"
 import { mkdir, readFile, rm, stat, utimes, writeFile } from "fs/promises"
-import { Global } from "@/global"
-import { Hash } from "@/util/hash"
+import { Global } from "./global"
+import { Hash } from "./hash"
 
 export namespace Flock {
   const root = path.join(Global.Path.state, "locks")

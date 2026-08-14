@@ -1,6 +1,6 @@
 import z from "zod"
 import { UserDB } from "@/user/users"
-import { Flag } from "@/flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 import { Auth } from "./auth"
 
 /**

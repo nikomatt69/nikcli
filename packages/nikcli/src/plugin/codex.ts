@@ -1,5 +1,5 @@
 import type { Hooks, PluginInput } from "@nikcli-ai/plugin"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { OAUTH_DUMMY_KEY } from "../auth"
 import { OpenAIWebSocketPool } from "./openai/ws-pool"
 

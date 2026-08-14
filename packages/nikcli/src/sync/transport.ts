@@ -19,7 +19,7 @@
  * so the drain loop can be tested without real timers. `InMemoryScheduler`
  * ticks deterministically when the test calls `tick()`.
  */
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import type { SyncEventRecord } from "./index"
 import { EventSource as EventSourcePolyfill } from "eventsource"
 

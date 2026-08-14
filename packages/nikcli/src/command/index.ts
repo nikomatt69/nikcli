@@ -1,7 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import z from "zod"
 import { Config } from "../config/config"
-import { Identifier } from "../id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import PROMPT_ULTRAREVIEW from "./template/ultrareview.txt"

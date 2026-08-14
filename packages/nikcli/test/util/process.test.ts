@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { Process } from "@/util/process"
+import { Process } from "@nikcli-ai/util/process"
 
 describe("Process metadata helpers", () => {
   it("sets stable run metadata on a provided env", () => {

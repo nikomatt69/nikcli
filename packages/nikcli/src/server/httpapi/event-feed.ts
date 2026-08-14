@@ -1,4 +1,4 @@
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 /**
  * One encoded frame per event, one bounded queue per connection.

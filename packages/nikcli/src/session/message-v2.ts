@@ -1,5 +1,5 @@
 import { BusEvent } from "@/bus/bus-event"
-import { zod, zodObject, zodObjectMode, zodOverride, type DeepMutable } from "@/util/effect-zod"
+import { zod, zodObject, zodObjectMode, zodOverride, type DeepMutable } from "@nikcli-ai/util/effect-zod"
 import z from "zod"
 import { EventError } from "./event-error"
 import { Schema } from "effect"
@@ -12,7 +12,7 @@ import {
   type ToolSet,
   type UIMessage,
 } from "ai"
-import { Identifier } from "../id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import { LSP } from "../lsp"
 import { Snapshot } from "@/snapshot"
 import { fn } from "@/util/fn"

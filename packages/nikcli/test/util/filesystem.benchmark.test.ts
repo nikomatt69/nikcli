@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { recordBenchmark } from "../benchmarks/runner"
 
 // `Filesystem.contains` is `path.relative`, and the win32 implementation

@@ -1,5 +1,5 @@
 import path from "path"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import { onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createSimpleContext } from "../../context/helper"

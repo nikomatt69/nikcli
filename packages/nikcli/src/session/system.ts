@@ -1,6 +1,6 @@
 import { Config } from "../config/config"
 import { resolveLocale } from "../locale/resolve"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import PROMPT_ANTHROPIC from "./prompt/anthropic.txt"
 import PROMPT_ANTHROPIC_WITHOUT_TODO from "./prompt/qwen.txt"
 import PROMPT_BEAST from "./prompt/beast.txt"

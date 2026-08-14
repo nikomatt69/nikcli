@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { Identifier } from "@/id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 
 /** Minimal valid string per schema: prefix + underscore + one char (startsWith only). */
 const minimalBySchema = {

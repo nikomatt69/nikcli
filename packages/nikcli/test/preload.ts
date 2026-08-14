@@ -1,7 +1,7 @@
 import "@opentui/solid/preload"
 import { afterAll, afterEach, beforeAll } from "bun:test"
 import path from "path"
-import { initialize as initGlobal } from "../src/global"
+import { initialize as initGlobal } from "@nikcli-ai/util/global"
 import { setTestEnvBaseline } from "./helpers/env"
 
 // Keep the whole suite hermetic: skip the `bun add @nikcli-ai/plugin` bootstrap

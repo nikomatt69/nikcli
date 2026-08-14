@@ -1,6 +1,6 @@
 import type { LLMEvent } from "@nikcli-ai/llm"
 import type { streamText } from "ai"
-import { errorMessage } from "@/util/error"
+import { errorMessage } from "@nikcli-ai/util/error-format"
 
 type Result = Awaited<ReturnType<typeof streamText>>
 type AISDKEvent = Result["fullStream"] extends AsyncIterable<infer T> ? T : never

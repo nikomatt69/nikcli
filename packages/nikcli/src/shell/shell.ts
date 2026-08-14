@@ -1,5 +1,5 @@
-import { Flag } from "@/flag/flag"
-import { lazy } from "@/util/lazy"
+import { Flag } from "@nikcli-ai/util/flag"
+import { lazy } from "@nikcli-ai/util/lazy"
 import path from "path"
 import { spawn, type ChildProcess } from "child_process"
 

@@ -1,6 +1,6 @@
 import { Schema } from "effect"
-import { zodObject } from "@/util/effect-zod"
-import type { DeepMutable } from "@/util/effect-zod"
+import { zodObject } from "@nikcli-ai/util/effect-zod"
+import type { DeepMutable } from "@nikcli-ai/util/effect-zod"
 
 /**
  * Canonical Effect Schema for the in-process provider + model records.

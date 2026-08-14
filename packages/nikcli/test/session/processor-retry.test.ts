@@ -28,7 +28,7 @@ const [
   import("@/session/llm"),
   import("@/session/retry"),
   import("@/effect"),
-  import("@/id/id"),
+  import("@nikcli-ai/util/id"),
   import("@/bus"),
   import("@/session/message-v2"),
   import("@/project/instance"),

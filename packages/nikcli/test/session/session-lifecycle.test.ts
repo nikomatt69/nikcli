@@ -25,7 +25,7 @@ const [
   { SessionDiffRepo },
   { Global },
 ] = await Promise.all([
-  import("../../src/id/id"),
+  import("@nikcli-ai/util/id"),
   import("../../src/project/instance"),
   import("../../src/session/message-v2"),
   import("../../src/session"),
@@ -33,7 +33,7 @@ const [
   import("../../src/session/revert"),
   import("../../src/share/repo"),
   import("../../src/session/diff-repo"),
-  import("../../src/global"),
+  import("@nikcli-ai/util/global"),
 ])
 
 const projectDirs: string[] = []

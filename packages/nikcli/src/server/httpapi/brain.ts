@@ -1,7 +1,7 @@
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Brain, getBrainConfig, getSessionsCountSince, readLastBrainAt } from "@/brain"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 export namespace BrainHttpApi {
   const log = Log.create({ service: "httpapi.brain" })

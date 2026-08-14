@@ -6,7 +6,7 @@ import os from "os"
 import path from "path"
 import { Instance } from "../../src/project/instance"
 import { runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
-import { Global } from "../../src/global"
+import { Global } from "@nikcli-ai/util/global"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-snapshot-effect-home-"))
 process.env.NIKCLI_TEST_HOME = testHome

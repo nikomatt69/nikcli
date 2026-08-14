@@ -1,5 +1,5 @@
 import { Git } from "@/git"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { runPromiseWithLayer, withCurrentInstance, InstanceState } from "@/effect"
 import { Worktree } from "@/worktree"
 import { Effect } from "effect"

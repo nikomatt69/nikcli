@@ -1,7 +1,7 @@
 import type { LLMEvent } from "@nikcli-ai/llm"
 import { APICallError } from "@ai-sdk/provider"
 import type { streamText } from "ai"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 type Result = Awaited<ReturnType<typeof streamText>>
 export type ProcessorStreamEvent = Result["fullStream"] extends AsyncIterable<infer T> ? T : never

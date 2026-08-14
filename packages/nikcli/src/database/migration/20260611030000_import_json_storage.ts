@@ -1,7 +1,7 @@
 import { Database as BunDatabase } from "bun:sqlite"
 import fs from "fs"
 import path from "path"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import type { DatabaseMigration } from "../migration"
 
 const log = Log.create({ service: "database-migration.json-import" })

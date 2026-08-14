@@ -13,7 +13,7 @@ await fs.mkdir(path.join(process.env.XDG_CONFIG_HOME, "nikcli"), {
   recursive: true,
 })
 
-const { Global } = await import("@/global")
+const { Global } = await import("@nikcli-ai/util/global")
 const { resolveNetworkOptions, shouldStartHttpServer, isLoopbackHostname } = await import("@/cli/network")
 
 const globalConfigPath = path.join(Global.Path.config, "nikcli.json")

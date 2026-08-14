@@ -4,13 +4,13 @@ import { type rpc } from "./worker"
 import path from "path"
 import { UI } from "@/cli/ui"
 import { iife } from "@nikcli-ai/util/iife"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { withNetworkOptions, resolveNetworkOptions, shouldStartHttpServer } from "@/cli/network"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
 import type { EventSource } from "./context/sdk"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
-import { errorMessage } from "@/util/error"
-import { Process } from "@/util/process"
+import { errorMessage } from "@nikcli-ai/util/error-format"
+import { Process } from "@nikcli-ai/util/process"
 import { SessionPrimitives } from "@/session/primitives"
 
 declare global {
@@ -183,6 +183,9 @@ export const TuiThreadCommand = cmd({
   handler: async (args) => {
     // Resolve relative paths against PWD to preserve behavior when using --cwd flag.
     const cwd = resolveThreadDirectory(args.project)
+    // Three layouts, in the order they are tried below: a compiled binary (the
+    // `NIKCLI_WORKER_PATH` define, resolved against the bunfs root), a published dist where this
+    // command is inlined into the root entry, and a dev checkout where it is a sibling file.
     const localWorker = new URL("./worker.ts", import.meta.url)
     const distWorker = new URL("./cli/cmd/tui/worker.js", import.meta.url)
     const workerPath = await iife(async () => {

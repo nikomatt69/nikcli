@@ -1,6 +1,6 @@
 import semver from "semver"
 import { readableStreamToText } from "bun"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { online } from "@/util/network"
 
 export namespace PackageRegistry {

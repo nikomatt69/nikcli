@@ -29,7 +29,7 @@ import { AnalyticsRollup } from "./rollup"
 import { Config } from "@/config/config"
 import { Database } from "@/database/database"
 import { Installation } from "@/installation"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { runPromiseWithLayer } from "@/effect"
 
 export namespace AnalyticsShare {

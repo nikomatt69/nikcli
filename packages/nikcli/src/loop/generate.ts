@@ -5,7 +5,7 @@ import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "../effect"
 import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { definitionFromGenerated, definitionFromGeneratedText, type LoopDefinition } from "./schema"
 
 const log = Log.create({ service: "loop.generate" })

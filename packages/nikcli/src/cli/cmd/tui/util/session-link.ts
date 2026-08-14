@@ -2,7 +2,7 @@ import type { Part } from "@nikcli-ai/sdk/httpapi"
 import type { useKV } from "@tui/context/kv"
 import type { useSDK } from "@tui/context/sdk"
 import type { useSync } from "@tui/context/sync"
-import { Identifier } from "@/id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 
 /** Bidirectional pairing of session IDs the user has explicitly linked via the tab bar. */
 export type SessionLinkMap = Record<string, string>

@@ -2,7 +2,7 @@ import { Cause, Effect } from "effect"
 import z from "zod"
 import { Tool } from "./tool"
 import { CodeMode, Tool as ConfinedTool, toolError } from "@/codemode"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import DESCRIPTION from "./code_mode.txt"
 
 const Parameters = z.object({

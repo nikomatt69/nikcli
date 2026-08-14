@@ -1,5 +1,5 @@
 import { verifyAccessToken, type VerifyAccessTokenOptions } from "@nikcli-ai/auth"
-import { Flag } from "@/flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 import { UserDB } from "@/user/users"
 
 const DEFAULT_ISSUER = "https://auth.nikcli.store"

@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { zod } from "@/util/effect-zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import { Tool } from "./tool"
 // Type-only: erased at build time, so it cannot reintroduce the import cycle the
 // runtime `await import(...)` calls below exist to avoid.
@@ -180,7 +180,7 @@ async function sessionRuleset(sessionID: string, agent?: Agent.Info) {
   const { runPromiseWithLayer, withCurrentInstance } = await import("@/effect")
   const { Effect } = await import("effect")
   const { PermissionNext } = await import("@/permission/next")
-  const { Flag } = await import("@/flag/flag")
+  const { Flag } = await import("@nikcli-ai/util/flag")
   const { Session } = await import("@/session")
 
   const agentRules: PermissionNext.Ruleset = agent?.permission ?? []

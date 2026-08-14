@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { Identifier } from "@/id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import type { MessageV2 } from "@/session/message-v2"
 import { SessionEntry } from "@/session/v2/entry"
 import { SessionV2 } from "@/session/v2"

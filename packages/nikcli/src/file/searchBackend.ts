@@ -3,7 +3,7 @@ import path from "path"
 import z from "zod"
 import { FFF } from "./fff"
 import { Ripgrep } from "./ripgrep"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { FilePathFilters } from "./path-filters"
 
 export namespace SearchBackend {

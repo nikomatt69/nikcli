@@ -1,4 +1,4 @@
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Bom } from "../util/bom"
 import path from "path"
 import z from "zod"

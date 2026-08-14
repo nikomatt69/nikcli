@@ -4,7 +4,7 @@ import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
 import { Artifact } from "../../artifact"
 import { UI } from "../ui"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "artifact-command" })
 

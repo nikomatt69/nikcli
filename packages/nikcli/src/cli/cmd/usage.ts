@@ -7,7 +7,7 @@ import { ProjectRepo } from "../../project/repo"
 import { Instance } from "../../project/instance"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import z from "zod"
 
 const log = Log.create({ service: "usage-command" })

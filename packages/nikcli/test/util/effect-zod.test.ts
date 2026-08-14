@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { Effect, Schema } from "effect"
 import z from "zod"
-import { zod, zodObject, zodObjectMode, zodOverride, ZodOverrideId } from "@/util/effect-zod"
+import { zod, zodObject, zodObjectMode, zodOverride, ZodOverrideId } from "@nikcli-ai/util/effect-zod"
 
 describe("effect-zod walker", () => {
   it("primitives", () => {

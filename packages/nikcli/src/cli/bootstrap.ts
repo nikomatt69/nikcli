@@ -1,4 +1,4 @@
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { InstanceBootstrap } from "../project/bootstrap"
 import { Instance } from "../project/instance"
 

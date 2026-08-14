@@ -11,7 +11,7 @@
  */
 
 import path from "path"
-import { Global } from "@/global"
+import { Global } from "./global"
 
 const BLOB_DIR = "prompt-blobs"
 

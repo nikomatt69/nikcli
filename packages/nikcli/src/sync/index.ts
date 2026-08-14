@@ -1,5 +1,5 @@
-import { Log } from "@/util/log"
-import { Identifier } from "@/id/id"
+import { Log } from "@nikcli-ai/util/log"
+import { Identifier } from "@nikcli-ai/util/id"
 import { eq, and, asc, sql } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 import { Database } from "@/database/database"

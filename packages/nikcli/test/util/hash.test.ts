@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { Hash } from "@/util/hash"
+import { Hash } from "@nikcli-ai/util/hash"
 import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Hash", () => {

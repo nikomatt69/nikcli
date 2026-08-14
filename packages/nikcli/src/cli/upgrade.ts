@@ -1,10 +1,10 @@
 import { Bus } from "@/bus"
 import { Config } from "@/config/config"
-import { Flag } from "@/flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 import { Installation } from "@/installation"
 import { runPromiseWithLayer } from "@/effect"
 import { Effect } from "effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import semver from "semver"
 
 const log = Log.create({ service: "upgrade" })

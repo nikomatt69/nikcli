@@ -10,7 +10,7 @@ import {
   shutdownWorker,
   validateSession,
 } from "@/cli/cmd/tui/thread"
-import { Process } from "@/util/process"
+import { Process } from "@nikcli-ai/util/process"
 
 describe("TUI thread bootstrap", () => {
   it("resolves project paths relative to PWD", () => {

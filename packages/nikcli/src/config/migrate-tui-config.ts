@@ -5,10 +5,10 @@ import z from "zod"
 import { ConfigPaths } from "./paths"
 import { TuiInfo, TuiOptions } from "./tui-schema"
 import { Instance } from "@/project/instance"
-import { Flag } from "@/flag/flag"
-import { Log } from "@/util/log"
-import { Filesystem } from "@/util/filesystem"
-import { Global } from "@/global"
+import { Flag } from "@nikcli-ai/util/flag"
+import { Log } from "@nikcli-ai/util/log"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
+import { Global } from "@nikcli-ai/util/global"
 
 const log = Log.create({ service: "tui.migrate" })
 

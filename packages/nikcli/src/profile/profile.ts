@@ -1,9 +1,9 @@
 import path from "path"
 import fs from "fs/promises"
 import { Context, Effect, Layer, Schema } from "effect"
-import { Global } from "@/global"
-import { Log } from "@/util/log"
-import { zodObject, type DeepMutable } from "@/util/effect-zod"
+import { Global } from "@nikcli-ai/util/global"
+import { Log } from "@nikcli-ai/util/log"
+import { zodObject, type DeepMutable } from "@nikcli-ai/util/effect-zod"
 import { AccountRepo } from "@/account/repo"
 
 /**

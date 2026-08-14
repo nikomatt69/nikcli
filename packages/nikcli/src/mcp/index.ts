@@ -10,7 +10,7 @@ import {
   ToolListChangedNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js"
 import { Config } from "../config/config"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import z from "zod/v4"
 import { Installation } from "../installation"
 import { withTimeout } from "@/util/timeout"

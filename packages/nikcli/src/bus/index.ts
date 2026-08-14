@@ -1,5 +1,5 @@
 import z from "zod"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { BusEvent } from "./bus-event"
 import { GlobalBus } from "./global"
 import { Context, Effect, Layer, Schema } from "effect"

@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, ScopedCache } from "effect"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { MessageV2 } from "./message-v2"
 import { SessionStatus } from "./status"
 import { InstanceState, runtimeFor, runPromiseWithLayer, withCurrentInstance } from "@/effect"

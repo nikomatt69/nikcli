@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { errorFormat, errorMessage, errorData } from "@/util/error"
+import { errorFormat, errorMessage, errorData } from "@nikcli-ai/util/error-format"
 import { recordBenchmark } from "../benchmarks/runner"
 
 describe("errorFormat", () => {

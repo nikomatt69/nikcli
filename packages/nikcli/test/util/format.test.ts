@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { formatDuration } from "@/util/format"
+import { formatDuration } from "@nikcli-ai/util/format"
 import { recordBenchmark } from "../benchmarks/runner"
 
 describe("formatDuration", () => {

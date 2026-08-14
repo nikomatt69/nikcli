@@ -2,10 +2,10 @@
 // (src/tool/code_mode.ts), which runs programs in a confined interpreter instead
 // of a real JS Worker. Kept for reference until removal; see specs/codemode.md.
 import { Effect, Schema } from "effect"
-import { zodObject } from "@/util/effect-zod"
+import { zodObject } from "@nikcli-ai/util/effect-zod"
 import { Tool } from "./tool"
 import { NativeExecutor } from "@/session/native-executor"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import DESCRIPTION from "./exec_code.txt"
 
 const Parameters = Schema.Struct({

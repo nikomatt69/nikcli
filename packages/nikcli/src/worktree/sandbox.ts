@@ -31,7 +31,7 @@ import fs from "fs/promises"
 import path from "path"
 import { Effect } from "effect"
 import { Git } from "@/git"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { withInstance } from "@/effect"
 import { Worktree } from "./index"
 

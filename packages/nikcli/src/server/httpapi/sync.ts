@@ -7,7 +7,7 @@ import { Database } from "@/database/database"
 import { MobileAuth } from "@/mobile/auth"
 import { syncEvent, syncOutbox } from "@/sync/sync.sql"
 import { SyncConfig } from "@/sync/sync-config"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { configUpdateGlobal } from "../mobile/helpers"
 import { Auth } from "./auth"
 

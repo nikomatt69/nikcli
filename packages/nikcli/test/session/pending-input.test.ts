@@ -63,7 +63,7 @@ describe.serial("durable pending input", () => {
     await withSession(async ({ sessionID, runPrompt, runSession }) => {
       const [{ Identifier }, { MessageRepo }, { SessionPending }, { PromptState }, { Session }, { SessionPrompt }] =
         await Promise.all([
-          import("@/id/id"),
+          import("@nikcli-ai/util/id"),
           import("@/session/message-repo"),
           import("@/session/pending"),
           import("@/session/prompt-state"),
@@ -180,7 +180,7 @@ describe.serial("durable pending input", () => {
   it("promotes idle input immediately and retains identity", async () => {
     await withSession(async ({ sessionID, runPrompt }) => {
       const [{ Identifier }, { MessageRepo }, { SessionPending }, { SessionPrompt }] = await Promise.all([
-        import("@/id/id"),
+        import("@nikcli-ai/util/id"),
         import("@/session/message-repo"),
         import("@/session/pending"),
         import("@/session/prompt"),

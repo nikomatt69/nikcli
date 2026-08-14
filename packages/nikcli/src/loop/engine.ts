@@ -23,7 +23,7 @@
 import z from "zod"
 import { BusEvent } from "../bus/bus-event"
 import { Bus } from "../bus"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Scheduler } from "../scheduler"
 import { Instance } from "../project/instance"
 import { Session } from "../session"

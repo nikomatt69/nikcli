@@ -10,7 +10,7 @@ import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
 import { runPromiseWithLayer, withCurrentInstance } from "../effect"
 import { definitionFromGenerated, definitionFromGeneratedText, type MissionDefinition } from "./schema"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "mission.generate" })
 

@@ -10,7 +10,7 @@ import { ToolRegistry } from "@/tool/registry"
 import { Agent } from "@/agent/agent"
 import { Skill } from "@/skill"
 import { Token } from "@nikcli-ai/util/token"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { AppRuntime, runPromiseWithLayer, withCurrentInstance, InstanceState, type InstanceContext } from "@/effect"
 import { collectSystemPaths } from "./instruction"
 

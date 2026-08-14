@@ -1,7 +1,7 @@
 import { Effect } from "effect"
 import { Database } from "@/database/database"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 /**
  * Recomputes the anonymous usage rollups in `analytics_stat` from the messages

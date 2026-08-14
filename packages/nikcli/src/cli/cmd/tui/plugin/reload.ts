@@ -1,7 +1,7 @@
 import path from "path"
 import { watch, type FSWatcher } from "fs"
 import { fileURLToPath, pathToFileURL } from "url"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 
 /**
  * Local plugin sources, as file URLs. Everything else (bare npm specs) resolves

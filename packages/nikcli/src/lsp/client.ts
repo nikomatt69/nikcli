@@ -4,14 +4,14 @@ import path from "path"
 import { pathToFileURL, fileURLToPath } from "url"
 import { createMessageConnection, StreamMessageReader, StreamMessageWriter } from "vscode-jsonrpc/node"
 import type { Diagnostic as VSCodeDiagnostic } from "vscode-languageserver-types"
-import { Log } from "../util/log"
-import { LANGUAGE_EXTENSIONS } from "./language"
+import { Log } from "@nikcli-ai/util/log"
+import { LANGUAGE_EXTENSIONS } from "@nikcli-ai/util/language"
 import z from "zod"
 import type { LSPServer } from "./server"
 import { withTimeout } from "../util/timeout"
 import { Schema } from "effect"
 import { Instance } from "../project/instance"
-import { Filesystem } from "../util/filesystem"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 
 const DIAGNOSTICS_DEBOUNCE_MS = 150
 

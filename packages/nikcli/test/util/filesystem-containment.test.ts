@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { canCreateFileSymlinks, symlinkDir } from "../helpers/fs"
 
 describe("Filesystem.realpathInside", () => {

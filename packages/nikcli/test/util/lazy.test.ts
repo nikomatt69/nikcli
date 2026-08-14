@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { lazy } from "@/util/lazy"
+import { lazy } from "@nikcli-ai/util/lazy"
 import { recordBenchmark } from "../benchmarks/runner"
 
 describe("lazy", () => {

@@ -1,9 +1,9 @@
 import { Option } from "effect"
-import { Flag } from "@/flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 import { MobileAuth } from "@/mobile/auth"
 import { UserDB } from "@/user/users"
 import { externalSessionForToken } from "@/server/identity-auth"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 /**
  * Canonical auth resolution for the nikcli server.

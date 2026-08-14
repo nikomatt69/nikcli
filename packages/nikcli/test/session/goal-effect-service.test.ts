@@ -14,7 +14,7 @@ preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const [{ runPromiseWithLayer }, { Identifier }, { SessionGoal }] = await Promise.all([
   import("@/effect"),
-  import("@/id/id"),
+  import("@nikcli-ai/util/id"),
   import("@/session/goal"),
 ])
 

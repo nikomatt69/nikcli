@@ -2,8 +2,8 @@ import z from "zod"
 import type { ZodType } from "zod"
 import { Effect, Schema } from "effect"
 import { resolve } from "effect/SchemaAST"
-import { zodObject, zodObjectMode } from "../util/effect-zod"
-import { Log } from "../util/log"
+import { zodObject, zodObjectMode } from "@nikcli-ai/util/effect-zod"
+import { Log } from "@nikcli-ai/util/log"
 
 export namespace BusEvent {
   const log = Log.create({ service: "event" })

@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto"
 import fs from "fs/promises"
 import { readFileSync } from "fs"
 import path from "path"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import { Database } from "@/database/database"
 import { users, userSessions, chatContacts, chatMessages } from "./users.sql"
 

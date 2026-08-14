@@ -1,9 +1,9 @@
 import { AccountDB } from "./db"
 import { AccountRepo } from "./repo"
 import { normalizeServerUrl } from "./url"
-import { Identifier } from "@/id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import { Lock } from "@/util/lock"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import type { AccountRow } from "./schema"
 import {
   AccountID,

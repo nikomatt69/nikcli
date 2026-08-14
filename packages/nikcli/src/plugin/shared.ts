@@ -2,7 +2,7 @@ import path from "path"
 import { fileURLToPath, pathToFileURL } from "url"
 import semver from "semver"
 import { BunProc } from "@/bun"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { isRecord } from "@nikcli-ai/util/record"
 
 // Old npm package names for plugins that are now built-in

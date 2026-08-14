@@ -1,6 +1,6 @@
 import { Plugin } from "@nikcli-ai/plugin/v2/tui"
 import { createMemo, Show } from "solid-js"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import { Installation } from "@/installation"
 import { useKV } from "@tui/context/kv"
 import { useSync } from "@tui/context/sync"

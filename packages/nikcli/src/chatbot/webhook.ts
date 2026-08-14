@@ -1,7 +1,7 @@
 import { Effect } from "effect"
 import { Config } from "../config/config"
 import { runPromiseWithLayer, withCurrentInstance } from "../effect"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 /**
  * Platform-webhook core shared by the Hono `/chatbot` routes and the Effect

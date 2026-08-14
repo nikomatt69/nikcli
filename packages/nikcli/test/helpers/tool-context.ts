@@ -18,7 +18,7 @@
  *   expect(result.output).toContain("Wrote file successfully")
  *   expect(asked.length).toBeGreaterThan(0)
  */
-import { Identifier } from "@/id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import { Instance } from "@/project/instance"
 import type { Tool } from "@/tool/tool"
 

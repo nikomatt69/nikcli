@@ -3,7 +3,7 @@ import { Plugin } from "../plugin"
 import { map, filter, pipe, fromEntries, mapValues } from "remeda"
 import type { AuthOuathResult, Hooks } from "@nikcli-ai/plugin"
 import { Auth } from "@/auth"
-import { zodObject } from "@/util/effect-zod"
+import { zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace ProviderAuth {

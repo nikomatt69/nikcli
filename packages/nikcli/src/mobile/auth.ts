@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 import { createHash, randomBytes } from "node:crypto"
 import z from "zod"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import { Database } from "@/database/database"
 import { mobileTokens } from "./auth.sql"
 

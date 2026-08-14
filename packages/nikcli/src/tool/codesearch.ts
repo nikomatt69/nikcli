@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { zod } from "@/util/effect-zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./codesearch.txt"
 import { callTool } from "./mcp-exa"

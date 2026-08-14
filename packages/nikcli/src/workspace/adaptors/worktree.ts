@@ -3,7 +3,7 @@ import path from "path"
 import { Worktree } from "@/worktree"
 import type { Config } from "../config"
 import type { Adaptor, ListedWorkspace } from "./types"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { runPromiseWithLayer, withCurrentInstance, InstanceState } from "@/effect"
 import { Effect } from "effect"
 

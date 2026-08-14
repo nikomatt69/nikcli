@@ -1,5 +1,5 @@
 import { Schema, Effect } from "effect"
-import { zod } from "@/util/effect-zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import { Tool } from "./tool"
 import path from "path"
 import { LSP } from "../lsp"

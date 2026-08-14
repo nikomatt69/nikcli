@@ -9,14 +9,14 @@ import { ConfigPaths } from "./paths"
 import { migrateTuiConfig } from "./migrate-tui-config"
 import { TuiInfo } from "./tui-schema"
 import { Instance } from "@/project/instance"
-import { Flag } from "@/flag/flag"
-import { Log } from "@/util/log"
+import { Flag } from "@nikcli-ai/util/flag"
+import { Log } from "@nikcli-ai/util/log"
 import { isRecord } from "@nikcli-ai/util/record"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import { parsePluginSpecifier } from "@/plugin/shared"
 import { Effect } from "effect"
 import { InstanceState, runPromiseWithLayer, type InstanceContext } from "@/effect"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 
 export namespace TuiConfig {
   const log = Log.create({ service: "tui.config" })

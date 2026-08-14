@@ -25,7 +25,7 @@ preserveTestEnv([
   "XDG_STATE_HOME",
 ])
 
-const { Identifier } = await import("@/id/id")
+const { Identifier } = await import("@nikcli-ai/util/id")
 const { Bus } = await import("@/bus")
 const { MessageV2 } = await import("@/session/message-v2")
 const { SessionEntry } = await import("@/session/v2/entry")

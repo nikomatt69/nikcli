@@ -1,4 +1,4 @@
-import { Global } from "../global"
+import { Global } from "@nikcli-ai/util/global"
 
 export async function data() {
   const disable = Bun.env.NIKCLI_DISABLE_MODELS_FETCH

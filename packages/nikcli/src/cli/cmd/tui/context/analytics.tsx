@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js"
 import { useSDK } from "./sdk"
 import { createSimpleContext } from "./helper"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import type { DailyAnalytics, GlobalAnalytics, SessionAnalytics } from "@/analytics/analytics"
 
 const log = Log.create({ service: "analytics-context" })

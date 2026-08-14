@@ -4,7 +4,7 @@ import { Agent } from "@/agent/agent"
 import { Config } from "@/config/config"
 import { Delegation } from "@/delegation/manager"
 import { InstanceState } from "@/effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { MCP } from "@/mcp"
 import { Monitor } from "@/monitor/manager"
 import { PermissionNext } from "@/permission/next"
@@ -24,7 +24,7 @@ import { SessionStatus } from "@/session/status"
 import { Todo } from "@/session/todo"
 import { SessionV2 } from "@/session/v2"
 import { WorkspaceContext } from "@/workspace/workspace-context"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 
 export namespace SessionHttpApi {
   const log = Log.create({ service: "httpapi.session" })

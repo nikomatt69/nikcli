@@ -8,7 +8,7 @@ import { createGitHubAdapter } from "@chat-adapter/github"
 import { createMemoryState } from "@chat-adapter/state-memory"
 import { Config } from "../config/config"
 import { resolveCredential } from "../connectors/credentials"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 export namespace ChatBot {
   const log = Log.create({ service: "chatbot" })

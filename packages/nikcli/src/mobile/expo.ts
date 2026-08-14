@@ -1,5 +1,5 @@
 import z from "zod"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "expo" })
 

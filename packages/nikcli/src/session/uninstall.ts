@@ -1,7 +1,7 @@
 import type { Argv } from "yargs"
 import * as prompts from "@clack/prompts"
 import { Installation } from "../installation"
-import { Global } from "../global"
+import { Global } from "@nikcli-ai/util/global"
 import { $ } from "bun"
 import fs from "fs/promises"
 import path from "path"

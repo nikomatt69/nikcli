@@ -1,7 +1,7 @@
 import { createHash } from "crypto"
 import fs from "fs/promises"
 import path from "path"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 
 export type GitHubRemote = {
   owner: string

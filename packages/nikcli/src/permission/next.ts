@@ -1,15 +1,15 @@
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { InstanceState } from "@/effect"
-import { Identifier } from "@/id/id"
-import { Log } from "@/util/log"
+import { Identifier } from "@nikcli-ai/util/id"
+import { Log } from "@nikcli-ai/util/log"
 import { Wildcard } from "@/util/wildcard"
-import { zod, zodObject, type DeepMutable } from "@/util/effect-zod"
+import { zod, zodObject, type DeepMutable } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import z from "zod"
 import { PermissionRepo } from "./permission-repo"
 import { PermissionRuleset } from "./ruleset"
-import { Flag } from "@/flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 
 export namespace PermissionNext {
   const log = Log.create({ service: "permission" })

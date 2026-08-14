@@ -10,7 +10,7 @@ import { useSupportSession } from "@tui/context/support-session"
 import { useToast } from "@tui/ui/toast"
 import { Clipboard } from "@tui/util/clipboard"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
-import { buildSupportDocsIndex } from "@/agent/prompt/support-docs"
+import { buildSupportDocsIndex } from "@tui/util/support-docs"
 import type { Part, TextPart } from "@nikcli-ai/sdk/httpapi"
 import {
   buildSupportPromptParts,

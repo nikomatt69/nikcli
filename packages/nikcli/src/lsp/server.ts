@@ -1,14 +1,14 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process"
 import path from "path"
 import os from "os"
-import { Global } from "../global"
-import { Log } from "../util/log"
+import { Global } from "@nikcli-ai/util/global"
+import { Log } from "@nikcli-ai/util/log"
 import { BunProc } from "../bun"
 import { $, readableStreamToText } from "bun"
 import fs from "fs/promises"
-import { Filesystem } from "../util/filesystem"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Instance } from "../project/instance"
-import { Flag } from "../flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 import { Archive } from "../util/archive"
 
 export namespace LSPServer {

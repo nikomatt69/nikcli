@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Schema } from "effect"
 import path from "path"
 import fs from "fs/promises"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Instance } from "../project/instance"
 
 /**

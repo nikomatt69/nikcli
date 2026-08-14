@@ -1,10 +1,10 @@
 import { Instance } from "../project/instance"
-import { Log } from "../util/log"
-import { Flag } from "@/flag/flag"
-import { Global } from "../global"
+import { Log } from "@nikcli-ai/util/log"
+import { Flag } from "@nikcli-ai/util/flag"
+import { Global } from "@nikcli-ai/util/global"
 import path from "path"
 import fs from "fs/promises"
-import { lazyAsync } from "@/util/lazy"
+import { lazyAsync } from "@nikcli-ai/util/lazy"
 
 interface FileTimeEntry {
   mtime: number

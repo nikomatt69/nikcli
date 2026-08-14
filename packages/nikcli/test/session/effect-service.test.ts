@@ -15,8 +15,8 @@ preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 const [{ Session }, { locallyInstance }, { Global }, { Identifier }] = await Promise.all([
   import("@/session"),
   import("@/effect"),
-  import("@/global"),
-  import("@/id/id"),
+  import("@nikcli-ai/util/global"),
+  import("@nikcli-ai/util/id"),
 ])
 
 afterAll(async () => {

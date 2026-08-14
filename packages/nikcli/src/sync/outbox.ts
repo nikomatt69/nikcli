@@ -12,7 +12,7 @@
  */
 import { and, eq, lte, sql } from "drizzle-orm"
 import { Database } from "@/database/database"
-import { Identifier } from "@/id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import { syncOutbox } from "./sync.sql"
 
 const BACKOFF_BASE_MS = 1_000

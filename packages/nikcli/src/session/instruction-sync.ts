@@ -1,4 +1,4 @@
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Database } from "@/database/database"
 import { Instance } from "@/project/instance"
 import { Config } from "@/config/config"

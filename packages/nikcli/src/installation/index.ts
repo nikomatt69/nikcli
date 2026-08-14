@@ -1,10 +1,10 @@
 import { BusEvent } from "@/bus/bus-event"
 import path from "path"
 import { $ } from "bun"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { iife } from "@nikcli-ai/util/iife"
-import { Flag } from "../flag/flag"
-import { zodObject } from "@/util/effect-zod"
+import { Flag } from "@nikcli-ai/util/flag"
+import { zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 
 declare global {

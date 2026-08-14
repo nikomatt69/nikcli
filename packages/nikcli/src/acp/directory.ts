@@ -1,4 +1,4 @@
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Provider } from "@/provider/provider"
 import { Agent as AgentModule } from "@/agent/agent"
 import { Command } from "@/command"

@@ -3,7 +3,7 @@ import { Session } from "@/session"
 import { Workspace } from "@/workspace"
 import { getAdaptor } from "@/workspace/adaptors"
 import { Sandbox } from "./types"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "sandbox.registry" })
 

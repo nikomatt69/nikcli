@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema } from "effect"
-import { zod, zodObject, zodObjectMode, type DeepMutable } from "@/util/effect-zod"
-import { Identifier } from "@/id/id"
+import { zod, zodObject, zodObjectMode, type DeepMutable } from "@nikcli-ai/util/effect-zod"
+import { Identifier } from "@nikcli-ai/util/id"
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { GoalRepo } from "./goal-repo"

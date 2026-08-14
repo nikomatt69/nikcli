@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { defer } from "@/util/defer"
+import { defer } from "@nikcli-ai/util/defer"
 
 describe("defer", () => {
   it("returns an object with Symbol.dispose", () => {

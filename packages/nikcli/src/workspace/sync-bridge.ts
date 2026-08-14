@@ -5,7 +5,7 @@
  * the seam from `sync_event` to the `workspace` row projection. This bridge
  * only journals heterogeneous restore events observed from workspace buses.
  */
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Sync, type SyncEventRecord } from "@/sync"
 
 const log = Log.create({ service: "workspace-sync-bridge" })

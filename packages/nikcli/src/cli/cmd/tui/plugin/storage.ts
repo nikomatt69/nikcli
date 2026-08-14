@@ -3,9 +3,9 @@ import { mkdirSync, readFileSync, watch, type FSWatcher } from "fs"
 import { rename } from "fs/promises"
 import path from "path"
 import { createStore, produce, reconcile } from "solid-js/store"
-import { Global } from "@/global"
-import { Flock } from "@/util/flock"
-import { Log } from "@/util/log"
+import { Global } from "@nikcli-ai/util/global"
+import { Flock } from "@nikcli-ai/util/flock"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "tui.plugin.storage" })
 

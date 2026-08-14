@@ -24,7 +24,7 @@ preserveTestEnv([
 
 const { InstanceScope } = await import("@/effect")
 const { Config } = await import("@/config/config")
-const { Global } = await import("@/global")
+const { Global } = await import("@nikcli-ai/util/global")
 const { Instance } = await import("@/project/instance")
 
 const projectDirs: string[] = []

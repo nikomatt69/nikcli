@@ -40,7 +40,7 @@ describe("SyncStorage (workspace event log)", () => {
   it("enforces the max events per aggregate during compaction", async () => {
     await withIsolatedDatabase(async () => {
       const { Sync } = await import("../../src/sync")
-      const { Identifier } = await import("../../src/id/id")
+      const { Identifier } = await import("@nikcli-ai/util/id")
       const projectID = `test_proj_phase0_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
       const aggregate = Identifier.ascending("workspace")
 

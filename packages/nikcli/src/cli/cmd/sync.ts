@@ -1,5 +1,5 @@
 import { cmd } from "./cmd"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { withInstanceAsync } from "@/effect"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"

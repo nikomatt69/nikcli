@@ -8,9 +8,9 @@ import {
 } from "jsonc-parser"
 
 import { ConfigPaths } from "@/config/paths"
-import { Global } from "@/global"
-import { Filesystem } from "@/util/filesystem"
-import { Flock } from "@/util/flock"
+import { Global } from "@nikcli-ai/util/global"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
+import { Flock } from "@nikcli-ai/util/flock"
 import { isRecord } from "@nikcli-ai/util/record"
 
 import { parsePluginSpecifier, readPluginPackage, resolvePluginTarget } from "./shared"

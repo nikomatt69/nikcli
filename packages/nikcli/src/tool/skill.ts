@@ -1,6 +1,6 @@
 import z from "zod"
 import { Effect, Schema } from "effect"
-import { zod } from "@/util/effect-zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import { Tool } from "./tool"
 import { Skill } from "../skill"
 import { PermissionNext } from "../permission/next"

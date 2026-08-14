@@ -2,7 +2,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { Config } from "@/config/config"
 import { preparePhoton } from "@/image/photon"
 import type { MessageV2 } from "@/session/message-v2"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 export namespace Image {
   const MAX_BASE64_BYTES = 5 * 1024 * 1024

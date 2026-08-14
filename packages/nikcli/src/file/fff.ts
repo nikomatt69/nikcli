@@ -11,8 +11,8 @@ import {
   type SearchOptions,
   type SearchResult,
 } from "#fff"
-import { Global } from "../global"
-import { Log } from "../util/log"
+import { Global } from "@nikcli-ai/util/global"
+import { Log } from "@nikcli-ai/util/log"
 import { FilePathFilters } from "./path-filters"
 import { Instance } from "@/project/instance"
 

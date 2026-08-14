@@ -1,5 +1,5 @@
 import path from "node:path"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { AuthMethodID } from "./types"
 import { applyPatch } from "diff"
 import { buildConfigOptions, formatCurrentModelId, parseModelSelection, DEFAULT_VARIANT_VALUE } from "./config-option"

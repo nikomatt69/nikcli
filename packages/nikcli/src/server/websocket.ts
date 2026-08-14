@@ -4,7 +4,7 @@ import { PluginPtyEnvironment } from "@/plugin/pty-environment"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { WorkspaceContext } from "@/workspace/workspace-context"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { ServerProxy } from "./proxy"
 
 const log = Log.create({ service: "server.websocket" })

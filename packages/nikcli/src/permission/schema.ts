@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 import z from "zod"
-import { zod } from "@/util/effect-zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 
 const ActionSchema = Schema.Literals(["ask", "allow", "deny"]).annotate({ identifier: "PermissionAction" })
 export const Action = zod(ActionSchema)

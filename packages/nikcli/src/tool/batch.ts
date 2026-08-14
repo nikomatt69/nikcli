@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { zod } from "@/util/effect-zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./batch.txt"
 
@@ -35,7 +35,7 @@ export const BatchTool = Tool.define("batch", async () => {
     },
     async execute(params, ctx) {
       const { Session } = await import("../session")
-      const { Identifier } = await import("../id/id")
+      const { Identifier } = await import("@nikcli-ai/util/id")
 
       const toolCalls = params.tool_calls.slice(0, 25)
       const discardedCalls = params.tool_calls.slice(25)

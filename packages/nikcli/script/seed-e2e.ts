@@ -11,7 +11,7 @@ const seed = async () => {
   const { Instance } = await import("../src/project/instance")
   const { InstanceBootstrap } = await import("../src/project/bootstrap")
   const { Session } = await import("../src/session")
-  const { Identifier } = await import("../src/id/id")
+  const { Identifier } = await import("@nikcli-ai/util/id")
   const { Project } = await import("../src/project/project")
   const { Effect } = await import("effect")
   const { runPromiseWithLayer, withCurrentInstance } = await import("../src/effect")

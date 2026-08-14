@@ -1,9 +1,9 @@
 import path from "path"
 import os from "os"
 import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
-import { Filesystem } from "@/util/filesystem"
-import { Flag } from "@/flag/flag"
-import { Global } from "@/global"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
+import { Flag } from "@nikcli-ai/util/flag"
+import { Global } from "@nikcli-ai/util/global"
 import { Cause, Context, Effect, Exit, Layer, Schema } from "effect"
 import { AppRuntime } from "@/effect/runtime"
 

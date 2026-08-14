@@ -1,4 +1,4 @@
-import { Log } from "./log"
+import { Log } from "@nikcli-ai/util/log"
 import type z from "zod"
 import type { BusEvent } from "../bus/bus-event"
 import { Bus } from "../bus"

@@ -1,5 +1,5 @@
-import { Global } from "../global"
-import { Log } from "../util/log"
+import { Global } from "@nikcli-ai/util/global"
+import { Log } from "@nikcli-ai/util/log"
 import path from "path"
 import { readableStreamToText } from "bun"
 import { Schema } from "effect"

@@ -4,7 +4,7 @@ import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import open from "open"
 
 const log = Log.create({ service: "account-command" })

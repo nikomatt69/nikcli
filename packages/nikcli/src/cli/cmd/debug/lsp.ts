@@ -1,7 +1,7 @@
 import { LSP } from "../../../lsp"
 import { bootstrap } from "../../bootstrap"
 import { cmd } from "../cmd"
-import { Log } from "../../../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { EOL } from "os"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"

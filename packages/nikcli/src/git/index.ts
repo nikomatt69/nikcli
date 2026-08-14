@@ -1,6 +1,6 @@
 import path from "path"
 import { spawn } from "child_process"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "git" })
 

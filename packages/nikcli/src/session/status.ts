@@ -1,7 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { InstanceState } from "@/effect"
-import { zod, zodObjectMode } from "@/util/effect-zod"
+import { zod, zodObjectMode } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import z from "zod"
 

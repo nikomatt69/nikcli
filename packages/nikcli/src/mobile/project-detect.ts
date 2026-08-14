@@ -1,5 +1,5 @@
 import z from "zod"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import path from "path"
 import { existsSync, readdirSync } from "fs"
 

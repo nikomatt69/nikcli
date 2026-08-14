@@ -6,7 +6,7 @@ import DESCRIPTION from "./advisor.txt"
 import { Delegation } from "@/delegation/manager"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "tool.advisor" })
 

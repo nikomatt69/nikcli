@@ -1,6 +1,6 @@
 import { ErrorBoundary, onMount, type JSX } from "solid-js"
 import { useToast } from "../ui/toast"
-import { errorMessage } from "@/util/error"
+import { errorMessage } from "@nikcli-ai/util/error-format"
 
 /**
  * Contains render-time plugin crashes: a throwing plugin route must not take

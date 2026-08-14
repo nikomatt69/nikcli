@@ -1,8 +1,8 @@
 import path from "path"
 import { appendFile, writeFile } from "fs/promises"
-import { Global } from "@/global"
+import { Global } from "@nikcli-ai/util/global"
 import type { PromptInfo } from "@/cli/cmd/tui/component/prompt/history"
-import { capPromptEntryBytes, dehydratePromptEntry } from "@/cli/cmd/tui/util/prompt-blob"
+import { capPromptEntryBytes, dehydratePromptEntry } from "@nikcli-ai/util/prompt-blob"
 
 export type StashEntry = {
   id: string

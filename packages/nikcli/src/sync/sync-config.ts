@@ -11,7 +11,7 @@
  */
 import { Effect } from "effect"
 import { Config } from "@/config/config"
-import { Flag } from "@/flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 import { runPromiseWithLayer } from "@/effect"
 import { Account } from "@/account"
 

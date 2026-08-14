@@ -1,4 +1,4 @@
-import { Flag } from "@/flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 
 /**
  * Per-route body-size middleware.

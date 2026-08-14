@@ -1,7 +1,7 @@
 import { type Tool } from "ai"
 import z from "zod"
 import { Config } from "../config/config"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { ConnectorAuth } from "./auth"
 import { createTools, getHealthCheck, getPrompts } from "./registry"
 import { resolveCredential, resolveCredentialType } from "./credentials"

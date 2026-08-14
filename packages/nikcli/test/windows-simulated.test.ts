@@ -106,7 +106,7 @@ describe("Windows simulation — Global.Path XDG fallbacks (src/global/index.ts)
   it("resolves data/config/cache to Windows AppData when LOCALAPPDATA + APPDATA are set", async () => {
     const out = await runSimulated(
       `
-      const { Global } = await import("@/global")
+      const { Global } = await import("@nikcli-ai/util/global")
       const out = {
         data: Global.Path.data,
         cache: Global.Path.cache,
@@ -142,7 +142,7 @@ describe("Windows simulation — Global.Path XDG fallbacks (src/global/index.ts)
   it("synthesizes home/AppData paths when LOCALAPPDATA / APPDATA are missing", async () => {
     const out = await runSimulated(
       `
-      const { Global } = await import("@/global")
+      const { Global } = await import("@nikcli-ai/util/global")
       console.log(JSON.stringify({ data: Global.Path.data, config: Global.Path.config }))
       `,
       {
@@ -165,7 +165,7 @@ describe("Windows simulation — Global.Path XDG fallbacks (src/global/index.ts)
   it("on simulated linux platform, falls back to POSIX dotfile layout (regression guard)", async () => {
     const out = await runSimulated(
       `
-      const { Global } = await import("@/global")
+      const { Global } = await import("@nikcli-ai/util/global")
       console.log(JSON.stringify({ data: Global.Path.data, config: Global.Path.config }))
       `,
       {

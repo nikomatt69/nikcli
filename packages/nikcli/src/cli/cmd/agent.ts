@@ -1,7 +1,7 @@
 import { cmd } from "./cmd"
 import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
-import { Global } from "../../global"
+import { Global } from "@nikcli-ai/util/global"
 import { Agent } from "../../agent/agent"
 import { Provider } from "../../provider/provider"
 import path from "path"
@@ -12,7 +12,7 @@ import { EOL } from "os"
 import type { Argv } from "yargs"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import z from "zod"
 
 const log = Log.create({ service: "agent-command" })

@@ -41,7 +41,7 @@ import { homedir } from "os"
 import path from "path"
 import { z } from "zod"
 import { GlobalBus } from "@/bus/global"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "herdr-bridge" })
 

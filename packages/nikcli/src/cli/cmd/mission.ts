@@ -19,7 +19,7 @@ import fs from "fs/promises"
 import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
 import { UI } from "../ui"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import * as Manager from "@/mission/manager"
 import * as Orchestrator from "@/mission/orchestrator"
 import {

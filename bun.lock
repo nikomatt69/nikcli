@@ -910,6 +910,8 @@
       "name": "@nikcli-ai/util",
       "version": "1.277.0",
       "dependencies": {
+        "effect": "4.0.0-beta.83",
+        "xdg-basedir": "5.1.0",
         "zod": "catalog:",
       },
       "devDependencies": {

@@ -1,5 +1,5 @@
 import { Instance } from "../project/instance"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 export namespace Scheduler {
   const log = Log.create({ service: "scheduler" })

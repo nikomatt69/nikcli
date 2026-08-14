@@ -4,7 +4,7 @@ import {
   dehydratePromptEntry,
   parseDataUrl,
   toDataUrl,
-} from "../../../src/cli/cmd/tui/util/prompt-blob"
+} from "@nikcli-ai/util/prompt-blob"
 
 describe("parseDataUrl / toDataUrl", () => {
   it("round-trips base64 image data URLs", () => {
@@ -42,7 +42,7 @@ describe("collectBlobIDsFromParts", () => {
 
 describe("capPromptEntryBytes", () => {
   it("truncates oversized text parts past the byte cap and leaves small entries untouched", async () => {
-    const { capPromptEntryBytes } = await import("../../../src/cli/cmd/tui/util/prompt-blob")
+    const { capPromptEntryBytes } = await import("@nikcli-ai/util/prompt-blob")
     const small = { input: "hi", parts: [{ type: "text", text: "short" }] }
     expect(capPromptEntryBytes(small)).toEqual(small)
 

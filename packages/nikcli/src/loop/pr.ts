@@ -18,7 +18,7 @@
  */
 
 import { $ } from "bun"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Instance } from "../project/instance"
 import { Git } from "../git"
 import { parseGitHubRemote } from "../util/repository"

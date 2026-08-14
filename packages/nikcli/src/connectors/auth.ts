@@ -1,7 +1,7 @@
 import path from "path"
 import fs from "fs/promises"
-import { Global } from "../global"
-import { type DeepMutable, zodObject } from "@/util/effect-zod"
+import { Global } from "@nikcli-ai/util/global"
+import { type DeepMutable, zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace ConnectorAuth {

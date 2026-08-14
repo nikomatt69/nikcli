@@ -5,7 +5,7 @@ import { SessionPrompt } from "@/session/prompt"
 import { SessionV2 } from "@/session/v2"
 import { SessionPending } from "@/session/pending"
 import { SessionError } from "@/session/error"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 /**
  * Prompt routes for the Effect backend — raw streaming responses served by

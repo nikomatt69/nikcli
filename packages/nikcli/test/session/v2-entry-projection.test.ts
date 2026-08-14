@@ -27,7 +27,7 @@ const [
   { Bus },
   { SessionProjector },
 ] = await Promise.all([
-  import("../../src/id/id"),
+  import("@nikcli-ai/util/id"),
   import("../../src/project/instance"),
   import("../../src/session"),
   import("../../src/session/v2"),

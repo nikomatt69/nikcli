@@ -1,4 +1,4 @@
-import { defer } from "@/util/defer"
+import { defer } from "@nikcli-ai/util/defer"
 import { rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"

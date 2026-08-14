@@ -1,5 +1,5 @@
 import z from "zod"
-import { Identifier } from "@/id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import { MessageV2 } from "../message-v2"
 
 /**

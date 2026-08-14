@@ -25,7 +25,7 @@ import {
   type SetSessionModeResponse,
 } from "@agentclientprotocol/sdk"
 import type { NikcliClient } from "@nikcli-ai/sdk/httpapi"
-import { Log } from "../util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { make, type ACPAgentInterface } from "./service"
 import { isACPError, toRequestError } from "./error"
 import type { ACPConfig } from "./types"

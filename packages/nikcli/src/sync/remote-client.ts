@@ -13,7 +13,7 @@
  * reconnect, the client asks the server for events with `seq > lastSeq`
  * via the `/sync/outbox?since=…` catch-up endpoint to avoid gaps.
  */
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import type { SyncEventRecord } from "./index"
 
 const log = Log.create({ service: "sync.remote-client" })

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { redactString, redactValue, safeStringify, discover } from "@/util/redact"
+import { redactString, redactValue, safeStringify, discover } from "@nikcli-ai/util/redact"
 
 describe("redactString", () => {
   test("masks token query credentials in URLs", () => {

@@ -1,11 +1,11 @@
 import { Server } from "../../server/server";
 import { cmd } from "./cmd";
 import { withNetworkOptions, resolveNetworkOptions } from "../network";
-import { Flag } from "../../flag/flag";
+import { Flag } from "@nikcli-ai/util/flag";
 import { Workspace } from "../../workspace";
 import { Project } from "../../project/project";
 import { Installation } from "../../installation";
-import { Log } from "@/util/log";
+import { Log } from "@nikcli-ai/util/log";
 import { Effect } from "effect";
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect";
 import { PromptState } from "@/session/prompt-state";

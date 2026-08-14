@@ -1,6 +1,6 @@
 import { Instance } from "@/project/instance"
 import { Observability } from "@/observability"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Cause, Effect, Layer, Logger, ManagedRuntime, Option } from "effect"
 import { InstanceRef, locallyInstance, type InstanceContext } from "./instance-ref"
 

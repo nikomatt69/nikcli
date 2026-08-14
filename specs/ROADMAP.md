@@ -75,12 +75,12 @@ State the wins, so nobody re-plans them:
 
 ## Finish current work
 
-### Extract the TUI package (U1) — sections 1–2 in progress
+### Extract the TUI package (U1) — sections 1–3 in progress
 
 - **Buys** — A TUI that builds, tests, and starts without the backend module graph, and a second host (desktop) that shares one implementation.
-- **Evidence** — 257 files and ~68k lines under `src/cli/cmd/tui`, with **157** `@/` imports (down from 240). Only 20 lines in 16 files are backend-proper, and just 4 files carry the hard ones. The `@tui/*` alias already resolves as if it were a package root.
-- **Landed** — Section 1, first slice (2026-08-14): TUI-only `util/{keybind,rpc}` moved into the TUI; duplicate `util/iife` deleted in favour of the packaged one; shared `util/{locale,token,record}` moved to `@nikcli-ai/util`. Section 2, type surface (2026-08-14): tool `input`/`metadata` types now come from `@tui/util/tool-shapes`, not from 17 backend tool modules; `@/tool/*` 44 → 10 and `@/lsp` is gone from the view.
-- **Next** — Three decisions, not more moves: whether `packages/util` may depend on Effect (unblocks `util/{filesystem,process}`); whether `@/global` moves with `xdg-basedir` behind it (17 TUI imports, 111 backend readers, and the `NIKCLI_TEST_HOME` data root); and where the viz codec and TTS catalogs live once split out of their tool definitions (the last 10 `@/tool/*`).
+- **Evidence** — 257 files and ~68k lines under `src/cli/cmd/tui`, with **102** `@/` imports (down from 240) — and 12 of those are in `thread.ts`/`worker.ts`, which are host files, not UI. The `@tui/*` alias already resolves as if it were a package root.
+- **Landed** — Section 1 (2026-08-14): `packages/util` took `effect` and `xdg-basedir`, and `@/util/*`, `@/global` and `@/flag` left the TUI entirely — 97 imports. Section 2, type surface: tool `input`/`metadata` types come from `@tui/util/tool-shapes`, not from 17 backend tool modules; `@/tool/*` 44 → 10 and `@/lsp` is gone from the view. Section 3, first pass: `lsp/language`, `provider/parse`, `agent/prompt/support-docs` and `util/prompt-blob` were never backend — the last of those was half of a real TUI↔backend cycle through `prompt/stash-store`.
+- **Next** — The server-start inversion section 3 was written to perform turns out to already exist: `tui()` takes its transport and host operations as props. `thread.ts` and `worker.ts` stay at `src/cli/cmd/tui/` and are excluded from the section 4 move instead of being relocated. What is left is the ~40 in-process backend service calls (`@/effect` + `Account`, `Profile`, `Skill`, `UserDB`, `Snapshot`, config, plugin install), each of which needs an HttpApi endpoint and a call site the SDK can reach. Smaller strands: the viz codec and TTS catalogs (the last 10 `@/tool/*`) and the remaining type half of the stash-store cycle.
 - **Done when** — `packages/tui` typechecks with `packages/nikcli` out of its references; no import resolves into `packages/nikcli`; the TUI starts from the installer binary; warm startup does not regress.
 - **Spec** — [tui-package.md](./tui-package.md)
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import path from "path"
 import { isFilesystemRoot } from "@/project/instance"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 
 // `Instance.containsPath` uses this to decide whether the worktree is a real
 // containment boundary or the "no repository" fallback, which is

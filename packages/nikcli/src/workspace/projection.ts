@@ -1,4 +1,4 @@
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { Sync, type SyncEventRecord } from "@/sync"
 import { SyncProjection } from "@/sync/projection"
 import { SyncEvents, type EventDef } from "@/sync/events"

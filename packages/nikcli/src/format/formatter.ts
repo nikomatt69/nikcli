@@ -1,7 +1,7 @@
 import { readableStreamToText } from "bun"
 import { BunProc } from "../bun"
-import { Filesystem } from "../util/filesystem"
-import { Flag } from "@/flag/flag"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
+import { Flag } from "@nikcli-ai/util/flag"
 
 export interface EnableContext {
   directory: string

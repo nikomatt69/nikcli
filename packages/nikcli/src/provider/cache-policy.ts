@@ -9,7 +9,7 @@
 // static-ness: the tool array is the largest byte-stable prefix, the last system part
 // carries the agent and project prompt, and the conversation tail rolls forward.
 import type { ModelMessage } from "ai"
-import { Flag } from "@/flag/flag"
+import { Flag } from "@nikcli-ai/util/flag"
 
 /** Anthropic/Bedrock hard limit on `cache_control` markers in a single request. */
 export const BREAKPOINT_CAP = 4

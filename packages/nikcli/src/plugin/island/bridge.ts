@@ -2,7 +2,7 @@ import fs from "fs/promises"
 import { homedir, platform } from "os"
 import path from "path"
 import { GlobalBus } from "@/bus/global"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 /**
  * nikcli Island bridge — mirrors live session state into the file contract

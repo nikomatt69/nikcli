@@ -1,6 +1,6 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Schema } from "effect"
-import { zodOverride } from "@/util/effect-zod"
+import { zodOverride } from "@nikcli-ai/util/effect-zod"
 import z from "zod"
 
 export const TuiEvent = {

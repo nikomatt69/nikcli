@@ -22,7 +22,7 @@ import type {
   TaskInfo,
 } from "./types"
 import { RemoteServiceConfigSchema, RemoteSessionPersistenceSchema, SessionStatusSchema } from "./types"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "remote-service" })
 

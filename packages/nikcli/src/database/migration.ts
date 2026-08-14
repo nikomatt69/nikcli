@@ -1,5 +1,5 @@
 import { Database as BunDatabase } from "bun:sqlite"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 import { migrations } from "./migration.gen"
 
 export namespace DatabaseMigration {

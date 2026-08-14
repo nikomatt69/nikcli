@@ -1,6 +1,6 @@
 import { MessageV2 } from "./message-v2"
-import { Log } from "@/util/log"
-import { Identifier } from "@/id/id"
+import { Log } from "@nikcli-ai/util/log"
+import { Identifier } from "@nikcli-ai/util/id"
 import { Session } from "."
 import { Agent } from "@/agent/agent"
 import { Snapshot } from "@/snapshot"

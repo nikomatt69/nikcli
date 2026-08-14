@@ -1,10 +1,10 @@
 import path from "path"
 import { fileURLToPath } from "url"
 
-import { Flag } from "@/flag/flag"
-import { Global } from "@/global"
-import { Filesystem } from "@/util/filesystem"
-import { Flock } from "@/util/flock"
+import { Flag } from "@nikcli-ai/util/flag"
+import { Global } from "@nikcli-ai/util/global"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
+import { Flock } from "@nikcli-ai/util/flock"
 
 import { parsePluginSpecifier, pluginSource } from "./shared"
 

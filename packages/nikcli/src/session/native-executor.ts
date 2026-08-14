@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "fs/promises"
 import os from "os"
 import path from "path"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "native-executor" })
 

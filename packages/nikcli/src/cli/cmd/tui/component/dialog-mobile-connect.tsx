@@ -13,7 +13,7 @@ import { useToast } from "@tui/ui/toast"
 import { Clipboard } from "@tui/util/clipboard"
 import { useSync } from "@tui/context/sync"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
-import { createWorkspaceArchive, uploadWorkspaceArchive } from "@/util/teleport-archive"
+import { createWorkspaceArchive, uploadWorkspaceArchive } from "@nikcli-ai/util/teleport-archive"
 
 function isPlainShortcut(evt: { ctrl?: boolean; meta?: boolean; super?: boolean; name?: string }, ...names: string[]) {
   return !evt.ctrl && !evt.meta && !evt.super && names.includes(evt.name ?? "")

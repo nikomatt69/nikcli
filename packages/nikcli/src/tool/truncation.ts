@@ -1,4 +1,4 @@
-import { Identifier } from "../id/id"
+import { Identifier } from "@nikcli-ai/util/id"
 import { PermissionRuleset } from "../permission/ruleset"
 import type { Agent } from "../agent/agent"
 import { Scheduler } from "../scheduler"

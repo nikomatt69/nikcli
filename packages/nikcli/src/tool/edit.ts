@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { zod } from "@/util/effect-zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import * as path from "path"
 import { Tool } from "./tool"
 import { LSP } from "../lsp"
@@ -8,14 +8,14 @@ import DESCRIPTION from "./edit.txt"
 import { File } from "../file"
 import { Bus } from "../bus"
 import { FileTime } from "../file/time"
-import { Filesystem } from "../util/filesystem"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Bom } from "../util/bom"
 import { Format } from "../format"
 import { Instance } from "../project/instance"
 import { buildFileDiff, trimDiff } from "./file-diff"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Log } from "@/util/log"
+import { Log } from "@nikcli-ai/util/log"
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
 const WHITESPACE_RUN_REGEX = /\s+/g
