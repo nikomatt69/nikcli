@@ -16,7 +16,7 @@ export type LatestOnlyContext<TArgs extends unknown[]> = {
  * Wrap an async function so only the most recent invocation's result is returned;
  * superseded calls resolve to `undefined` and have their `signal` aborted.
  *
- * Implements the "latest-only" half of `specs/opencode-parity/03-request-throttling.md`
+ * Implements the "latest-only" half of request throttling
  * (debounce is already provided by `createDebouncedSignal` / `@solid-primitives/scheduled`).
  * Correctness does not require the wrapped fn to honor `signal` — the monotonic id guard
  * alone drops stale results — but honoring it avoids wasted in-flight work.

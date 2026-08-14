@@ -6,7 +6,7 @@
  * byte-identical (for the supported constructs) to a hand-written Zod schema.
  *
  * Supported constructs (matches current `src/server/httpapi/*` usage plus the
- * canonical refinements documented in `specs/effect/schema.md`):
+ * canonical refinements):
  *
  * - `Schema.Struct({ ... })` → `z.object({ ... })` (with `.strict()` where the AST
  *   indicates no index signature)

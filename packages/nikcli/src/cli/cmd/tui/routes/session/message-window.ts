@@ -1,7 +1,7 @@
 /**
  * Pure windowing math for the session message list.
  *
- * First step of `specs/opencode-parity/04-message-list-virtualization.md`: extract the
+ * First step of message-list virtualization: extract the
  * scroll→visible-range computation as a dependency-free, unit-testable module so the live
  * render can later switch from `<For each={messages()}>` to a windowed slice behind a flag
  * without re-deriving this logic. This module performs no DOM/OpenTUI work.

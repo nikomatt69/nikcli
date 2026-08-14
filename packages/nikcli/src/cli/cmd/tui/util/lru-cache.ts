@@ -1,7 +1,7 @@
 /**
  * Dependency-free LRU + TTL key tracker.
  *
- * Implements the eviction primitive from `specs/opencode-parity/02-tui-cache-eviction.md`.
+ * The eviction primitive behind TUI cache eviction.
  * It deliberately does NOT own the cached values — it tracks recency/expiry of keys and
  * reports which keys should be dropped, so the caller (the Solid sync store) stays the
  * single source of truth for the data itself.

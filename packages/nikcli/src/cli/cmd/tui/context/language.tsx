@@ -1,7 +1,7 @@
 /**
  * TUI internationalization context.
  *
- * Implements `specs/opencode-parity/06-tui-i18n.md`. Provides `t(key, params?)` for string
+ * Provides `t(key, params?)` for string
  * translation and `locale()` for locale-sensitive formatting. The locale is resolved once from
  * the environment (default English); missing keys fall back to English, then to the key itself.
  */

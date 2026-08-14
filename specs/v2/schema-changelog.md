@@ -4,6 +4,18 @@ Status: **Compatibility ledger.** Newest first. Entries keep the names and behav
 
 Every entry corresponds to a file in `packages/nikcli/src/database/migration/`, applied in id order through the `migration` journal table by `DatabaseMigration.apply`. Migrations run inside `BEGIN IMMEDIATE` and roll back as a unit; a failure aborts startup rather than leaving a half-applied schema.
 
+## 2026-08-14: Pending Input Gets A Table
+
+`20260814100000_session_pending`
+
+- Add `session_pending`: `id` primary key, `session_id`, `delivery` (`CHECK … IN ('steer', 'queue')`), `message_id`, `data` holding the canonical admission payload, and `created_at`.
+- `session_pending_session_created` on `(session_id, created_at, id)` is the promotion order — `id` is the tiebreaker so two rows written in the same millisecond still promote deterministically.
+- `session_pending_session_message` is **unique** on `(session_id, message_id)`. That index is the retry contract, not an optimization: a repeated message id is the same admission, so identical input is reuse and different input raises `SessionPendingConflictError` instead of duplicating a turn.
+- Add nullable `message_info.prompt_data`. The pending row is deleted at promotion, so the payload has to survive somewhere for a post-promotion retry to be told apart from a conflicting one.
+- `prompt_data` is deliberately its own column rather than a field folded into `message_info.info`. `MessageV2.Info` is reconstructed by `JSON.parse(row.info)`, so anything added there is served to every client; admission identity is nikcli's business, not the transcript's.
+
+Compatibility: no response shape changed. `MessageV2.Info` still round-trips through the `info` column alone, so `prompt_data` cannot reach a message body. It does ride the `message.updated` sync event as a separate optional field, so a replica projecting the log preserves retry identity — `SyncEvent` version stays `1` because the field is optional in both directions: an older producer's event omits it and reads back as "no prior admission", and an older consumer ignores a key it does not declare. Pending rows are not history — they are absent from `message_info` / `message_part` until promotion, so a client polling messages sees exactly what it saw before. See [durable-pending-input.md](./durable-pending-input.md).
+
 ## 2026-08-14: Workspace JSON Backfill Folds Into The Journal
 
 `20260814090000_workspace_json`

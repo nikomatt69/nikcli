@@ -14,7 +14,6 @@ export function DialogTag(props: { onSelect?: (value: string) => void }) {
   })
 
   // Latest-only/abort so a re-query cancels the prior in-flight file search.
-  // See specs/opencode-parity/03-request-throttling.md.
   const findFilesLatest = createLatestOnlyAsync<[string], Awaited<ReturnType<typeof sdk.client.find.files>>>(
     ({ input: [query], signal }) => sdk.client.find.files({ query }, { signal }),
   )

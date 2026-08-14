@@ -1,7 +1,7 @@
 /**
  * English string catalog for the nikcli TUI (default locale / source of truth).
  *
- * Implements `specs/opencode-parity/06-tui-i18n.md`. Keys are dotted and grouped by surface.
+ * Keys are dotted and grouped by surface.
  * Templates use `{{param}}` interpolation. Every key here MUST exist in every other locale
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */

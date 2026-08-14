@@ -27,7 +27,7 @@ Authority follows the concern. When a document and the code disagree, the code w
 | [TUI package extraction](./tui-package.md)                         | Proposed    | Move the TUI out of `src/cli/cmd/tui` into `packages/tui`.             |
 | [v2 contracts](./v2/README.md)                                     | Index       | Session, tools, events, instructions, catalog, provider policy.        |
 | [SQL + Drizzle adoption](./storage/nikcli-sql-drizzle-adoption.md) | Implemented | The central database runtime, migrations, and domain-owned schema.     |
-| [Retire JSON storage](./storage/remove-json-storage.md)            | In progress | Remove the remaining `Storage.*` JSON key-value call sites.            |
+| [Retire JSON storage](./storage/remove-json-storage.md)            | Retired     | How the `Storage.*` JSON key-value store was removed. Zero call sites. |
 
 ## Rules
 

@@ -33,18 +33,24 @@ Measured 2026-08-14:
 
 | Fact                                       | Value                                                                           |
 | ------------------------------------------ | ------------------------------------------------------------------------------- |
-| Files                                      | 252 `.ts`/`.tsx`                                                                |
-| Lines                                      | ~68,000                                                                         |
-| Largest subtrees                           | `component/` 75, `feature-plugins/` 47, `routes/` 40, `util/` 31, `context/` 26 |
+| Files                                      | 254 `.ts`/`.tsx`                                                                |
+| Lines                                      | ~68,700                                                                         |
+| Largest subtrees                           | `component/` 75, `feature-plugins/` 47, `routes/` 40, `util/` 31, `context/` 28 |
 | Files already using the SDK                | 43                                                                              |
-| Distinct backend modules imported via `@/` | 67                                                                              |
+| Distinct backend modules imported via `@/` | 86 (69 of them outside `@/util/*`)                                              |
 | Path alias                                 | `@tui/*` → `./src/cli/cmd/tui/*` (already package-shaped)                       |
+
+A "module" here is a whole import specifier (`@/session/message-v2`, not `@/session`), counted distinct over the tree:
+
+```sh
+grep -rho 'from "@/[^"]*"' src/cli/cmd/tui | sort -u | wc -l
+```
 
 The `@tui/*` alias is the good news: internal imports are already written as if the directory were a package root, so most files move without an edit.
 
 ### What Actually Blocks The Move
 
-There are **241 `@/` import statements** across 67 distinct backend modules, and they are not evenly distributed. By weight:
+There are **241 `@/` import statements** across 86 distinct backend modules, and they are not evenly distributed. By weight:
 
 | Import                                                                                                                                                                                                                                             | Count | Nature                                              |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----: | --------------------------------------------------- |

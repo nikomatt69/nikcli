@@ -85,8 +85,7 @@ export namespace BusEvent {
    * would put an Effect round-trip on the hot path.
    *
    * Off by default: encoding drops keys the schema does not declare, and this
-   * repo has been bitten before by tightening a schema against real payloads
-   * (see `specs/opencode-parity/07-tui-v2-selective-port.md`).
+   * repo has been bitten before by tightening a schema against real payloads.
    */
   export async function encodingEnabled(): Promise<boolean> {
     try {

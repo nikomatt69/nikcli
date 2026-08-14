@@ -416,7 +416,7 @@ export namespace Sync {
    * bridge and the workspace reducer can participate in Effect's
    * resource model.
    *
-   * Methods are 1:1 with the design in `specs/effect/sync-service.md`:
+   * Methods are 1:1 with the underlying sync surface:
    *  - `start`  → kick the hub connection, idempotent (mirrors `SyncCliInit.startForAllProjects`)
    *  - `push`   → write to local outbox + emit on `GlobalBus("event")`
    *  - `outbox` → paginated GET (mirrors `GET /sync/outbox` in `routes/sync.ts`)

@@ -9,7 +9,7 @@ import { Log } from "@/util/log"
  * Canonical auth resolution for the nikcli server.
  *
  * `Auth.authenticate` is the single implementation of the resource-server
- * acceptance order (specs/unified-auth-plan.md §3.5):
+ * acceptance order:
  *
  *   1. identity-plane JWT from the issuer (`identity-auth.ts`, JWKS verify);
  *   2. capability tokens (`nkm_` — `MobileAuth.verify`);

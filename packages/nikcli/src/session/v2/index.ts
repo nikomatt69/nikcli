@@ -18,8 +18,8 @@ import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 /**
  * STATUS: v2 read model, live — write path still delegates to v1.
  *
- * SessionV2 is the entry/event/stepper redesign explored in
- * specs/v2/message-shape.md, migrated by strangler:
+ * SessionV2 is the entry/event/stepper redesign contracted in
+ * specs/v2/session.md, migrated by strangler:
  *
  * - reads (`entries`, `state`, `pending`) are first-class: storage is
  *   authoritative for completed messages (converted losslessly via

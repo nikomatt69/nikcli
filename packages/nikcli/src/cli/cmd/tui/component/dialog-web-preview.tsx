@@ -23,7 +23,7 @@ type FocusArea = "url" | "content"
 
 /**
  * `live` drives a real Chromium page and paints its pixels (see
- * `specs/browser-live-view.md`); `reader` is the original fetch + Turndown
+ * `browser-surface.tsx`); `reader` is the original fetch + Turndown
  * path. Reader mode is not a degraded fallback so much as a different tool —
  * it is the right rendering on a terminal without graphics, and it is what you
  * want when you mean to *read* a page rather than use it.

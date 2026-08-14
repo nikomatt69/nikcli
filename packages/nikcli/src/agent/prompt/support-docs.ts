@@ -13,7 +13,7 @@ const DOC_ROOTS: Array<{ pattern: string; description: string; max?: number }> =
     description: "nikcli package guidelines",
   },
   {
-    pattern: "packages/nikcli/specs/**/*.md",
+    pattern: "specs/**/*.md",
     description: "Architecture & protocol specs",
     max: 40,
   },
@@ -69,9 +69,7 @@ export async function buildSupportDocsIndex(root: string): Promise<string> {
   } else {
     lines.push("## How to use")
     lines.push("- Use `read <path>` to open a file.")
-    lines.push(
-      '- Use `grep` to search across all docs for keywords (e.g. `grep -n "keybinds" packages/nikcli/specs/`).',
-    )
+    lines.push('- Use `grep` to search across all docs for keywords (e.g. `grep -n "keybinds" specs/`).')
     lines.push("- Use `webfetch https://nikcli.store/docs/<topic>` for the latest online docs.")
     lines.push("- Use `websearch` for release notes, GitHub issues, or recent changes.")
   }

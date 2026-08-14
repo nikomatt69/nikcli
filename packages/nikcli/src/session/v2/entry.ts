@@ -9,7 +9,7 @@ import { MessageV2 } from "../message-v2"
  * opencode's `src/v2/session-entry.ts` shape. The previous nikcli shape
  * nested streamed parts inside an `AssistantText.parts[]` array, which forced
  * the whole array to be rewritten on every token and made the durable log
- * coalesce by part id to survive it (see specs/v2/message-shape.md). Flat
+ * coalesce by part id to survive it (see specs/v2/session.md). Flat
  * entries make a delta a single-row upsert instead.
  *
  * Two fields exist here that opencode's shape does not carry:

@@ -89,7 +89,7 @@ export type PromptRef = {
   submit(): void
 }
 
-// i18n keys for the rotating placeholder examples (see specs/opencode-parity/06-tui-i18n.md).
+// i18n keys for the rotating placeholder examples (see context/language.tsx).
 const PLACEHOLDER_KEYS = ["prompt.example.todo", "prompt.example.techStack", "prompt.example.tests"] as const
 const SHELL_PLACEHOLDER_KEYS = [
   "prompt.shellExample.ls",

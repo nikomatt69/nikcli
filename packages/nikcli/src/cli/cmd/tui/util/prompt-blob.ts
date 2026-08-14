@@ -1,7 +1,7 @@
 /**
  * Out-of-band blob store for prompt attachments (images).
  *
- * Implements `specs/opencode-parity/01-prompt-history-payload-limits.md`: keep base64
+ * Enforces the prompt-history payload limit: keep base64
  * image payloads OUT of the plaintext `prompt-history.jsonl`. History entries persist a
  * lightweight `blobID` reference; the bytes live one-file-per-blob under the state dir and
  * are hydrated lazily only when an entry is recalled.

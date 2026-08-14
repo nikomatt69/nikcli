@@ -4,13 +4,13 @@
  * Chromium screencasts PNG frames to the browser-control daemon; the daemon
  * writes each one to a temp file and streams the path here; the pump turns
  * that into a Kitty virtual placement over the placeholder cells this
- * component renders. See `specs/browser-live-view.md` for why each hop exists.
+ * component renders.
  *
  * The component owns the session for its lifetime: it starts one on mount and
  * removes it on unmount, so closing the dialog never leaves a headless
  * Chromium running. Everything it needs from the daemon is imported lazily —
  * a TUI that never opens a browser must not pay for Playwright's presence in
- * the module graph (`specs/startup-performance.md`).
+ * the module graph.
  */
 import { RGBA } from "@opentui/core"
 import type { BoxRenderable, MouseEvent } from "@opentui/core"
