@@ -1,8 +1,14 @@
-# Session Contract
+# Session contract
+
+Tracks admission, execution, recovery, and client behavior.
 
 Status: **Current semantic overview** (verified 2026-08-14 against `packages/nikcli/src/session`).
 
-`MessageV2` owns the durable message and part shapes. `SessionPrompt` owns admission and the step loop. `SessionV2` owns the flat entry read model. The HttpApi groups own the public operations. Where this document and those modules disagree, the modules are right.
+`MessageV2` owns the durable message and part shapes. `SessionPrompt` owns admission and the step loop.
+
+`SessionV2` owns the flat entry read model, while HttpApi groups own public operations. Where this document and those modules disagree, the modules are right.
+
+---
 
 ## Admit before execution
 
@@ -18,15 +24,21 @@ Status: **Current semantic overview** (verified 2026-08-14 against `packages/nik
 
 Both `steer` and `queue`/default promote immediately while the session is idle. During an active turn, `steer` waits for the next safe step boundary and `queue` waits for the turn to finish.
 
-The main TUI prompt submission sends `delivery: "queue"` for Enter and `delivery: "steer"` for Ctrl+Enter (and Cmd+Enter where supported). Slash-command submissions preserve the selected delivery, while idle submissions remain immediate in either mode.
+The TUI renders busy input as queued message cards after the transcript, not as transcript history. Queued cards show `press ctrl-enter to send`.
+
+Enter queues new composer text. Ctrl+Enter, or Cmd+Enter where supported, submits new text as steer; with an empty composer it steers the oldest queued card, which stays marked `STEERING` until promotion.
 
 Busy input is stored outside history in `session_pending`. Promotion batches ordered rows into messages and parts in one transaction, removes the pending rows, and resets the loop's step allowance once for the batch.
 
 `session_pending.data` and nullable `message_info.prompt_data` store the canonical prompt payload. Reusing a message id with identical input is a retry; different input raises `SessionPendingConflictError` rather than overwriting history.
 
-`GET /session/:id/pending` exposes staged input. Promotion publishes `session.pending.promoted` with pending and message ids; see [pending input](./durable-pending-input.md).
+`GET /session/:id/pending` exposes staged input, and `POST /session/:id/pending/:pendingID/steer` changes an existing queued row to steer. The TUI refreshes pending state during session sync and after admission or explicit steering.
 
-## Execution Is Process-Local And Single-Flight Per Session
+Promotion publishes `session.pending.promoted` with pending and message ids; see [pending input](./durable-pending-input.md).
+
+---
+
+## Keep execution process-local
 
 `PromptState` is an `InstanceState` map keyed by session ID, so ownership is per process **and** per instance directory. `PromptState.start(sessionID)` either reserves the session and returns an `AbortController`, or returns `undefined` because a loop already owns it.
 
@@ -42,7 +54,9 @@ Ownership lives only in memory. `sessions.active()`-style liveness is a snapshot
 
 `SessionRunner` (`src/session/runner.ts`) is a separate single-flight state machine — `Idle | Running | Shell | ShellThenRun` — used where a shell command (`!cmd`) and a model run compete for one session. It guarantees at most one shell plus at most one run, and forks into a caller-supplied `Scope`. It does not replace `PromptState`.
 
-## One Step Owns One Logical LLM Call
+---
+
+## Own one logical call
 
 Each iteration of `loop`:
 
@@ -58,7 +72,9 @@ The first step also fires title generation (`PromptTitle.ensure`) without blocki
 
 Continuation is derived from projected history rather than from an in-memory tool loop: after a tool result is written, the next iteration re-reads history and starts a new step. That is what makes a resumed loop able to continue a turn another process started.
 
-## Retry Is Narrow And Bounded
+---
+
+## Bound retries
 
 `SessionProcessor` retries a provider failure only when `SessionRetry.retryable(error)` classifies it as retryable, and only while the attempt count is at or below `RETRY_MAX_ATTEMPTS` (5).
 
@@ -66,7 +82,9 @@ Backoff is `2000ms * 2^(attempt-1)`, clamped to 30s when the provider sends no t
 
 Retries reuse the assistant message. A content-filter finish is terminal, and any streamed partial content stays visible.
 
-## Compaction Rebuilds Active History
+---
+
+## Rebuild active history
 
 `session/overflow.ts` computes the usable budget for a model:
 
@@ -86,7 +104,9 @@ Consecutive compaction failures are capped at `MAX_CONSECUTIVE_COMPACTION_FAILUR
 
 The full transcript stays durable. `MessageV2.filterCompacted` is what makes the model see only the post-boundary window.
 
-## Instructions Are Rebuilt Per Request
+---
+
+## Rebuild instructions per request
 
 `collectSystemPaths` walks up from the instance directory to the worktree root collecting `AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, and `.github/instructions/memory.instruction.md`, plus global `~/.config/nikcli/AGENTS.md` and (unless disabled) `~/.claude/CLAUDE.md`. Config-declared instructions and URLs are resolved the same way; `NIKCLI_DISABLE_PROJECT_CONFIG` and `NIKCLI_CONFIG_DIR` narrow the search.
 
@@ -94,7 +114,9 @@ The result is assembled into the system prompt on every request. Nothing about i
 
 > **Gap.** See [instruction sync](./instruction-sync-proposal.md) and ROADMAP item S3.
 
-## The Entry Model Is A Read Model
+---
+
+## Treat entries as a read model
 
 `SessionV2` (`src/session/v2/*`) is the flat entry redesign, landed by strangler:
 
@@ -105,7 +127,9 @@ Entries persist in `session_entry`. Since `20260805130000_session_entry_id_order
 
 Adopting the v2 API today changes no behavior. Swapping the engine underneath is the isolated later step.
 
-## Durable Events Are Bus Events Plus The Sync Log
+---
+
+## Persist bus events and sync logs
 
 Live events go through `Bus.publish`, which fans out to instance subscribers and mirrors onto `GlobalBus`. `GET /event` serves instance-scoped SSE (unwrapped `{type, properties}`); `GET /global/event` serves the cross-instance envelope (`{payload}`). Both send a `server.connected` greeting and a 30s heartbeat, and the instance stream closes on `server.instance.disposed`.
 
@@ -113,7 +137,9 @@ The durable, replayable log is `sync_event` (per project and workspace, with `or
 
 Both routes fan out through `EventFeed`: one encode per event, one lag budget per connection. A stalled reader is evicted with `SubscriberOverflowError`. See [event stream architecture](./event-stream-architecture.md).
 
-## Recovery Boundaries Stay Explicit
+---
+
+## Keep recovery explicit
 
 - A hard crash or `SIGKILL` ends every loop. A graceful shutdown (`SIGINT`/`SIGTERM`) suspends the sessions this process is running and the next server resumes each one exactly once. See [restart continuation](./session-restart-continuation.md).
 - Orphan tool calls are reconciled **at request assembly, not in storage**: `MessageV2.toModelMessage` turns any part still `pending` or `running` into an `output-error` with `[Tool execution was interrupted]`, because Anthropic-shaped APIs reject a `tool_use` without a matching `tool_result`. The projected row keeps its `running` status, so a client can render a spinner for a call that ended with the process that started it.

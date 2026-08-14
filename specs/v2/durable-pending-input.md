@@ -51,7 +51,15 @@ The same migration adds nullable `message_info.prompt_data`. Promoted messages r
 
 `prompt` and `prompt_async` therefore keep their immediate idle behavior. An explicit `steer` changes only active-turn delivery.
 
-The main TUI prompt path uses `delivery: "queue"` for Enter and `delivery: "steer"` for Ctrl+Enter (and Cmd+Enter where supported). Slash-command submissions preserve the selected delivery; all modes still promote immediately while idle.
+The main TUI prompt path uses `delivery: "queue"` for Enter. Ctrl+Enter, or Cmd+Enter where supported, submits composer text with `delivery: "steer"`; slash commands preserve the selected delivery.
+
+---
+
+## Follow the cards
+
+The TUI renders durable pending input after the transcript as queued message cards, without adding it to transcript history. Each queued card shows `press ctrl-enter to send`.
+
+With an empty composer, Ctrl+Enter or Cmd+Enter steers the oldest queued card. Its badge changes from `QUEUED` to `STEERING` until promotion; Enter continues to queue new input.
 
 ---
 
@@ -84,6 +92,8 @@ Reusing it with different input raises `SessionPendingConflictError`. `session_p
 ## Notify callers
 
 `GET /session/:sessionID/pending` returns unpromoted `SessionPending.Info` records. Clients can render staged input without treating it as message history.
+
+`POST /session/:sessionID/pending/:pendingID/steer` explicitly changes an existing queued row to `steer`. The TUI uses it for empty-composer steering, then refreshes pending state; it also refreshes after session sync and new admission.
 
 Promotion publishes `session.pending.promoted` with `sessionID`, `pendingIDs`, and `messageIDs`. Existing instance and global event feeds carry it without a new SSE route.
 

@@ -897,7 +897,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           // what the session route draws from, and a session synced before
           // they were seeded would render empty.
           if (cached && store.entry[sessionID]) {
-            void result.session.refreshPending(sessionID)
+            void result.session.refreshPending(sessionID).catch(() => undefined)
             return result.session.get(sessionID)
           }
           // Entries ride along with the messages rather than being fetched by
@@ -953,7 +953,12 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         },
         async steerPending(sessionID: string, pendingID: string) {
           const result = await sdk.client.session.pendingSteer({ sessionID, pendingID }, { throwOnError: true })
-          await refreshSessionPending(sessionID)
+          if (result.data) {
+            setStore("session_pending", sessionID, (items) =>
+              (items ?? []).map((item) => (item.id === result.data!.id ? result.data! : item)),
+            )
+          }
+          void refreshSessionPending(sessionID).catch(() => undefined)
           return result.data
         },
       },

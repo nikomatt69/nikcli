@@ -1618,9 +1618,9 @@ export function Prompt(props: PromptProps) {
           })),
       })
       for (const delay of [100, 500, 1500]) {
-        setTimeout(() => void sync.session.refreshPending(sessionID), delay)
+        setTimeout(() => void sync.session.refreshPending(sessionID).catch(() => undefined), delay)
       }
-      void request.then(() => sync.session.refreshPending(sessionID))
+      void request.then(() => sync.session.refreshPending(sessionID).catch(() => undefined))
     } else {
       sdk.client.session
         .promptAsync(
@@ -1649,7 +1649,7 @@ export function Prompt(props: PromptProps) {
           },
           { throwOnError: true },
         )
-        .then(() => sync.session.refreshPending(sessionID))
+        .then(() => sync.session.refreshPending(sessionID).catch(() => undefined))
         .catch((err) => {
           console.error("Failed to send prompt:", err)
           const userError = userFacingParts(err)

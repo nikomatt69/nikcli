@@ -1,12 +1,16 @@
 # Roadmap
 
+Orders verified work by value and dependency.
+
 Last reconciled against the source: **2026-08-14**.
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, …) so a document never has to restate the plan.
 
 An item is only here if the evidence for it is in the repository today. Nothing on this list is speculative product work.
 
-## How To Read This
+---
+
+## Read the plan
 
 | Field         | Meaning                                                                       |
 | ------------- | ----------------------------------------------------------------------------- |
@@ -19,7 +23,7 @@ Horizons are ordering, not dates. An item moves up when its dependency lands, no
 
 ---
 
-## Already Landed
+## Review landed work
 
 State the wins, so nobody re-plans them:
 
@@ -63,21 +67,23 @@ State the wins, so nobody re-plans them:
 - **Tool output schemas** (was T2, landed 2026-08-14). A tool may declare an `output` zod codec; the wrapper parses `result.value` after execute and rejects a malformed success for that call only. Code Mode receives `Tool.encoded(result, codec)` — the validated value when a codec exists, otherwise the model-facing string. Truncation still bounds only `output`. Tools without a codec are unchanged. See [v2/tools.md](./v2/tools.md) §"One Response Value, Not Three".
 - **Provider policy** (was P1, landed 2026-08-14). `Policy` centrally evaluates `experimental.policies` with full or trailing-prefix wildcards and ordered last-match-wins. Legacy enabled/disabled fields translate with their old precedence; the provider catalog, HTTP provider list, CLI auth picker, and session auth picker consume the evaluator, while TUI disconnect writes deny statements. Unit tests cover matching, translation, overrides, filtering, and schema validation; HTTP integration covers legacy allowlist filtering. See [v2/provider-policy.md](./v2/provider-policy.md).
 - **Scoped tool registration** (was T1, landed 2026-08-14). `ToolRegistry.register` returns a handle whose `close` removes exactly that stack entry and reveals the next-latest occupant of the id. Config-dir and plugin tools live in a reloadable derived cache; runtime registrations live in a separate non-reloadable cache, so a hot reload cannot drop sdk-next tools. See [v2/tools.md](./v2/tools.md) §"Registration Is An Overlay Stack".
-- **Durable pending input** (was S1, landed 2026-08-14). Busy input lives in `session_pending` until atomic batched promotion: steer advances at the next safe non-compaction boundary, while queue/default waits for turn completion; both promote immediately while idle. In the TUI, Enter queues, Ctrl+Enter (and Cmd+Enter where supported) steers, and slash commands preserve the selected delivery. Canonical identity survives promotion in `message_info.prompt_data`, targeted waiters follow each message or batch, `GET /session/:id/pending` exposes staged input, and `session.pending.promoted` announces the transition. Cancellation and restart leave pending rows intact without claiming hard-crash turn recovery or clustered ownership. See [v2/durable-pending-input.md](./v2/durable-pending-input.md).
+- **Durable pending input** (was S1, landed 2026-08-14). Busy input lives in `session_pending` until atomic batched promotion, outside transcript history. The TUI restores queued message cards with `press ctrl-enter to send`: Enter queues, Ctrl/Cmd+Enter with text steers the new input, and the same shortcut with an empty composer changes the oldest queued card to steering until promotion. Canonical retry identity, targeted waiters, safe compaction boundaries, cancellation, and graceful restart remain intact without claiming hard-crash recovery or clustered ownership. See [v2/durable-pending-input.md](./v2/durable-pending-input.md).
 
 ---
 
-## Horizon 1 — Now
+## Finish current work
 
 Empty. Correctness items with no new public surface have landed. Next work is Horizon 2 (contracts).
 
 ---
 
-## Horizon 2 — Next
+## Define contracts
 
 Contracts. These change what the system promises, so each needs its spec landed before its code.
 
-### S3 · Instruction sync as value deltas
+---
+
+### Synchronize instruction values (S3)
 
 - **Buys** — A prompt prefix that survives an `AGENTS.md` edit, an auditable record of what a session was told, and no more silent guidance loss on a failed read.
 - **Evidence** — `Instruction.system()` re-reads every rule file and re-fetches every instruction URL on every request assembly; a failed read or a 5s timeout becomes an empty string and vanishes.
@@ -87,18 +93,22 @@ Contracts. These change what the system promises, so each needs its spec landed 
 
 ---
 
-## Horizon 3 — Later
+## Plan later structure
 
 Structure. Large, and each depends on Horizon 2.
 
-### S4 · Move the session write path to v2
+---
+
+### Move writes to v2 (S4)
 
 - **Buys** — One engine. Today `SessionV2` is an honest strangler: reads are native entries, writes delegate to the v1 `Session`/`SessionPrompt` services so behavior stays exactly the production engine's.
 - **Evidence** — The status comment at the top of `src/session/v2/index.ts` says so, and `SessionV2.prompt` is a pass-through to `SessionPrompt.prompt`.
 - **Depends on** — S1, now landed. The new write path must preserve its pending-input contract.
 - **Done when** — Writes produce entries directly; the v1 projection becomes derived; `MessageV2` remains authoritative for the LLM layer, which is not in scope for this item.
 
-### U1 · Extract the TUI into `packages/tui`
+---
+
+### Extract the TUI package (U1)
 
 - **Buys** — A TUI that builds, tests, and starts without the backend module graph, and a second host (desktop) that shares one implementation.
 - **Evidence** — 252 files and ~68k lines under `src/cli/cmd/tui`, with 241 `@/` imports across 67 distinct backend modules — but only ~18 of those touch server-side execution. The `@tui/*` alias already resolves as if it were a package root.
@@ -108,7 +118,7 @@ Structure. Large, and each depends on Horizon 2.
 
 ---
 
-## Explicit Non-Goals
+## Respect non-goals
 
 Recorded so they are not re-proposed:
 
@@ -118,7 +128,7 @@ Recorded so they are not re-proposed:
 - **A shared PubSub for the event feed.** Considered and rejected in E1's spec; the win it offers is queue-slot references, not frame copies.
 - **Rebuilding TUI features opencode already has.** The jlongster TUI set is already present; "moving sessions" upstream is nikcli's existing warp.
 
-## Working Rules
+## Follow working rules
 
 - Commit at phase boundaries, not per file.
 - Every commit that changes a contract updates its spec in the same commit.
