@@ -102,10 +102,16 @@ describe("domain SQL (missions, monitors, shares, artifacts)", () => {
       await fs.mkdir(path.join(storage, "monitor", monitor.sessionID), { recursive: true })
       await fs.mkdir(path.join(storage, "artifact", artifact.sessionID), { recursive: true })
       await fs.writeFile(path.join(storage, "mission", "proj_sql", `${def.id}.json`), JSON.stringify(def))
-      await fs.writeFile(path.join(storage, "mission_exec", "proj_sql", def.id, `${exec.id}.json`), JSON.stringify(exec))
+      await fs.writeFile(
+        path.join(storage, "mission_exec", "proj_sql", def.id, `${exec.id}.json`),
+        JSON.stringify(exec),
+      )
       await fs.writeFile(path.join(storage, "session_share", `${local.sessionID}.json`), JSON.stringify(share))
       await fs.writeFile(path.join(storage, "local_share", `${local.id}.json`), JSON.stringify(local))
-      await fs.writeFile(path.join(storage, "monitor", monitor.sessionID, `${monitor.id}.json`), JSON.stringify(monitor))
+      await fs.writeFile(
+        path.join(storage, "monitor", monitor.sessionID, `${monitor.id}.json`),
+        JSON.stringify(monitor),
+      )
       await fs.writeFile(
         path.join(storage, "artifact", artifact.sessionID, `${artifact.id}.json`),
         JSON.stringify(artifact),
@@ -141,11 +147,15 @@ describe("domain SQL (missions, monitors, shares, artifacts)", () => {
 
       // Downgrade fallback: the JSON tree is left in place.
       expect(await fs.readFile(path.join(storage, "mission", "proj_sql", `${def.id}.json`), "utf8")).toContain(def.name)
-      expect(await fs.readFile(path.join(storage, "monitor", monitor.sessionID, `${monitor.id}.json`), "utf8")).toContain(
-        monitor.title,
+      expect(
+        await fs.readFile(path.join(storage, "monitor", monitor.sessionID, `${monitor.id}.json`), "utf8"),
+      ).toContain(monitor.title)
+      expect(await fs.readFile(path.join(storage, "session_share", `${local.sessionID}.json`), "utf8")).toContain(
+        share.url,
       )
-      expect(await fs.readFile(path.join(storage, "session_share", `${local.sessionID}.json`), "utf8")).toContain(share.url)
-      expect(await fs.readFile(path.join(storage, "local_share", `${local.id}.json`), "utf8")).toContain(local.sessionID)
+      expect(await fs.readFile(path.join(storage, "local_share", `${local.id}.json`), "utf8")).toContain(
+        local.sessionID,
+      )
       expect(
         await fs.readFile(path.join(storage, "artifact", artifact.sessionID, `${artifact.id}.json`), "utf8"),
       ).toContain("sekrit")
@@ -272,17 +282,26 @@ describe("domain SQL (missions, monitors, shares, artifacts)", () => {
       await fs.mkdir(path.join(storage, "session_share"), { recursive: true })
       await fs.mkdir(path.join(storage, "local_share"), { recursive: true })
       await fs.mkdir(path.join(storage, "artifact", "ses_trap"), { recursive: true })
-      await fs.writeFile(path.join(storage, "mission", "proj_trap", `${def.id}.json`), JSON.stringify({ ...def, name: "json-trap" }))
+      await fs.writeFile(
+        path.join(storage, "mission", "proj_trap", `${def.id}.json`),
+        JSON.stringify({ ...def, name: "json-trap" }),
+      )
       await fs.writeFile(
         path.join(storage, "mission_exec", "proj_trap", def.id, "mission_exec_trap.json"),
         JSON.stringify({ ...missionExec(def.id, "mission_exec_trap"), targetName: "json-trap" }),
       )
-      await fs.writeFile(path.join(storage, "monitor", "ses_trap", "mon_trap.json"), JSON.stringify({ title: "json-trap" }))
+      await fs.writeFile(
+        path.join(storage, "monitor", "ses_trap", "mon_trap.json"),
+        JSON.stringify({ title: "json-trap" }),
+      )
       await fs.writeFile(
         path.join(storage, "session_share", "ses_trap.json"),
         JSON.stringify({ url: "http://json-trap/share", mode: "local", id: "share_json_trap" }),
       )
-      await fs.writeFile(path.join(storage, "local_share", "share_sql_trap.json"), JSON.stringify({ sessionID: "ses_json_trap" }))
+      await fs.writeFile(
+        path.join(storage, "local_share", "share_sql_trap.json"),
+        JSON.stringify({ sessionID: "ses_json_trap" }),
+      )
       await fs.writeFile(
         path.join(storage, "artifact", "ses_trap", "art_trap.json"),
         JSON.stringify({ title: "json-page", secret: "json-secret" }),
@@ -447,7 +466,10 @@ describe("loop SQL", () => {
       await fs.mkdir(path.join(storage, "loop_meta", "proj_loop"), { recursive: true })
       await fs.writeFile(path.join(storage, "loop", "proj_loop", `${def.id}.json`), JSON.stringify(def))
       await fs.writeFile(path.join(storage, "loop_run", "proj_loop", def.id, `${run.id}.json`), JSON.stringify(run))
-      await fs.writeFile(path.join(storage, "loop_meta", "proj_loop", `${def.id}.json`), JSON.stringify({ startedRuns: 7 }))
+      await fs.writeFile(
+        path.join(storage, "loop_meta", "proj_loop", `${def.id}.json`),
+        JSON.stringify({ startedRuns: 7 }),
+      )
 
       const { Database } = await import("@/database/database")
       const { LoopRepo } = await import("@/loop/repo")
@@ -505,7 +527,10 @@ describe("loop SQL", () => {
         path.join(storage, "loop_run", "proj_trap", def.id, "loop_run_trap.json"),
         JSON.stringify({ ...loopRun(def.id, "loop_run_trap"), status: "complete" }),
       )
-      await fs.writeFile(path.join(storage, "loop_meta", "proj_trap", `${def.id}.json`), JSON.stringify({ startedRuns: 99 }))
+      await fs.writeFile(
+        path.join(storage, "loop_meta", "proj_trap", `${def.id}.json`),
+        JSON.stringify({ startedRuns: 99 }),
+      )
 
       expect(LoopRepo.get("proj_trap", def.id)?.name).toBe("sql loop")
       expect(LoopRepo.listRuns("proj_trap", def.id)[0]?.status).toBe("running")

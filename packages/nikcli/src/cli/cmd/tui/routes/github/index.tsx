@@ -492,7 +492,9 @@ export function GitHubPanel() {
           title="Create PR"
           placeholder="PR title"
           description={() => (
-            <text fg={theme.foreground.muted}>From: {state()?.currentBranch ?? "HEAD"} — gh pr create opens in browser</text>
+            <text fg={theme.foreground.muted}>
+              From: {state()?.currentBranch ?? "HEAD"} — gh pr create opens in browser
+            </text>
           )}
           onConfirm={(title) => {
             dialog.clear()
@@ -808,7 +810,13 @@ export function GitHubPanel() {
               <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
                 {"  ·  "}
               </text>
-              <text fg={theme.foreground.default} attributes={TextAttributes.DIM} wrapMode="word" flexGrow={1} minWidth={0}>
+              <text
+                fg={theme.foreground.default}
+                attributes={TextAttributes.DIM}
+                wrapMode="word"
+                flexGrow={1}
+                minWidth={0}
+              >
                 {state()?.repo ?? shortDir(directory())}
               </text>
             </box>

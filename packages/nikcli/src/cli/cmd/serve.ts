@@ -1,34 +1,32 @@
-import { Server } from "../../server/server";
-import { cmd } from "./cmd";
-import { withNetworkOptions, resolveNetworkOptions } from "../network";
-import { Flag } from "../../flag/flag";
-import { Workspace } from "../../workspace";
-import { Project } from "../../project/project";
-import { Installation } from "../../installation";
-import { Log } from "@/util/log";
-import { Effect } from "effect";
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect";
-import { PromptState } from "@/session/prompt-state";
-import { SessionRepo } from "@/session/repo";
+import { Server } from "../../server/server"
+import { cmd } from "./cmd"
+import { withNetworkOptions, resolveNetworkOptions } from "../network"
+import { Flag } from "../../flag/flag"
+import { Workspace } from "../../workspace"
+import { Project } from "../../project/project"
+import { Installation } from "../../installation"
+import { Log } from "@/util/log"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { PromptState } from "@/session/prompt-state"
+import { SessionRepo } from "@/session/repo"
 
-const log = Log.create({ service: "serve" });
+const log = Log.create({ service: "serve" })
 
 function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
-  return runPromiseWithLayer(Project.defaultLayer, effect);
+  return runPromiseWithLayer(Project.defaultLayer, effect)
 }
 
-async function maybeStartRemoteSync(): Promise<
-  { stop(): Promise<void> } | undefined
-> {
-  const { SyncConfig } = await import("@/sync/sync-config");
-  const resolved = await SyncConfig.resolve();
-  if (!resolved.url || !resolved.token) return undefined;
+async function maybeStartRemoteSync(): Promise<{ stop(): Promise<void> } | undefined> {
+  const { SyncConfig } = await import("@/sync/sync-config")
+  const resolved = await SyncConfig.resolve()
+  if (!resolved.url || !resolved.token) return undefined
   // Lazy import to avoid pulling the remote client into the local-only path
-  const { SyncCliInit } = await import("@/sync/cli-init");
+  const { SyncCliInit } = await import("@/sync/cli-init")
   return SyncCliInit.startForAllProjects({
     url: resolved.url,
     token: resolved.token,
-  });
+  })
 }
 
 /**
@@ -42,12 +40,12 @@ async function maybeStartRemoteSync(): Promise<
  * last durable step. See `specs/v2/session-restart-continuation.md`.
  */
 async function resumeSuspendedSessions(): Promise<number> {
-  const claimed = SessionRepo.consumeSuspended();
-  if (claimed.length === 0) return 0;
+  const claimed = SessionRepo.consumeSuspended()
+  if (claimed.length === 0) return 0
 
-  const { InstanceBootstrap } = await import("@/project/bootstrap");
-  const { SessionPrompt } = await import("@/session/prompt");
-  const { withInstanceAsync } = await import("@/effect");
+  const { InstanceBootstrap } = await import("@/project/bootstrap")
+  const { SessionPrompt } = await import("@/session/prompt")
+  const { withInstanceAsync } = await import("@/effect")
 
   for (const { id, directory } of claimed) {
     // Fire and forget: a resumed turn can run for minutes, and startup must
@@ -58,17 +56,17 @@ async function resumeSuspendedSessions(): Promise<number> {
         SessionPrompt.defaultLayer,
         withCurrentInstance(
           Effect.gen(function* () {
-            const sessionPrompt = yield* SessionPrompt.Service;
-            return yield* sessionPrompt.loop(id);
+            const sessionPrompt = yield* SessionPrompt.Service
+            return yield* sessionPrompt.loop(id)
           }),
         ),
       ),
     ).catch((error) => {
-      log.warn("resume failed", { sessionID: id, error });
-    });
+      log.warn("resume failed", { sessionID: id, error })
+    })
   }
-  log.info("resuming suspended sessions", { count: claimed.length });
-  return claimed.length;
+  log.info("resuming suspended sessions", { count: claimed.length })
+  return claimed.length
 }
 
 /**
@@ -80,16 +78,16 @@ async function resumeSuspendedSessions(): Promise<number> {
  */
 function suspendActiveSessions(): number {
   try {
-    const ids = PromptState.activeSessions();
-    if (ids.length === 0) return 0;
-    SessionRepo.suspend(ids);
-    log.info("suspended active sessions", { count: ids.length });
-    return ids.length;
+    const ids = PromptState.activeSessions()
+    if (ids.length === 0) return 0
+    SessionRepo.suspend(ids)
+    log.info("suspended active sessions", { count: ids.length })
+    return ids.length
   } catch (error) {
     // Never block shutdown on this. A missed suspension costs a turn, the
     // same as today; a thrown shutdown costs the drain.
-    log.warn("suspend failed", { error });
-    return 0;
+    log.warn("suspend failed", { error })
+    return 0
   }
 }
 
@@ -101,24 +99,22 @@ function suspendActiveSessions(): number {
  * NIKCLI_SERVER_PASSWORD.
  */
 async function waitForHealthy(url: URL, timeoutMs = 10_000): Promise<void> {
-  const health = new URL("/global/health", url);
-  const deadline = Date.now() + timeoutMs;
-  let lastError: unknown;
+  const health = new URL("/global/health", url)
+  const deadline = Date.now() + timeoutMs
+  let lastError: unknown
   while (Date.now() < deadline) {
     try {
       const response = await fetch(health, {
         signal: AbortSignal.timeout(2_000),
-      });
-      if (response.ok) return;
-      lastError = new Error(`health check returned HTTP ${response.status}`);
+      })
+      if (response.ok) return
+      lastError = new Error(`health check returned HTTP ${response.status}`)
     } catch (error) {
-      lastError = error;
+      lastError = error
     }
-    await Bun.sleep(50);
+    await Bun.sleep(50)
   }
-  throw new Error(
-    `server did not become healthy within ${timeoutMs}ms: ${lastError}`,
-  );
+  throw new Error(`server did not become healthy within ${timeoutMs}ms: ${lastError}`)
 }
 
 /**
@@ -127,15 +123,15 @@ async function waitForHealthy(url: URL, timeoutMs = 10_000): Promise<void> {
  */
 function waitForShutdownSignal(): Promise<void> {
   return new Promise((resolve) => {
-    let intercepted = false;
+    let intercepted = false
     const handler = () => {
-      if (intercepted) process.exit(1);
-      intercepted = true;
-      resolve();
-    };
-    process.on("SIGINT", handler);
-    process.on("SIGTERM", handler);
-  });
+      if (intercepted) process.exit(1)
+      intercepted = true
+      resolve()
+    }
+    process.on("SIGINT", handler)
+    process.on("SIGTERM", handler)
+  })
 }
 
 export const ServeCommand = cmd({
@@ -143,99 +139,89 @@ export const ServeCommand = cmd({
   builder: (yargs) =>
     withNetworkOptions(yargs).option("stdio", {
       type: "boolean",
-      describe:
-        "print the readiness handshake as a single JSON line on stdout (for parent processes)",
+      describe: "print the readiness handshake as a single JSON line on stdout (for parent processes)",
       default: false,
     }),
   describe: "starts a headless nikcli server",
   handler: async (args) => {
-    const opts = await resolveNetworkOptions(
-      args as Parameters<typeof resolveNetworkOptions>[0],
-    );
+    const opts = await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0])
     // In --stdio mode stdout carries only the machine-readable handshake;
     // all diagnostics go to stderr.
-    const warn = args.stdio ? console.error : console.log;
+    const warn = args.stdio ? console.error : console.log
 
-    const loopback =
-      opts.hostname === "127.0.0.1" ||
-      opts.hostname === "::1" ||
-      opts.hostname === "localhost";
-    const tailscaleAuthActive = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && loopback;
+    const loopback = opts.hostname === "127.0.0.1" || opts.hostname === "::1" || opts.hostname === "localhost"
+    const tailscaleAuthActive = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && loopback
 
     if (Flag.NIKCLI_SERVER_TAILSCALE_AUTH && !loopback) {
       warn(
         "Warning: NIKCLI_SERVER_TAILSCALE_AUTH is set but hostname is not loopback; Tailscale identity headers will not be trusted.",
-      );
+      )
     }
 
     if (!Flag.NIKCLI_SERVER_PASSWORD && !tailscaleAuthActive) {
-      warn("Warning: NIKCLI_SERVER_PASSWORD is not set; server is unsecured.");
+      warn("Warning: NIKCLI_SERVER_PASSWORD is not set; server is unsecured.")
     }
 
-    const server = Server.listen(opts);
+    const server = Server.listen(opts)
     // Announce the address only once the server has answered a real request, so
     // a broken route table surfaces here instead of on the client's first call.
     // If readiness probing fails, stop the server before propagating the error
     // so we don't leak a bound-but-unhealthy listener.
     try {
-      await waitForHealthy(server.url);
+      await waitForHealthy(server.url)
     } catch (error) {
-      await server.stop(true).catch(() => undefined);
-      throw error;
+      await server.stop(true).catch(() => undefined)
+      throw error
     }
     if (args.stdio) {
-      console.log(JSON.stringify({ url: server.url.origin }));
+      console.log(JSON.stringify({ url: server.url.origin }))
     } else {
-      console.log(
-        `nikcli server listening on http://${server.hostname}:${server.port}`,
-      );
+      console.log(`nikcli server listening on http://${server.hostname}:${server.port}`)
     }
 
-    let workspaceSync: Array<ReturnType<typeof Workspace.startSyncing>> = [];
+    let workspaceSync: Array<ReturnType<typeof Workspace.startSyncing>> = []
     if (Installation.isLocal()) {
       const projects = await runProject(
         Effect.gen(function* () {
-          const project = yield* Project.Service;
-          return yield* project.list();
+          const project = yield* Project.Service
+          return yield* project.list()
         }),
-      );
-      workspaceSync = projects.map((project) =>
-        Workspace.startSyncing(project),
-      );
+      )
+      workspaceSync = projects.map((project) => Workspace.startSyncing(project))
     }
 
     // Phase 2: optional bidirectional sync to a remote hub
     // (e.g. https://s.nikcli.store). Activated by NIKCLI_REMOTE_URL +
     // NIKCLI_REMOTE_TOKEN or the config file's `sync` block. Zero impact
     // when neither is set.
-    const remoteSync = await maybeStartRemoteSync();
+    const remoteSync = await maybeStartRemoteSync()
 
     await resumeSuspendedSessions().catch((error) => {
-      log.warn("resume sweep failed", { error });
-    });
+      log.warn("resume sweep failed", { error })
+    })
 
-    await waitForShutdownSignal();
+    await waitForShutdownSignal()
 
     // Suspend before anything interrupts: instance disposal aborts every live
     // controller, and a session marked after that is a session already lost.
-    suspendActiveSessions();
+    suspendActiveSessions()
 
     // Graceful shutdown: close keep-alive connections (SSE streams hold
     // sockets open and would otherwise hang the exit), then stop sync
     // services. Force-exit if any of this hangs for more than 5s.
-    log.info("shutting down");
-    warn("shutting down...");
+    log.info("shutting down")
+    warn("shutting down...")
     const force = setTimeout(() => {
-      console.error("graceful shutdown timed out, forcing exit");
-      process.exit(1);
-    }, 5_000);
+      console.error("graceful shutdown timed out, forcing exit")
+      process.exit(1)
+    }, 5_000)
     try {
-      await server.stop(true);
-      if (remoteSync) await remoteSync.stop();
-      await Promise.all(workspaceSync.map((item) => item.stop()));
+      await server.stop(true)
+      if (remoteSync) await remoteSync.stop()
+      await Promise.all(workspaceSync.map((item) => item.stop()))
     } finally {
-      clearTimeout(force);
+      clearTimeout(force)
     }
-    process.exit(0);
+    process.exit(0)
   },
-});
+})

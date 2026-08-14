@@ -36,14 +36,7 @@ describe("analytics SQL", () => {
       )
       db.query(
         `INSERT INTO message_part (id, message_id, session_id, type, info, sort_key) VALUES (?, ?, ?, ?, ?, ?)`,
-      ).run(
-        "part_a",
-        "msg_a",
-        "ses_a",
-        "tool",
-        JSON.stringify({ tool: "read", state: { status: "completed" } }),
-        "0",
-      )
+      ).run("part_a", "msg_a", "ses_a", "tool", JSON.stringify({ tool: "read", state: { status: "completed" } }), "0")
 
       await Analytics.recordMessage({
         sessionID: "ses_a",
@@ -134,11 +127,9 @@ describe("analytics SQL", () => {
 
       const analyticsShare = (await import("@/database/migration/20260814040000_analytics_share")).default
       analyticsShare.up(Database.syncNative())
-      expect(
-        Database.syncNative()
-          .query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM analytics_share`)
-          .get()?.n,
-      ).toBe(1)
+      expect(Database.syncNative().query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM analytics_share`).get()?.n).toBe(
+        1,
+      )
 
       await fs.writeFile(
         path.join(storage, "share-state.json"),

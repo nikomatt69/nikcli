@@ -709,7 +709,13 @@ function ExecCode(props: ToolProps<any>) {
       </Match>
       <Match when={true}>
         <>
-          <InlineTool icon="⚡" iconColor={theme.status.warning.fg} pending="Running code..." complete={code()} part={props.part}>
+          <InlineTool
+            icon="⚡"
+            iconColor={theme.status.warning.fg}
+            pending="Running code..."
+            complete={code()}
+            part={props.part}
+          >
             {props.tool} {firstLine()}
           </InlineTool>
           <CodeModeToolCalls calls={visibleToolCalls()} />
@@ -993,19 +999,14 @@ function OpenTUIViz(props: ToolProps<typeof OpenTUIVizTool>) {
       </Match>
       <Match when={live()}>
         {(partial) => (
-          <box
-            border
-            borderColor={theme.accent.alt}
-            paddingLeft={1}
-            paddingRight={1}
-            gap={1}
-            flexDirection="column"
-          >
+          <box border borderColor={theme.accent.alt} paddingLeft={1} paddingRight={1} gap={1} flexDirection="column">
             <box flexDirection="row" gap={1} alignItems="center">
               <text fg={theme.accent.alt} attributes={TextAttributes.BOLD} flexGrow={1}>
                 ◈ {partial().title || "Visualization"}
               </text>
-              <text fg={theme.status.warning.fg ?? theme.accent.alt}>● {partial().streaming ? "generating" : "rendering"}</text>
+              <text fg={theme.status.warning.fg ?? theme.accent.alt}>
+                ● {partial().streaming ? "generating" : "rendering"}
+              </text>
             </box>
             <VizRenderer spec={partial()} loading={partial().streaming} />
             <Show
@@ -1484,7 +1485,15 @@ export function DialogMonitorLog(props: {
     <box flexDirection="column" width="100%" gap={1}>
       <text fg={theme.foreground.default}>Monitor {props.title}</text>
       <text fg={theme.foreground.muted}>{props.command}</text>
-      <text fg={status() === "complete" ? theme.status.success.fg : status() === "running" ? theme.foreground.default : theme.status.error.fg}>
+      <text
+        fg={
+          status() === "complete"
+            ? theme.status.success.fg
+            : status() === "running"
+              ? theme.foreground.default
+              : theme.status.error.fg
+        }
+      >
         {statusLine()}
       </text>
       <Show when={cwd()}>
@@ -1504,7 +1513,9 @@ export function DialogMonitorLog(props: {
         paddingLeft={1}
         paddingRight={1}
       >
-        <text fg={theme.foreground.default}>{content() || (loading() ? "Loading log output..." : "No output yet")}</text>
+        <text fg={theme.foreground.default}>
+          {content() || (loading() ? "Loading log output..." : "No output yet")}
+        </text>
       </scrollbox>
       <Show when={truncated()}>
         <text fg={theme.foreground.muted}>Showing the latest log window.</text>
@@ -1512,7 +1523,9 @@ export function DialogMonitorLog(props: {
       <Show when={error()}>
         <text fg={theme.status.error.fg}>{error()}</text>
       </Show>
-      <text fg={theme.foreground.muted}>f follow {follow() ? "on" : "off"} • r refresh • c copy • x stop • esc close</text>
+      <text fg={theme.foreground.muted}>
+        f follow {follow() ? "on" : "off"} • r refresh • c copy • x stop • esc close
+      </text>
     </box>
   )
 }

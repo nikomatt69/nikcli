@@ -241,7 +241,9 @@ function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice 
             <text fg={theme.foreground.muted}>{subtitle()}</text>
           </box>
           <box backgroundColor={theme.surface.panel} paddingLeft={1} paddingRight={1} alignSelf="flex-start">
-            <text fg={props.user.role === "admin" ? theme.status.warning.fg : theme.accent.alt}>{getRoleLabel(props.user.role)}</text>
+            <text fg={props.user.role === "admin" ? theme.status.warning.fg : theme.accent.alt}>
+              {getRoleLabel(props.user.role)}
+            </text>
           </box>
         </box>
         <text fg={theme.foreground.default}>{props.user.email}</text>

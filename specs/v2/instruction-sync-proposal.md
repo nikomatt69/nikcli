@@ -1,9 +1,9 @@
 # Instruction Sync
 
-| Field  | Value                                                       |
-| ------ | ----------------------------------------------------------- |
-| Status | **Proposed and unimplemented**                              |
-| Scope  | `src/session/instruction.ts`, `src/session/system.ts`, `sync_event` |
+| Field  | Value                                                                                |
+| ------ | ------------------------------------------------------------------------------------ |
+| Status | **Proposed and unimplemented**                                                       |
+| Scope  | `src/session/instruction.ts`, `src/session/system.ts`, `sync_event`                  |
 | Buys   | A stable prompt prefix, an auditable instruction history, and drift the user can see |
 
 ## Principle
@@ -81,6 +81,6 @@ Steps 1–2 are additive and independently revertible. Step 3 requires the compa
 
 ## Non-Goals
 
-- Instruction sync does not decide *what* guidance a session should have — that is agent and skill selection.
+- Instruction sync does not decide _what_ guidance a session should have — that is agent and skill selection.
 - It does not make instruction files editable by the model.
 - Blob garbage collection is deliberately deferred; it needs the sync boundary defined first.

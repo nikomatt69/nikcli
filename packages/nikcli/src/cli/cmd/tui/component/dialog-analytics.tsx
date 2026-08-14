@@ -1883,7 +1883,11 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
               paddingLeft={1}
               paddingRight={1}
             >
-              <text fg={proj.vcs === "git" ? theme.status.success.fg : theme.foreground.muted} width={2} wrapMode="none">
+              <text
+                fg={proj.vcs === "git" ? theme.status.success.fg : theme.foreground.muted}
+                width={2}
+                wrapMode="none"
+              >
                 {proj.vcs === "git" ? "●" : "○"}
               </text>
               <text fg={theme.foreground.default} width={nameW()} wrapMode="none">

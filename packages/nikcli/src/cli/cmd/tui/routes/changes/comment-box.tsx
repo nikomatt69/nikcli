@@ -242,13 +242,7 @@ export function CommentInput(props: {
           </box>
           <text fg={theme.foreground.muted}>ctrl+1-4 change type</text>
         </box>
-        <box
-          paddingLeft={2}
-          paddingRight={3}
-          paddingTop={1}
-          paddingBottom={1}
-          backgroundColor={theme.surface.offset}
-        >
+        <box paddingLeft={2} paddingRight={3} paddingTop={1} paddingBottom={1} backgroundColor={theme.surface.offset}>
           <textarea
             ref={(val: TextareaRenderable) => (input = val)}
             focused={phase() === "text" && !submitting()}
@@ -277,7 +271,8 @@ export function CommentInput(props: {
         </box>
         <box flexDirection="row" gap={2} paddingLeft={2} paddingBottom={1} flexWrap="wrap">
           <text fg={theme.foreground.default}>
-            {process.platform === "darwin" ? "ctrl+s" : "ctrl+s"} <span style={{ fg: theme.foreground.muted }}>save</span>
+            {process.platform === "darwin" ? "ctrl+s" : "ctrl+s"}{" "}
+            <span style={{ fg: theme.foreground.muted }}>save</span>
           </text>
           <text fg={theme.foreground.muted} wrapMode="word">
             ({process.platform === "darwin" ? "cmd" : "ctrl"}+enter if terminal supports)

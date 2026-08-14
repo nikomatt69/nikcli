@@ -568,13 +568,25 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
       </box>
 
       <box flexDirection="row" gap={1} alignItems="center" flexShrink={0}>
-        <text fg={canGoBack() ? theme.foreground.default : theme.foreground.muted} onMouseUp={() => goBack()} flexShrink={0}>
+        <text
+          fg={canGoBack() ? theme.foreground.default : theme.foreground.muted}
+          onMouseUp={() => goBack()}
+          flexShrink={0}
+        >
           ←
         </text>
-        <text fg={canGoForward() ? theme.foreground.default : theme.foreground.muted} onMouseUp={() => goForward()} flexShrink={0}>
+        <text
+          fg={canGoForward() ? theme.foreground.default : theme.foreground.muted}
+          onMouseUp={() => goForward()}
+          flexShrink={0}
+        >
           →
         </text>
-        <text fg={live() || page().url ? theme.foreground.default : theme.foreground.muted} onMouseUp={() => reload()} flexShrink={0}>
+        <text
+          fg={live() || page().url ? theme.foreground.default : theme.foreground.muted}
+          onMouseUp={() => reload()}
+          flexShrink={0}
+        >
           ↺
         </text>
 
@@ -884,7 +896,9 @@ function Sidebar(props: {
               const label = h.text.length > maxLen ? h.text.slice(0, maxLen - 2) + ".." : h.text
               return (
                 <box paddingLeft={indent} onMouseUp={() => props.onSelectSection(h.slug)}>
-                  <text fg={props.selectedSection === h.slug ? theme.accent.fg : theme.foreground.default}>{label}</text>
+                  <text fg={props.selectedSection === h.slug ? theme.accent.fg : theme.foreground.default}>
+                    {label}
+                  </text>
                 </box>
               )
             }}

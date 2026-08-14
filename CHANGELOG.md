@@ -3,6 +3,24 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.284.0 (August 2026)
+
+## Core
+
+- Enhance session prompt handling with pending message management (@nikomatt69)
+- Introduce session pending management and related schema (@nikomatt69)
+
+## TUI
+
+- Handle errors in session refresh for pending messages (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(session): introduce session pending management and related schema
+  - feat(prompt): enhance session prompt handling with pending message management
+  - fix(prompt): handle errors in session refresh for pending messages
+
 ## v1.277.0 (August 2026)
 
 ## Core

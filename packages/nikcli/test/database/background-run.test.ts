@@ -41,9 +41,9 @@ describe("background run SQL", () => {
       migration.up(Database.syncNative())
       expect(BackgroundRunRepo.list(projectID)).toHaveLength(1)
 
-      expect(
-        await fs.readFile(path.join(storage, "background_run", projectID, `${record.id}.json`), "utf8"),
-      ).toContain("Inspect the tree")
+      expect(await fs.readFile(path.join(storage, "background_run", projectID, `${record.id}.json`), "utf8")).toContain(
+        "Inspect the tree",
+      )
     })
   })
 

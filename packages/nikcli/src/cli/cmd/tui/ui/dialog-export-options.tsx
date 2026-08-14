@@ -134,7 +134,9 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
           <text fg={store.active === "toolDetails" ? theme.accent.fg : theme.foreground.muted}>
             {store.toolDetails ? "[x]" : "[ ]"}
           </text>
-          <text fg={store.active === "toolDetails" ? theme.accent.fg : theme.foreground.default}>Include tool details</text>
+          <text fg={store.active === "toolDetails" ? theme.accent.fg : theme.foreground.default}>
+            Include tool details
+          </text>
         </box>
         <box
           flexDirection="row"
@@ -146,7 +148,9 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
           <text fg={store.active === "assistantMetadata" ? theme.accent.fg : theme.foreground.muted}>
             {store.assistantMetadata ? "[x]" : "[ ]"}
           </text>
-          <text fg={store.active === "assistantMetadata" ? theme.accent.fg : theme.foreground.default}>Include assistant metadata</text>
+          <text fg={store.active === "assistantMetadata" ? theme.accent.fg : theme.foreground.default}>
+            Include assistant metadata
+          </text>
         </box>
         <box
           flexDirection="row"
@@ -158,7 +162,9 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
           <text fg={store.active === "openWithoutSaving" ? theme.accent.fg : theme.foreground.muted}>
             {store.openWithoutSaving ? "[x]" : "[ ]"}
           </text>
-          <text fg={store.active === "openWithoutSaving" ? theme.accent.fg : theme.foreground.default}>Open without saving</text>
+          <text fg={store.active === "openWithoutSaving" ? theme.accent.fg : theme.foreground.default}>
+            Open without saving
+          </text>
         </box>
       </box>
       <Show when={store.active !== "filename"}>

@@ -152,7 +152,11 @@ export function Home() {
             <text fg={theme.foreground.default}>
               <span
                 style={{
-                  fg: remote.isConnected() ? theme.status.success.fg : remote.status.lastError ? theme.status.error.fg : theme.foreground.muted,
+                  fg: remote.isConnected()
+                    ? theme.status.success.fg
+                    : remote.status.lastError
+                      ? theme.status.error.fg
+                      : theme.foreground.muted,
                 }}
               >
                 {remote.isConnected() ? "◉" : "○"}{" "}

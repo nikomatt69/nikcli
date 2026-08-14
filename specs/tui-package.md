@@ -1,10 +1,10 @@
 # TUI Package Extraction
 
-| Field  | Value                                                            |
-| ------ | ---------------------------------------------------------------- |
-| Status | **Proposed and unimplemented**                                   |
-| Scope  | `packages/nikcli/src/cli/cmd/tui` → `packages/tui`               |
-| Buys   | A TUI that builds, tests, and starts without the backend graph   |
+| Field  | Value                                                          |
+| ------ | -------------------------------------------------------------- |
+| Status | **Proposed and unimplemented**                                 |
+| Scope  | `packages/nikcli/src/cli/cmd/tui` → `packages/tui`             |
+| Buys   | A TUI that builds, tests, and starts without the backend graph |
 
 ## Goal
 
@@ -31,14 +31,14 @@ The SDK is the TUI's backend boundary. Missing data or operations get added to t
 
 Measured 2026-08-14:
 
-| Fact                            | Value                                                     |
-| ------------------------------- | --------------------------------------------------------- |
-| Files                           | 252 `.ts`/`.tsx`                                          |
-| Lines                           | ~68,000                                                    |
-| Largest subtrees                | `component/` 75, `feature-plugins/` 47, `routes/` 40, `util/` 31, `context/` 26 |
-| Files already using the SDK     | 43                                                        |
-| Distinct backend modules imported via `@/` | 67                                             |
-| Path alias                      | `@tui/*` → `./src/cli/cmd/tui/*` (already package-shaped)  |
+| Fact                                       | Value                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------- |
+| Files                                      | 252 `.ts`/`.tsx`                                                                |
+| Lines                                      | ~68,000                                                                         |
+| Largest subtrees                           | `component/` 75, `feature-plugins/` 47, `routes/` 40, `util/` 31, `context/` 26 |
+| Files already using the SDK                | 43                                                                              |
+| Distinct backend modules imported via `@/` | 67                                                                              |
+| Path alias                                 | `@tui/*` → `./src/cli/cmd/tui/*` (already package-shaped)                       |
 
 The `@tui/*` alias is the good news: internal imports are already written as if the directory were a package root, so most files move without an edit.
 
@@ -46,15 +46,15 @@ The `@tui/*` alias is the good news: internal imports are already written as if 
 
 There are **241 `@/` import statements** across 67 distinct backend modules, and they are not evenly distributed. By weight:
 
-| Import                                  | Count | Nature                              |
-| --------------------------------------- | ----: | ----------------------------------- |
-| `@/util/*` (locale, keybind, log, filesystem, error, token, record, process, iife) | 76 | **Generic.** Belongs in a shared package. |
-| `@/tool/*`                              | 44    | Tool prompt text and metadata shapes for rendering. |
-| `@/global`, `@/flag/flag`, `@/id/id`    | 27    | Paths, env flags, id generation.     |
-| `@/config/*`                            | 11    | Config and TUI-config schema.        |
-| `@/effect`                              | 11    | Runtime helpers.                     |
-| `@/plugin/*`, `@/installation`, `@/cli/*` | 25  | Host concerns that should invert.     |
-| Backend-proper (`@/session/*`, `@/server/server`, `@/provider/*`, `@/project/*`, `@/account/schema`, `@/analytics/analytics`, `@/lsp/language`, `@/snapshot`, `@/user/*`, `@/mobile/*`, `@/loop/*`, `@/image/*`, `@/prompt/*`, `@/bus`, `@/skill`) | ~47 | **The real coupling.** |
+| Import                                                                                                                                                                                                                                             | Count | Nature                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----: | --------------------------------------------------- |
+| `@/util/*` (locale, keybind, log, filesystem, error, token, record, process, iife)                                                                                                                                                                 |    76 | **Generic.** Belongs in a shared package.           |
+| `@/tool/*`                                                                                                                                                                                                                                         |    44 | Tool prompt text and metadata shapes for rendering. |
+| `@/global`, `@/flag/flag`, `@/id/id`                                                                                                                                                                                                               |    27 | Paths, env flags, id generation.                    |
+| `@/config/*`                                                                                                                                                                                                                                       |    11 | Config and TUI-config schema.                       |
+| `@/effect`                                                                                                                                                                                                                                         |    11 | Runtime helpers.                                    |
+| `@/plugin/*`, `@/installation`, `@/cli/*`                                                                                                                                                                                                          |    25 | Host concerns that should invert.                   |
+| Backend-proper (`@/session/*`, `@/server/server`, `@/provider/*`, `@/project/*`, `@/account/schema`, `@/analytics/analytics`, `@/lsp/language`, `@/snapshot`, `@/user/*`, `@/mobile/*`, `@/loop/*`, `@/image/*`, `@/prompt/*`, `@/bus`, `@/skill`) |   ~47 | **The real coupling.**                              |
 
 Only that last group is genuinely backend, and within it just ~18 imports touch server-side execution (`@/server/server`, `@/project/bootstrap`, `@/project/instance`, `@/session/primitives`, `@/provider/{parse,fusion}`, `@/plugin/{shared,meta,install}`, `@/analytics/analytics`, `@/account/schema`, `@/lsp/language`). Everything above it is infrastructure that was never packaged, which means the extraction is mostly a packaging problem, not a rewrite.
 

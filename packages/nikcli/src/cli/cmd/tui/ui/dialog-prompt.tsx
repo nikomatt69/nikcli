@@ -89,7 +89,8 @@ export function DialogPrompt(props: DialogPromptProps) {
       <box paddingBottom={1} gap={1} flexDirection="row">
         <Show when={!props.busy} fallback={<text fg={theme.foreground.muted}>Please wait…</text>}>
           <text fg={theme.foreground.default}>
-            <span style={{ fg: theme.accent.fg }}>{submitKey()}</span> <span style={{ fg: theme.foreground.muted }}>submit</span>
+            <span style={{ fg: theme.accent.fg }}>{submitKey()}</span>{" "}
+            <span style={{ fg: theme.foreground.muted }}>submit</span>
           </text>
         </Show>
       </box>

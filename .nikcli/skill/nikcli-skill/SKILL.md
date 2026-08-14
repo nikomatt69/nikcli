@@ -136,12 +136,12 @@ Tools are registered in `registry.ts` with gating logic based on model capabilit
 
 The server is Effect HttpApi on `Bun.serve`. There is no Hono app. Contracts live in `src/server/httpapi/`; `server.ts` owns the listener and request pipeline.
 
-| File          | Purpose                                 |
-| ------------- | --------------------------------------- |
-| `server.ts`   | Listener, CORS, auth, instance selection |
-| `httpapi/`    | Typed Effect HttpApi groups + handlers  |
-| `server-router.ts` | Body limit, CORS, auth, dispatch   |
-| `proxy.ts`    | Remote workspace proxying               |
+| File               | Purpose                                  |
+| ------------------ | ---------------------------------------- |
+| `server.ts`        | Listener, CORS, auth, instance selection |
+| `httpapi/`         | Typed Effect HttpApi groups + handlers   |
+| `server-router.ts` | Body limit, CORS, auth, dispatch         |
+| `proxy.ts`         | Remote workspace proxying                |
 
 #### Config (`packages/nikcli/src/config/`)
 
@@ -488,9 +488,9 @@ JSON `Storage` remains only for derived/ephemeral keys. Do not extend this set; 
 
 ### SQLite Databases
 
-| Database     | Owner    | Purpose                                                                 |
-| ------------ | -------- | ----------------------------------------------------------------------- |
-| `nikcli.db`  | Database | Central store. Legacy per-domain files were imported; they stay on disk for downgrade. |
+| Database    | Owner    | Purpose                                                                                |
+| ----------- | -------- | -------------------------------------------------------------------------------------- |
+| `nikcli.db` | Database | Central store. Legacy per-domain files were imported; they stay on disk for downgrade. |
 
 ## MCP Reference
 

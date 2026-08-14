@@ -53,7 +53,8 @@ export function RevertBanner(props: { readonly count: number; readonly diffFiles
           })}
         </text>
         <text fg={theme.foreground.muted}>
-          <span style={{ fg: theme.foreground.default }}>{keybind.print("messages_redo")}</span> {lang.t("session.revert.bannerHint")}
+          <span style={{ fg: theme.foreground.default }}>{keybind.print("messages_redo")}</span>{" "}
+          {lang.t("session.revert.bannerHint")}
         </text>
         <Show when={props.diffFiles?.length}>
           <box marginTop={1}>

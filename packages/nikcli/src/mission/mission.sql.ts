@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core"
 
 // ============================================================================
 // Missions — SQL backend for the former ["mission"|"mission_exec"] JSON tree
@@ -23,12 +23,9 @@ export const mission = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (table) => ({
-    projectIdx: index("idx_mission_project").on(
-      table.projectId,
-      table.createdAt,
-    ),
+    projectIdx: index("idx_mission_project").on(table.projectId, table.createdAt),
   }),
-);
+)
 
 /**
  * One execution of one feature or validation checkpoint.
@@ -50,13 +47,7 @@ export const missionExec = sqliteTable(
     data: text("data").notNull(),
   },
   (table) => ({
-    missionIdx: index("idx_mission_exec_mission").on(
-      table.missionId,
-      table.startedAt,
-    ),
-    projectStatusIdx: index("idx_mission_exec_project_status").on(
-      table.projectId,
-      table.status,
-    ),
+    missionIdx: index("idx_mission_exec_mission").on(table.missionId, table.startedAt),
+    projectStatusIdx: index("idx_mission_exec_project_status").on(table.projectId, table.status),
   }),
-);
+)

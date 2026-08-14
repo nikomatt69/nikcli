@@ -167,7 +167,12 @@ export function DialogBackground() {
   const update = (patch: Parameters<typeof writeSettings>[1]) => writeSettings(kv, patch)
 
   const value = (text: string, muted = false) => (
-    <span style={{ fg: muted ? theme.foreground.muted : theme.foreground.default, attributes: muted ? undefined : TextAttributes.BOLD }}>
+    <span
+      style={{
+        fg: muted ? theme.foreground.muted : theme.foreground.default,
+        attributes: muted ? undefined : TextAttributes.BOLD,
+      }}
+    >
       {text}
     </span>
   )

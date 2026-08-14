@@ -469,7 +469,13 @@ export function DialogUsage() {
                 value={usagePct()}
                 max={100}
                 width={Math.max(20, Math.min(48, chartW()))}
-                color={usagePct() >= 90 ? theme.status.error.fg : usagePct() >= 70 ? theme.status.warning.fg : theme.accent.fg}
+                color={
+                  usagePct() >= 90
+                    ? theme.status.error.fg
+                    : usagePct() >= 70
+                      ? theme.status.warning.fg
+                      : theme.accent.fg
+                }
                 thresholds={[70, 90]}
                 format={(v) => `${v.toFixed(0)}%`}
               />
@@ -479,7 +485,11 @@ export function DialogUsage() {
                 max={100}
                 width={Math.max(20, Math.min(36, chartW() - 16))}
                 color={
-                  (cacheHitRate() ?? 0) >= 0.5 ? theme.status.success.fg : (cacheHitRate() ?? 0) > 0 ? theme.status.warning.fg : theme.status.error.fg
+                  (cacheHitRate() ?? 0) >= 0.5
+                    ? theme.status.success.fg
+                    : (cacheHitRate() ?? 0) > 0
+                      ? theme.status.warning.fg
+                      : theme.status.error.fg
                 }
                 format={(v) => `${v.toFixed(0)}%`}
               />
@@ -626,7 +636,11 @@ export function DialogUsage() {
                             <span style={{ fg: theme.foreground.muted }}> — {source.detail}</span>
                           </Show>
                         </text>
-                        <text flexShrink={0} fg={source.enabled ? theme.foreground.default : theme.foreground.muted} wrapMode="none">
+                        <text
+                          flexShrink={0}
+                          fg={source.enabled ? theme.foreground.default : theme.foreground.muted}
+                          wrapMode="none"
+                        >
                           {Usage.formatTokens(source.tokens)}
                           <span style={{ fg: theme.foreground.muted }}>
                             {" "}
@@ -653,7 +667,13 @@ export function DialogUsage() {
               </text>
               <Show when={cacheHitRate() !== undefined}>
                 <text
-                  fg={cacheHitRate()! >= 0.5 ? theme.status.success.fg : cacheHitRate()! > 0 ? theme.status.warning.fg : theme.status.error.fg}
+                  fg={
+                    cacheHitRate()! >= 0.5
+                      ? theme.status.success.fg
+                      : cacheHitRate()! > 0
+                        ? theme.status.warning.fg
+                        : theme.status.error.fg
+                  }
                   wrapMode="none"
                 >
                   cache hit{" "}

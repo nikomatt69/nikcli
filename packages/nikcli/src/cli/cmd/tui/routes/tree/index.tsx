@@ -623,7 +623,12 @@ export function SessionTree() {
                         >
                           <Show when={row.session.summary}>{(summary) => <TreeChangeSummary parts={summary()} />}</Show>
                           <Show when={!row.session.summary}>
-                            <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} minWidth={14} wrapMode="none">
+                            <text
+                              fg={theme.foreground.muted}
+                              attributes={TextAttributes.DIM}
+                              minWidth={14}
+                              wrapMode="none"
+                            >
                               —
                             </text>
                           </Show>
@@ -647,7 +652,12 @@ export function SessionTree() {
                               )
                             })()}
                           </box>
-                          <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} minWidth={10} wrapMode="none">
+                          <text
+                            fg={theme.foreground.muted}
+                            attributes={TextAttributes.DIM}
+                            minWidth={10}
+                            wrapMode="none"
+                          >
                             {formatTime(row.session.time.updated)}
                           </text>
                           <text fg={theme.border.subtle} attributes={TextAttributes.DIM} minWidth={8} wrapMode="none">
@@ -689,7 +699,12 @@ export function SessionTree() {
                           alignItems="center"
                           paddingLeft={1}
                         >
-                          <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} minWidth={14} wrapMode="none">
+                          <text
+                            fg={theme.foreground.muted}
+                            attributes={TextAttributes.DIM}
+                            minWidth={14}
+                            wrapMode="none"
+                          >
                             —
                           </text>
                           <box flexGrow={1} minWidth={20} minHeight={0} flexShrink={1} alignItems="center">
@@ -703,7 +718,12 @@ export function SessionTree() {
                               {row.preview.length > maxMsg() ? `${row.preview.slice(0, maxMsg() - 1)}…` : row.preview}
                             </text>
                           </box>
-                          <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} minWidth={10} wrapMode="none">
+                          <text
+                            fg={theme.foreground.muted}
+                            attributes={TextAttributes.DIM}
+                            minWidth={10}
+                            wrapMode="none"
+                          >
                             {formatTime(row.time)}
                           </text>
                           <text fg={theme.border.subtle} attributes={TextAttributes.DIM} minWidth={8} wrapMode="none">
