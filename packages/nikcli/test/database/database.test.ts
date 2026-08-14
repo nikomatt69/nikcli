@@ -31,7 +31,7 @@ describe("Database.Service", () => {
           .query<
             { name: string },
             []
-          >("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('account', 'analytics_publish', 'analytics_stat', 'users', 'mobile_tokens', 'workspace', 'session_info', 'session_pending', 'message_info', 'message_part', 'todo_info', 'permission_ruleset', 'sync_event', 'sync_sequence') ORDER BY name")
+          >("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('account', 'analytics_publish', 'analytics_stat', 'users', 'mobile_tokens', 'workspace', 'session_info', 'session_pending', 'instruction_blob', 'instruction_state', 'message_info', 'message_part', 'todo_info', 'permission_ruleset', 'sync_event', 'sync_sequence') ORDER BY name")
           .all()
         const mmap = database.native.query<{ mmap_size: number }, []>("PRAGMA mmap_size").get()
         return { foreignKeys, journal, tables, mmap }
@@ -66,11 +66,14 @@ describe("Database.Service", () => {
       { id: "20260814080000_session_diff" },
       { id: "20260814090000_workspace_json" },
       { id: "20260814100000_session_pending" },
+      { id: "20260814110000_instruction_sync" },
     ])
     expect(result.tables.map((table) => table.name)).toEqual([
       "account",
       "analytics_publish",
       "analytics_stat",
+      "instruction_blob",
+      "instruction_state",
       "message_info",
       "message_part",
       "mobile_tokens",

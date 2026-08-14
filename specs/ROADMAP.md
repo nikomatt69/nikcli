@@ -68,12 +68,13 @@ State the wins, so nobody re-plans them:
 - **Provider policy** (was P1, landed 2026-08-14). `Policy` centrally evaluates `experimental.policies` with full or trailing-prefix wildcards and ordered last-match-wins. Legacy enabled/disabled fields translate with their old precedence; the provider catalog, HTTP provider list, CLI auth picker, and session auth picker consume the evaluator, while TUI disconnect writes deny statements. Unit tests cover matching, translation, overrides, filtering, and schema validation; HTTP integration covers legacy allowlist filtering. See [v2/provider-policy.md](./v2/provider-policy.md).
 - **Scoped tool registration** (was T1, landed 2026-08-14). `ToolRegistry.register` returns a handle whose `close` removes exactly that stack entry and reveals the next-latest occupant of the id. Config-dir and plugin tools live in a reloadable derived cache; runtime registrations live in a separate non-reloadable cache, so a hot reload cannot drop sdk-next tools. See [v2/tools.md](./v2/tools.md) §"Registration Is An Overlay Stack".
 - **Durable pending input** (was S1, landed 2026-08-14). Busy input lives in `session_pending` until atomic batched promotion, outside transcript history. The TUI restores queued message cards with `press ctrl-enter to send`: Enter queues, Ctrl/Cmd+Enter with text steers the new input, and the same shortcut with an empty composer changes the oldest queued card to steering until promotion. Canonical retry identity, targeted waiters, safe compaction boundaries, cancellation, and graceful restart remain intact without claiming hard-crash recovery or clustered ownership. See [v2/durable-pending-input.md](./v2/durable-pending-input.md).
+- **Instruction sync** (was S3, landed 2026-08-14). Request assembly admits a `session.instructions.updated` delta of content hashes, stores bodies once in `instruction_blob`, and renders the system prefix from the fold. A failed later read keeps the last stored value. Successful compaction moves the epoch without re-reading sources. See [v2/instruction-sync-proposal.md](./v2/instruction-sync-proposal.md).
 
 ---
 
 ## Finish current work
 
-Empty. Correctness items with no new public surface have landed. Next work is Horizon 2 (contracts).
+Empty. Correctness items with no new public surface have landed. Next work is Horizon 2 (S4).
 
 ---
 
@@ -81,15 +82,7 @@ Empty. Correctness items with no new public surface have landed. Next work is Ho
 
 Contracts. These change what the system promises, so each needs its spec landed before its code.
 
----
-
-### Synchronize instruction values (S3)
-
-- **Buys** — A prompt prefix that survives an `AGENTS.md` edit, an auditable record of what a session was told, and no more silent guidance loss on a failed read.
-- **Evidence** — `Instruction.system()` re-reads every rule file and re-fetches every instruction URL on every request assembly; a failed read or a 5s timeout becomes an empty string and vanishes.
-- **Blocks** — Nothing hard. S1 has landed the safe-boundary machinery this contract should reuse.
-- **Done when** — One `session.instructions.updated { delta }` event of content hashes; blobs stored once, content-addressed; request assembly renders from stored values; a compaction moves the epoch without reading sources.
-- **Spec** — [v2/instruction-sync-proposal.md](./v2/instruction-sync-proposal.md)
+Empty. S4 still needs a dedicated write-path spec before its code; U1 is structural.
 
 ---
 

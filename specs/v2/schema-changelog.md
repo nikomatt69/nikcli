@@ -4,6 +4,16 @@ Status: **Compatibility ledger.** Newest first. Entries keep the names and behav
 
 Every entry corresponds to a file in `packages/nikcli/src/database/migration/`, applied in id order through the `migration` journal table by `DatabaseMigration.apply`. Migrations run inside `BEGIN IMMEDIATE` and roll back as a unit; a failure aborts startup rather than leaving a half-applied schema.
 
+## 2026-08-14: Instruction Sync Tables
+
+`20260814110000_instruction_sync`
+
+- Add `instruction_blob` keyed by SHA-256 hash, storing canonical JSON bodies once.
+- Add `instruction_state` keyed by session, holding the rebuildable fold (`values`, `order`, `epoch_values`, `epoch_order`) plus epoch/parent sequences.
+- New bus/sync event `session.instructions.updated` carries only a delta of hashes. Request assembly renders from stored values. Compaction advances the epoch without reading sources.
+
+Compatibility: additive. Existing sessions have no fold until the next model request admits a complete initial delta. The HTTP event union gains `session.instructions.updated`.
+
 ## 2026-08-14: Workspace JSON Backfill Folds Into The Journal
 
 `20260814090000_workspace_json`

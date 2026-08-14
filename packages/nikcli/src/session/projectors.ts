@@ -7,6 +7,7 @@ import { SessionEntryProjection } from "./v2/projection"
 import { Log } from "@/util/log"
 import { Session } from "./index"
 import { SessionPending } from "./pending"
+import { InstructionRepo } from "./instruction-repo"
 
 /**
  * Session sync events and their projectors.
@@ -127,6 +128,17 @@ export namespace SessionSync {
     bus: () => MessageV2.Event.PartRemoved,
   })
 
+  export const InstructionsUpdated = SyncEvent.define({
+    type: "session.instructions.updated",
+    version: 1,
+    aggregate: "sessionID",
+    schema: z.object({
+      sessionID: z.string(),
+      delta: z.record(z.string(), z.union([z.string().regex(/^[0-9a-f]{64}$/), z.literal("removed")])),
+    }),
+    bus: () => Session.Event.InstructionsUpdated,
+  })
+
   /**
    * The bus payloads predate the sync events and do not all carry
    * `sessionID` at the top level (it is the aggregate key, which the log
@@ -159,6 +171,7 @@ export namespace SessionSync {
 
     SyncEvent.project(Deleted, (tx, data) => {
       SessionPending.removeSession(data.sessionID, tx)
+      InstructionRepo.removeSession(data.sessionID, tx)
       SessionRepo.remove(data.sessionID, tx)
       project("session.removed", () => SessionEntryProjection.sessionRemoved(tx, data.sessionID))
     }),
@@ -188,6 +201,14 @@ export namespace SessionSync {
     SyncEvent.project(PartRemoved, (tx, data) => {
       MessageRepo.removePart(data.messageID, data.partID, tx)
       project("part.removed", () => SessionEntryProjection.partRemoved(tx, data.sessionID, data.messageID, data.partID))
+    }),
+
+    SyncEvent.project(InstructionsUpdated, (tx, data, event) => {
+      InstructionRepo.applyDelta(tx, {
+        sessionID: data.sessionID,
+        delta: data.delta,
+        seq: event.seq,
+      })
     }),
   ]
 

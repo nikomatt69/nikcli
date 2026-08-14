@@ -83,7 +83,7 @@ export namespace SyncEvent {
 
   export type SerializedEvent<Def extends Definition = Definition> = Event<Def> & { type: string }
 
-  export type ProjectorFunc = (db: Database.TxOrDb, data: any) => void
+  export type ProjectorFunc = (db: Database.TxOrDb, data: any, event: Event) => void
 
   type ConvertEvent = (type: string, data: unknown) => Record<string, unknown>
 
@@ -144,7 +144,7 @@ export namespace SyncEvent {
   /** Pair an event definition with the projector that applies it. */
   export function project<Def extends Definition>(
     def: Def,
-    func: (db: Database.TxOrDb, data: Event<Def>["data"]) => void,
+    func: (db: Database.TxOrDb, data: Event<Def>["data"], event: Event<Def>) => void,
   ): [Definition, ProjectorFunc] {
     return [def, func as ProjectorFunc]
   }
@@ -233,7 +233,7 @@ export namespace SyncEvent {
       throw new Error(`Projector not found for event: ${def.type}`)
     }
 
-    projector(tx, event.data)
+    projector(tx, event.data, event)
 
     if (def.log) {
       tx.insert(syncEvent)

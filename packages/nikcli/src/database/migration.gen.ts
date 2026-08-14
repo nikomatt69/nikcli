@@ -24,6 +24,7 @@ import routine from "./migration/20260814070000_routine"
 import sessionDiff from "./migration/20260814080000_session_diff"
 import workspaceJson from "./migration/20260814090000_workspace_json"
 import sessionPending from "./migration/20260814100000_session_pending"
+import instructionSync from "./migration/20260814110000_instruction_sync"
 
 export const migrations = [
   initial,
@@ -51,4 +52,5 @@ export const migrations = [
   sessionDiff,
   workspaceJson,
   sessionPending,
+  instructionSync,
 ] satisfies DatabaseMigration.Migration[]

@@ -6,6 +6,7 @@ import { Bus } from "../bus"
 import { SessionPrompt } from "./prompt"
 import { SessionSummary } from "./summary"
 import { SessionDiffRepo } from "./diff-repo"
+import { InstructionRepo } from "./instruction-repo"
 import { zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -246,6 +247,7 @@ export namespace SessionRevert {
         })
       }),
     )
+    InstructionRepo.removeSession(sessionID)
   }
 
   const layer = Layer.succeed(

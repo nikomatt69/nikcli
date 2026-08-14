@@ -433,6 +433,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
 
+        case "session.instructions.updated":
+          break
+
         case "session.goal": {
           const { sessionID, goal } = event.properties
           if (goal) {

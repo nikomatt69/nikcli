@@ -1346,6 +1346,11 @@ export type EventSessionPendingPromoted = {
   properties: { sessionID: string; pendingIDs: Array<string>; messageIDs: Array<string> }
 }
 
+export type EventSessionInstructionsUpdated = {
+  type: "session.instructions.updated"
+  properties: { sessionID: string; delta: { [x: string]: string | "removed" } }
+}
+
 export type EventTuiPromptAppend = { type: "tui.prompt.append"; properties: { text: string } }
 
 export type EventTuiCommandExecute = {
@@ -2569,6 +2574,7 @@ export type Event =
   | EventSessionDiff
   | EventSessionError
   | EventSessionPendingPromoted
+  | EventSessionInstructionsUpdated
   | EventTuiPromptAppend
   | EventTuiCommandExecute
   | EventTuiToastShow

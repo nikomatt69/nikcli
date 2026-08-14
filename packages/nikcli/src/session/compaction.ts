@@ -7,6 +7,7 @@ import { MessageV2 } from "./message-v2"
 import { Token } from "../util/token"
 import { Log } from "../util/log"
 import { SessionProcessor } from "./processor"
+import { InstructionRepo } from "./instruction-repo"
 import { Agent } from "@/agent/agent"
 import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
@@ -442,6 +443,7 @@ When constructing the summary, try to stick to this template:
     }
     resetCompactionFailures(input.sessionID)
     Bus.publish(Event.Compacted, { sessionID: input.sessionID })
+    InstructionRepo.advanceEpoch(input.sessionID, InstructionRepo.latestAggregateSeq(input.ctx.project.id, input.sessionID))
     return "continue"
   }
 

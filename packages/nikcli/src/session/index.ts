@@ -35,6 +35,7 @@ import { zodObject, zodObjectMode, type DeepMutable } from "@/util/effect-zod"
 import { Analytics } from "../analytics/analytics"
 import { SessionRepo } from "./repo"
 import { GoalRepo } from "./goal-repo"
+import { InstructionRepo } from "./instruction-repo"
 import { SessionDiffRepo } from "./diff-repo"
 import { ShareRepo } from "@/share/repo"
 import { SessionSync } from "./projectors"
@@ -297,6 +298,13 @@ export namespace Session {
         messageIDs: Schema.Array(Schema.String),
       }),
     ),
+    InstructionsUpdated: BusEvent.schema(
+      "session.instructions.updated",
+      Schema.Struct({
+        sessionID: Schema.String,
+        delta: Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Literal("removed")])),
+      }),
+    ),
   }
 
   export type CreateNextInput = {
@@ -429,6 +437,7 @@ export namespace Session {
         })
       }
     }
+    InstructionRepo.inherit(original.id, session.id)
     return session
   }
 

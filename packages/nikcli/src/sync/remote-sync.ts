@@ -26,6 +26,7 @@ import { eq } from "drizzle-orm"
 import { syncEvent } from "./sync.sql"
 import { Outbox } from "./outbox"
 import { Sync, type SyncEventRecord } from "./index"
+import { InstructionRepo } from "@/session/instruction-repo"
 import {
   createHttpRemoteTransport,
   realScheduler,
@@ -96,11 +97,15 @@ export namespace RemoteSync {
     }
   }
 
+  function isInstructionEvent(type: string) {
+    return type === "session.instructions.updated" || type.startsWith("session.instructions.updated.")
+  }
+
   function loadEvent(eventId: string): SyncEventRecord | undefined {
     const db = Database.syncDb()
     const row = db.select().from(syncEvent).where(eq(syncEvent.id, eventId)).get()
     if (!row) return undefined
-    return {
+    const record: SyncEventRecord = {
       id: row.id,
       projectId: row.projectId,
       workspaceId: row.workspaceId ?? undefined,
@@ -112,6 +117,21 @@ export namespace RemoteSync {
       origin: row.origin,
       originSeq: row.originSeq ?? undefined,
     }
+    if (!isInstructionEvent(record.type)) return record
+    const delta = (record.data as { delta?: Record<string, string> } | null)?.delta
+    if (!delta) return record
+    const hashes = Object.values(delta).filter((value) => value !== "removed")
+    return { ...record, blobs: InstructionRepo.getBlobs(hashes) }
+  }
+
+  async function ingestIncoming(event: SyncEventRecord): Promise<SyncEventRecord> {
+    if (!event.blobs || Object.keys(event.blobs).length === 0) {
+      const next = { ...event }
+      delete next.blobs
+      return next
+    }
+    const { InstructionSync } = await import("@/session/instruction-sync")
+    return InstructionSync.takeBlobs(event)
   }
 
   function safeJson(value: string): unknown {
@@ -193,10 +213,11 @@ export namespace RemoteSync {
           since = Math.max(since, event.seq)
           lastSeq = Math.max(lastSeq, event.seq)
           try {
-            await Sync.emitRaw(event.projectId, event.aggregate, event.data, {
-              workspaceID: event.workspaceId,
+            const incoming = await ingestIncoming(event)
+            await Sync.emitRaw(incoming.projectId, incoming.aggregate, incoming.data, {
+              workspaceID: incoming.workspaceId,
               origin: originTag,
-              originSeq: event.seq,
+              originSeq: incoming.seq,
             })
           } catch (error) {
             log.warn("replaying remote event failed", {
@@ -215,10 +236,11 @@ export namespace RemoteSync {
 
     transport.subscribe(async (event) => {
       try {
-        await Sync.emitRaw(event.projectId, event.aggregate, event.data, {
-          workspaceID: event.workspaceId,
+        const incoming = await ingestIncoming(event)
+        await Sync.emitRaw(incoming.projectId, incoming.aggregate, incoming.data, {
+          workspaceID: incoming.workspaceId,
           origin: originTag,
-          originSeq: event.seq,
+          originSeq: incoming.seq,
         })
       } catch (error) {
         log.warn("replaying remote event failed", { error, event: event.id })

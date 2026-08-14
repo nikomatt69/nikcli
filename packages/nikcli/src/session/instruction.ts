@@ -1,5 +1,6 @@
 import path from "path"
 import os from "os"
+import { createHash } from "crypto"
 import { Effect, Layer, Context } from "effect"
 import { Config } from "@/config/config"
 import { InstanceState, type InstanceContext } from "@/effect"
@@ -8,6 +9,83 @@ import { Filesystem } from "@/util/filesystem"
 import { workMap } from "@/util/queue"
 import { Global } from "@/global"
 import type { MessageV2 } from "./message-v2"
+
+export const INSTRUCTION_HASH_RE = /^[0-9a-f]{64}$/
+export const INSTRUCTION_REMOVED = "removed" as const
+
+export type InstructionKind = "file" | "url" | "env" | "profile" | "skill"
+
+export type InstructionBlobBody =
+  | { kind: "file"; text: string }
+  | { kind: "url"; text: string }
+  | { kind: "env"; parts: string[] }
+  | { kind: "profile"; parts: string[] }
+  | { kind: "skill"; name: string; text: string }
+
+export type InstructionRead =
+  | { key: string; status: "value"; body: InstructionBlobBody }
+  | { key: string; status: "removed" }
+  | { key: string; status: "unavailable" }
+
+export const InstructionKey = {
+  file: (filepath: string) => `file:${path.resolve(filepath)}`,
+  url: (url: string) => `url:${url}`,
+  env: "env",
+  profile: "profile",
+  skill: (name: string) => `skill:${name}`,
+} as const
+
+export function parseInstructionKey(key: string): { kind: InstructionKind; id: string } | undefined {
+  if (key === "env") return { kind: "env", id: "" }
+  if (key === "profile") return { kind: "profile", id: "" }
+  if (key.startsWith("file:")) return { kind: "file", id: key.slice(5) }
+  if (key.startsWith("url:")) return { kind: "url", id: key.slice(4) }
+  if (key.startsWith("skill:")) return { kind: "skill", id: key.slice(6) }
+  return undefined
+}
+
+export function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`
+  const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) =>
+    left < right ? -1 : left > right ? 1 : 0,
+  )
+  return `{${entries.map(([key, nested]) => `${JSON.stringify(key)}:${canonicalJson(nested)}`).join(",")}}`
+}
+
+export function hashInstructionBody(body: InstructionBlobBody): string {
+  return createHash("sha256").update(canonicalJson(body)).digest("hex")
+}
+
+export async function readFileSource(filepath: string): Promise<InstructionRead> {
+  const key = InstructionKey.file(filepath)
+  try {
+    const file = Bun.file(filepath)
+    if (!(await file.exists())) return { key, status: "removed" }
+    const text = await file.text()
+    if (!text) return { key, status: "removed" }
+    return { key, status: "value", body: { kind: "file", text } }
+  } catch {
+    return { key, status: "unavailable" }
+  }
+}
+
+export async function readUrlSource(
+  url: string,
+  fetchImpl: (input: string, init?: { signal?: AbortSignal }) => Promise<Response> = fetch,
+): Promise<InstructionRead> {
+  const key = InstructionKey.url(url)
+  try {
+    const res = await fetchImpl(url, { signal: AbortSignal.timeout(5000) })
+    if (res.status === 404) return { key, status: "removed" }
+    if (!res.ok) return { key, status: "unavailable" }
+    const text = await res.text()
+    if (!text) return { key, status: "removed" }
+    return { key, status: "value", body: { kind: "url", text } }
+  } catch {
+    return { key, status: "unavailable" }
+  }
+}
 
 const LOCAL_RULE_FILES = ["AGENTS.md", "CLAUDE.md", "CONTEXT.md", ".github/instructions/memory.instruction.md"]
 

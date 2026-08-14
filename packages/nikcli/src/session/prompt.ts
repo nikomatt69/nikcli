@@ -10,7 +10,7 @@ import { Agent } from "../agent/agent"
 import { Provider } from "../provider/provider"
 import { SessionCompaction } from "./compaction"
 import { Bus } from "../bus"
-import { SystemPrompt } from "./system"
+import { InstructionSync } from "./instruction-sync"
 import { Plugin } from "../plugin"
 import PROMPT_PLAN from "../session/prompt/plan.txt"
 import BUILD_SWITCH from "../session/prompt/build-switch.txt"
@@ -140,33 +140,6 @@ export namespace SessionPrompt {
         Effect.gen(function* () {
           const agent = yield* Agent.Service
           return yield* agent.defaultAgent()
-        }),
-      ),
-    )
-  }
-
-  function systemPromptParts(skills: string[] = [], disabledInstructions: string[] = []) {
-    return runPromiseWithLayer(
-      SystemPrompt.defaultLayer,
-      withCurrentInstance(
-        Effect.gen(function* () {
-          const systemPrompt = yield* SystemPrompt.Service
-          const [activeSkillMessages, environment, custom, profile] = yield* Effect.all(
-            [
-              systemPrompt.skills(skills),
-              systemPrompt.environment(),
-              systemPrompt.custom(disabledInstructions),
-              systemPrompt.profile(),
-            ],
-            { concurrency: "unbounded" },
-          )
-          return {
-            activeSkillMessages,
-            // The profile goes last: it is the smallest, most user-specific
-            // block, and everything before it (project AGENTS.md included)
-            // should be read as the stronger instruction when they disagree.
-            system: [...environment, ...custom, ...profile],
-          }
         }),
       ),
     )
@@ -1160,10 +1133,15 @@ export namespace SessionPrompt {
         }),
       )
 
-      const systemPrompt = await systemPromptParts(session.skills ?? [], session.disabledInstructions ?? [])
+      const assembled = await InstructionSync.assemble({
+        sessionID,
+        projectID: session.projectID,
+        skills: session.skills ?? [],
+        disabled: session.disabledInstructions ?? [],
+      })
 
       // Build system prompt, adding structured output instructions if needed
-      const system = [...systemPrompt.system]
+      const system = [...assembled.system]
       const format: MessageV2.OutputFormat = lastUser.format ?? {
         type: "text",
       }
@@ -1178,7 +1156,7 @@ export namespace SessionPrompt {
         sessionID,
         system,
         messages: [
-          ...systemPrompt.activeSkillMessages.map((content) => ({
+          ...assembled.skillMessages.map((content) => ({
             role: "user" as const,
             content,
           })),
@@ -1186,6 +1164,7 @@ export namespace SessionPrompt {
             remindAfter,
             wrap,
           }),
+          ...assembled.updates,
           ...(isLastStep
             ? [
                 {

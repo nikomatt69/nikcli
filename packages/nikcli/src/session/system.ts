@@ -158,6 +158,32 @@ export namespace SystemPrompt {
     return parts
   }
 
+  export function skillBlock(skill: Skill.Loaded): string {
+    return [
+      `## Skill: ${skill.name}`,
+      `**Slash command**: /${Skill.commandName(skill.name)}`,
+      skill.category ? `**Category**: ${skill.category}` : null,
+      skill.tags?.length ? `**Tags**: ${skill.tags.join(", ")}` : null,
+      skill.version ? `**Version**: ${skill.version}` : null,
+      `**Base directory**: ${skill.dir}`,
+      "",
+      skill.content,
+    ]
+      .filter(Boolean)
+      .join("\n")
+  }
+
+  export function skillsMessage(blocks: string[]): string {
+    return [
+      "<active_skills>",
+      "The user explicitly loaded the following skills earlier in this session.",
+      "Use them as reference and follow them when they help with the current request.",
+      "Higher-priority system instructions and later user messages override them.",
+      ...blocks,
+      "</active_skills>",
+    ].join("\n\n")
+  }
+
   async function skillsImpl(skill: Skill.Interface, names: string[] = []) {
     const uniqueNames = [...new Set(names)]
     if (uniqueNames.length === 0) return []
@@ -175,29 +201,7 @@ export namespace SystemPrompt {
 
     if (loaded.length === 0) return []
 
-    return [
-      [
-        "<active_skills>",
-        "The user explicitly loaded the following skills earlier in this session.",
-        "Use them as reference and follow them when they help with the current request.",
-        "Higher-priority system instructions and later user messages override them.",
-        ...loaded.map((skill) =>
-          [
-            `## Skill: ${skill.name}`,
-            `**Slash command**: /${Skill.commandName(skill.name)}`,
-            skill.category ? `**Category**: ${skill.category}` : null,
-            skill.tags?.length ? `**Tags**: ${skill.tags.join(", ")}` : null,
-            skill.version ? `**Version**: ${skill.version}` : null,
-            `**Base directory**: ${skill.dir}`,
-            "",
-            skill.content,
-          ]
-            .filter(Boolean)
-            .join("\n"),
-        ),
-        "</active_skills>",
-      ].join("\n\n"),
-    ]
+    return [skillsMessage(loaded.map(skillBlock))]
   }
 
   async function customImpl(ctx: InstanceContext, config: Config.Info, disabled: string[] = []) {

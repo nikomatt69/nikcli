@@ -20,6 +20,8 @@ export interface SyncEventRecord {
   timestamp: number
   origin?: string
   originSeq?: number
+  /** Transport-only sidecar. Never stored in `sync_event`. */
+  blobs?: Record<string, string>
 }
 
 export interface SyncSequence {

@@ -10,6 +10,7 @@ import { Session } from "@/session"
 import { SessionError } from "@/session/error"
 import { SessionPrompt } from "@/session/prompt"
 import { SessionRepo } from "@/session/repo"
+import { InstructionRepo } from "@/session/instruction-repo"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
 import { getAdaptor, listAdaptors } from "./adaptors"
@@ -577,6 +578,7 @@ export namespace Workspace {
           })
         }),
       )
+      InstructionRepo.removeSession(sessionID)
       const payload = await buildRestorePayload(workspaceID)
       return {
         ...payload,
@@ -680,6 +682,7 @@ export namespace Workspace {
           })
         }),
       )
+      InstructionRepo.removeSession(sessionID)
 
       if (workspaceID && target?.type === "remote") {
         try {
