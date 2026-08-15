@@ -5,11 +5,12 @@ import { useDirectory } from "../../context/directory"
 import { useConnected } from "../../component/dialog-model"
 import { createStore } from "solid-js/store"
 import { useRoute } from "../../context/route"
-import { withInstanceAsync } from "@/effect"
+import { useSDK } from "../../context/sdk"
 
 export function Footer() {
   const { theme } = useTheme()
   const sync = useSync()
+  const sdk = useSDK()
   const route = useRoute()
   const mcp = createMemo(() => Object.values(sync.data.mcp).filter((x) => x.status === "connected").length)
   const mcpError = createMemo(() => Object.values(sync.data.mcp).some((x) => x.status === "failed"))
@@ -45,16 +46,14 @@ export function Footer() {
   onMount(() => {
     const refreshBrainStatus = async () => {
       try {
-        const { getBrainConfig, readLastBrainAt, getSessionsCountSince } = await import("@/brain")
-        const { config, lastAt, count } = await withInstanceAsync({ directory: instanceDirectory() }, async () => {
-          const config = await getBrainConfig()
-          const lastAt = await readLastBrainAt()
-          const count = await getSessionsCountSince(lastAt)
-          return { config, lastAt, count }
-        })
-        setBrainEnabled(config.enabled)
-        setBrainLastAt(lastAt)
-        setBrainSessionsPending(count)
+        // `/brain` already computes exactly this triple — config, last run, sessions since — so
+        // the footer asks for it instead of recomputing it from three in-process reads.
+        const status = await sdk.client.brain.status()
+        const data = status.data
+        if (!data) throw new Error("no brain status")
+        setBrainEnabled(data.enabled)
+        setBrainLastAt(data.lastBrainAt ?? 0)
+        setBrainSessionsPending(data.sessionsSinceLastBrain)
       } catch {
         setBrainEnabled(false)
         setBrainLastAt(0)

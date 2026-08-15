@@ -4,8 +4,8 @@ import { DialogSelect } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
 import { useSDK } from "@tui/context/sdk"
 import { useToast } from "@tui/ui/toast"
-import { ttsRegistry, type TTSProvider, type TTSVoice } from "@/tool/speak/provider"
-import { ELEVENLABS_VOICES_LIST, elevenLabsProvider } from "@/tool/speak/elevenlabs"
+import { ttsRegistry, type TTSProvider, type TTSVoice } from "@nikcli-ai/util/tts/provider"
+import { ELEVENLABS_VOICES_LIST, elevenLabsProvider } from "@nikcli-ai/util/tts/elevenlabs"
 import { OPENROUTER_VOICES_LIST, openRouterProvider } from "@/tool/speak/openrouter"
 
 // Register providers

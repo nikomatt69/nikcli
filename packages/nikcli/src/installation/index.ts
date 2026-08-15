@@ -6,26 +6,22 @@ import { iife } from "@nikcli-ai/util/iife"
 import { Flag } from "@nikcli-ai/util/flag"
 import { zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-
-declare global {
-  const NIKCLI_VERSION: string
-  const NIKCLI_CHANNEL: string
-}
+import * as BuildVersion from "@nikcli-ai/util/version"
 
 export namespace Installation {
   const log = Log.create({ service: "installation" })
 
-  export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
+  export type Method = BuildVersion.InstallMethod
 
   export const Event = {
     Updated: BusEvent.schema(
-      "installation.updated",
+      BuildVersion.InstallationEventName.updated,
       Schema.Struct({
         version: Schema.String,
       }),
     ),
     UpdateAvailable: BusEvent.schema(
-      "installation.update-available",
+      BuildVersion.InstallationEventName.updateAvailable,
       Schema.Struct({
         version: Schema.String,
         method: Schema.optional(
@@ -281,8 +277,10 @@ export namespace Installation {
     }
   }
 
-  export const VERSION = typeof NIKCLI_VERSION === "string" ? NIKCLI_VERSION : "local"
-  export const CHANNEL = typeof NIKCLI_CHANNEL === "string" ? NIKCLI_CHANNEL : "local"
+  // Defined in @nikcli-ai/util/version; re-exported so existing `Installation.VERSION` callers
+  // keep working while new ones can take the constant without the upgrade subsystem.
+  export const VERSION = BuildVersion.VERSION
+  export const CHANNEL = BuildVersion.CHANNEL
   export const USER_AGENT = `nikcli/${CHANNEL}/${VERSION}/${Flag.NIKCLI_CLIENT}`
 
   export function getReleaseType(current: string, latest: string): "major" | "minor" | "patch" {

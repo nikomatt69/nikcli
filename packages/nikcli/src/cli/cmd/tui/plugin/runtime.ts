@@ -12,7 +12,7 @@ import {
 import path from "path"
 import { fileURLToPath } from "url"
 
-import { Config } from "@/config/config"
+import { pluginOptions, pluginSpecifier, type PluginOptions, type PluginSpec } from "@nikcli-ai/util/plugin-spec"
 import { TuiConfig } from "@/config/tui"
 import { Log } from "@nikcli-ai/util/log"
 import { errorData, errorMessage } from "@nikcli-ai/util/error-format"
@@ -39,7 +39,7 @@ import { Global } from "@nikcli-ai/util/global"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Process } from "@nikcli-ai/util/process"
 import { Flag } from "@nikcli-ai/util/flag"
-import { Installation } from "@/installation"
+import { VERSION } from "@nikcli-ai/util/version"
 import { INTERNAL_TUI_PLUGINS, type InternalTuiPlugin } from "./internal"
 import { clearSlotErrors, setupSlots, Slot as View } from "./slots"
 import type { HostPluginApi, HostSlots } from "./slots"
@@ -49,7 +49,7 @@ import { createSourceWatcher, entrypointMtime, freshSpecifier, type SourceWatche
 import { dbg } from "../feature-plugins/background/__debug"
 
 type PluginLoad = {
-  item?: Config.PluginSpec
+  item?: PluginSpec
   spec: string
   target: string
   /** Resolved module entrypoint. Local sources are re-imported from it on edit. */
@@ -87,7 +87,7 @@ type PluginEntry = {
   load: PluginLoad
   meta: TuiPluginMeta
   plugin: TuiPlugin
-  options: Config.PluginOptions | undefined
+  options: PluginOptions | undefined
   enabled: boolean
   scope?: PluginScope
 }
@@ -108,7 +108,7 @@ type RuntimeState = {
   pending: Map<
     string,
     {
-      item: Config.PluginSpec
+      item: PluginSpec
       meta: TuiConfig.PluginMeta
     }
   >
@@ -226,12 +226,12 @@ type LoadHooks = {
 }
 
 async function loadExternalPlugin(
-  item: Config.PluginSpec,
+  item: PluginSpec,
   meta: TuiConfig.PluginMeta | undefined,
   retry = false,
   hooks?: LoadHooks,
 ): Promise<PluginLoad | undefined> {
-  const spec = Config.pluginSpecifier(item)
+  const spec = pluginSpecifier(item)
   if (isDeprecatedPlugin(spec)) return
   log.info("loading tui plugin", { path: spec, retry })
   const resolved = await resolvePluginTarget(spec).catch((error) => {
@@ -243,7 +243,7 @@ async function loadExternalPlugin(
 
   const source = pluginSource(spec)
   if (source === "npm") {
-    const ok = await checkPluginCompatibility(resolved, Installation.VERSION)
+    const ok = await checkPluginCompatibility(resolved, VERSION)
       .then(() => true)
       .catch((error) => {
         fail("tui plugin incompatible", { path: spec, retry, error })
@@ -670,7 +670,7 @@ function pluginApi(runtime: RuntimeState, load: PluginLoad, scope: PluginScope, 
 
 function collectPluginEntries(load: PluginLoad, meta: TuiPluginMeta): PluginEntry[] {
   if (!load.module.tui) return []
-  const options = load.item ? Config.pluginOptions(load.item) : undefined
+  const options = load.item ? pluginOptions(load.item) : undefined
   return [
     {
       id: load.id,
@@ -795,7 +795,7 @@ async function reloadPluginEntry(
   plugin: PluginEntry,
   override?: {
     /** Re-declared config entry, when the reload is driven by a config change. */
-    item?: Config.PluginSpec
+    item?: PluginSpec
     meta?: TuiConfig.PluginMeta
     /** Reload even when the source is byte-identical (changed options). */
     force?: boolean
@@ -838,7 +838,7 @@ async function reloadPluginEntry(
   return swapPluginEntry(state, plugin, load, createMeta(load.source, load.spec, load.target, hit, load.id))
 }
 
-function sameOptions(left: Config.PluginOptions | undefined, right: Config.PluginOptions | undefined) {
+function sameOptions(left: PluginOptions | undefined, right: PluginOptions | undefined) {
   return Bun.deepEquals(left ?? null, right ?? null)
 }
 
@@ -872,8 +872,8 @@ async function reconcileConfiguredPlugins(state: RuntimeState) {
   })
   if (!config) return
 
-  const desired = new Map<string, Config.PluginSpec>()
-  for (const item of config.plugin ?? []) desired.set(Config.pluginSpecifier(item), item)
+  const desired = new Map<string, PluginSpec>()
+  for (const item of config.plugin ?? []) desired.set(pluginSpecifier(item), item)
   const meta = (spec: string) => config.plugin_meta?.[spec]
   // Config `plugin_enabled` merged with the KV overrides, exactly as at startup:
   // a manual toggle from the plugin manager still wins over the config value.
@@ -889,7 +889,7 @@ async function reconcileConfiguredPlugins(state: RuntimeState) {
     const existing = state.plugins.find((plugin) => plugin.load.spec === spec)
     if (existing) {
       if (existing.load.origin !== "config") continue
-      const options = Config.pluginOptions(item)
+      const options = pluginOptions(item)
       if (sameOptions(existing.options, options)) continue
       log.info("tui plugin options changed", { path: spec, id: existing.id })
       await reloadPluginEntry(state, existing, { item, meta: meta(spec), force: true })
@@ -970,9 +970,9 @@ function applyInitialPluginEnabledState(state: RuntimeState, config: TuiConfig.I
 }
 
 async function resolveExternalPlugins(
-  list: Config.PluginSpec[],
+  list: PluginSpec[],
   wait: () => Promise<void>,
-  meta: (item: Config.PluginSpec) => TuiConfig.PluginMeta | undefined,
+  meta: (item: PluginSpec) => TuiConfig.PluginMeta | undefined,
   origin: PluginLoad["origin"] = "config",
 ) {
   const loaded = await Promise.all(list.map((item) => loadExternalPlugin(item, meta(item), false, { origin })))
@@ -984,7 +984,7 @@ async function resolveExternalPlugins(
     if (!entry) {
       const item = list[i]
       if (!item) continue
-      const spec = Config.pluginSpecifier(item)
+      const spec = pluginSpecifier(item)
       if (pluginSource(spec) !== "file") continue
       deps ??= wait().catch((error) => {
         log.warn("failed waiting for tui plugin dependencies", { error })
@@ -999,12 +999,12 @@ async function resolveExternalPlugins(
   return ready
 }
 
-async function loadAllPluginInfo(list: Config.PluginSpec[]) {
+async function loadAllPluginInfo(list: PluginSpec[]) {
   const results: ServerPluginEntry[] = []
   const seen = new Set<string>()
 
   for (const item of list) {
-    const spec = Config.pluginSpecifier(item)
+    const spec = pluginSpecifier(item)
     if (seen.has(spec)) continue
     seen.add(spec)
 
@@ -1115,7 +1115,7 @@ async function addPluginBySpec(state: RuntimeState | undefined, raw: string) {
 
   const pending = state.pending.get(spec)
   const item = pending?.item ?? spec
-  const nextSpec = Config.pluginSpecifier(item)
+  const nextSpec = pluginSpecifier(item)
   if (state.plugins.some((plugin) => plugin.load.spec === nextSpec)) {
     state.pending.delete(spec)
     return true
@@ -1375,7 +1375,7 @@ export namespace TuiPluginRuntime {
         const ready = await resolveExternalPlugins(
           plugins,
           () => TuiConfig.waitForDependencies(),
-          (item) => config.plugin_meta?.[Config.pluginSpecifier(item)],
+          (item) => config.plugin_meta?.[pluginSpecifier(item)],
         )
         await addExternalPluginEntries(next, ready)
 

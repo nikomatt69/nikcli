@@ -25,11 +25,12 @@ describe("tool rendering seam", () => {
     const view = await code("routes/session/tool-view.tsx")
 
     expect(view).toContain("@tui/util/tool-shapes")
-    // Any `@/tool/<name>` other than the viz codec means a renderer went back to the server for
-    // its types. Adding a tool renderer means adding a shape, not an import.
+    // Any `@/tool/<name>` at all means a renderer went back to the server for its types. Adding a
+    // tool renderer means adding a shape, not an import. The viz catalog was the last one out —
+    // it is a contract between the tool and the terminal, so it lives in @nikcli-ai/util/viz.
     const backendTools = [...view.matchAll(/from "@\/tool\/([^"]+)"/g)].map((match) => match[1])
 
-    expect(backendTools).toEqual(["opentui"])
+    expect(backendTools).toEqual([])
   })
 
   it("renders diagnostics without importing the LSP module", async () => {

@@ -8,23 +8,22 @@
  * failed, disabled), plus per-connector actions to refresh the cached status
  * or drop stored credentials.
  *
- * The `@/connectors` modules are imported lazily: they pull the `ai` package
- * chain, which must not be evaluated during TUI module load.
+ * Everything here goes through `api.client`. It used to lazily import the `@/connectors` module and run
+ * the service in-process — lazily, because that module pulls the `ai` package chain and must not
+ * be evaluated during TUI module load. Over the wire that concern disappears with the import.
  */
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
-import { Effect } from "effect"
-import { runPromiseWithLayer, withInstanceAsync } from "@/effect"
-import type { Connectors } from "@/connectors"
+import type { ConnectorStatus } from "@nikcli-ai/sdk/httpapi"
 
 const id = "internal:connectors"
 
 type StatusEntry = {
   name: string
   type: string
-  status: Connectors.Status
+  status: ConnectorStatus
 }
 
-function statusLabel(status: Connectors.Status): string {
+function statusLabel(status: ConnectorStatus): string {
   switch (status.status) {
     case "connected":
       return "● connected"
@@ -38,9 +37,8 @@ function statusLabel(status: Connectors.Status): string {
 }
 
 async function loadStatuses(api: TuiPluginApi): Promise<StatusEntry[]> {
-  const { Connectors } = await import("@/connectors")
-  const directory = api.state.path.directory || process.cwd()
-  const statuses = await withInstanceAsync({ directory }, () => Connectors.status())
+  const result = await api.client.connectors.status()
+  const statuses = (result.data ?? {}) as Record<string, ConnectorStatus>
   const configured = (api.state.config.connectors ?? {}) as Record<string, { type?: string } | undefined>
   return Object.entries(statuses).map(([name, status]) => ({
     name,
@@ -49,19 +47,18 @@ async function loadStatuses(api: TuiPluginApi): Promise<StatusEntry[]> {
   }))
 }
 
-async function removeCredentials(name: string): Promise<void> {
-  const { ConnectorAuth } = await import("@/connectors/auth")
-  return runPromiseWithLayer(
-    ConnectorAuth.defaultLayer,
-    Effect.gen(function* () {
-      const auth = yield* ConnectorAuth.Service
-      yield* auth.remove(name)
-    }),
-  )
+/** The route drops the credential and invalidates that connector's cached status in one step. */
+async function removeCredentials(api: TuiPluginApi, name: string): Promise<void> {
+  await api.client.connectors.auth.remove({ name })
 }
 
-function invalidateConnector(name: string): Promise<void> {
-  return import("@/connectors").then(({ Connectors }) => Connectors.invalidateConnector(name))
+async function invalidateConnector(api: TuiPluginApi, name: string): Promise<void> {
+  await api.client.connectors.invalidate({ name })
+}
+
+/** No name means "all": the handler invalidates both the status and the tool caches. */
+async function invalidateAll(api: TuiPluginApi): Promise<void> {
+  await api.client.connectors.invalidate({})
 }
 
 function openConnector(api: TuiPluginApi, entry: StatusEntry): void {
@@ -75,7 +72,7 @@ function openConnector(api: TuiPluginApi, entry: StatusEntry): void {
           value: "refresh",
           description: "Invalidate the cached status and re-run the health check",
           onSelect() {
-            void invalidateConnector(entry.name).then(() => openManager(api))
+            void invalidateConnector(api, entry.name).then(() => openManager(api))
           },
         },
         {
@@ -83,8 +80,7 @@ function openConnector(api: TuiPluginApi, entry: StatusEntry): void {
           value: "remove",
           description: "Drop the stored token for this connector",
           onSelect() {
-            void removeCredentials(entry.name)
-              .then(() => invalidateConnector(entry.name))
+            void removeCredentials(api, entry.name)
               .then(() => {
                 api.ui.toast({ message: `Removed credentials for ${entry.name}`, variant: "success" })
                 openManager(api)
@@ -141,11 +137,7 @@ export function openManager(api: TuiPluginApi): void {
             value: "refresh-all",
             description: "Invalidate every cached connector status",
             onSelect() {
-              void import("@/connectors").then(({ Connectors }) => {
-                Connectors.invalidateStatus()
-                Connectors.invalidateTools()
-                openManager(api)
-              })
+              void invalidateAll(api).then(() => openManager(api))
             },
           },
         ]}

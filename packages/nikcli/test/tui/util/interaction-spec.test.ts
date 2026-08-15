@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { AppSpecZod } from "@/interaction/spec"
+import { AppSpecZod } from "@tui/util/interaction-spec"
 
 const validApp = {
   title: "Deploy configuration",

@@ -8,6 +8,8 @@ import { Snapshot } from "@/snapshot"
 import { Workspace } from "@/workspace"
 import { ManagedWorktree } from "@/worktree/managed"
 import * as Domain from "./domain"
+import { MobileAuth } from "@/mobile/auth"
+import { fromZod } from "@/util/zod-effect"
 
 /**
  * Effect schema for the whole `/mobile/*` surface.
@@ -49,13 +51,15 @@ export namespace MobileHttpApi {
   /** The full `nikcli.json` document; still zod-only, so it stays open. */
   const ConfigInfo = Schema.Record(Schema.String, Schema.Unknown).annotate({ identifier: "MobileConfigInfo" })
 
-  const PublicToken = Schema.Struct({
-    id: Schema.String,
-    name: Schema.optional(Schema.String),
-    scope: Schema.optional(Schema.String),
-    createdAt: Schema.optional(Schema.Number),
-    expiresAt: Schema.optional(Schema.Number),
-  }).annotate({ identifier: "MobileAuthTokenPublic" })
+  /**
+   * Derived from the zod schema that actually stores the token, not hand-copied.
+   *
+   * The hand-written version had drifted: it omitted `lastUsedAt`, which is the one field a
+   * client needs to tell whether a phone has ever connected with the token it was handed.
+   */
+  const PublicToken = (fromZod(MobileAuth.PublicToken) as Schema.Struct<Schema.Struct.Fields>).annotate({
+    identifier: "MobileAuthTokenPublic",
+  })
 
   const GithubUser = Schema.Struct({
     login: Schema.String,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { features } from "@/config/features"
+import { features } from "@nikcli-ai/util/features"
 
 describe("features()", () => {
   it("defaults every flag off", () => {

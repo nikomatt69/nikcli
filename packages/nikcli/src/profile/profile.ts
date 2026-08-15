@@ -31,7 +31,7 @@ export namespace Profile {
   const VerbositySchema = Schema.Literals(["concise", "balanced", "detailed"])
   export type Verbosity = Schema.Schema.Type<typeof VerbositySchema>
 
-  const InfoSchema = Schema.Struct({
+  export const InfoSchema = Schema.Struct({
     version: Schema.Number,
     /** Account this profile belongs to, or `"local"` when signed out. */
     key: Schema.String,

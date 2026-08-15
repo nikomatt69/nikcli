@@ -2,7 +2,14 @@ import { createSignal } from "solid-js"
 import { useSDK } from "./sdk"
 import { createSimpleContext } from "./helper"
 import { Log } from "@nikcli-ai/util/log"
-import type { DailyAnalytics, GlobalAnalytics, SessionAnalytics } from "@/analytics/analytics"
+import {
+  mergeDailyAnalyticsLists,
+  mergeGlobalAnalytics,
+  mergeSessionAnalyticsLists,
+  type DailyAnalytics,
+  type GlobalAnalytics,
+  type SessionAnalytics,
+} from "@tui/util/analytics-merge"
 
 const log = Log.create({ service: "analytics-context" })
 
@@ -51,8 +58,6 @@ export const { use: useAnalytics, provider: AnalyticsProvider } = createSimpleCo
      * panel silently fell back to live-sync data and reported "no history".
      */
     async function load(): Promise<boolean> {
-      const { mergeGlobalAnalytics, mergeDailyAnalyticsLists } = await import("@/analytics/analytics")
-
       // Overview/Tokens/Models all read these two. The session list is the
       // expensive one and is fetched separately so a slow list cannot keep the
       // totals off the screen.
@@ -99,7 +104,6 @@ export const { use: useAnalytics, provider: AnalyticsProvider } = createSimpleCo
 
       setSessionsLoading(true)
       sessionsInflight = (async () => {
-        const { mergeSessionAnalyticsLists } = await import("@/analytics/analytics")
         const res = await sdk.client.analytics.sessions().catch(() => undefined)
         if (!res?.data) return sessions()
         const merged = mergeSessionAnalyticsLists(sessions(), res.data as SessionAnalytics[])

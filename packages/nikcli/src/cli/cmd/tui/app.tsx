@@ -16,7 +16,7 @@ import {
   batch,
   on,
 } from "solid-js"
-import { Installation } from "@/installation"
+import { InstallationEventName, VERSION, type InstallMethod } from "@nikcli-ai/util/version"
 import { Flag } from "@nikcli-ai/util/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
 import { DialogProvider as DialogProviderList, DialogProviderDisconnect } from "@tui/component/dialog-provider"
@@ -64,8 +64,8 @@ import { SessionTabsProvider, useSessionTabs } from "./context/session-tabs"
 import { ToastProvider, useToast } from "./ui/toast"
 import { ExitProvider, useExit } from "./context/exit"
 import { Usage } from "./util/usage"
-import { SessionPrimitives } from "@/session/primitives"
-import { TuiEvent } from "./event"
+import { SessionPrimitives } from "@nikcli-ai/util/session-primitives"
+import { TuiEventName } from "@nikcli-ai/util/tui-event-schema"
 import { KVProvider, useKV } from "./context/kv"
 import { LanguageProvider } from "./context/language"
 import { parseModel } from "@nikcli-ai/util/model"
@@ -74,7 +74,8 @@ import open from "open"
 import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
 import { EditorContextProvider } from "./context/editor"
-import { TuiConfig } from "@/config/tui"
+import type { TuiConfig } from "@nikcli-ai/sdk/httpapi"
+import { TuiConfig as TuiConfigLocal } from "@/config/tui"
 import { withInstanceAsync } from "@/effect"
 import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { dbg as dbgApp } from "./feature-plugins/background/__debug"
@@ -86,7 +87,7 @@ import { PluginRouteBoundary } from "./component/plugin-route-boundary"
 import { Reconnecting } from "./component/reconnecting"
 import { StartupLoading } from "./component/startup-loading"
 import { SessionTabs } from "./component/session-tabs"
-import { BRAIN_SESSION_TITLE } from "@/brain/constants"
+import { BRAIN_SESSION_TITLE } from "@nikcli-ai/util/brain-constants"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { DialogMobileConnect } from "@tui/component/dialog-mobile-connect"
 import { SupportSessionProvider } from "@tui/context/support-session"
@@ -96,9 +97,9 @@ import {
   win32DisableProcessedInput,
   win32InstallCtrlCGuard,
   restoreTerminalState,
-} from "./win32"
+} from "@nikcli-ai/util/win32"
 
-function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
+function rendererConfig(tuiCfg: TuiConfig): CliRendererConfig {
   return {
     targetFps: 45,
     // OpenTUI's native output thread can lose its Windows console pipe when a
@@ -141,7 +142,15 @@ export function tui(input: {
       try {
         const unguard = win32InstallCtrlCGuard()
         win32DisableProcessedInput()
-        const tuiCfg = await TuiConfig.get().catch(() => ({}) as TuiConfig.Info)
+        // Read locally, and only here.
+        //
+        // This is the one config read that cannot go over the wire: it feeds `rendererConfig`,
+        // so it happens before the renderer exists — and at that moment no transport does
+        // either. An HTTP server has not been asked to listen yet, and the worker has not
+        // installed its RPC `onmessage`, so a request here fails with `ClientError: Transport`
+        // or, over worker RPC, never settles at all: `Rpc.call` posts and waits forever.
+        // Everything after the first frame uses `sdk.client.tui.config()`.
+        const tuiCfg = await TuiConfigLocal.get().catch(() => ({}) as TuiConfig)
         const drive = Boolean(process.env.NIKCLI_DRIVE)
         const headless = drive && process.env.NIKCLI_DRIVE_RENDERER === "headless"
         // In drive mode the renderer must still be built from *this* package's
@@ -409,9 +418,10 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         }
       }
 
-      const tuiConfig = await withInstanceAsync({ directory: sdk.directory || process.cwd() }, async () => {
-        return TuiConfig.get()
-      })
+      const tuiConfig = await sdk.client.tui
+        .config()
+        .then((result) => (result.data ?? {}) as TuiConfig)
+        .catch(() => ({}) as TuiConfig)
       const api = createTuiApi({
         command,
         tuiConfig,
@@ -1289,10 +1299,10 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
     renderer.on("focus", refocusPrompt)
 
     const unsubs = [
-      sdk.event.on(TuiEvent.CommandExecute.type, (evt) => {
+      sdk.event.on(TuiEventName.commandExecute, (evt) => {
         command.trigger(evt.properties.command)
       }),
-      sdk.event.on(TuiEvent.ToastShow.type, (evt) => {
+      sdk.event.on(TuiEventName.toastShow, (evt) => {
         toast.show({
           title: evt.properties.title,
           message: evt.properties.message,
@@ -1311,7 +1321,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
           duration: evt.properties.status === "complete" ? 3500 : 5000,
         })
       }),
-      sdk.event.on(TuiEvent.SessionSelect.type, (evt) => {
+      sdk.event.on(TuiEventName.sessionSelect, (evt) => {
         route.navigate({
           type: "session",
           sessionID: evt.properties.sessionID,
@@ -1360,10 +1370,10 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
           duration: 5000,
         })
       }),
-      sdk.event.on(Installation.Event.UpdateAvailable.type, async (evt) => {
+      sdk.event.on(InstallationEventName.updateAvailable, async (evt) => {
         const version = evt.properties.version
-        const method = (evt.properties as { method?: Installation.Method }).method
-        const currentVersion = (evt.properties as { current?: string }).current ?? Installation.VERSION
+        const method = (evt.properties as { method?: InstallMethod }).method
+        const currentVersion = (evt.properties as { current?: string }).current ?? VERSION
 
         // Skip version already dismissed by the user
         const skipped = kv.get("skipped_version")
@@ -1391,7 +1401,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
           await DialogAlert.show(
             dialog,
             "Update Available",
-            `Version v${version} is available, but your install method (${Installation.VERSION === "local" ? "local build" : process.execPath}) could not be detected automatically.\n\nRun \`nikcli upgrade ${version}\` to install.`,
+            `Version v${version} is available, but your install method (${VERSION === "local" ? "local build" : process.execPath}) could not be detected automatically.\n\nRun \`nikcli upgrade ${version}\` to install.`,
           )
           return
         }
@@ -1405,12 +1415,16 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         try {
           await upgradeCtx.upgradeNow?.(method, version)
         } catch (error) {
-          // UpgradeFailedError carries the real reason in `stderr`; its
-          // `message` is empty, which is what made this toast show a blank
-          // body for every failed update.
+          // UpgradeFailedError carries the real reason in `stderr`; its `message` is empty, which
+          // is what made this toast show a blank body for every failed update.
+          //
+          // Match on the name, not `instanceof`: the upgrade runs in the worker and the error
+          // comes back over RPC as a plain `Error`, so the class check was always false and this
+          // toast still said "Update failed". `Rpc` now carries the tagged error's own fields.
+          const stderr = (error as { stderr?: unknown }).stderr
           const message =
-            error instanceof Installation.UpgradeFailedError
-              ? error.stderr
+            error instanceof Error && error.name === "UpgradeFailedError" && typeof stderr === "string"
+              ? stderr
               : error instanceof Error
                 ? error.message || (error.cause instanceof Error ? error.cause.message : "Update failed")
                 : "Update failed"

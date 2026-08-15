@@ -91,7 +91,7 @@ export namespace BusEvent {
   export async function encodingEnabled(): Promise<boolean> {
     try {
       const { Config } = await import("../config/config")
-      const { features } = await import("../config/features")
+      const { features } = await import("@nikcli-ai/util/features")
       const { runPromiseWithLayer, withCurrentInstance } = await import("../effect")
       const config = await runPromiseWithLayer(
         Config.defaultLayer,

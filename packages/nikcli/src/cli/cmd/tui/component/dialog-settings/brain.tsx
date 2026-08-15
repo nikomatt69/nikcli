@@ -5,6 +5,7 @@ import { useDialog } from "@tui/ui/dialog"
 import { Config } from "@/config/config"
 import { useSync } from "../../context/sync"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
+import { useSDK } from "@tui/context/sdk"
 import { Effect } from "effect"
 import { DialogModel } from "../dialog-model"
 
@@ -26,6 +27,7 @@ export function DialogSettingsBrain() {
   const toast = useToast()
   const dialog = useDialog()
   const sync = useSync()
+  const sdk = useSDK()
   const instanceDirectory = () => sync.data.path.directory || process.cwd()
 
   const [brainEnabled, setBrainEnabled] = createSignal(true)
@@ -36,8 +38,8 @@ export function DialogSettingsBrain() {
 
   onMount(async () => {
     try {
-      const { getBrainConfig } = await import("@/brain")
-      const config = await withInstanceAsync({ directory: instanceDirectory() }, () => getBrainConfig())
+      const config = (await sdk.client.brain.status()).data
+      if (!config) throw new Error("no brain status")
       setBrainEnabled(config.enabled)
       setMemoryEnabled(config.memoryEnabled)
       setMinHours(config.minHours)

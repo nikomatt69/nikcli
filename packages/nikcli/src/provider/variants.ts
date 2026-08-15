@@ -21,7 +21,7 @@
  */
 
 import type { ModelsDev } from "./models"
-import { FUSION_BUILTIN_VARIANTS, FUSION_MODEL_ID, FUSION_NPM } from "./fusion"
+import { FUSION_BUILTIN_VARIANTS, FUSION_MODEL_ID, FUSION_NPM } from "@nikcli-ai/util/fusion"
 
 const OPENAI_INCLUDE_ENCRYPTED_REASONING = ["reasoning.encrypted_content"]
 const OUTPUT_TOKEN_MAX = 32_000

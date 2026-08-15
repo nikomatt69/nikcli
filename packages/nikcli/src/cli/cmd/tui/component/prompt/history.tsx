@@ -11,7 +11,7 @@ import {
   hydratePromptEntry,
   PromptBlob,
 } from "@nikcli-ai/util/prompt-blob"
-import { PromptStashStore } from "@/prompt/stash-store"
+import { PromptStashStore } from "@nikcli-ai/util/prompt-stash"
 import type { AgentPart, FilePart, TextPart } from "@nikcli-ai/sdk/httpapi"
 
 export type PromptInfo = {

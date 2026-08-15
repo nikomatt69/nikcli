@@ -2,9 +2,25 @@ import { onMount } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { clone } from "remeda"
 import { createSimpleContext } from "../../context/helper"
-import { PromptStashStore, type StashEntry } from "@/prompt/stash-store"
+import { PromptStashStore, type StashEntry as StoredStashEntry } from "@nikcli-ai/util/prompt-stash"
+import type { PromptInfo } from "./history"
 
-export type { StashEntry } from "@/prompt/stash-store"
+/**
+ * A stashed entry as the composer reads it back.
+ *
+ * The store persists `parts` as `unknown[]` — it appends JSONL and never looks inside one — so the
+ * shape is narrowed here, next to the code that wrote them. Typing it in the store instead meant a
+ * server module importing this component, which closed a cycle between the TUI and the backend.
+ */
+export type StashEntry = {
+  id: string
+  input: string
+  parts: PromptInfo["parts"]
+  timestamp: number
+}
+
+/** The store hands back what it read; the composer owns the part types it wrote. */
+const narrow = (entries: StoredStashEntry[]) => entries as StashEntry[]
 
 const MAX_STASH_ENTRIES = 20
 
@@ -12,7 +28,7 @@ export const { use: usePromptStash, provider: PromptStashProvider } = createSimp
   name: "PromptStash",
   init: () => {
     onMount(async () => {
-      const lines = await PromptStashStore.list()
+      const lines = narrow(await PromptStashStore.list())
 
       setStore("entries", lines)
     })
@@ -42,7 +58,7 @@ export const { use: usePromptStash, provider: PromptStashProvider } = createSimp
           }),
         )
         void PromptStashStore.push(stash).then(
-          (entries) => setStore("entries", entries),
+          (entries) => setStore("entries", narrow(entries)),
           (err) => {
             console.error("[stash] Failed to persist:", err)
           },
@@ -56,7 +72,7 @@ export const { use: usePromptStash, provider: PromptStashProvider } = createSimp
             draft.entries.pop()
           }),
         )
-        void PromptStashStore.removeByID(entry.id).then((entries) => setStore("entries", entries))
+        void PromptStashStore.removeByID(entry.id).then((entries) => setStore("entries", narrow(entries)))
         return entry
       },
       remove(index: number) {
@@ -67,7 +83,7 @@ export const { use: usePromptStash, provider: PromptStashProvider } = createSimp
             draft.entries.splice(index, 1)
           }),
         )
-        void PromptStashStore.removeByID(entry.id).then((entries) => setStore("entries", entries))
+        void PromptStashStore.removeByID(entry.id).then((entries) => setStore("entries", narrow(entries)))
       },
     }
   },

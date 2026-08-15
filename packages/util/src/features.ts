@@ -7,7 +7,6 @@
  * on, the TUI stopped rendering streamed assistant parts. Re-flip one flag
  * at a time after verifying the session stream end-to-end.)
  */
-import type { Config } from "./config"
 
 export type Features = {
   readonly nativeLlm: boolean
@@ -24,7 +23,13 @@ export type Features = {
   }
 }
 
-type Experimental = NonNullable<Config.Info["experimental"]> & {
+/**
+ * Only the flags this module reads. Deliberately structural rather than derived from
+ * `Config.Info`: every field below is checked with `=== true`, so naming the full config type
+ * bought no safety while tying a pure predicate to the server's config module.
+ */
+type Experimental = {
+  nativeLlm?: boolean
   tui?: {
     cacheEviction?: boolean
     messageVirtualization?: boolean
@@ -38,8 +43,8 @@ type Experimental = NonNullable<Config.Info["experimental"]> & {
   }
 }
 
-/** Accept full Config.Info or a partial with experimental (SDK client config). */
-export function features(cfg: { experimental?: Config.Info["experimental"] } | undefined | null): Features {
+/** Accepts a full `Config.Info`, the SDK's client config, or anything else carrying `experimental`. */
+export function features(cfg: { experimental?: unknown } | undefined | null): Features {
   const e = cfg?.experimental as Experimental | undefined
   return {
     nativeLlm: e?.nativeLlm === true,

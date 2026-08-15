@@ -4,7 +4,9 @@ import z from "zod"
 import { Bus } from "@/bus"
 import { Session } from "@/session"
 import { SessionError } from "@/session/error"
-import { TuiEvent } from "@/cli/cmd/tui/event"
+import { TuiEvent } from "@/bus/tui-event"
+import { TuiConfig } from "@/config/tui"
+import { fromZod } from "@/util/zod-effect"
 import { TuiControlQueues } from "../tui-control"
 
 export namespace TuiHttpApi {
@@ -29,6 +31,29 @@ export namespace TuiHttpApi {
     name: Schema.Literal("NotFoundError"),
     data: Schema.Record(Schema.String, Schema.Unknown),
   }).annotate({ identifier: "TuiNotFoundError", httpApiStatus: 404 })
+
+  /**
+   * The merged `tui.json` document, derived from the zod schema that validates the file rather
+   * than hand-copied — same treatment as `Config` in `config.ts`, including the open tail.
+   *
+   * `plugin_meta` is not in the file schema: `TuiConfig.get()` adds it while merging, recording
+   * which source each plugin entry came from, and the TUI's plugin runtime reads it.
+   */
+  const TuiConfigInfo = Schema.StructWithRest(
+    Schema.Struct({
+      ...(fromZod(TuiConfig.Info) as Schema.Struct<Schema.Struct.Fields>).fields,
+      plugin_meta: Schema.optional(
+        Schema.Record(
+          Schema.String,
+          Schema.Struct({
+            scope: Schema.Literals(["global", "local"]),
+            source: Schema.String,
+          }),
+        ),
+      ),
+    }),
+    [Schema.Record(Schema.String, Schema.Unknown)],
+  ).annotate({ identifier: "TuiConfig" })
 
   function parseWith<T>(schema: z.ZodType<T>, payload: unknown) {
     const parsed = schema.safeParse(payload)
@@ -127,6 +152,11 @@ export namespace TuiHttpApi {
       }),
     )
     .add(
+      HttpApiEndpoint.get("config", "/config", {
+        success: TuiConfigInfo,
+      }).annotate(OpenApi.Identifier, "tui.config"),
+    )
+    .add(
       HttpApiEndpoint.get("controlNext", "/control/next", {
         success: TuiRequest,
       }).annotate(OpenApi.Identifier, "tui.control.next"),
@@ -211,6 +241,15 @@ export namespace TuiHttpApi {
         yield* Effect.promise(() => Bus.publish(TuiEvent.SessionSelect, { sessionID: body.sessionID }))
         return true
       }),
+    // Reading it here rather than in the terminal is the point: `TuiConfig.get()` walks the
+    // config search path and merges what it finds, which is instance-scoped work.
+    //
+    // The round-trip through JSON is not decoration. Merging leaves explicitly-`undefined` keys
+    // behind, and the response encoder rejects those with "Expected JSON value, got undefined" —
+    // a 400 with an empty body, which from the terminal looks exactly like the config being
+    // empty. Same treatment as `jsonSafe` in `loop.ts`.
+    config: () =>
+      Effect.promise(async () => JSON.parse(JSON.stringify((await TuiConfig.get()) ?? null)) as TuiConfig.Info),
     controlNext: () => Effect.promise(() => TuiControlQueues.request.next()),
     controlResponse: ({ payload }: { payload: unknown }) =>
       Effect.sync(() => {
@@ -232,6 +271,7 @@ export namespace TuiHttpApi {
       .handle("showToast", (request) => handlers.showToast(request))
       .handle("publish", (request) => handlers.publish(request))
       .handle("selectSession", (request) => handlers.selectSession(request))
+      .handle("config", () => handlers.config())
       .handle("controlNext", () => handlers.controlNext())
       .handle("controlResponse", (request) => handlers.controlResponse(request)),
   )

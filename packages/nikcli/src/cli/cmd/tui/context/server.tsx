@@ -1,5 +1,5 @@
 import { createSimpleContext } from "./helper"
-import type { MobileAuth } from "@/mobile/auth"
+import type { MobileAuthTokenPublic } from "@nikcli-ai/sdk/httpapi"
 
 export type StartServerOptions = {
   hostname?: string
@@ -15,7 +15,7 @@ export type CreateMobileTokenOptions = {
 
 export type CreatedMobileToken = {
   token: string
-  info: MobileAuth.PublicToken
+  info: MobileAuthTokenPublic
 }
 
 export const { use: useServer, provider: ServerProvider } = createSimpleContext({

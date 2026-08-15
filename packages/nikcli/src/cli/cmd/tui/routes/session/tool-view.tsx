@@ -46,7 +46,7 @@ import {
   type WriteShape,
 } from "@tui/util/tool-shapes"
 
-import { normalizeVizComponents } from "@/tool/opentui"
+import { normalizeVizComponents } from "@nikcli-ai/util/viz"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -85,7 +85,7 @@ import { compilePartialSpec } from "@tui/util/spec-stream"
 import { TuiImageList } from "@tui/component/tui-image"
 import { DialogSelect } from "../../ui/dialog-select"
 import { DialogBgAgents } from "./dialog-bg-agents"
-import { features } from "@/config/features"
+import { features } from "@nikcli-ai/util/features"
 import { useLanguage } from "@tui/context/language"
 import { visibleRange } from "./message-window"
 import { groupLabel, groupParts, type ExplorationGroup } from "./rows"

@@ -2,7 +2,7 @@ import { Keybind } from "@tui/util/keybind"
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { createMemo, createSignal } from "solid-js"
-import { FUSION_BUILTIN_VARIANTS, FUSION_MODEL_ID, fusionPreset } from "@/provider/fusion"
+import { FUSION_BUILTIN_VARIANTS, FUSION_MODEL_ID, fusionPreset } from "@nikcli-ai/util/fusion"
 
 // OpenRouter Fusion presets are surfaced as model variants on `openrouter/fusion`
 // (built-ins live in provider/transform.ts; user customs live in global config

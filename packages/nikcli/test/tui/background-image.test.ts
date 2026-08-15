@@ -30,7 +30,7 @@ import {
   shortenPath,
 } from "../../src/cli/cmd/tui/feature-plugins/background/source"
 import { readSettings, writeSettings } from "../../src/cli/cmd/tui/feature-plugins/background/store"
-import { shouldUseRendererThread } from "../../src/cli/cmd/tui/win32"
+import { shouldUseRendererThread } from "@nikcli-ai/util/win32"
 
 function solid(width: number, height: number, rgba: [number, number, number, number]): PixelImage {
   return createPixelImage(width, height, rgba)

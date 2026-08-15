@@ -2,7 +2,7 @@ import { TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useSync } from "@tui/context/sync"
 import { For, Match, Switch, Show, createMemo } from "solid-js"
-import { Installation } from "@/installation"
+import { VERSION } from "@nikcli-ai/util/version"
 
 export type DialogStatusProps = {}
 
@@ -46,7 +46,7 @@ export function DialogStatus() {
         </text>
         <text fg={theme.foreground.muted}>esc</text>
       </box>
-      <text fg={theme.foreground.muted}>Nikcli v{Installation.VERSION}</text>
+      <text fg={theme.foreground.muted}>Nikcli v{VERSION}</text>
       <text fg={theme.foreground.muted}>a fork of opencode — github.com/anomalyco/opencode</text>
       <Show when={Object.keys(sync.data.mcp).length > 0} fallback={<text fg={theme.foreground.default}>No MCP Servers</text>}>
         <box>

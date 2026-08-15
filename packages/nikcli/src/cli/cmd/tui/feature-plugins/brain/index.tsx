@@ -35,11 +35,10 @@ const tui: TuiPlugin = async (api) => {
           api.ui.dialog.clear()
           api.ui.toast({ message: "Brain started in background", variant: "info" })
           void (async () => {
-            const { Brain } = await import("@/brain")
-            const result = await withInstanceAsync({ directory: directory() }, () => Brain.trigger({ force: true }))
-            if (!result.success) {
+            const result = (await api.client.brain.trigger({ force: true })).data
+            if (!result?.success) {
               api.ui.toast({
-                message: result.error ?? "Brain failed",
+                message: result?.error ?? "Brain failed",
                 variant: "error",
                 duration: 5000,
               })

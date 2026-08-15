@@ -1,5 +1,5 @@
+import { SKILL_COMMAND_PREFIX, isSkillCommandName, skillCommandName, skillSlug as slug } from "@nikcli-ai/util/skill-command"
 import path from "path"
-import { createHash } from "crypto"
 import { Config } from "../config/config"
 import { EventError } from "@/session/event-error"
 import { ConfigMarkdown } from "../config/markdown"
@@ -16,7 +16,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
-  const COMMAND_PREFIX = "skill:"
+  const COMMAND_PREFIX = SKILL_COMMAND_PREFIX
 
   const InfoSchema = Schema.Struct({
     name: Schema.String,
@@ -107,23 +107,10 @@ export namespace Skill {
     return input.toLowerCase().replace(/[^a-z0-9]+/g, "")
   }
 
-  function slug(input: string) {
-    return input
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-  }
-
-  export function commandName(name: string) {
-    const suffix = slug(name) || "skill"
-    const hash = createHash("sha1").update(name).digest("hex").slice(0, 6)
-    return `${COMMAND_PREFIX}${suffix}-${hash}`
-  }
-
-  export function isCommandName(name: string) {
-    return name.startsWith(COMMAND_PREFIX)
-  }
+  // The naming rule lives in @nikcli-ai/util/skill-command so clients can spell a command
+  // without loading the skill runtime.
+  export const commandName = skillCommandName
+  export const isCommandName = isSkillCommandName
 
   type State = Record<string, Info>
 

@@ -136,6 +136,36 @@ export type BrainResult = {
   sessionID?: string | undefined
 }
 
+export type ProfileInfo = {
+  version: number
+  key: string
+  name?: string | undefined
+  role?: string | undefined
+  about?: string | undefined
+  stack?: Array<string> | undefined
+  expertise?: Array<string> | undefined
+  learning?: Array<string> | undefined
+  skills?: Array<string> | undefined
+  tools?: { preferred?: Array<string> | undefined; avoid?: Array<string> | undefined } | undefined
+  conventions?: Array<string> | undefined
+  communication?:
+    | {
+        verbosity?: "concise" | "balanced" | "detailed" | undefined
+        language?: string | undefined
+        explain?: boolean | undefined
+      }
+    | undefined
+  custom?: string | undefined
+  habits?: boolean | undefined
+  updatedAt: number
+}
+
+export type ProfileDeleted = { deleted: boolean }
+
+export type ProfileHabits = { content: string }
+
+export type ProfilePreview = { lines: Array<string>; habitsFile: string }
+
 export type KeybindsConfig = {
   leader?: string | undefined
   app_exit?: string | undefined
@@ -598,10 +628,11 @@ export type MissionBooleanResult = boolean
 
 export type MobileAuthTokenPublic = {
   id: string
-  name?: string | undefined
-  scope?: string | undefined
-  createdAt?: number | undefined
+  name: string
+  createdAt: number
+  lastUsedAt?: number | undefined
   expiresAt?: number | undefined
+  scope?: string | undefined
 }
 
 export type MobileProject = any
@@ -1235,6 +1266,8 @@ export type SyncConfigSetResponse = {
 
 export type TuiBooleanResult = boolean
 
+export type PluginOptionsConfig = { [x: string]: any }
+
 export type TuiControlRequest = { path: string; body: any }
 
 export type WorkspaceAdaptorInfo = { type: string; name: string; description: string; available?: boolean | undefined }
@@ -1713,6 +1746,8 @@ export type AnalyticsData = {
   generatedAt: number
 } | null
 
+export type ProfileInfoOrNull = ProfileInfo | null
+
 export type AdsConfig = {
   enabled?: boolean | undefined
   ratio?: number | undefined
@@ -1997,6 +2032,8 @@ export type SyncStatsOutput2 = {
   events: Array<SyncStatsEvent>
 }
 
+export type PluginSpecConfig = string | [string, PluginOptionsConfig]
+
 export type Workspace1 = {
   id: string
   name: string
@@ -2088,6 +2125,140 @@ export type QuestionRequest = {
   sessionID: string
   questions: Array<QuestionInfo>
   tool?: { messageID: string; callID: string } | undefined
+}
+
+export type TuiConfig = {
+  $schema?: string | undefined
+  theme?: string | undefined
+  keybinds?:
+    | {
+        leader?: string | undefined
+        app_exit?: string | undefined
+        editor_open?: string | undefined
+        theme_list?: string | undefined
+        sidebar_toggle?: string | undefined
+        scrollbar_toggle?: string | undefined
+        username_toggle?: string | undefined
+        status_view?: string | undefined
+        sync_view?: string | undefined
+        session_export?: string | undefined
+        session_new?: string | undefined
+        session_list?: string | undefined
+        session_timeline?: string | undefined
+        session_fork?: string | undefined
+        session_rename?: string | undefined
+        session_delete?: string | undefined
+        session_pin_toggle?: string | undefined
+        session_scope_toggle?: string | undefined
+        session_tab_back?: string | undefined
+        session_tab_forward?: string | undefined
+        session_quick_switch_1?: string | undefined
+        session_quick_switch_2?: string | undefined
+        session_quick_switch_3?: string | undefined
+        session_quick_switch_4?: string | undefined
+        session_quick_switch_5?: string | undefined
+        session_quick_switch_6?: string | undefined
+        session_quick_switch_7?: string | undefined
+        session_quick_switch_8?: string | undefined
+        session_quick_switch_9?: string | undefined
+        stash_delete?: string | undefined
+        model_provider_list?: string | undefined
+        model_favorite_toggle?: string | undefined
+        session_share?: string | undefined
+        session_unshare?: string | undefined
+        session_interrupt?: string | undefined
+        session_codebro_open?: string | undefined
+        subtask_background?: string | undefined
+        subtask_picker?: string | undefined
+        session_compact?: string | undefined
+        messages_page_up?: string | undefined
+        messages_page_down?: string | undefined
+        messages_line_up?: string | undefined
+        messages_line_down?: string | undefined
+        messages_half_page_up?: string | undefined
+        messages_half_page_down?: string | undefined
+        messages_first?: string | undefined
+        messages_last?: string | undefined
+        messages_next?: string | undefined
+        messages_previous?: string | undefined
+        messages_last_user?: string | undefined
+        messages_copy?: string | undefined
+        messages_undo?: string | undefined
+        messages_redo?: string | undefined
+        messages_toggle_conceal?: string | undefined
+        tool_details?: string | undefined
+        model_list?: string | undefined
+        model_cycle_recent?: string | undefined
+        model_cycle_recent_reverse?: string | undefined
+        model_cycle_favorite?: string | undefined
+        model_cycle_favorite_reverse?: string | undefined
+        command_list?: string | undefined
+        agent_list?: string | undefined
+        agent_cycle?: string | undefined
+        agent_cycle_reverse?: string | undefined
+        permission_mode?: string | undefined
+        variant_cycle?: string | undefined
+        input_clear?: string | undefined
+        input_paste?: string | undefined
+        input_submit?: string | undefined
+        input_newline?: string | undefined
+        input_move_left?: string | undefined
+        input_move_right?: string | undefined
+        input_move_up?: string | undefined
+        input_move_down?: string | undefined
+        input_select_left?: string | undefined
+        input_select_right?: string | undefined
+        input_select_up?: string | undefined
+        input_select_down?: string | undefined
+        input_line_home?: string | undefined
+        input_line_end?: string | undefined
+        input_select_line_home?: string | undefined
+        input_select_line_end?: string | undefined
+        input_visual_line_home?: string | undefined
+        input_visual_line_end?: string | undefined
+        input_select_visual_line_home?: string | undefined
+        input_select_visual_line_end?: string | undefined
+        input_buffer_home?: string | undefined
+        input_buffer_end?: string | undefined
+        input_select_buffer_home?: string | undefined
+        input_select_buffer_end?: string | undefined
+        input_delete_line?: string | undefined
+        input_delete_to_line_end?: string | undefined
+        input_delete_to_line_start?: string | undefined
+        input_backspace?: string | undefined
+        input_delete?: string | undefined
+        input_undo?: string | undefined
+        input_redo?: string | undefined
+        input_word_forward?: string | undefined
+        input_word_backward?: string | undefined
+        input_select_word_forward?: string | undefined
+        input_select_word_backward?: string | undefined
+        input_delete_word_forward?: string | undefined
+        input_delete_word_backward?: string | undefined
+        history_previous?: string | undefined
+        history_next?: string | undefined
+        session_child_cycle?: string | undefined
+        session_child_cycle_reverse?: string | undefined
+        session_parent?: string | undefined
+        session_child_close?: string | undefined
+        terminal_suspend?: string | undefined
+        terminal_title_toggle?: string | undefined
+        tips_toggle?: string | undefined
+        voice_record?: string | undefined
+        app_support?: string | undefined
+      }
+    | undefined
+  plugin?: Array<PluginSpecConfig> | undefined
+  plugin_enabled?: { [x: string]: boolean } | undefined
+  scroll_speed?: number | undefined
+  scroll_acceleration?: { enabled: boolean } | undefined
+  diff_style?: "auto" | "stacked" | undefined
+  mouse?: boolean | undefined
+  sound?: boolean | undefined
+  bg_pulse?: boolean | undefined
+  turn_tokens?: boolean | undefined
+  plugin_meta?: { [x: string]: { scope: "global" | "local"; source: string } } | undefined
+  [x: string]: any
 }
 
 export type OptionalWorkspace = Workspace1 | null
@@ -2821,6 +2992,26 @@ export type BrainStatusOutput = BrainStatus
 export type BrainTriggerInput = { readonly force?: { readonly force?: boolean | undefined }["force"] }
 
 export type BrainTriggerOutput = BrainResult
+
+export type ProfileGetOutput = ProfileInfoOrNull
+
+export type ProfilePatchInput = { readonly payload: { readonly [x: string]: unknown } }
+
+export type ProfilePatchOutput = ProfileInfo
+
+export type ProfileClearOutput = ProfileDeleted
+
+export type ProfileHabitsInput = { readonly worktree?: { readonly worktree?: string | undefined }["worktree"] }
+
+export type ProfileHabitsOutput = ProfileHabits
+
+export type ProfilePreviewInput = { readonly worktree?: { readonly worktree?: string | undefined }["worktree"] }
+
+export type ProfilePreviewOutput = ProfilePreview
+
+export type ProfileClearHabitsInput = { readonly worktree?: { readonly worktree?: string | undefined }["worktree"] }
+
+export type ProfileClearHabitsOutput = ProfileDeleted
 
 export type ConfigGetOutput = Config
 
@@ -7984,6 +8175,8 @@ export type TuiPublishOutput = TuiBooleanResult
 export type TuiSelectSessionInput = { readonly payload: unknown }
 
 export type TuiSelectSessionOutput = TuiBooleanResult
+
+export type TuiConfigOutput = TuiConfig
 
 export type TuiControlNextOutput = TuiControlRequest
 

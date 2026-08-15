@@ -1,7 +1,7 @@
 import { Plugin } from "@nikcli-ai/plugin/v2/tui"
 import { createMemo, Show } from "solid-js"
 import { Global } from "@nikcli-ai/util/global"
-import { Installation } from "@/installation"
+import { VERSION } from "@nikcli-ai/util/version"
 import { useKV } from "@tui/context/kv"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
@@ -67,7 +67,7 @@ function View() {
         <span style={{ fg: theme.foreground.default }}>
           <b>CLI</b>
         </span>{" "}
-        <span>{Installation.VERSION}</span>
+        <span>{VERSION}</span>
       </text>
     </box>
   )

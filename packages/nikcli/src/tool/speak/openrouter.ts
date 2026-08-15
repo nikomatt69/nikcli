@@ -1,4 +1,4 @@
-import type { TTSProvider, TTSProviderConfig, TTSRequest, TTSResponse, TTSVoice } from "./provider"
+import type { TTSProvider, TTSProviderConfig, TTSRequest, TTSResponse, TTSVoice } from "@nikcli-ai/util/tts/provider"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 

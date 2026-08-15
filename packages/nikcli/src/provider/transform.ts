@@ -704,8 +704,8 @@ function googleThinkingBudgetMax(apiId: string) {
   return 24_576
 }
 
-export { FUSION_NPM, FUSION_MODEL_ID, fusionPreset, FUSION_BUILTIN_VARIANTS } from "./fusion"
-import { FUSION_NPM, FUSION_MODEL_ID, FUSION_BUILTIN_VARIANTS } from "./fusion"
+export { FUSION_NPM, FUSION_MODEL_ID, fusionPreset, FUSION_BUILTIN_VARIANTS } from "@nikcli-ai/util/fusion"
+import { FUSION_NPM, FUSION_MODEL_ID, FUSION_BUILTIN_VARIANTS } from "@nikcli-ai/util/fusion"
 
 export function variants(model: Provider.Model): Record<string, Record<string, any>> {
   if (model.api.npm === FUSION_NPM && model.api.id === FUSION_MODEL_ID) {

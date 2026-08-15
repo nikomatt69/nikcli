@@ -5,12 +5,14 @@
   "type": "module",
   "license": "MIT",
   "exports": {
+    "./remote-tunnel": "./src/remote-tunnel/index.ts",
     "./*": "./src/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@nikcli-ai/remote": "workspace:*",
     "effect": "4.0.0-beta.83",
     "xdg-basedir": "5.1.0",
     "zod": "catalog:"

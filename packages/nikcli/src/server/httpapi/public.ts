@@ -9,6 +9,7 @@ import { ContractExtraHttpApi } from "./contract-extra"
 import { MobileHttpApi } from "./mobile"
 import { MobileHandlersLive } from "./mobile-handlers"
 import { BrainHttpApi } from "./brain"
+import { ProfileHttpApi } from "./profile"
 import { ConfigHttpApi } from "./config"
 import { ConnectorsHttpApi } from "./connectors"
 import { DoctorHttpApi } from "./doctor"
@@ -40,6 +41,7 @@ export namespace PublicHttpApi {
     .add(AnalyticsHttpApi.Group)
     .add(AppHttpApi.Group)
     .add(BrainHttpApi.Group)
+    .add(ProfileHttpApi.Group)
     .add(ConfigHttpApi.Group)
     .add(ConnectorsHttpApi.Group)
     .add(DoctorHttpApi.Group)
@@ -162,6 +164,7 @@ export namespace PublicHttpApi {
       .handle("showToast", (request) => TuiHttpApi.handlers.showToast(request))
       .handle("publish", (request) => TuiHttpApi.handlers.publish(request))
       .handle("selectSession", (request) => TuiHttpApi.handlers.selectSession(request))
+      .handle("config", () => TuiHttpApi.handlers.config())
       .handle("controlNext", () => TuiHttpApi.handlers.controlNext())
       .handle("controlResponse", (request) => TuiHttpApi.handlers.controlResponse(request)),
   )
@@ -237,6 +240,16 @@ export namespace PublicHttpApi {
     handlers
       .handle("status", () => BrainHttpApi.handlers.status())
       .handle("trigger", (request) => BrainHttpApi.handlers.trigger(request)),
+  )
+
+  const ProfileHandlersLive = HttpApiBuilder.group(Api, "profile", (handlers) =>
+    handlers
+      .handle("get", () => ProfileHttpApi.handlers.get())
+      .handle("patch", (request) => ProfileHttpApi.handlers.patch(request))
+      .handle("clear", () => ProfileHttpApi.handlers.clear())
+      .handle("habits", (request) => ProfileHttpApi.handlers.habits(request))
+      .handle("preview", (request) => ProfileHttpApi.handlers.preview(request))
+      .handle("clearHabits", (request) => ProfileHttpApi.handlers.clearHabits(request)),
   )
 
   const ConnectorsHandlersLive = HttpApiBuilder.group(Api, "connectors", (handlers) =>
@@ -325,6 +338,7 @@ export namespace PublicHttpApi {
         AnalyticsHandlersLive,
         AppHandlersLive.pipe(Layer.provide(AppHttpApi.DependenciesLive)),
         BrainHandlersLive,
+        ProfileHandlersLive,
         ConfigHandlersLive.pipe(Layer.provide(ConfigHttpApi.DependenciesLive)),
         ConnectorsHandlersLive.pipe(Layer.provide(ConnectorsHttpApi.DependenciesLive)),
         DoctorHandlersLive.pipe(Layer.provide(DoctorHttpApi.DependenciesLive)),

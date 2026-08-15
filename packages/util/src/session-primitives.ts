@@ -1,4 +1,4 @@
-import { Identifier } from "@nikcli-ai/util/id"
+import { Identifier } from "./id"
 
 // Session primitives shared with client processes (TUI). They live outside
 // session/index.ts so the TUI can validate IDs, recognize default titles, and

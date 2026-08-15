@@ -29,6 +29,16 @@ import type {
   BrainStatusOutput,
   BrainTriggerInput,
   BrainTriggerOutput,
+  ProfileGetOutput,
+  ProfilePatchInput,
+  ProfilePatchOutput,
+  ProfileClearOutput,
+  ProfileHabitsInput,
+  ProfileHabitsOutput,
+  ProfilePreviewInput,
+  ProfilePreviewOutput,
+  ProfileClearHabitsInput,
+  ProfileClearHabitsOutput,
   ConfigGetOutput,
   ConfigUpdateInput,
   ConfigUpdateOutput,
@@ -442,6 +452,7 @@ import type {
   TuiPublishOutput,
   TuiSelectSessionInput,
   TuiSelectSessionOutput,
+  TuiConfigOutput,
   TuiControlNextOutput,
   TuiControlResponseInput,
   TuiControlResponseOutput,
@@ -814,6 +825,66 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/brain/trigger`,
             body: { force: input?.["force"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    profile: {
+      get: (requestOptions?: RequestOptions) =>
+        request<ProfileGetOutput>(
+          { method: "GET", path: `/profile`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      patch: (input: ProfilePatchInput, requestOptions?: RequestOptions) =>
+        request<ProfilePatchOutput>(
+          {
+            method: "PATCH",
+            path: `/profile`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      clear: (requestOptions?: RequestOptions) =>
+        request<ProfileClearOutput>(
+          { method: "DELETE", path: `/profile`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      habits: (input?: ProfileHabitsInput, requestOptions?: RequestOptions) =>
+        request<ProfileHabitsOutput>(
+          {
+            method: "GET",
+            path: `/profile/habits`,
+            query: { worktree: input?.["worktree"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      preview: (input?: ProfilePreviewInput, requestOptions?: RequestOptions) =>
+        request<ProfilePreviewOutput>(
+          {
+            method: "GET",
+            path: `/profile/preview`,
+            query: { worktree: input?.["worktree"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      clearHabits: (input?: ProfileClearHabitsInput, requestOptions?: RequestOptions) =>
+        request<ProfileClearHabitsOutput>(
+          {
+            method: "DELETE",
+            path: `/profile/habits`,
+            query: { worktree: input?.["worktree"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -3314,6 +3385,11 @@ export function make(options: ClientOptions) {
             declaredStatuses: [400, 404],
             empty: false,
           },
+          requestOptions,
+        ),
+      config: (requestOptions?: RequestOptions) =>
+        request<TuiConfigOutput>(
+          { method: "GET", path: `/tui/config`, successStatus: 200, declaredStatuses: [], empty: false },
           requestOptions,
         ),
       controlNext: (requestOptions?: RequestOptions) =>

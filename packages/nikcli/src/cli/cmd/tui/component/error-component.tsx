@@ -2,8 +2,8 @@ import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
 import { createSignal } from "solid-js"
-import { Installation } from "@/installation"
-import { restoreTerminalState } from "../win32"
+import { VERSION } from "@nikcli-ai/util/version"
+import { restoreTerminalState } from "@nikcli-ai/util/win32"
 
 export function ErrorComponent(props: {
   error: Error
@@ -51,7 +51,7 @@ export function ErrorComponent(props: {
     )
   }
 
-  issueURL.searchParams.set("nikcli-version", Installation.VERSION)
+  issueURL.searchParams.set("nikcli-version", VERSION)
 
   const copyIssueURL = () => {
     Clipboard.copy(issueURL.toString()).then(() => {

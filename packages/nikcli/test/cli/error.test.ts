@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { ConfigMarkdown } from "@/config/markdown"
 import { Config } from "@/config/config"
-import { FormatError, FormatUnknownError, formatStack } from "@/cli/error"
+import { FormatError, FormatUnknownError, formatStack } from "@nikcli-ai/util/cli-error"
 import { Agent } from "@/agent/agent"
 import { MCP } from "@/mcp"
 import { Provider } from "@/provider/provider"

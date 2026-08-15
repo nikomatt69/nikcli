@@ -5,7 +5,7 @@
  * These are kept dependency-free (no OpenTUI/Solid imports) so they can be
  * unit-tested in isolation, mirroring the style of `analytics-aggregator.ts`.
  */
-import type { DayStats, SessionStats, ToolUsageStats } from "@/cli/cmd/tui/util/analytics-aggregator"
+import type { DayStats, SessionStats, ToolUsageStats } from "@tui/util/analytics-aggregator"
 
 // ===== Period deltas =====
 

@@ -1,8 +1,11 @@
 import { createMemo, createResource, createSignal } from "solid-js"
 import { Effect } from "effect"
 import { Account } from "@/account"
-import { Profile } from "@/profile"
 import { runPromiseWithLayer } from "@/effect"
+import type { NikcliClient, ProfileInfo } from "@nikcli-ai/sdk/httpapi"
+
+/** The reply-length setting, as the contract spells it. */
+type ProfileVerbosity = NonNullable<NonNullable<ProfileInfo["communication"]>["verbosity"]>
 import { useProject } from "@tui/context/project"
 import { useSDK } from "@tui/context/sdk"
 import { useTheme } from "@tui/context/theme"
@@ -17,60 +20,48 @@ import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
  * `/profile` — the interactive editor for the personalization block every agent
  * receives (see `src/profile/profile.ts`).
  *
- * It talks to the `Profile` service in-process rather than through the SDK: the
- * profile is machine-local state keyed by the signed-in account, exactly like
- * the account sign-in dialog next to it. The skill and tool pickers *do* go
- * through the SDK, because those catalogs are the server's to answer.
+ * The profile itself lives on the server — it is per-account state it already owns — so this
+ * dialog reads and writes it over `/profile`. The prompt-block preview comes from
+ * `/profile/preview` rather than being re-rendered here: it shows what the server actually
+ * injects, and a second renderer would be one more thing to keep in step.
+ *
+ * The account e-mail is still read in-process; that dialog has not moved yet.
  */
 
-function runProfile<A, E>(effect: Effect.Effect<A, E, Profile.Service>): Promise<A> {
-  return runPromiseWithLayer(Profile.defaultLayer, effect)
+type ProfileInput = Partial<Omit<ProfileInfo, "version" | "key" | "updatedAt">>
+
+function loadProfile(client: NikcliClient) {
+  return client.profile
+    .get()
+    .then((result) => result.data ?? undefined)
+    .catch(() => undefined)
 }
 
-function loadProfile() {
-  return runProfile(
-    Effect.gen(function* () {
-      const profile = yield* Profile.Service
-      return yield* profile.get()
-    }),
-  ).catch(() => undefined)
+function patchProfile(client: NikcliClient, input: ProfileInput) {
+  return client.profile.patch(input as Parameters<NikcliClient["profile"]["patch"]>[0]).then((result) => result.data)
 }
 
-function patchProfile(input: Profile.Input) {
-  return runProfile(
-    Effect.gen(function* () {
-      const profile = yield* Profile.Service
-      return yield* profile.patch(input)
-    }),
-  )
+function clearProfile(client: NikcliClient) {
+  return client.profile.clear().then((result) => result.data?.deleted ?? false)
 }
 
-function clearProfile() {
-  return runProfile(
-    Effect.gen(function* () {
-      const profile = yield* Profile.Service
-      return yield* profile.clear()
-    }),
-  )
-}
-
-function loadHabits(worktree: string) {
+function loadHabits(client: NikcliClient, worktree: string) {
   if (!worktree) return Promise.resolve("")
-  return runProfile(
-    Effect.gen(function* () {
-      const profile = yield* Profile.Service
-      return yield* profile.habits(worktree)
-    }),
-  ).catch(() => "")
+  return client.profile
+    .habits({ worktree })
+    .then((result) => result.data?.content ?? "")
+    .catch(() => "")
 }
 
-function clearHabits(worktree: string) {
-  return runProfile(
-    Effect.gen(function* () {
-      const profile = yield* Profile.Service
-      return yield* profile.clearHabits(worktree)
-    }),
-  )
+function clearHabits(client: NikcliClient, worktree: string) {
+  return client.profile.clearHabits({ worktree }).then((result) => result.data?.deleted ?? false)
+}
+
+function loadPreview(client: NikcliClient, worktree: string) {
+  return client.profile
+    .preview({ worktree })
+    .then((result) => result.data ?? { lines: [], habitsFile: "" })
+    .catch(() => ({ lines: [] as readonly string[], habitsFile: "" }))
 }
 
 function activeEmail() {
@@ -136,17 +127,17 @@ export function DialogProfile() {
   const { theme } = useTheme()
 
   const project = useProject()
-  // Same root resolution the system prompt uses, so the file the dialog shows is
-  // the file the agents read.
-  const worktree = () =>
-    Profile.projectRoot({
-      directory: project.instance.directory(),
-      worktree: project.instance.path().worktree,
-    })
+  const sdk = useSDK()
+  // The server resolves the same root the system prompt uses, and reports the file it read, so
+  // the path the dialog shows is the path the agents read.
+  const worktree = () => project.instance.path().worktree || project.instance.directory()
 
-  const [profile, { refetch }] = createResource(loadProfile)
+  const [profile, { refetch }] = createResource(() => loadProfile(sdk.client))
   const [email] = createResource(activeEmail)
-  const [habits, { refetch: refetchHabits }] = createResource(worktree, (dir) => loadHabits(dir))
+  const [habits, { refetch: refetchHabits }] = createResource(worktree, (dir) => loadHabits(sdk.client, dir))
+  const [promptBlock, { refetch: refetchPreview }] = createResource(worktree, (dir) =>
+    loadPreview(sdk.client, dir),
+  )
 
   const habitLines = () => {
     const count = (habits() ?? "").split("\n").filter((line) => line.trim().startsWith("-")).length
@@ -155,11 +146,12 @@ export function DialogProfile() {
 
   const reopen = () => dialog.replace(() => <DialogProfile />)
 
-  async function apply(input: Profile.Input, message: string) {
+  async function apply(input: ProfileInput, message: string) {
     try {
-      await patchProfile(input)
+      await patchProfile(sdk.client, input)
       toast.show({ message, variant: "success" })
       await refetch()
+      await refetchPreview()
     } catch (error: any) {
       toast.show({ message: `Could not save: ${error?.message ?? error}`, variant: "error" })
     }
@@ -176,17 +168,14 @@ export function DialogProfile() {
       description: () => <text fg={theme.foreground.muted}>{`${meta.hint}${current ? " Enter - to clear." : ""}`}</text>,
     })
     if (result !== null) {
-      await apply({ [field]: result.trim() === "-" ? "" : result } as Profile.Input, `${meta.title} saved`)
+      await apply({ [field]: result.trim() === "-" ? "" : result } as ProfileInput, `${meta.title} saved`)
     }
     reopen()
   }
 
   async function showPreview() {
-    const info = profile()
-    const rendered = [
-      ...(info ? Profile.render(info) : []),
-      ...(info?.habits === false ? [] : Profile.renderHabits(habits() ?? "")),
-    ]
+    // Rendered by the server: this is the block it injects, not a second opinion about it.
+    const rendered = [...(promptBlock()?.lines ?? [])]
     await DialogAlert.show(
       dialog,
       "What agents receive",
@@ -212,11 +201,11 @@ export function DialogProfile() {
     const confirmed = await DialogConfirm.show(
       dialog,
       "Forget learned habits",
-      `Delete ${Profile.habitsFile(worktree())}? Everything nikcli learned about how you work in this project is lost.`,
+      `Delete ${(promptBlock()?.habitsFile ?? worktree())}? Everything nikcli learned about how you work in this project is lost.`,
       "cancel",
     )
     if (confirmed) {
-      await clearHabits(worktree()).catch(() => false)
+      await clearHabits(sdk.client, worktree()).catch(() => false)
       await refetchHabits()
       toast.show({ message: "Learned habits deleted", variant: "success" })
     }
@@ -231,7 +220,7 @@ export function DialogProfile() {
       "cancel",
     )
     if (confirmed) {
-      await clearProfile().catch(() => false)
+      await clearProfile(sdk.client).catch(() => false)
       toast.show({ message: "Profile reset", variant: "success" })
     }
     reopen()
@@ -351,7 +340,7 @@ export function DialogProfile() {
     result.push({
       title: "Review learned habits",
       value: "habits.review",
-      description: `${Profile.habitsFile(worktree())} — edit or delete anything wrong`,
+      description: `${(promptBlock()?.habitsFile ?? worktree())} — edit or delete anything wrong`,
       category: "Learned habits",
       onSelect: () => void showHabits(),
     })
@@ -395,13 +384,14 @@ function DialogProfileList(props: { field: ListField }) {
   const toast = useToast()
   const { theme } = useTheme()
   const meta = LIST_FIELDS[props.field]
+  const sdk = useSDK()
 
-  const [profile, { refetch }] = createResource(loadProfile)
+  const [profile, { refetch }] = createResource(() => loadProfile(sdk.client))
   const values = createMemo(() => (profile()?.[props.field] as string[] | undefined) ?? [])
 
   async function write(next: string[]) {
     try {
-      await patchProfile({ [props.field]: next } as Profile.Input)
+      await patchProfile(sdk.client, { [props.field]: next } as ProfileInput)
       await refetch()
     } catch (error: any) {
       toast.show({ message: `Could not save: ${error?.message ?? error}`, variant: "error" })
@@ -529,7 +519,7 @@ function TogglePicker(props: {
 function DialogProfileSkills() {
   const sdk = useSDK()
   const toast = useToast()
-  const [profile] = createResource(loadProfile)
+  const [profile] = createResource(() => loadProfile(sdk.client))
   const [skills] = createResource(async () => {
     const result = await sdk.client.app.skills()
     return result.data ?? []
@@ -543,7 +533,7 @@ function DialogProfileSkills() {
       catalog={() => (skills() ?? []).map((skill) => ({ id: skill.name, description: skill.description }))}
       initial={() => profile()?.skills ?? []}
       onDone={async (values) => {
-        await patchProfile({ skills: values }).catch((error: any) =>
+        await patchProfile(sdk.client, { skills: values }).catch((error: any) =>
           toast.show({ message: `Could not save: ${error?.message ?? error}`, variant: "error" }),
         )
       }}
@@ -554,7 +544,7 @@ function DialogProfileSkills() {
 function DialogProfileTools(props: { kind: "preferred" | "avoid" }) {
   const sdk = useSDK()
   const toast = useToast()
-  const [profile] = createResource(loadProfile)
+  const [profile] = createResource(() => loadProfile(sdk.client))
   const [tools] = createResource(async () => {
     const result = await sdk.client.tool.ids()
     return result.data ?? []
@@ -572,7 +562,7 @@ function DialogProfileTools(props: { kind: "preferred" | "avoid" }) {
       catalog={() => (tools() ?? []).map((id) => ({ id }))}
       initial={() => profile()?.tools?.[props.kind] ?? []}
       onDone={async (values) => {
-        await patchProfile({ tools: { ...profile()?.tools, [props.kind]: values } }).catch((error: any) =>
+        await patchProfile(sdk.client, { tools: { ...profile()?.tools, [props.kind]: values } }).catch((error: any) =>
           toast.show({ message: `Could not save: ${error?.message ?? error}`, variant: "error" }),
         )
       }}
@@ -582,10 +572,11 @@ function DialogProfileTools(props: { kind: "preferred" | "avoid" }) {
 
 function DialogProfileVerbosity() {
   const dialog = useDialog()
+  const sdk = useSDK()
   const toast = useToast()
-  const [profile] = createResource(loadProfile)
+  const [profile] = createResource(() => loadProfile(sdk.client))
 
-  const options = createMemo((): DialogSelectOption<Profile.Verbosity | "unset">[] => [
+  const options = createMemo((): DialogSelectOption<ProfileVerbosity | "unset">[] => [
     {
       title: "Concise",
       value: "concise",
@@ -617,8 +608,8 @@ function DialogProfileVerbosity() {
       title="Answer length"
       options={options()}
       current={profile()?.communication?.verbosity ?? "unset"}
-      onSelect={async (option: DialogSelectOption<Profile.Verbosity | "unset">) => {
-        await patchProfile({
+      onSelect={async (option: DialogSelectOption<ProfileVerbosity | "unset">) => {
+        await patchProfile(sdk.client, {
           communication: {
             ...profile()?.communication,
             verbosity: option.value === "unset" ? undefined : option.value,

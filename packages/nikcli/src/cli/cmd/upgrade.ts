@@ -4,7 +4,7 @@ import * as prompts from "@clack/prompts"
 import { Installation } from "../../installation"
 import { runPromiseWithLayer } from "@/effect"
 import { Effect } from "effect"
-import { TERMINAL_RESET_SEQUENCE } from "@/cli/cmd/tui/win32"
+import { TERMINAL_RESET_SEQUENCE } from "@nikcli-ai/util/win32"
 
 function runInstallation<A, E>(effect: Effect.Effect<A, E, Installation.Service>) {
   return runPromiseWithLayer(Installation.defaultLayer, effect)

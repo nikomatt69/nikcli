@@ -14,7 +14,7 @@ import { Installation } from "../installation"
 import { SessionError } from "./error"
 import { Log } from "@nikcli-ai/util/log"
 import { MessageV2 } from "./message-v2"
-import { SessionPrimitives } from "./primitives"
+import { SessionPrimitives } from "@nikcli-ai/util/session-primitives"
 import { fn } from "@/util/fn"
 import { Snapshot } from "@/snapshot"
 

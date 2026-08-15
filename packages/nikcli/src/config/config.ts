@@ -1,3 +1,4 @@
+import * as PluginSpecModule from "@nikcli-ai/util/plugin-spec"
 import { Log } from "@nikcli-ai/util/log"
 import path from "path"
 import { pathToFileURL } from "url"
@@ -476,25 +477,13 @@ export namespace Config {
     return uniqueSpecifiers.toReversed()
   }
 
-  export const PluginOptions = z.record(z.string(), z.unknown()).meta({
-    ref: "PluginOptionsConfig",
-  })
-  export type PluginOptions = z.infer<typeof PluginOptions>
-
-  export const PluginSpec = z.union([z.string(), z.tuple([z.string(), PluginOptions])]).meta({
-    ref: "PluginSpecConfig",
-  })
-  export type PluginSpec = z.infer<typeof PluginSpec>
-
-  export function pluginSpecifier(plugin: string | PluginSpec) {
-    if (typeof plugin === "string") return plugin
-    return plugin[0]
-  }
-
-  export function pluginOptions(plugin: string | PluginSpec) {
-    if (typeof plugin === "string") return
-    return plugin[1]
-  }
+  // Declared in @nikcli-ai/util/plugin-spec so a client can read a spec without the config module.
+  export const PluginOptions = PluginSpecModule.PluginOptions
+  export type PluginOptions = PluginSpecModule.PluginOptions
+  export const PluginSpec = PluginSpecModule.PluginSpec
+  export type PluginSpec = PluginSpecModule.PluginSpec
+  export const pluginSpecifier = PluginSpecModule.pluginSpecifier
+  export const pluginOptions = PluginSpecModule.pluginOptions
 
   export async function resolvePluginSpec(plugin: PluginSpec, configFilepath: string): Promise<PluginSpec> {
     const spec = pluginSpecifier(plugin)

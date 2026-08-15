@@ -69,8 +69,13 @@ describe("upgrade failure reporting", () => {
 
   it("makes the TUI toast fall back to stderr instead of the empty message", async () => {
     const app = await readSrc("packages/nikcli/src/cli/cmd/tui/app.tsx")
-    expect(app).toContain("error instanceof Installation.UpgradeFailedError")
-    expect(app).toContain("? error.stderr")
+    // Match on the name, never `instanceof`. The upgrade runs in the worker, so the error reaches
+    // the terminal as a plain `Error` rebuilt by `Rpc` — the class does not cross the boundary and
+    // the `instanceof` form this test used to require was dead, leaving the toast on its generic
+    // fallback for every failed update. See test/tui/rpc-error.test.ts.
+    expect(app).not.toContain("error instanceof Installation.UpgradeFailedError")
+    expect(app).toContain('error.name === "UpgradeFailedError"')
+    expect(app).toContain("? stderr")
     // The old handler showed a blank toast body for every failed update.
     expect(app).not.toContain('message: error instanceof Error ? error.message : "Update failed"')
   })

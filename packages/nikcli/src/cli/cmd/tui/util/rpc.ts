@@ -25,10 +25,16 @@ export namespace Rpc {
 
   function serializeError(error: unknown) {
     if (error instanceof Error) {
+      // Carry the extra fields too. Effect's tagged errors keep the actual reason in one of them
+      // — `UpgradeFailedError.stderr` is the whole message, while `.message` is empty — so
+      // name/message/stack alone arrives on the other side as a failure with nothing to show.
+      const { name: _n, message: _m, stack: _s, ...rest } = error as Error & Record<string, unknown>
+      const data = JSON.parse(JSON.stringify(rest ?? {})) as Record<string, unknown>
       return {
         name: error.name,
         message: error.message,
         stack: error.stack,
+        data,
       }
     }
     return {
@@ -37,10 +43,15 @@ export namespace Rpc {
     }
   }
 
-  function deserializeError(input: { name?: string; message?: string; stack?: string }) {
+  /**
+   * The receiver gets a plain `Error`: the class cannot cross a worker boundary, so `instanceof`
+   * against the original type is always false there. Match on `name` and read `data` instead.
+   */
+  function deserializeError(input: { name?: string; message?: string; stack?: string; data?: unknown }) {
     const error = new Error(input.message ?? "RPC request failed")
     error.name = input.name ?? "Error"
     error.stack = input.stack
+    if (input.data && typeof input.data === "object") Object.assign(error, input.data)
     return error
   }
 

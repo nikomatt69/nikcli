@@ -27,7 +27,7 @@ import type {
   VizSeverity,
   VizTreeNode,
   VizThreshold,
-} from "@/tool/opentui"
+} from "@nikcli-ai/util/viz"
 
 export type DialogOpenTUIVizProps = {
   spec: OpenTUIVizSpecType

@@ -8,10 +8,10 @@ import { Log } from "@nikcli-ai/util/log"
 import { withNetworkOptions, resolveNetworkOptions, shouldStartHttpServer } from "@/cli/network"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
 import type { EventSource } from "./context/sdk"
-import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
+import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "@nikcli-ai/util/win32"
 import { errorMessage } from "@nikcli-ai/util/error-format"
 import { Process } from "@nikcli-ai/util/process"
-import { SessionPrimitives } from "@/session/primitives"
+import { SessionPrimitives } from "@nikcli-ai/util/session-primitives"
 
 declare global {
   const NIKCLI_WORKER_PATH: string

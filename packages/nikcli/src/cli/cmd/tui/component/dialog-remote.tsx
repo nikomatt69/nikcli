@@ -7,7 +7,7 @@ import { DialogSelect } from "@tui/ui/dialog-select"
 import { useSDK } from "@tui/context/sdk"
 import { useToast } from "@tui/ui/toast"
 import { connectToTerminal, generateQR, type TunnelProvider, type TerminalConnection } from "@nikcli-ai/remote"
-import { remoteService, type RemoteSession } from "@/cli/remote"
+import { remoteService, type RemoteSession } from "@nikcli-ai/util/remote-tunnel"
 
 interface RemoteConfig {
   enableTunnel?: boolean

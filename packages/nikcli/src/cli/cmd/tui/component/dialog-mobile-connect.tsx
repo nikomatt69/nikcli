@@ -3,8 +3,7 @@ import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { generateQRMatrix } from "@nikcli-ai/remote"
-import { MobileAuth } from "@/mobile/auth"
-import { buildMobilePairingDeepLink, getLocalIPs, isLoopbackHostname } from "@/cli/cmd/mobile"
+import { buildMobilePairingDeepLink, getLocalIPs, isLoopbackHostname } from "@nikcli-ai/util/mobile-pairing"
 import { useDialog } from "@tui/ui/dialog"
 import { useTheme } from "@tui/context/theme"
 import { useSDK } from "@tui/context/sdk"
@@ -659,8 +658,10 @@ function LocalMobileConnect(props: { onBack: () => void }) {
   function watchConnection(tokenID: string) {
     if (activityTimer) clearInterval(activityTimer)
     activityTimer = setInterval(() => {
-      void MobileAuth.list().then((tokens) => {
-        const token = tokens.find((item) => item.id === tokenID)
+      // Server state, so read it from the server: the token's `lastUsedAt` is what proves the
+      // phone actually connected.
+      void sdk.client.mobile.auth.token.list().then((result) => {
+        const token = (result.data ?? []).find((item) => item.id === tokenID)
         if (!token?.lastUsedAt) return
         setConnected(true)
         setStatus("Mobile app connected")

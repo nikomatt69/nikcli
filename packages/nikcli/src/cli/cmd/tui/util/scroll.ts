@@ -1,4 +1,4 @@
-import type { TuiConfig } from "@/config/tui"
+import type { TuiConfig } from "@nikcli-ai/sdk/httpapi"
 
 export interface ScrollAcceleration {
   tick(now?: number): number
@@ -34,7 +34,7 @@ class MacOSLikeAccel implements ScrollAcceleration {
   }
 }
 
-export function getScrollAcceleration(tuiConfig?: TuiConfig.Info): ScrollAcceleration {
+export function getScrollAcceleration(tuiConfig?: TuiConfig): ScrollAcceleration {
   if (tuiConfig?.scroll_acceleration?.enabled) {
     return new MacOSLikeAccel()
   }

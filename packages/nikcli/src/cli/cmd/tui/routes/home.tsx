@@ -12,7 +12,7 @@ import { useArgs } from "../context/args"
 import { useDirectory } from "../context/directory"
 import { useRouteData } from "@tui/context/route"
 import { usePromptRef } from "../context/prompt"
-import { Installation } from "@/installation"
+import { VERSION } from "@nikcli-ai/util/version"
 import type { BoxRenderable } from "@opentui/core"
 import { TuiPluginRuntime } from "../plugin"
 export function Home() {
@@ -164,7 +164,7 @@ export function Home() {
         </box>
         <box flexGrow={1} />
         <box flexShrink={0}>
-          <text fg={theme.foreground.muted}>{Installation.VERSION}</text>
+          <text fg={theme.foreground.muted}>{VERSION}</text>
         </box>
       </box>
       <TuiPluginRuntime.Slot name="home.footer" />

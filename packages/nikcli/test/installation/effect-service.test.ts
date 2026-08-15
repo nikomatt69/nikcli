@@ -13,7 +13,7 @@ import {
 } from "@/cli/cmd/tui/context/sdk"
 import fs from "fs/promises"
 import path from "path"
-import { TERMINAL_RESET_SEQUENCE } from "@/cli/cmd/tui/win32"
+import { TERMINAL_RESET_SEQUENCE } from "@nikcli-ai/util/win32"
 
 const root = path.resolve(import.meta.dir, "../../../..")
 
@@ -175,14 +175,18 @@ describe("Update dialog wiring (cross-platform)", () => {
   it("declares the update-available event with version, method and current", async () => {
     const source = await readSrc("packages/nikcli/src/installation/index.ts")
     expect(source).toContain("UpdateAvailable")
-    expect(source).toContain("installation.update-available")
+    // The name itself lives in @nikcli-ai/util/version, so clients can subscribe without loading
+    // the upgrade subsystem. Assert the wire value there and the reference here.
+    expect(source).toContain("InstallationEventName.updateAvailable")
+    const names = await readSrc("packages/util/src/version.ts")
+    expect(names).toContain('updateAvailable: "installation.update-available"')
     expect(source).toMatch(/version:\s*Schema\.String/)
     expect(source).toMatch(/current:\s*Schema\.optional\(Schema\.String\)/)
   })
 
   it("the TUI subscribes to installation.update-available and shows a confirm dialog", async () => {
     const source = await readSrc("packages/nikcli/src/cli/cmd/tui/app.tsx")
-    expect(source).toContain("Installation.Event.UpdateAvailable.type")
+    expect(source).toContain("InstallationEventName.updateAvailable")
     expect(source).toContain("DialogConfirm.show(")
     expect(source).toContain("Update Available")
   })

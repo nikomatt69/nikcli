@@ -8,7 +8,7 @@ import type { useSync } from "@tui/context/sync"
 import type { useSessionTabs } from "@tui/context/session-tabs"
 import type { useTheme } from "@tui/context/theme"
 import { Dialog as DialogUI, type useDialog } from "@tui/ui/dialog"
-import type { TuiConfig } from "@/config/tui"
+import type { TuiConfig } from "@nikcli-ai/sdk/httpapi"
 import { createPluginKeybind } from "../context/plugin-keybinds"
 import { createKeymapApi } from "./keymap"
 import { hasTheme } from "../context/theme"
@@ -18,7 +18,7 @@ import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
 import { DialogSelect, type DialogSelectOption as SelectOption } from "../ui/dialog-select"
 import type { useToast } from "../ui/toast"
-import { Installation } from "@/installation"
+import { VERSION } from "@nikcli-ai/util/version"
 import { TuiPluginRuntime } from "./runtime"
 import { createV2Data } from "./data"
 
@@ -31,7 +31,7 @@ export type RouteMap = Map<string, RouteEntry[]>
 
 type Input = {
   command: ReturnType<typeof useCommandDialog>
-  tuiConfig: TuiConfig.Info
+  tuiConfig: TuiConfig
   dialog: ReturnType<typeof useDialog>
   keybind: ReturnType<typeof useKeybind>
   kv: ReturnType<typeof useKV>
@@ -292,7 +292,7 @@ function stateApi(sync: ReturnType<typeof useSync>): TuiPluginApi["state"] {
 function appApi(): TuiPluginApi["app"] {
   return {
     get version() {
-      return Installation.VERSION
+      return VERSION
     },
   }
 }

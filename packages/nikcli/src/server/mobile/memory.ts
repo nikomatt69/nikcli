@@ -1,5 +1,5 @@
 import z from "zod"
-import { PromptStashStore } from "@/prompt/stash-store"
+import { PromptStashStore } from "@nikcli-ai/util/prompt-stash"
 import { MobilePromptStashCreateInput, listPromptHistory, listPromptStash, searchPromptMemories } from "./helpers"
 import { body, isResponse, json, query } from "./request"
 

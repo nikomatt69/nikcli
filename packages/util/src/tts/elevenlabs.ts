@@ -4,7 +4,7 @@
 
 import path from "path"
 import type { TTSProvider, TTSVoice, TTSRequest, TTSResponse, TTSProviderConfig } from "./provider"
-import { Global } from "@nikcli-ai/util/global"
+import { Global } from "../global"
 
 const ELEVENLABS_VOICES: TTSVoice[] = [
   { id: "YOq2y2Up4RgXP2HyXjE5", name: "Rachel" },

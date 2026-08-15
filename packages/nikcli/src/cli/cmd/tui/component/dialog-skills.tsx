@@ -5,7 +5,7 @@ import { DialogConfirm } from "@tui/ui/dialog-confirm"
 import { createMemo, createResource, createSignal, Match, onMount, Switch } from "solid-js"
 import { useSDK } from "@tui/context/sdk"
 import { useRoute } from "@tui/context/route"
-import { Skill } from "@/skill"
+import { skillCommandName } from "@nikcli-ai/util/skill-command"
 import { Global } from "@nikcli-ai/util/global"
 import { useToast } from "@tui/ui/toast"
 import { Keybind } from "@tui/util/keybind"
@@ -268,7 +268,7 @@ export function DialogSkills() {
         ]
           .filter(Boolean)
           .join(" - ")
-        const command = Skill.commandName(skill.name)
+        const command = skillCommandName(skill.name)
         const search = [
           skill.name,
           skill.description,

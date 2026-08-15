@@ -386,7 +386,7 @@ export function compat(raw: Raw, defaults: CompatDefaults = {}) {
       permission: {
         respond: result(raw.mobile.permissionRespond),
       },
-      project: {
+    project: {
         list: result0(raw.mobile.projectList),
       },
       pty: {
@@ -459,6 +459,14 @@ export function compat(raw: Raw, defaults: CompatDefaults = {}) {
     postConfigProfilesActivateName: result(raw["config-management"].profileActivate),
     postUserLogin: result(raw.users.login),
     postUserRegister: result(raw.users.register),
+    profile: {
+      clear: result0(raw.profile.clear),
+      clearHabits: result(raw.profile.clearHabits),
+      get: result0(raw.profile.get),
+      habits: result(raw.profile.habits),
+      patch: result(raw.profile.patch),
+      preview: result(raw.profile.preview),
+    },
     project: {
       current: result0(raw.project.current),
       list: result0(raw.project.list),
@@ -560,6 +568,7 @@ export function compat(raw: Raw, defaults: CompatDefaults = {}) {
     tui: {
       appendPrompt: result(raw.tui.appendPrompt),
       clearPrompt: result0(raw.tui.clearPrompt),
+      config: result0(raw.tui.config),
       control: {
         next: result0(raw.tui.controlNext),
         response: result(raw.tui.controlResponse),

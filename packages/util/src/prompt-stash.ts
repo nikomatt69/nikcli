@@ -1,13 +1,20 @@
 import path from "path"
 import { appendFile, writeFile } from "fs/promises"
-import { Global } from "@nikcli-ai/util/global"
-import type { PromptInfo } from "@/cli/cmd/tui/component/prompt/history"
-import { capPromptEntryBytes, dehydratePromptEntry } from "@nikcli-ai/util/prompt-blob"
+import { Global } from "./global"
+import { capPromptEntryBytes, dehydratePromptEntry } from "./prompt-blob"
 
+/**
+ * A stashed prompt as it sits on disk.
+ *
+ * `parts` is `unknown[]` because that is genuinely all this layer knows: it appends and rewrites
+ * JSONL and never looks inside a part. The composer that wrote the file owns the real shape and
+ * narrows on read — typing it here meant a server-side store importing a TUI component, which
+ * closed a dependency cycle between the two.
+ */
 export type StashEntry = {
   id: string
   input: string
-  parts: PromptInfo["parts"]
+  parts: unknown[]
   timestamp: number
 }
 
@@ -36,7 +43,7 @@ async function read() {
     .map((entry) => ({
       id: typeof entry.id === "string" && entry.id ? entry.id : String(entry.timestamp ?? Date.now()),
       input: typeof entry.input === "string" ? entry.input : "",
-      parts: Array.isArray(entry.parts) ? (entry.parts as PromptInfo["parts"]) : [],
+      parts: Array.isArray(entry.parts) ? entry.parts : [],
       timestamp: typeof entry.timestamp === "number" ? entry.timestamp : Date.now(),
     }))
     .slice(-MAX_STASH_ENTRIES)

@@ -35,7 +35,7 @@ import { useExit } from "../../context/exit"
 import { useEditorContext } from "../../context/editor"
 import { Clipboard } from "../../util/clipboard"
 import type { AssistantMessage, FilePart } from "@nikcli-ai/sdk/httpapi"
-import { TuiEvent } from "../../event"
+import { TuiEventName } from "@nikcli-ai/util/tui-event-schema"
 import { iife } from "@nikcli-ai/util/iife"
 import { userFacingParts } from "@nikcli-ai/util/user-error"
 import { Locale } from "@nikcli-ai/util/locale"
@@ -977,7 +977,7 @@ export function Prompt(props: PromptProps) {
   const pasteStyleId = syntax().getStyleId("extmark.paste")!
   let promptPartTypeId = 0
 
-  sdk.event.on(TuiEvent.PromptAppend.type, (evt) => {
+  sdk.event.on(TuiEventName.promptAppend, (evt) => {
     input.insertText(evt.properties.text)
     setTimeout(() => {
       input.getLayoutNode().markDirty()

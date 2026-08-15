@@ -1,13 +1,13 @@
 import { For, Show, createMemo } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { useTheme } from "@tui/context/theme"
-import type { Snapshot } from "@/snapshot"
+import type { FileDiff } from "@nikcli-ai/sdk/httpapi"
 import path from "node:path"
 
-type FileItem = { file: Snapshot.FileDiff; index: number; name: string; directory: string }
+type FileItem = { file: FileDiff; index: number; name: string; directory: string }
 type GroupedFiles = { directory: string; files: FileItem[] }
 
-export function order(files: Snapshot.FileDiff[]) {
+export function order(files: FileDiff[]) {
   return files
     .map((file, index) => ({ file, index, directory: path.dirname(file.file) }))
     .sort((a, b) => {
@@ -18,7 +18,7 @@ export function order(files: Snapshot.FileDiff[]) {
 }
 
 export function FileList(props: {
-  files: Snapshot.FileDiff[]
+  files: FileDiff[]
   selected: number
   comments: Map<string, number>
   onSelect: (index: number) => void

@@ -16,7 +16,7 @@ await fs.mkdir(path.join(process.env.XDG_CONFIG_HOME, "nikcli"), { recursive: tr
 const { Config } = await import("@/config/config")
 const { Global } = await import("@nikcli-ai/util/global")
 const { ConfigMarkdown } = await import("@/config/markdown")
-const { FormatError } = await import("@/cli/error")
+const { FormatError } = await import("@nikcli-ai/util/cli-error")
 const { MCP } = await import("@/mcp")
 const { Provider } = await import("@/provider/provider")
 const { extractResponseText, parseGitHubRemote } = await import("@/cli/cmd/github")

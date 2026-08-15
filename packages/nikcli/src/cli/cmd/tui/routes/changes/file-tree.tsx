@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { useTheme } from "@tui/context/theme"
-import type { Snapshot } from "@/snapshot"
+import type { FileDiff } from "@nikcli-ai/sdk/httpapi"
 import path from "node:path"
 import {
   allExpandedFileTreeDirectories,
@@ -16,7 +16,7 @@ import {
 } from "./file-tree-utils"
 
 export function FileTree(props: {
-  files: Snapshot.FileDiff[]
+  files: FileDiff[]
   selected: number
   comments: Map<string, number>
   onSelect: (index: number) => void
@@ -31,7 +31,7 @@ export function FileTree(props: {
 }) {
   const { theme } = useTheme()
 
-  const filtered = createMemo<Snapshot.FileDiff[]>(() => {
+  const filtered = createMemo<FileDiff[]>(() => {
     const filter = props.filterText ?? ""
     const lower = filter.toLowerCase()
     if (!lower) return props.files
@@ -307,7 +307,7 @@ export function FileTree(props: {
   )
 }
 
-export function fileTreeFileOrder(files: Snapshot.FileDiff[]): Snapshot.FileDiff[] {
+export function fileTreeFileOrder(files: FileDiff[]): FileDiff[] {
   // Stable order respecting tree structure (directories first, then files alphabetically).
   return files
     .map((file, index) => ({ file, index, directory: path.dirname(file.file), name: path.basename(file.file) }))

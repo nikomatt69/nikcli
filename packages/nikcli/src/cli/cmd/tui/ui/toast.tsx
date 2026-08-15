@@ -5,12 +5,12 @@ import { useTerminalDimensions } from "@opentui/solid"
 import { GlassBorder } from "../component/border"
 import { TextAttributes } from "@opentui/core"
 import z from "zod"
-import { TuiEvent } from "../event"
+import { TuiEventZod } from "@nikcli-ai/util/tui-event-schema"
 
 // `duration` stays optional at the call site: the zod schema fills the 5000ms
 // default at parse time, but the walker types the field as required.
-type ToastInput = Omit<z.input<typeof TuiEvent.ToastShow.properties>, "duration"> & { duration?: number }
-type ToastParsed = z.output<typeof TuiEvent.ToastShow.properties>
+type ToastInput = Omit<z.input<typeof TuiEventZod.toastShow>, "duration"> & { duration?: number }
+type ToastParsed = z.output<typeof TuiEventZod.toastShow>
 type ToastCurrent = Omit<ToastParsed, "duration">
 
 export type ToastOptions = ToastInput
@@ -110,7 +110,7 @@ function init() {
 
   const toast = {
     show(options: ToastInput) {
-      const parsedOptions = TuiEvent.ToastShow.properties.parse(options)
+      const parsedOptions = TuiEventZod.toastShow.parse(options)
       const { duration, ...currentToast } = parsedOptions
 
       const id = nextId++

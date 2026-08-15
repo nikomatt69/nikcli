@@ -37,7 +37,7 @@ import { Log } from "@nikcli-ai/util/log"
 import { createLru } from "@tui/util/lru-cache"
 import { createLatestOnlyAsync } from "@tui/util/signal"
 import type { Path } from "@nikcli-ai/sdk/httpapi"
-import { features } from "@/config/features"
+import { features } from "@nikcli-ai/util/features"
 import { appendInstructionNotice, type InstructionNotice } from "@nikcli-ai/util/instruction-delta"
 
 type BackgroundJob = {

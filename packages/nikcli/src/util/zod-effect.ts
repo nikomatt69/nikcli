@@ -104,6 +104,15 @@ function build(node: ZodAny, cache: Map<ZodAny, Converted>): Converted {
     }
     case "object":
       return { schema: object(node, cache) }
+    case "tuple": {
+      // Fixed-length positional shapes. `nikcli.json`'s plugin list uses one — a plugin is either
+      // a bare specifier or a `[specifier, options]` pair — so this is reachable from the config
+      // document, not a hypothetical.
+      const items = (def.items as ZodAny[]).map((item) => convert(item, cache).schema)
+      const rest = def.rest as ZodAny | undefined
+      if (!rest) return { schema: Schema.Tuple(items) }
+      return { schema: Schema.TupleWithRest(Schema.Tuple(items), [convert(rest, cache).schema]) }
+    }
     case "optional":
       return { schema: convert(def.innerType, cache).schema, [OPTIONAL]: true }
     case "nullable":

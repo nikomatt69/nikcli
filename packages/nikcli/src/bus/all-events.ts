@@ -8,7 +8,7 @@
  * event types if this file falls out of date.
  */
 import "@/bus/index"
-import "@/cli/cmd/tui/event"
+import "@/bus/tui-event"
 import "@/command/index"
 import "@/delegation/manager"
 import "@/file/index"

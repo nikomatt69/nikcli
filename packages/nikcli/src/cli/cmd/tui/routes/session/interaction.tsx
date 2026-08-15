@@ -6,7 +6,7 @@ import { useKeybind } from "../../context/keybind"
 import { tint, useTheme } from "../../context/theme"
 import { useTextareaKeybindings } from "../../component/textarea-keybindings"
 import { useDialog } from "../../ui/dialog"
-import type { AppSpecType, BodyComponentType, WidgetLeaf, StateValueType, InteractionColor } from "@/interaction/spec"
+import type { AppSpecType, BodyComponentType, WidgetLeaf, StateValueType, InteractionColor } from "@tui/util/interaction-spec"
 
 type AnyWidget = Extract<BodyComponentType, { type: string }>
 

@@ -21,7 +21,7 @@
  * layer wraps the latest snapshot in a store so SolidJS reactivity re-renders
  * only what changed.
  */
-import { decodeVizComponent, type VizComponent } from "@/tool/opentui"
+import { decodeVizComponent, type VizComponent } from "@nikcli-ai/util/viz"
 
 export type PartialVizSpec = {
   title: string
