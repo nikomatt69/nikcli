@@ -15,11 +15,7 @@ import { SessionSync } from "../projectors"
  * `SessionV2` (that namespace imports the prompt engine).
  */
 export namespace SessionV2Write {
-  export function persist(input: {
-    prepared: MessageV2.WithParts
-    promptData: string
-    projectID: string
-  }): void {
+  export function persist(input: { prepared: MessageV2.WithParts; promptData: string; projectID: string }): void {
     SessionSync.install()
     const sessionID = input.prepared.info.sessionID
     SyncEvent.run(
@@ -32,11 +28,7 @@ export namespace SessionV2Write {
       { projectID: input.projectID },
     )
     for (const part of input.prepared.parts) {
-      SyncEvent.run(
-        SessionSync.PartUpdated,
-        { sessionID, part },
-        { projectID: input.projectID },
-      )
+      SyncEvent.run(SessionSync.PartUpdated, { sessionID, part }, { projectID: input.projectID })
     }
   }
 }

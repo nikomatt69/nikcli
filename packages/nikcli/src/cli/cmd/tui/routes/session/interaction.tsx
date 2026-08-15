@@ -6,7 +6,13 @@ import { useKeybind } from "../../context/keybind"
 import { tint, useTheme } from "../../context/theme"
 import { useTextareaKeybindings } from "../../component/textarea-keybindings"
 import { useDialog } from "../../ui/dialog"
-import type { AppSpecType, BodyComponentType, WidgetLeaf, StateValueType, InteractionColor } from "@tui/util/interaction-spec"
+import type {
+  AppSpecType,
+  BodyComponentType,
+  WidgetLeaf,
+  StateValueType,
+  InteractionColor,
+} from "@tui/util/interaction-spec"
 
 type AnyWidget = Extract<BodyComponentType, { type: string }>
 
@@ -411,7 +417,15 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
                 {(opt: any) => {
                   const sel = () => getVal(w.id) === opt.value
                   return (
-                    <text fg={sel() ? theme.status.success.fg : isFocused() ? theme.foreground.default : theme.foreground.muted}>
+                    <text
+                      fg={
+                        sel()
+                          ? theme.status.success.fg
+                          : isFocused()
+                            ? theme.foreground.default
+                            : theme.foreground.muted
+                      }
+                    >
                       {sel() ? "◉" : "○"} {opt.label ?? opt.value}
                     </text>
                   )
@@ -432,7 +446,13 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
                   return (
                     <text
                       fg={
-                        onCursor() ? accent() : checked() ? theme.status.success.fg : isFocused() ? theme.foreground.default : theme.foreground.muted
+                        onCursor()
+                          ? accent()
+                          : checked()
+                            ? theme.status.success.fg
+                            : isFocused()
+                              ? theme.foreground.default
+                              : theme.foreground.muted
                       }
                     >
                       {onCursor() ? "›" : " "} [{checked() ? "✓" : " "}] {opt.label ?? opt.value}
@@ -447,7 +467,11 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
         <Match when={w.type === "checkbox"}>
           <box paddingLeft={1} flexDirection="row" gap={1}>
             <text fg={isFocused() ? accent() : theme.foreground.muted}>{isFocused() ? "›" : " "}</text>
-            <text fg={getVal(w.id) ? theme.status.success.fg : isFocused() ? theme.foreground.default : theme.foreground.muted}>
+            <text
+              fg={
+                getVal(w.id) ? theme.status.success.fg : isFocused() ? theme.foreground.default : theme.foreground.muted
+              }
+            >
               [{getVal(w.id) ? "✓" : " "}] {w.label}
             </text>
           </box>

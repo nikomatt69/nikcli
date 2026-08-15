@@ -440,9 +440,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         case "session.instructions.updated": {
           const { sessionID, delta } = event.properties
           if (!sessionID || !delta) break
-          setStore("session_instructions", sessionID, (current) =>
-            appendInstructionNotice(current, delta, Date.now()),
-          )
+          setStore("session_instructions", sessionID, (current) => appendInstructionNotice(current, delta, Date.now()))
           break
         }
 

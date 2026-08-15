@@ -2,7 +2,7 @@
  * Arabic catalog for the nikcli TUI. Key set MUST match `en.ts` exactly
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */
-import type { TuiMessageKey } from "./en";
+import type { TuiMessageKey } from "./en"
 
 export const ar: Record<TuiMessageKey, string> = {
   "prompt.example.todo": "ابحث عن تعليق TODO وأصلحه",
@@ -19,8 +19,7 @@ export const ar: Record<TuiMessageKey, string> = {
   "prompt.commands": "أوامر",
   "prompt.exitShellMode": "الخروج من وضع الشل",
   "session.revert.confirmTitle": "تأكيد الإعادة",
-  "session.revert.confirmBody":
-    "هل تريد بالتأكيد استعادة الرسائل التي تم التراجع عنها؟",
+  "session.revert.confirmBody": "هل تريد بالتأكيد استعادة الرسائل التي تم التراجع عنها؟",
   "session.revert.bannerCount": "تم التراجع عن {{count}} رسالة",
   "session.revert.bannerCountPlural": "تم التراجع عن {{count}} رسائل",
   "session.revert.bannerHint": "أو /redo للاستعادة",
@@ -77,4 +76,4 @@ export const ar: Record<TuiMessageKey, string> = {
   "session.cmd.closeSubagent": "إغلاق جلسة الوكيل الفرعي",
   "toast.copied": "تم النسخ إلى الحافظة",
   "session.category": "الجلسة",
-};
+}

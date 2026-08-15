@@ -2,7 +2,7 @@
  * Japanese catalog for the nikcli TUI. Key set MUST match `en.ts` exactly
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */
-import type { TuiMessageKey } from "./en";
+import type { TuiMessageKey } from "./en"
 
 export const ja: Record<TuiMessageKey, string> = {
   "prompt.example.todo": "TODO コメントを見つけて修正する",
@@ -19,11 +19,9 @@ export const ja: Record<TuiMessageKey, string> = {
   "prompt.commands": "コマンド",
   "prompt.exitShellMode": "シェルモードを終了",
   "session.revert.confirmTitle": "やり直しの確認",
-  "session.revert.confirmBody":
-    "取り消したメッセージを復元してもよろしいですか？",
+  "session.revert.confirmBody": "取り消したメッセージを復元してもよろしいですか？",
   "session.revert.bannerCount": "{{count}} 件のメッセージを取り消しました",
-  "session.revert.bannerCountPlural":
-    "{{count}} 件のメッセージを取り消しました",
+  "session.revert.bannerCountPlural": "{{count}} 件のメッセージを取り消しました",
   "session.revert.bannerHint": "または /redo で復元",
   "session.instructions.updated": "指示を更新しました · {{keys}}",
   "session.message.actionsTitle": "メッセージの操作",
@@ -78,4 +76,4 @@ export const ja: Record<TuiMessageKey, string> = {
   "session.cmd.closeSubagent": "サブエージェントセッションを閉じる",
   "toast.copied": "クリップボードにコピーしました",
   "session.category": "セッション",
-};
+}

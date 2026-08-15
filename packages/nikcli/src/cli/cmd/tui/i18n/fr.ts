@@ -2,7 +2,7 @@
  * French catalog for the nikcli TUI. Key set MUST match `en.ts` exactly
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */
-import type { TuiMessageKey } from "./en";
+import type { TuiMessageKey } from "./en"
 
 export const fr: Record<TuiMessageKey, string> = {
   "prompt.example.todo": "Trouve un commentaire TODO et corrige-le",
@@ -19,16 +19,14 @@ export const fr: Record<TuiMessageKey, string> = {
   "prompt.commands": "commandes",
   "prompt.exitShellMode": "quitter le mode shell",
   "session.revert.confirmTitle": "Confirmer le rétablissement",
-  "session.revert.confirmBody":
-    "Voulez-vous vraiment restaurer les messages annulés ?",
+  "session.revert.confirmBody": "Voulez-vous vraiment restaurer les messages annulés ?",
   "session.revert.bannerCount": "{{count}} message annulé",
   "session.revert.bannerCountPlural": "{{count}} messages annulés",
   "session.revert.bannerHint": "ou /redo pour restaurer",
   "session.instructions.updated": "Instructions mises à jour · {{keys}}",
   "session.message.actionsTitle": "Actions du message",
   "session.message.revert": "Annuler",
-  "session.message.revertDescription":
-    "annuler les messages et les modifications de fichiers",
+  "session.message.revertDescription": "annuler les messages et les modifications de fichiers",
   "session.message.copy": "Copier",
   "session.message.copyDescription": "texte du message dans le presse-papiers",
   "session.message.fork": "Dupliquer",
@@ -55,8 +53,7 @@ export const fr: Record<TuiMessageKey, string> = {
   "session.cmd.toggleDiffWrap": "Basculer le retour à la ligne du diff",
   "session.cmd.hideToolDetails": "Masquer les détails de l'outil",
   "session.cmd.showToolDetails": "Afficher les détails de l'outil",
-  "session.cmd.toggleScrollbar":
-    "Basculer la barre de défilement de la session",
+  "session.cmd.toggleScrollbar": "Basculer la barre de défilement de la session",
   "session.cmd.disableAnimations": "Désactiver les animations",
   "session.cmd.enableAnimations": "Activer les animations",
   "session.cmd.pageUp": "Page précédente",
@@ -79,4 +76,4 @@ export const fr: Record<TuiMessageKey, string> = {
   "session.cmd.closeSubagent": "Fermer la session du sous-agent",
   "toast.copied": "Copié dans le presse-papiers",
   "session.category": "Session",
-};
+}

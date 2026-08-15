@@ -85,7 +85,9 @@ export function DialogTour() {
       </box>
 
       <box flexDirection="row" gap={1} paddingTop={1}>
-        <For each={STEPS}>{(_s, i) => <text fg={i() === index() ? theme.accent.fg : theme.foreground.muted}>●</text>}</For>
+        <For each={STEPS}>
+          {(_s, i) => <text fg={i() === index() ? theme.accent.fg : theme.foreground.muted}>●</text>}
+        </For>
         <box flexGrow={1} />
         <box
           paddingLeft={2}

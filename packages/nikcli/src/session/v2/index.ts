@@ -52,19 +52,18 @@ export namespace SessionV2 {
    * Input for creating a new v2 session. Same fields HTTP `session.create`
    * accepts, plus an optional `sessionID` for callers that mint the id.
    */
-  export const CreateInput = z
-    .object({
-      sessionID: Identifier.schema("session").optional(),
-      parentID: Identifier.schema("session").optional(),
-      title: z.string().optional(),
-      permission: Session.Info.shape.permission,
-      skills: z.array(z.string()).optional(),
-      disabledInstructions: z.array(z.string()).optional(),
-      disabledTools: z.record(z.string(), z.boolean()).optional(),
-      workspaceID: Session.Info.shape.workspaceID,
-      github: zodObject(Session.GithubInfoSchema).optional(),
-      worktree: zodObject(Session.WorktreeInfoSchema).optional(),
-    })
+  export const CreateInput = z.object({
+    sessionID: Identifier.schema("session").optional(),
+    parentID: Identifier.schema("session").optional(),
+    title: z.string().optional(),
+    permission: Session.Info.shape.permission,
+    skills: z.array(z.string()).optional(),
+    disabledInstructions: z.array(z.string()).optional(),
+    disabledTools: z.record(z.string(), z.boolean()).optional(),
+    workspaceID: Session.Info.shape.workspaceID,
+    github: zodObject(Session.GithubInfoSchema).optional(),
+    worktree: zodObject(Session.WorktreeInfoSchema).optional(),
+  })
   export type CreateInput = z.infer<typeof CreateInput>
 
   /**

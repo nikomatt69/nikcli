@@ -60,10 +60,7 @@ export type ToolShape<Input = Record<string, unknown>, Metadata = Record<string,
 
 export type ReadShape = ToolShape<{ filePath?: string; offset?: number; limit?: number }>
 
-export type WriteShape = ToolShape<
-  { filePath?: string; content?: string },
-  { diagnostics?: DiagnosticsByPath }
->
+export type WriteShape = ToolShape<{ filePath?: string; content?: string }, { diagnostics?: DiagnosticsByPath }>
 
 export type EditShape = ToolShape<
   { filePath?: string; replaceAll?: boolean },
@@ -80,19 +77,13 @@ export type BashShape = ToolShape<
 
 export type GlobShape = ToolShape<{ pattern?: string; path?: string }, { count?: number }>
 
-export type GrepShape = ToolShape<
-  { pattern?: string; path?: string; include?: string },
-  { matches?: number }
->
+export type GrepShape = ToolShape<{ pattern?: string; path?: string; include?: string }, { matches?: number }>
 
 export type ListShape = ToolShape<{ path?: string }>
 
 export type TodoWriteShape = ToolShape<{ todos?: TodoEntry[] }, { todos?: TodoEntry[] }>
 
-export type QuestionShape = ToolShape<
-  { questions?: AskedQuestion[] },
-  { answers?: readonly (readonly string[])[] }
->
+export type QuestionShape = ToolShape<{ questions?: AskedQuestion[] }, { answers?: readonly (readonly string[])[] }>
 
 export type BrowserControlShape = ToolShape<{ action?: string }, { action?: string; name?: string }>
 

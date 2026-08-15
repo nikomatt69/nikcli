@@ -186,7 +186,9 @@ function View(props: { api: TuiPluginApi }) {
       <api.ui.DialogPrompt
         title={`Models for "${name}"`}
         placeholder="~anthropic/claude-opus-latest, ~openai/gpt-latest, ..."
-        description={() => <text fg={api.theme.current.foreground.muted}>comma or space separated OpenRouter slugs</text>}
+        description={() => (
+          <text fg={api.theme.current.foreground.muted}>comma or space separated OpenRouter slugs</text>
+        )}
         onCancel={() => show(api)}
         onConfirm={(rawModels) => {
           const models = rawModels

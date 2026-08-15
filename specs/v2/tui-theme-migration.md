@@ -1,8 +1,8 @@
 # TUI Theme Migration
 
-| Field  | Value                                              |
-| ------ | -------------------------------------------------- |
-| Status | **U3 and U2 done**                                 |
+| Field  | Value                                                          |
+| ------ | -------------------------------------------------------------- |
+| Status | **U3 and U2 done**                                             |
 | Scope  | `src/cli/cmd/tui/context/theme.tsx` and its 98 theme documents |
 
 ## Where It Stands

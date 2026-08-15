@@ -1,11 +1,11 @@
 # Event Stream Architecture
 
-| Field  | Value                                                                 |
-| ------ | --------------------------------------------------------------------- |
-| Status | **Implemented** 2026-08-14 (was roadmap E1)                            |
+| Field  | Value                                                                                  |
+| ------ | -------------------------------------------------------------------------------------- |
+| Status | **Implemented** 2026-08-14 (was roadmap E1)                                            |
 | Scope  | `src/server/httpapi/event-feed.ts`, `src/server/httpapi/event.ts`, `src/bus/global.ts` |
-| Buys   | O(1) encoding per event instead of O(connections); a real lag budget  |
-| Tests  | `test/server/event-feed.test.ts`                                      |
+| Buys   | O(1) encoding per event instead of O(connections); a real lag budget                   |
+| Tests  | `test/server/event-feed.test.ts`                                                       |
 
 ## Decision
 
@@ -43,7 +43,7 @@ The bus keeps owning event meaning, publication, and instance scoping. The feed 
 
 The proposal below describes Effect queues. The implementation uses the web stream that was already there: `EventFeed.stream` constructs the `ReadableStream` with `CountQueuingStrategy({ highWaterMark: LAG_BUDGET })`, which makes `controller.desiredSize` equal the budget minus the frames the reader has not consumed. It reaches zero exactly when the connection is `LAG_BUDGET` frames behind.
 
-This was chosen over introducing `Queue`/`Stream` because both handlers are plain functions returning a `Response`, served by the bridge *ahead* of the HttpApi router precisely because SSE is not a schema-encoded body. Wrapping them in an Effect stream layer would have been a larger change than the win it delivers, and `desiredSize` already measures the exact quantity the delivery law is about.
+This was chosen over introducing `Queue`/`Stream` because both handlers are plain functions returning a `Response`, served by the bridge _ahead_ of the HttpApi router precisely because SSE is not a schema-encoded body. Wrapping them in an Effect stream layer would have been a larger change than the win it delivers, and `desiredSize` already measures the exact quantity the delivery law is about.
 
 Consequence worth knowing: the `Connection` cannot read its own budget back, so the overflow message states the condition rather than a frame count.
 
@@ -74,7 +74,7 @@ The instance handler then called `Bus.subscribeAll(...)` once per connection; th
 1. **Encoding is per connection.** With `N` attached clients, `JSON.stringify` plus UTF-8 encoding runs `N` times for every event. Upstream measured the equivalent boundary at 8 KiB events: 10 clients went from 96.3 ms to 10.4 ms (−89.3%) and 50 clients from 553.9 ms to 12.4 ms (−97.8%) once the frame was encoded once. That measurement isolates the encoding boundary and does not claim socket throughput.
 2. **There is no lag budget.** `controller.enqueue` never refuses. A stalled reader accumulates in the stream's internal queue until the process runs out of memory; nothing evicts it, and nothing reports it.
 3. **A write failure is silent and terminal for that client.** A throwing `enqueue` is caught, logged at `debug`, and cleaned up. The client sees a closed stream with no typed reason.
-4. **`GlobalBus` was a bare `EventEmitter` with default limits.** No `setMaxListeners` call existed anywhere in the repo, so the eleventh concurrent `/global/event` connection triggered a `MaxListenersExceededWarning` that looked like a leak and was not one. Fixed twice over: `/global/event` now attaches one listener total, and `bus/global.ts` raises the cap to 200 — raised rather than removed, because at 0 the warning is disabled and a real leak becomes invisible. The cap still matters, because `/sync/stream`, the mobile session-lifecycle stream, and the workspace server each attach a listener *per connection*.
+4. **`GlobalBus` was a bare `EventEmitter` with default limits.** No `setMaxListeners` call existed anywhere in the repo, so the eleventh concurrent `/global/event` connection triggered a `MaxListenersExceededWarning` that looked like a leak and was not one. Fixed twice over: `/global/event` now attaches one listener total, and `bus/global.ts` raises the cap to 200 — raised rather than removed, because at 0 the warning is disabled and a real leak becomes invisible. The cap still matters, because `/sync/stream`, the mobile session-lifecycle stream, and the workspace server each attach a listener _per connection_.
 5. **Two wire shapes are load-bearing.** The instance stream sends unwrapped `{type, properties}`; the global stream sends `{payload: {...}}`. The TUI reads `data.type` directly, so serving the global envelope on the instance route silently drops every event client-side. Any refactor must preserve both shapes exactly.
 
 The cross-instance stream is intentional: `/global/event` sits outside the instance middleware because clients track several directories at once. The feed must not add request-instance filtering.
@@ -105,7 +105,7 @@ A shared PubSub stores each frame once and gives every subscriber a cursor, so r
 
 Independent eviction can be built on a dropping PubSub, but it requires retaining every subscription's child scope, a separate typed overflow signal (scope closure looks like interruption), serialization of registration/removal/eviction/publication, lag scans at capacity, and terminal handling for a "impossible" failed shared publish. That is a custom multicast protocol layered over PubSub.
 
-The benefit it would actually buy is queue-slot *references*, not frame copies — every independent queue holds the same immutable string. At 50 clients × 4,096 slots that is roughly 1.6 MiB of references before array overhead, likely dominated by HTTP, TLS, kernel, and client buffers.
+The benefit it would actually buy is queue-slot _references_, not frame copies — every independent queue holds the same immutable string. At 50 clients × 4,096 slots that is roughly 1.6 MiB of references before array overhead, likely dominated by HTTP, TLS, kernel, and client buffers.
 
 Independent queues capture the dominant win — encode once — with queue-local overflow semantics and a smaller failure domain. Revisit shared storage only if measurements after shared encoding show reference retention is material.
 

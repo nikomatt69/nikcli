@@ -2,7 +2,7 @@
  * Spanish catalog for the nikcli TUI. Key set MUST match `en.ts` exactly
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */
-import type { TuiMessageKey } from "./en";
+import type { TuiMessageKey } from "./en"
 
 export const es: Record<TuiMessageKey, string> = {
   "prompt.example.todo": "Encuentra un comentario TODO y arréglalo",
@@ -19,16 +19,14 @@ export const es: Record<TuiMessageKey, string> = {
   "prompt.commands": "comandos",
   "prompt.exitShellMode": "salir del modo shell",
   "session.revert.confirmTitle": "Confirmar rehacer",
-  "session.revert.confirmBody":
-    "¿Seguro que quieres restaurar los mensajes revertidos?",
+  "session.revert.confirmBody": "¿Seguro que quieres restaurar los mensajes revertidos?",
   "session.revert.bannerCount": "{{count}} mensaje revertido",
   "session.revert.bannerCountPlural": "{{count}} mensajes revertidos",
   "session.revert.bannerHint": "o /redo para restaurar",
   "session.instructions.updated": "Instrucciones actualizadas · {{keys}}",
   "session.message.actionsTitle": "Acciones del mensaje",
   "session.message.revert": "Revertir",
-  "session.message.revertDescription":
-    "deshacer mensajes y cambios de archivos",
+  "session.message.revertDescription": "deshacer mensajes y cambios de archivos",
   "session.message.copy": "Copiar",
   "session.message.copyDescription": "texto del mensaje al portapapeles",
   "session.message.fork": "Bifurcar",
@@ -55,8 +53,7 @@ export const es: Record<TuiMessageKey, string> = {
   "session.cmd.toggleDiffWrap": "Alternar ajuste de línea del diff",
   "session.cmd.hideToolDetails": "Ocultar detalles de la herramienta",
   "session.cmd.showToolDetails": "Mostrar detalles de la herramienta",
-  "session.cmd.toggleScrollbar":
-    "Alternar barra de desplazamiento de la sesión",
+  "session.cmd.toggleScrollbar": "Alternar barra de desplazamiento de la sesión",
   "session.cmd.disableAnimations": "Desactivar animaciones",
   "session.cmd.enableAnimations": "Activar animaciones",
   "session.cmd.pageUp": "Página arriba",
@@ -79,4 +76,4 @@ export const es: Record<TuiMessageKey, string> = {
   "session.cmd.closeSubagent": "Cerrar sesión del subagente",
   "toast.copied": "Copiado al portapapeles",
   "session.category": "Sesión",
-};
+}

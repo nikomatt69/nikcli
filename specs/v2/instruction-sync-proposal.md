@@ -1,10 +1,10 @@
 # Instruction Sync
 
-| Field  | Value                                                       |
-| ------ | ----------------------------------------------------------- |
-| Status | **Implemented** |
+| Field  | Value                                                                                    |
+| ------ | ---------------------------------------------------------------------------------------- |
+| Status | **Implemented**                                                                          |
 | Scope  | `src/session/instruction.ts`, `instruction-sync.ts`, `instruction-repo.ts`, `sync_event` |
-| Buys   | A stable prompt prefix, an auditable instruction history, and drift the user can see |
+| Buys   | A stable prompt prefix, an auditable instruction history, and drift the user can see     |
 
 ## Principle
 
@@ -34,13 +34,13 @@ Four consequences follow, and all four are load-bearing:
 
 A key is a string with an explicit namespace. Keys are machine-local for files; they are not cross-machine identities.
 
-| Kind      | Key                    | Identity                                              |
-| --------- | ---------------------- | ----------------------------------------------------- |
-| File      | `file:<absolute-path>` | `path.resolve` of the discovered path, no symlink walk |
-| URL       | `url:<url>`            | The URL as declared in config, not the redirect target |
-| Environment | `env`                | Singleton per session                                  |
-| Profile   | `profile`              | Singleton per session                                  |
-| Skill     | `skill:<name>`         | The skill's configured name                            |
+| Kind        | Key                    | Identity                                               |
+| ----------- | ---------------------- | ------------------------------------------------------ |
+| File        | `file:<absolute-path>` | `path.resolve` of the discovered path, no symlink walk |
+| URL         | `url:<url>`            | The URL as declared in config, not the redirect target |
+| Environment | `env`                  | Singleton per session                                  |
+| Profile     | `profile`              | Singleton per session                                  |
+| Skill       | `skill:<name>`         | The skill's configured name                            |
 
 Out of scope for this contract (still composed elsewhere, not folded here):
 
@@ -53,11 +53,11 @@ Out of scope for this contract (still composed elsewhere, not folded here):
 
 Every source read is tri-state. Empty content is observed absence, matching today's `filter(Boolean)` drop.
 
-| Status         | When                                                                 | Initial delta                         | Later delta                          |
-| -------------- | -------------------------------------------------------------------- | ------------------------------------- | ------------------------------------ |
-| `value`        | Read succeeded and the body is non-empty                             | Include hash                          | Include hash if it changed           |
-| `removed`      | Observed absence: missing file, empty file, HTTP 404                 | Omit (never present)                  | `"removed"` if it was stored         |
-| `unavailable`  | Transient: timeout, non-404 HTTP error, I/O error other than ENOENT  | **Blocks** the whole initial delta    | Keep the stored value, no key in delta |
+| Status        | When                                                                | Initial delta                      | Later delta                            |
+| ------------- | ------------------------------------------------------------------- | ---------------------------------- | -------------------------------------- |
+| `value`       | Read succeeded and the body is non-empty                            | Include hash                       | Include hash if it changed             |
+| `removed`     | Observed absence: missing file, empty file, HTTP 404                | Omit (never present)               | `"removed"` if it was stored           |
+| `unavailable` | Transient: timeout, non-404 HTTP error, I/O error other than ENOENT | **Blocks** the whole initial delta | Keep the stored value, no key in delta |
 
 Skill load failure and a missing profile are `removed` (observed absence of that optional source), not `unavailable`. Environment construction failure is `unavailable`.
 
@@ -195,7 +195,7 @@ Step 1 is independently revertible. Step 2 is the behavior-visible change and mu
 
 ## Non-Goals
 
-- Instruction sync does not decide *what* guidance a session should have — that is agent and skill selection.
+- Instruction sync does not decide _what_ guidance a session should have — that is agent and skill selection.
 - It does not make instruction files editable by the model.
 - Blob garbage collection is deliberately deferred; it needs the sync boundary defined first.
 - Hard-crash recovery of an in-flight admit (the write is transactional; a crash before commit is a no-op retry).

@@ -131,9 +131,7 @@ function importMonitors(database: BunDatabase, storageDir: string) {
 }
 
 function importShares(database: BunDatabase, storageDir: string) {
-  const insertSession = database.query(
-    `INSERT OR IGNORE INTO session_share (session_id, mode, data) VALUES (?, ?, ?)`,
-  )
+  const insertSession = database.query(`INSERT OR IGNORE INTO session_share (session_id, mode, data) VALUES (?, ?, ?)`)
   const insertLocal = database.query(
     `INSERT OR IGNORE INTO local_share
      (id, session_id, data, created_at, updated_at)

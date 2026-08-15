@@ -2,7 +2,7 @@
  * Portuguese catalog for the nikcli TUI. Key set MUST match `en.ts` exactly
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */
-import type { TuiMessageKey } from "./en";
+import type { TuiMessageKey } from "./en"
 
 export const pt: Record<TuiMessageKey, string> = {
   "prompt.example.todo": "Encontre um comentário TODO e corrija-o",
@@ -19,27 +19,23 @@ export const pt: Record<TuiMessageKey, string> = {
   "prompt.commands": "comandos",
   "prompt.exitShellMode": "sair do modo shell",
   "session.revert.confirmTitle": "Confirmar refazer",
-  "session.revert.confirmBody":
-    "Tem certeza de que deseja restaurar as mensagens revertidas?",
+  "session.revert.confirmBody": "Tem certeza de que deseja restaurar as mensagens revertidas?",
   "session.revert.bannerCount": "{{count}} mensagem revertida",
   "session.revert.bannerCountPlural": "{{count}} mensagens revertidas",
   "session.revert.bannerHint": "ou /redo para restaurar",
   "session.instructions.updated": "Instruções atualizadas · {{keys}}",
   "session.message.actionsTitle": "Ações da mensagem",
   "session.message.revert": "Reverter",
-  "session.message.revertDescription":
-    "desfazer mensagens e alterações de arquivos",
+  "session.message.revertDescription": "desfazer mensagens e alterações de arquivos",
   "session.message.copy": "Copiar",
-  "session.message.copyDescription":
-    "texto da mensagem para a área de transferência",
+  "session.message.copyDescription": "texto da mensagem para a área de transferência",
   "session.message.fork": "Bifurcar",
   "session.message.forkDescription": "criar uma nova sessão",
   "session.cmd.backgroundSubtask": "Subtarefa em segundo plano",
   "session.cmd.backgroundAgents": "Agentes em segundo plano",
   "session.cmd.share": "Compartilhar sessão",
   "session.cmd.copyShareLink": "Copiar link de compartilhamento",
-  "session.share.copied":
-    "URL de compartilhamento copiada para a área de transferência!",
+  "session.share.copied": "URL de compartilhamento copiada para a área de transferência!",
   "session.cmd.hideSidebar": "Ocultar barra lateral",
   "session.cmd.showSidebar": "Mostrar barra lateral",
   "session.cmd.rename": "Renomear sessão",
@@ -80,4 +76,4 @@ export const pt: Record<TuiMessageKey, string> = {
   "session.cmd.closeSubagent": "Fechar sessão do subagente",
   "toast.copied": "Copiado para a área de transferência",
   "session.category": "Sessão",
-};
+}

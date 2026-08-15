@@ -102,9 +102,11 @@ describe("session goal SQL", () => {
 
       expect(GoalRepo.remove(state.sessionID)).toBe(true)
       expect(GoalRepo.get(state.sessionID)).toBeUndefined()
-      expect(GoalRepo.update(state.sessionID, (draft) => {
-        draft.status = "active"
-      })).toBeUndefined()
+      expect(
+        GoalRepo.update(state.sessionID, (draft) => {
+          draft.status = "active"
+        }),
+      ).toBeUndefined()
     })
   })
 })

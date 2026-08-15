@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test"
 import { RGBA } from "@opentui/core"
-import { contrastFg, deriveSemanticTokens, luminance, tint, type TokenSource } from "../../src/cli/cmd/tui/context/theme-tokens"
+import {
+  contrastFg,
+  deriveSemanticTokens,
+  luminance,
+  tint,
+  type TokenSource,
+} from "../../src/cli/cmd/tui/context/theme-tokens"
 
 function rgb(r: number, g: number, b: number): RGBA {
   return RGBA.fromInts(r, g, b)
@@ -163,7 +169,8 @@ describe("TUI callers", () => {
   it("do not read retired flat theme keys outside the theme module", async () => {
     const root = new URL("../../src/cli/cmd/tui/", import.meta.url)
     const glob = new Bun.Glob("**/*.{ts,tsx}")
-    const banned = /theme\.(textMuted|text|primary|secondary|warning|error|success|info|backgroundPanel|backgroundElement|backgroundMenu|background|borderSubtle|borderActive)\b/
+    const banned =
+      /theme\.(textMuted|text|primary|secondary|warning|error|success|info|backgroundPanel|backgroundElement|backgroundMenu|background|borderSubtle|borderActive)\b/
     const bareAccent = /theme\.accent(?!\.\w)/
     const hits: string[] = []
     for await (const file of glob.scan({ cwd: root.pathname })) {

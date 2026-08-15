@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
-import { Database } from "@/database/database";
-import type { Session } from "@/session";
-import { localShare, sessionShare } from "./share.sql";
+import { eq } from "drizzle-orm"
+import { Database } from "@/database/database"
+import type { Session } from "@/session"
+import { localShare, sessionShare } from "./share.sql"
 
 /**
  * SQL-backed repository for share handles.
@@ -10,35 +10,35 @@ import { localShare, sessionShare } from "./share.sql";
  */
 export namespace ShareRepo {
   function db() {
-    return Database.syncDb();
+    return Database.syncDb()
   }
 
-  type Executor = Database.TxOrDb;
+  type Executor = Database.TxOrDb
 
   export type LocalShare = {
-    id: string;
-    sessionID: string;
-    url: string;
+    id: string
+    sessionID: string
+    url: string
     time: {
-      created: number;
-      updated: number;
-    };
-    items: Record<string, unknown>;
-  };
+      created: number
+      updated: number
+    }
+    items: Record<string, unknown>
+  }
 
   function readShare(data: string): Session.ShareInfo | undefined {
     try {
-      return JSON.parse(data) as Session.ShareInfo;
+      return JSON.parse(data) as Session.ShareInfo
     } catch {
-      return undefined;
+      return undefined
     }
   }
 
   function readLocal(data: string): LocalShare | undefined {
     try {
-      return JSON.parse(data) as LocalShare;
+      return JSON.parse(data) as LocalShare
     } catch {
-      return undefined;
+      return undefined
     }
   }
 
@@ -47,15 +47,11 @@ export namespace ShareRepo {
       .select({ data: sessionShare.data })
       .from(sessionShare)
       .where(eq(sessionShare.sessionId, sessionId))
-      .get();
-    return row ? readShare(row.data) : undefined;
+      .get()
+    return row ? readShare(row.data) : undefined
   }
 
-  export function put(
-    sessionId: string,
-    share: Session.ShareInfo,
-    executor: Executor = db(),
-  ): void {
+  export function put(sessionId: string, share: Session.ShareInfo, executor: Executor = db()): void {
     executor
       .insert(sessionShare)
       .values({
@@ -70,23 +66,16 @@ export namespace ShareRepo {
           data: JSON.stringify(share),
         },
       })
-      .run();
+      .run()
   }
 
   export function remove(sessionId: string, executor: Executor = db()): void {
-    executor
-      .delete(sessionShare)
-      .where(eq(sessionShare.sessionId, sessionId))
-      .run();
+    executor.delete(sessionShare).where(eq(sessionShare.sessionId, sessionId)).run()
   }
 
   export function getLocal(shareId: string): LocalShare | undefined {
-    const row = db()
-      .select({ data: localShare.data })
-      .from(localShare)
-      .where(eq(localShare.id, shareId))
-      .get();
-    return row ? readLocal(row.data) : undefined;
+    const row = db().select({ data: localShare.data }).from(localShare).where(eq(localShare.id, shareId)).get()
+    return row ? readLocal(row.data) : undefined
   }
 
   export function putLocal(share: LocalShare, executor: Executor = db()): void {
@@ -107,13 +96,10 @@ export namespace ShareRepo {
           updatedAt: share.time.updated,
         },
       })
-      .run();
+      .run()
   }
 
-  export function removeLocal(
-    shareId: string,
-    executor: Executor = db(),
-  ): void {
-    executor.delete(localShare).where(eq(localShare.id, shareId)).run();
+  export function removeLocal(shareId: string, executor: Executor = db()): void {
+    executor.delete(localShare).where(eq(localShare.id, shareId)).run()
   }
 }

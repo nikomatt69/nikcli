@@ -2,7 +2,7 @@
  * Hindi catalog for the nikcli TUI. Key set MUST match `en.ts` exactly
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */
-import type { TuiMessageKey } from "./en";
+import type { TuiMessageKey } from "./en"
 
 export const hi: Record<TuiMessageKey, string> = {
   "prompt.example.todo": "एक TODO टिप्पणी ढूँढें और उसे ठीक करें",
@@ -19,8 +19,7 @@ export const hi: Record<TuiMessageKey, string> = {
   "prompt.commands": "कमांड",
   "prompt.exitShellMode": "शेल मोड से बाहर",
   "session.revert.confirmTitle": "रीडो की पुष्टि",
-  "session.revert.confirmBody":
-    "क्या आप वाकई वापस लाए गए संदेशों को पुनर्स्थापित करना चाहते हैं?",
+  "session.revert.confirmBody": "क्या आप वाकई वापस लाए गए संदेशों को पुनर्स्थापित करना चाहते हैं?",
   "session.revert.bannerCount": "{{count}} संदेश वापस लाया गया",
   "session.revert.bannerCountPlural": "{{count}} संदेश वापस लाए गए",
   "session.revert.bannerHint": "या पुनर्स्थापित करने के लिए /redo",
@@ -77,4 +76,4 @@ export const hi: Record<TuiMessageKey, string> = {
   "session.cmd.closeSubagent": "सबएजेंट सत्र बंद करें",
   "toast.copied": "क्लिपबोर्ड पर कॉपी किया गया",
   "session.category": "सत्र",
-};
+}

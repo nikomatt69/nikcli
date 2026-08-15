@@ -2,7 +2,7 @@
  * Russian catalog for the nikcli TUI. Key set MUST match `en.ts` exactly
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */
-import type { TuiMessageKey } from "./en";
+import type { TuiMessageKey } from "./en"
 
 export const ru: Record<TuiMessageKey, string> = {
   "prompt.example.todo": "Найди TODO-комментарий и исправь его",
@@ -19,8 +19,7 @@ export const ru: Record<TuiMessageKey, string> = {
   "prompt.commands": "команды",
   "prompt.exitShellMode": "выйти из режима shell",
   "session.revert.confirmTitle": "Подтвердить повтор",
-  "session.revert.confirmBody":
-    "Вы уверены, что хотите восстановить отменённые сообщения?",
+  "session.revert.confirmBody": "Вы уверены, что хотите восстановить отменённые сообщения?",
   "session.revert.bannerCount": "Отменено сообщений: {{count}}",
   "session.revert.bannerCountPlural": "Отменено сообщений: {{count}}",
   "session.revert.bannerHint": "или /redo для восстановления",
@@ -77,4 +76,4 @@ export const ru: Record<TuiMessageKey, string> = {
   "session.cmd.closeSubagent": "Закрыть сессию субагента",
   "toast.copied": "Скопировано в буфер обмена",
   "session.category": "Сессия",
-};
+}

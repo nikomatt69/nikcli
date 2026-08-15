@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core"
 
 // ============================================================================
 // Monitors — SQL backend for the former ["monitor", sessionID, monitorID] tree
@@ -22,10 +22,7 @@ export const monitor = sqliteTable(
     updatedAt: integer("updated_at").notNull(),
   },
   (table) => ({
-    sessionIdx: index("idx_monitor_session").on(
-      table.sessionId,
-      table.createdAt,
-    ),
+    sessionIdx: index("idx_monitor_session").on(table.sessionId, table.createdAt),
     statusIdx: index("idx_monitor_status").on(table.status),
   }),
-);
+)

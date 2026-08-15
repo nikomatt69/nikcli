@@ -199,7 +199,9 @@ function FsRow(props: {
 }) {
   const { theme } = useTheme()
   const icon = props.icon ?? (props.sensitive ? "●" : props.ephemeral ? "◦" : "·")
-  const iconFg = props.iconFg ?? (props.sensitive ? theme.status.warning.fg : props.ephemeral ? theme.foreground.muted : theme.foreground.muted)
+  const iconFg =
+    props.iconFg ??
+    (props.sensitive ? theme.status.warning.fg : props.ephemeral ? theme.foreground.muted : theme.foreground.muted)
   const pathFg = theme.foreground.default
   const indent = "  ".repeat(props.indent)
   return (
@@ -483,7 +485,10 @@ function StatusRow(props: { ok: boolean; label: string; detail: string }) {
         {props.ok ? "●" : "○"}
       </text>
       <box width={20} flexShrink={0}>
-        <text fg={props.ok ? theme.foreground.default : theme.foreground.muted} attributes={props.ok ? TextAttributes.BOLD : undefined}>
+        <text
+          fg={props.ok ? theme.foreground.default : theme.foreground.muted}
+          attributes={props.ok ? TextAttributes.BOLD : undefined}
+        >
           {props.label}
         </text>
       </box>

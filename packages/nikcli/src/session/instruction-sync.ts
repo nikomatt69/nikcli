@@ -179,10 +179,7 @@ export namespace InstructionSync {
     const state = InstructionRepo.get(sessionID)
     if (!state) return { system: [], skillMessages: [], updates: [] }
 
-    const hashes = [
-      ...Object.values(state.data.epoch_values),
-      ...Object.values(state.data.values),
-    ]
+    const hashes = [...Object.values(state.data.epoch_values), ...Object.values(state.data.values)]
     const blobs = InstructionRepo.getBlobs([...new Set(hashes)])
     const prefix = renderKeys(state.data.epoch_order, state.data.epoch_values, blobs)
 

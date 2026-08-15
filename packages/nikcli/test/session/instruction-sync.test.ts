@@ -80,7 +80,9 @@ describe("instruction sync", () => {
       const first = InstructionSync.commit(sessionID, projectID, reads)
       expect(first.blocked).toBe(false)
       expect(first.delta).toBeDefined()
-      expect(Object.keys(first.delta ?? {}).sort()).toEqual([InstructionKey.env, InstructionKey.file("/tmp/AGENTS.md")].sort())
+      expect(Object.keys(first.delta ?? {}).sort()).toEqual(
+        [InstructionKey.env, InstructionKey.file("/tmp/AGENTS.md")].sort(),
+      )
 
       const state = InstructionRepo.get(sessionID)
       expect(state?.epochSeq).toBe(state?.updatedSeq)
@@ -157,9 +159,13 @@ describe("instruction sync", () => {
       expect(() =>
         Database.transaction((tx) => {
           InstructionRepo.putBlobs([{ hash, body }], tx)
-          SyncEvent.run(SessionSync.InstructionsUpdated, { delta: { [InstructionKey.file("/tmp/AGENTS.md")]: hash } } as any, {
-            projectID,
-          })
+          SyncEvent.run(
+            SessionSync.InstructionsUpdated,
+            { delta: { [InstructionKey.file("/tmp/AGENTS.md")]: hash } } as any,
+            {
+              projectID,
+            },
+          )
         }),
       ).toThrow(/sessionID/)
       expect(InstructionRepo.getBlob(hash)).toBeUndefined()
@@ -172,10 +178,7 @@ describe("instruction sync", () => {
       const { InstructionRepo } = await import("../../src/session/instruction-repo")
       const { Database } = await import("../../src/database/database")
       const { instructionBlob } = await import("../../src/session/instruction.sql")
-      InstructionSync.commit(sessionID, projectID, [
-        fileRead("same", "/tmp/a.md"),
-        fileRead("same", "/tmp/b.md"),
-      ])
+      InstructionSync.commit(sessionID, projectID, [fileRead("same", "/tmp/a.md"), fileRead("same", "/tmp/b.md")])
       const count = Database.use((db) => db.select().from(instructionBlob).all()).length
       expect(count).toBe(1)
       const hash = hashInstructionBody({ kind: "file", text: "same" })

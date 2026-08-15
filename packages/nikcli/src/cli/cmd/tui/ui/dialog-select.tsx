@@ -460,7 +460,11 @@ function Option(props: {
   return (
     <>
       <Show when={props.current}>
-        <text flexShrink={0} fg={props.active ? fg : props.current ? theme.accent.fg : theme.foreground.default} marginRight={0}>
+        <text
+          flexShrink={0}
+          fg={props.active ? fg : props.current ? theme.accent.fg : theme.foreground.default}
+          marginRight={0}
+        >
           ●
         </text>
       </Show>

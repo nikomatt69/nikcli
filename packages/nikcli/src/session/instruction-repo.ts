@@ -95,11 +95,7 @@ export namespace InstructionRepo {
 
   export function getBlobs(hashes: string[], tx: Executor = db()): Record<string, string> {
     if (hashes.length === 0) return {}
-    const rows = tx
-      .select()
-      .from(instructionBlob)
-      .where(inArray(instructionBlob.hash, hashes))
-      .all()
+    const rows = tx.select().from(instructionBlob).where(inArray(instructionBlob.hash, hashes)).all()
     const out: Record<string, string> = {}
     for (const row of rows) out[row.hash] = row.body
     return out

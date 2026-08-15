@@ -2,7 +2,7 @@
  * German catalog for the nikcli TUI. Key set MUST match `en.ts` exactly
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */
-import type { TuiMessageKey } from "./en";
+import type { TuiMessageKey } from "./en"
 
 export const de: Record<TuiMessageKey, string> = {
   "prompt.example.todo": "Finde einen TODO-Kommentar und behebe ihn",
@@ -19,16 +19,14 @@ export const de: Record<TuiMessageKey, string> = {
   "prompt.commands": "Befehle",
   "prompt.exitShellMode": "Shell-Modus verlassen",
   "session.revert.confirmTitle": "Wiederherstellung bestätigen",
-  "session.revert.confirmBody":
-    "Möchtest du die zurückgenommenen Nachrichten wirklich wiederherstellen?",
+  "session.revert.confirmBody": "Möchtest du die zurückgenommenen Nachrichten wirklich wiederherstellen?",
   "session.revert.bannerCount": "{{count}} Nachricht zurückgenommen",
   "session.revert.bannerCountPlural": "{{count}} Nachrichten zurückgenommen",
   "session.revert.bannerHint": "oder /redo zum Wiederherstellen",
   "session.instructions.updated": "Anweisungen aktualisiert · {{keys}}",
   "session.message.actionsTitle": "Nachrichtenaktionen",
   "session.message.revert": "Zurücknehmen",
-  "session.message.revertDescription":
-    "Nachrichten und Dateiänderungen rückgängig machen",
+  "session.message.revertDescription": "Nachrichten und Dateiänderungen rückgängig machen",
   "session.message.copy": "Kopieren",
   "session.message.copyDescription": "Nachrichtentext in die Zwischenablage",
   "session.message.fork": "Abzweigen",
@@ -78,4 +76,4 @@ export const de: Record<TuiMessageKey, string> = {
   "session.cmd.closeSubagent": "Subagent-Sitzung schließen",
   "toast.copied": "In die Zwischenablage kopiert",
   "session.category": "Sitzung",
-};
+}

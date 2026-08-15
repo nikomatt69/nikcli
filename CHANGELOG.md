@@ -3,6 +3,33 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.285.0 (August 2026)
+
+## Core
+
+- Update utility imports and enhance functionality (@nikomatt69)
+- Update utility imports and add new dependencies (@nikomatt69)
+- Update import paths for utility modules (@nikomatt69)
+- Enhance session tab functionality and introduce keybind utilities (@nikomatt69)
+- Streamline data fetching and enhance tool usage metrics (@nikomatt69)
+- Implement v2 session write path and enhance analytics functionality (@nikomatt69)
+- Enhance analytics performance and caching mechanisms (@nikomatt69)
+- Enhance instruction management and UI updates (@nikomatt69)
+- Implement instruction sync functionality and related database schema (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(instruction): implement instruction sync functionality and related database schema
+  - feat(instruction): enhance instruction management and UI updates
+  - feat(analytics): enhance analytics performance and caching mechanisms
+  - feat(analytics): implement v2 session write path and enhance analytics functionality
+  - refactor(analytics): streamline data fetching and enhance tool usage metrics
+  - feat(tui): enhance session tab functionality and introduce keybind utilities
+  - refactor(cli): update import paths for utility modules
+  - feat(dependencies): update utility imports and add new dependencies
+  - feat(cli): update utility imports and enhance functionality
+
 ## v1.277.0 (August 2026)
 
 ## Core

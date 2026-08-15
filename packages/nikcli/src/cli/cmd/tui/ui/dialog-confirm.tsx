@@ -75,17 +75,15 @@ export function DialogConfirm(props: DialogConfirmProps) {
                 dialog.clear()
               }}
             >
-              <text fg={key === store.active ? theme.badge.fg : theme.foreground.muted}>
-                {Locale.titlecase(key)}
-              </text>
+              <text fg={key === store.active ? theme.badge.fg : theme.foreground.muted}>{Locale.titlecase(key)}</text>
             </box>
           )}
         </For>
       </box>
       <box flexDirection="row" justifyContent="flex-end" paddingBottom={1}>
         <text fg={theme.foreground.muted}>
-          Y/N or <span style={{ fg: theme.foreground.default }}>←→</span> to switch, <span style={{ fg: theme.foreground.default }}>enter</span> to
-          confirm
+          Y/N or <span style={{ fg: theme.foreground.default }}>←→</span> to switch,{" "}
+          <span style={{ fg: theme.foreground.default }}>enter</span> to confirm
         </text>
       </box>
     </box>

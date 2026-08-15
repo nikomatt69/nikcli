@@ -685,7 +685,9 @@ function LocalMobileConnect(props: { onBack: () => void }) {
         </text>
         <text fg={theme.foreground.muted}>esc back</text>
       </box>
-      <text fg={connected() ? theme.status.success.fg : error() ? theme.status.error.fg : theme.foreground.muted}>{status()}</text>
+      <text fg={connected() ? theme.status.success.fg : error() ? theme.status.error.fg : theme.foreground.muted}>
+        {status()}
+      </text>
 
       <Show when={error()}>
         <box backgroundColor={theme.surface.offset} padding={1} flexDirection="column" gap={1}>

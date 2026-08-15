@@ -4,32 +4,32 @@ These documents explain V2 behavior that is difficult to recover from one source
 
 "V2" in nikcli names three separate, partially-landed things. Keep them apart when reading:
 
-| Name           | What it is                                                                                          | Where                       |
-| -------------- | --------------------------------------------------------------------------------------------------- | --------------------------- |
-| `MessageV2`    | The message/part shape the LLM layer and every client already use. Authoritative.                   | `src/session/message-v2.ts` |
+| Name           | What it is                                                                                                                            | Where                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `MessageV2`    | The message/part shape the LLM layer and every client already use. Authoritative.                                                     | `src/session/message-v2.ts` |
 | `SessionV2`    | The flat entry model. Reads are native; writes persist entries first and derive v1 from them. HTTP create/prompt go through this API. | `src/session/v2/*`          |
-| HttpApi ("v2") | The Effect `HttpApi` server surface that replaced Hono. Fully landed.                               | `src/server/httpapi/*`      |
+| HttpApi ("v2") | The Effect `HttpApi` server surface that replaced Hono. Fully landed.                                                                 | `src/server/httpapi/*`      |
 
 ## Current Contracts
 
-| Document                                          | Job                                                                                          |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| [Session](./session.md)                           | Explain admission, the step loop, retry, compaction, cancellation, and recovery boundaries.  |
+| Document                                            | Job                                                                                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Session](./session.md)                             | Explain admission, the step loop, retry, compaction, cancellation, and recovery boundaries.                                                      |
 | [Session v2 write path](./session-v2-write-path.md) | Entries persist first; v1 is `toV1*` of those entries. HTTP create/prompt share `SessionV2`. `prompt_data` stays on `message_info`. Implemented. |
-| [Tools](./tools.md)                               | Explain tool construction, registration, execution, truncation, and outcome laws.            |
+| [Tools](./tools.md)                                 | Explain tool construction, registration, execution, truncation, and outcome laws.                                                                |
 
 ## Decisions And Proposals
 
-| Document                                                                | Status                   | Job                                                                       |
-| ----------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------- |
-| [Catalog/config/plugin lifecycle](./catalog-config-plugin-lifecycle.md) | Accepted and implemented | Record why visible provider state is an invalidatable per-instance cache. |
-| [Event stream](./event-stream-architecture.md)                          | Accepted and implemented | One encoded feed, one lag budget per connection.                          |
-| [Instruction sync](./instruction-sync-proposal.md)                      | Implemented              | Instruction state is a hash delta instead of a per-request rebuild.       |
-| [Durable pending input](./durable-pending-input.md)                     | Implemented              | Pending row + promotion transaction; steer vs queue; compaction barrier.  |
-| [Restart continuation](./session-restart-continuation.md)               | Accepted and implemented | Continue interrupted sessions after a graceful server restart.            |
-| [Provider policy](./provider-policy.md)                                 | Accepted and implemented | Define ordered `provider.use` decisions and legacy compatibility.         |
+| Document                                                                | Status                   | Job                                                                                  |
+| ----------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
+| [Catalog/config/plugin lifecycle](./catalog-config-plugin-lifecycle.md) | Accepted and implemented | Record why visible provider state is an invalidatable per-instance cache.            |
+| [Event stream](./event-stream-architecture.md)                          | Accepted and implemented | One encoded feed, one lag budget per connection.                                     |
+| [Instruction sync](./instruction-sync-proposal.md)                      | Implemented              | Instruction state is a hash delta instead of a per-request rebuild.                  |
+| [Durable pending input](./durable-pending-input.md)                     | Implemented              | Pending row + promotion transaction; steer vs queue; compaction barrier.             |
+| [Restart continuation](./session-restart-continuation.md)               | Accepted and implemented | Continue interrupted sessions after a graceful server restart.                       |
+| [Provider policy](./provider-policy.md)                                 | Accepted and implemented | Define ordered `provider.use` decisions and legacy compatibility.                    |
 | [TUI theme migration](./tui-theme-migration.md)                         | U3 and U2 done           | Nested tokens derived from flat colors. `Theme` is nested-only; documents stay flat. |
-| [Session v2 write path](./session-v2-write-path.md)                     | Implemented              | Persist entries first; derive v1 from them; HTTP uses `SessionV2`.        |
+| [Session v2 write path](./session-v2-write-path.md)                     | Implemented              | Persist entries first; derive v1 from them; HTTP uses `SessionV2`.                   |
 
 ## Historical Context
 

@@ -120,7 +120,8 @@ export function Footer() {
               <text fg={theme.foreground.muted}>Brain: ...</text>
             </Show>
             <text fg={theme.foreground.default}>
-              <span style={{ fg: lsp().length > 0 ? theme.status.success.fg : theme.foreground.muted }}>•</span> {lsp().length} LSP
+              <span style={{ fg: lsp().length > 0 ? theme.status.success.fg : theme.foreground.muted }}>•</span>{" "}
+              {lsp().length} LSP
             </text>
             <Show when={mcp()}>
               <text fg={theme.foreground.default}>

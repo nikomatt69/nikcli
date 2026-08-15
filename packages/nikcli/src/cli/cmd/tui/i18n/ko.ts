@@ -2,7 +2,7 @@
  * Korean catalog for the nikcli TUI. Key set MUST match `en.ts` exactly
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */
-import type { TuiMessageKey } from "./en";
+import type { TuiMessageKey } from "./en"
 
 export const ko: Record<TuiMessageKey, string> = {
   "prompt.example.todo": "TODO 주석을 찾아서 수정하기",
@@ -76,4 +76,4 @@ export const ko: Record<TuiMessageKey, string> = {
   "session.cmd.closeSubagent": "하위 에이전트 세션 닫기",
   "toast.copied": "클립보드에 복사됨",
   "session.category": "세션",
-};
+}

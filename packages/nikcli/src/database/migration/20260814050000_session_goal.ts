@@ -51,9 +51,7 @@ export default {
     const root = path.join(path.dirname(filename), "storage", "goal")
     if (!fs.existsSync(root)) return
 
-    const insert = database.query(
-      `INSERT OR IGNORE INTO session_goal (session_id, data, updated_at) VALUES (?, ?, ?)`,
-    )
+    const insert = database.query(`INSERT OR IGNORE INTO session_goal (session_id, data, updated_at) VALUES (?, ?, ?)`)
     let imported = 0
     for (const file of listJsonFiles(root)) {
       const state = readJson(path.join(root, file))

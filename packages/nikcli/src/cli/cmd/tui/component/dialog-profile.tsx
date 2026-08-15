@@ -135,9 +135,7 @@ export function DialogProfile() {
   const [profile, { refetch }] = createResource(() => loadProfile(sdk.client))
   const [email] = createResource(activeEmail)
   const [habits, { refetch: refetchHabits }] = createResource(worktree, (dir) => loadHabits(sdk.client, dir))
-  const [promptBlock, { refetch: refetchPreview }] = createResource(worktree, (dir) =>
-    loadPreview(sdk.client, dir),
-  )
+  const [promptBlock, { refetch: refetchPreview }] = createResource(worktree, (dir) => loadPreview(sdk.client, dir))
 
   const habitLines = () => {
     const count = (habits() ?? "").split("\n").filter((line) => line.trim().startsWith("-")).length
@@ -165,7 +163,9 @@ export function DialogProfile() {
       value: current,
       // An empty submit is swallowed by the prompt itself, so clearing a field
       // needs a value that means "nothing".
-      description: () => <text fg={theme.foreground.muted}>{`${meta.hint}${current ? " Enter - to clear." : ""}`}</text>,
+      description: () => (
+        <text fg={theme.foreground.muted}>{`${meta.hint}${current ? " Enter - to clear." : ""}`}</text>
+      ),
     })
     if (result !== null) {
       await apply({ [field]: result.trim() === "-" ? "" : result } as ProfileInput, `${meta.title} saved`)
@@ -201,7 +201,7 @@ export function DialogProfile() {
     const confirmed = await DialogConfirm.show(
       dialog,
       "Forget learned habits",
-      `Delete ${(promptBlock()?.habitsFile ?? worktree())}? Everything nikcli learned about how you work in this project is lost.`,
+      `Delete ${promptBlock()?.habitsFile ?? worktree()}? Everything nikcli learned about how you work in this project is lost.`,
       "cancel",
     )
     if (confirmed) {
@@ -340,7 +340,7 @@ export function DialogProfile() {
     result.push({
       title: "Review learned habits",
       value: "habits.review",
-      description: `${(promptBlock()?.habitsFile ?? worktree())} — edit or delete anything wrong`,
+      description: `${promptBlock()?.habitsFile ?? worktree()} — edit or delete anything wrong`,
       category: "Learned habits",
       onSelect: () => void showHabits(),
     })

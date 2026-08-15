@@ -2,7 +2,7 @@
  * Italian catalog for the nikcli TUI. Key set MUST match `en.ts` exactly
  * (enforced by `test/tui/i18n-parity.test.ts`).
  */
-import type { TuiMessageKey } from "./en";
+import type { TuiMessageKey } from "./en"
 
 export const it: Record<TuiMessageKey, string> = {
   "prompt.example.todo": "Trova un commento TODO e correggilo",
@@ -19,8 +19,7 @@ export const it: Record<TuiMessageKey, string> = {
   "prompt.commands": "comandi",
   "prompt.exitShellMode": "esci dalla modalità shell",
   "session.revert.confirmTitle": "Conferma ripristino",
-  "session.revert.confirmBody":
-    "Sei sicuro di voler ripristinare i messaggi annullati?",
+  "session.revert.confirmBody": "Sei sicuro di voler ripristinare i messaggi annullati?",
   "session.revert.bannerCount": "{{count}} messaggio annullato",
   "session.revert.bannerCountPlural": "{{count}} messaggi annullati",
   "session.revert.bannerHint": "oppure /redo per ripristinare",
@@ -54,8 +53,7 @@ export const it: Record<TuiMessageKey, string> = {
   "session.cmd.toggleDiffWrap": "Attiva/disattiva a capo del diff",
   "session.cmd.hideToolDetails": "Nascondi dettagli strumento",
   "session.cmd.showToolDetails": "Mostra dettagli strumento",
-  "session.cmd.toggleScrollbar":
-    "Attiva/disattiva barra di scorrimento sessione",
+  "session.cmd.toggleScrollbar": "Attiva/disattiva barra di scorrimento sessione",
   "session.cmd.disableAnimations": "Disattiva animazioni",
   "session.cmd.enableAnimations": "Attiva animazioni",
   "session.cmd.pageUp": "Pagina su",
@@ -78,4 +76,4 @@ export const it: Record<TuiMessageKey, string> = {
   "session.cmd.closeSubagent": "Chiudi sessione subagente",
   "toast.copied": "Copiato negli appunti",
   "session.category": "Sessione",
-};
+}

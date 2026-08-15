@@ -221,7 +221,9 @@ export function FileTree(props: {
           <Show when={props.filterActive || props.filterText.length > 0}>
             <box flexDirection="row" gap={0} paddingBottom={1}>
               <text fg={theme.accent.fg}>{"/"}</text>
-              <text fg={theme.foreground.default}>{props.filterActive ? `${props.filterText}▊` : props.filterText}</text>
+              <text fg={theme.foreground.default}>
+                {props.filterActive ? `${props.filterText}▊` : props.filterText}
+              </text>
             </box>
           </Show>
           <text fg={theme.foreground.default}>
@@ -264,7 +266,11 @@ export function FileTree(props: {
                           selectFileNode(row.id)
                         }}
                       >
-                        <text fg={reviewed() ? theme.foreground.muted : theme.foreground.default} wrapMode="none" flexShrink={1}>
+                        <text
+                          fg={reviewed() ? theme.foreground.muted : theme.foreground.default}
+                          wrapMode="none"
+                          flexShrink={1}
+                        >
                           {`${indent}${row.name}`}
                         </text>
                         <box flexDirection="row" gap={1} flexShrink={0}>

@@ -49,7 +49,14 @@ describe("SessionEntry.toV1Part", () => {
       type: "tool",
       callID: "call_1",
       tool: "read",
-      state: { status: "completed", input: { path: "a.ts" }, output: "ok", title: "read", metadata: {}, time: { start: 1, end: 2 } },
+      state: {
+        status: "completed",
+        input: { path: "a.ts" },
+        output: "ok",
+        title: "read",
+        metadata: {},
+        time: { start: 1, end: 2 },
+      },
     } as MessageV2.Part)
 
     roundtrip({

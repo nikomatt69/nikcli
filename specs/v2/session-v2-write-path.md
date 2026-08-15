@@ -1,10 +1,10 @@
 # Session V2 Write Path
 
-| Field  | Value                                                                                          |
-| ------ | ---------------------------------------------------------------------------------------------- |
-| Status | **Implemented.** Slices 1–3 landed.                                                            |
-| Scope  | `src/session/v2/*`, `src/session/projectors.ts`, `MessageV2` stays the LLM layer               |
-| Buys   | One conversation write: entries are first-class; a projection throw rolls back the turn        |
+| Field  | Value                                                                                   |
+| ------ | --------------------------------------------------------------------------------------- |
+| Status | **Implemented.** Slices 1–3 landed.                                                     |
+| Scope  | `src/session/v2/*`, `src/session/projectors.ts`, `MessageV2` stays the LLM layer        |
+| Buys   | One conversation write: entries are first-class; a projection throw rolls back the turn |
 
 ## Principle
 
@@ -51,11 +51,11 @@ Projection is a function of the event payload plus already-committed rows, not o
 
 Every field `toModelMessages` and revert need is on an entry, except the remainder below. The v1 projector is `toV1*` of the entries just written.
 
-| Kind | Now on the entry |
-| ---- | ---------------- |
-| User message | `agent`, `model`, `system`, `format`, `tools`, `variant`, `summary`; `texts` keeps individual text parts (including synthetic / ignored) so ids are not collapsed by the display `text` join. File and agent parts already rode here. |
+| Kind              | Now on the entry                                                                                                                                                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| User message      | `agent`, `model`, `system`, `format`, `tools`, `variant`, `summary`; `texts` keeps individual text parts (including synthetic / ignored) so ids are not collapsed by the display `text` join. File and agent parts already rode here.                                     |
 | Assistant message | `path`, `parentID` on `start`; in-flight `cost` / `tokens` / `finish` / `error` / `structured` on `start` so a finish-step `message.updated` before `time.completed` still derives; `complete` is authoritative once it exists. `time.completed` is `complete.completed`. |
-| Parts | `snapshot`, `patch`, `step-start`, `step-finish` as streamed entries. They overlap `start` / `complete` but are not the same row: the part carries a snapshot hash the message-level entry does not, and `toModelMessages` emits `step-start` as its own UI part. |
+| Parts             | `snapshot`, `patch`, `step-start`, `step-finish` as streamed entries. They overlap `start` / `complete` but are not the same row: the part carries a snapshot hash the message-level entry does not, and `toModelMessages` emits `step-start` as its own UI part.         |
 
 User-typed text, file, and agent parts still fold into the `user` entry (clients would otherwise draw them twice). Compaction, subtask, snapshot, patch, and step markers on a user message are streamed entries of their own.
 

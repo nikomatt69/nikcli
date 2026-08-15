@@ -36,14 +36,7 @@ describe("analytics SQL", () => {
       )
       db.query(
         `INSERT INTO message_part (id, message_id, session_id, type, info, sort_key) VALUES (?, ?, ?, ?, ?, ?)`,
-      ).run(
-        "part_a",
-        "msg_a",
-        "ses_a",
-        "tool",
-        JSON.stringify({ tool: "read", state: { status: "completed" } }),
-        "0",
-      )
+      ).run("part_a", "msg_a", "ses_a", "tool", JSON.stringify({ tool: "read", state: { status: "completed" } }), "0")
 
       await Analytics.recordMessage({
         sessionID: "ses_a",
@@ -104,13 +97,7 @@ describe("analytics SQL", () => {
           )
           .run(id, project, title, `/tmp/${id}`, "1", "{}", created, updated)
 
-      const message = (
-        id: string,
-        sessionID: string,
-        role: string,
-        created: number,
-        info: Record<string, unknown>,
-      ) =>
+      const message = (id: string, sessionID: string, role: string, created: number, info: Record<string, unknown>) =>
         db
           .query(`INSERT INTO message_info (id, session_id, role, info, created_at) VALUES (?, ?, ?, ?, ?)`)
           .run(id, sessionID, role, JSON.stringify(info), created)
@@ -288,11 +275,9 @@ describe("analytics SQL", () => {
 
       const analyticsShare = (await import("@/database/migration/20260814040000_analytics_share")).default
       analyticsShare.up(Database.syncNative())
-      expect(
-        Database.syncNative()
-          .query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM analytics_share`)
-          .get()?.n,
-      ).toBe(1)
+      expect(Database.syncNative().query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM analytics_share`).get()?.n).toBe(
+        1,
+      )
 
       await fs.writeFile(
         path.join(storage, "share-state.json"),

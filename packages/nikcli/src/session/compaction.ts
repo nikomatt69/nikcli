@@ -443,7 +443,10 @@ When constructing the summary, try to stick to this template:
     }
     resetCompactionFailures(input.sessionID)
     Bus.publish(Event.Compacted, { sessionID: input.sessionID })
-    InstructionRepo.advanceEpoch(input.sessionID, InstructionRepo.latestAggregateSeq(input.ctx.project.id, input.sessionID))
+    InstructionRepo.advanceEpoch(
+      input.sessionID,
+      InstructionRepo.latestAggregateSeq(input.ctx.project.id, input.sessionID),
+    )
     return "continue"
   }
 

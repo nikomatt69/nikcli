@@ -1,11 +1,11 @@
 # Decision: Continue Sessions After A Graceful Server Restart
 
-| Field  | Value                                                            |
-| ------ | ---------------------------------------------------------------- |
-| Status | **Implemented** 2026-08-14 (was roadmap S2)                       |
+| Field  | Value                                                                                        |
+| ------ | -------------------------------------------------------------------------------------------- |
+| Status | **Implemented** 2026-08-14 (was roadmap S2)                                                  |
 | Scope  | `src/cli/cmd/serve.ts`, `src/session/prompt-state.ts`, `src/session/repo.ts`, `session_info` |
-| Buys   | `nikcli upgrade` and a server redeploy stop silently killing turns |
-| Tests  | `test/session/restart-continuation.test.ts`                      |
+| Buys   | `nikcli upgrade` and a server redeploy stop silently killing turns                           |
+| Tests  | `test/session/restart-continuation.test.ts`                                                  |
 
 ## Summary
 

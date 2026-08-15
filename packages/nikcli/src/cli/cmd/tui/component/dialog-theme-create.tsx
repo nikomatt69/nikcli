@@ -716,12 +716,7 @@ export function DialogThemeCreate() {
         </box>
 
         <box flexDirection="row" gap={1}>
-          <box
-            paddingLeft={1}
-            paddingRight={1}
-            backgroundColor={theme.surface.offset}
-            onMouseUp={() => dialog.clear()}
-          >
+          <box paddingLeft={1} paddingRight={1} backgroundColor={theme.surface.offset} onMouseUp={() => dialog.clear()}>
             <text fg={theme.foreground.muted}>Cancel</text>
           </box>
           <box

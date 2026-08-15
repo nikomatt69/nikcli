@@ -47,7 +47,13 @@ export function SessionTreeHeader(props: {
             <text fg={theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
               {"  ·  "}
             </text>
-            <text fg={theme.foreground.default} attributes={TextAttributes.DIM} wrapMode="word" flexGrow={1} minWidth={0}>
+            <text
+              fg={theme.foreground.default}
+              attributes={TextAttributes.DIM}
+              wrapMode="word"
+              flexGrow={1}
+              minWidth={0}
+            >
               {scope()}
             </text>
           </box>

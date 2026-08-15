@@ -116,7 +116,9 @@ export function FileList(props: {
           <Show when={props.filterActive || props.filterText.length > 0}>
             <box flexDirection="row" gap={0} paddingBottom={1}>
               <text fg={theme.accent.fg}>{"/"}</text>
-              <text fg={theme.foreground.default}>{props.filterActive ? `${props.filterText}▊` : props.filterText}</text>
+              <text fg={theme.foreground.default}>
+                {props.filterActive ? `${props.filterText}▊` : props.filterText}
+              </text>
             </box>
           </Show>
           <text fg={theme.foreground.default}>

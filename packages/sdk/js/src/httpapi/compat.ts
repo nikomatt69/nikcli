@@ -386,7 +386,7 @@ export function compat(raw: Raw, defaults: CompatDefaults = {}) {
       permission: {
         respond: result(raw.mobile.permissionRespond),
       },
-    project: {
+      project: {
         list: result0(raw.mobile.projectList),
       },
       pty: {

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core"
 
 // ============================================================================
 // Shares — SQL backend for ["session_share", sessionID] + ["local_share", id]
@@ -14,7 +14,7 @@ export const sessionShare = sqliteTable("session_share", {
   sessionId: text("session_id").primaryKey(),
   mode: text("mode"),
   data: text("data").notNull(),
-});
+})
 
 /**
  * The local-mode payload served at `/share/:id` when the remote hub is down.
@@ -34,4 +34,4 @@ export const localShare = sqliteTable(
   (table) => ({
     sessionIdx: index("idx_local_share_session").on(table.sessionId),
   }),
-);
+)
