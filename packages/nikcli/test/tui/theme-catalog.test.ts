@@ -25,7 +25,7 @@ describe("built-in theme catalog", () => {
 
   it("lists every JSON document plus the dim alias, including previously unwired themes", () => {
     const files = readdirSync(THEME_DIR).filter((name) => name.endsWith(".json"))
-    expect(files).toHaveLength(98)
+    expect(files).toHaveLength(148)
     expect(BUILT_IN_THEME_IDS).toHaveLength(files.length + 1)
     expect(BUILT_IN_THEME_IDS).toContain("dim")
     expect(BUILT_IN_THEME_IDS).toContain("shadow")
@@ -38,6 +38,24 @@ describe("built-in theme catalog", () => {
   it("loads a previously unwired theme on demand", async () => {
     const arctic = (await loadBuiltInTheme("arctic")) as { theme?: { primary?: unknown } }
     expect(arctic?.theme?.primary).toBeDefined()
+  })
+
+  it("loads a liquidglass theme with distinct dark and light variants", async () => {
+    const frost = (await loadBuiltInTheme("liquid-frost")) as {
+      theme?: {
+        primary?: { dark?: string; light?: string }
+        background?: { dark?: string; light?: string }
+        text?: { dark?: string; light?: string }
+      }
+    }
+    expect(frost?.theme?.primary?.dark).toBeDefined()
+    expect(frost?.theme?.primary?.light).toBeDefined()
+    expect(frost?.theme?.primary?.dark).not.toBe(frost?.theme?.primary?.light)
+    expect(frost?.theme?.background?.dark).toBe("transparent")
+    expect(frost?.theme?.background?.light).toBe("transparent")
+    expect(frost?.theme?.text?.dark).toBeDefined()
+    expect(frost?.theme?.text?.light).toBeDefined()
+    expect(frost?.theme?.text?.dark).not.toBe(frost?.theme?.text?.light)
   })
 
   it("resolves the dim alias to the shadow document", async () => {
