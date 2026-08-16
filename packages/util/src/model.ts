@@ -8,3 +8,8 @@ export function parseModel(model: string) {
     modelID: rest.join("/"),
   }
 }
+
+/** Inverse of `parseModel`: serialise a model id back to "providerID/modelID". */
+export function stringifyModel(model: { providerID: string; modelID: string }): string {
+  return `${model.providerID}/${model.modelID}`
+}

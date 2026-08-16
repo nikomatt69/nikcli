@@ -1331,13 +1331,46 @@ export namespace SessionPrompt {
     return providerDefaultModel()
   }
 
+  /**
+   * Resolve the model that a worker should use when it has no messages of its
+   * own yet. Walks through:
+   *
+   *  1. `sessionID`'s persisted `Session.Info.lastModel` (fast indexed column)
+   *  2. the messages stream of `sessionID` (covers sessions whose first model
+   *     was set but never re-persisted, e.g. before this feature shipped)
+   *  3. the caller's `Session.Info.lastModel` when `parentSessionID` is given —
+   *     this is the path a mission worker hits, since the mission session has
+   *     no messages but the session that fired `/mission/.../start` does
+   *  4. the global provider default (last resort)
+   *
+   * Implemented as a synchronous read against `SessionRepo` first so we do
+   * not have to scan messages for every prompt turn.
+   */
+  async function inheritedModel(
+    sessionID: string,
+    parentSessionID?: string,
+  ): Promise<{ providerID: string; modelID: string }> {
+    const own = SessionRepo.get(sessionID)
+    if (own?.lastModel) return own.lastModel
+    const ownFromMessages = await lastModel(sessionID).catch(() => undefined)
+    // `lastModel` already includes the global fallback, so distinguish "found
+    // a real model" from "fell back to default" by re-reading the column: if
+    // it's still empty the message stream had nothing usable either.
+    if (ownFromMessages && SessionRepo.get(sessionID)?.lastModel) return ownFromMessages
+    if (parentSessionID && parentSessionID !== sessionID) {
+      const parent = SessionRepo.get(parentSessionID)
+      if (parent?.lastModel) return parent.lastModel
+    }
+    return providerDefaultModel()
+  }
+
   async function prepareUserMessage(input: PromptInput) {
     // Opencode #28816: an inline `@agent` mention lives on input.parts as an
     // AgentPart; fall back to it when the top-level agent field is absent.
     const inlineAgentName = input.parts.find((p): p is MessageV2.AgentPart => p.type === "agent")?.name
     const agent = await agentRequired(input.agent ?? inlineAgentName ?? (await defaultAgent()))
 
-    const model = input.model ?? agent.model ?? (await lastModel(input.sessionID))
+    const model = input.model ?? agent.model ?? (await inheritedModel(input.sessionID, input.parentSessionID))
     const full =
       !input.variant && agent.variant
         ? await providerGetModel(model.providerID, model.modelID).catch(() => undefined)
@@ -1361,6 +1394,11 @@ export namespace SessionPrompt {
       format: input.format,
       variant,
     }
+
+    // Persist the resolved model on the session so subsequent prompts and any
+    // worker spawned from this session inherit it without re-resolving. Cheap
+    // indexed column write, skipped when the value is unchanged.
+    SessionRepo.setLastModel(input.sessionID, model)
 
     const parts = await Promise.all(
       input.parts.map(async (part): Promise<MessageV2.Part[]> => {
@@ -1923,6 +1961,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     agentList,
     defaultAgent,
     lastModel,
+    inheritedModel,
     providerGetModel,
     sessionGet,
     sessionUpdate,

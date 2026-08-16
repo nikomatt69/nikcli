@@ -283,6 +283,27 @@ export const MobileGithubBranch = z
   })
   .meta({ ref: "MobileGithubBranch" })
 
+export const MobileGithubImport = MobileGithubRepo.Import.meta({ ref: "MobileGithubImport" })
+
+export const MobileSessionMessageInput = z
+  .object({
+    messageID: z.string().optional(),
+    model: z
+      .object({
+        providerID: z.string(),
+        modelID: z.string(),
+      })
+      .optional(),
+    agent: z.string().optional(),
+    noReply: z.boolean().optional(),
+    tools: z.record(z.string(), z.boolean()).optional(),
+    format: z.unknown().optional(),
+    system: z.string().optional(),
+    variant: z.string().optional(),
+    parts: z.array(MessageV2.Part),
+  })
+  .meta({ ref: "MobileSessionMessageInput" })
+
 export const MobileGithubSessionCreateInput = z
   .object({
     owner: MobileGithubRepo.Owner,
@@ -314,7 +335,6 @@ export const MobileSessionCreateInput = z
     github: Session.Info.shape.github.optional(),
     executionTarget: MobileExecutionTarget.default("local"),
   })
-  .optional()
   .meta({ ref: "MobileSessionCreateInput" })
 
 export const MobileGithubSessionCreateResult = z
@@ -360,7 +380,6 @@ export const MobileGithubPublishInput = z
     body: z.string().optional(),
     commitMessage: z.string().optional(),
   })
-  .optional()
   .meta({ ref: "MobileGithubPublishInput" })
 
 export const MobileGithubPublishResult = z
@@ -503,6 +522,29 @@ export const MobileLoopTemplate = z
     }),
   })
   .meta({ ref: "MobileLoopTemplate" })
+
+/**
+ * Mobile contract aliases for shapes that exist elsewhere in the repo. The
+ * HttpApi contract lives in `src/server/httpapi/mobile.ts`; names are
+ * preserved here (with `Mobile…` prefix) so the SDK gets a typed entry per
+ * endpoint instead of `Schema.Unknown` → `any`. Aliases that already carry
+ * a `meta({ref})` are wired through as-is; the rest are typed below.
+ */
+export const MobilePermissionRespondInput = z
+  .object({ response: z.string() })
+  .meta({ ref: "MobilePermissionRespondInput" })
+export const MobileGithubImportRequest = MobileGithubRepo.ImportRequest.meta({
+  ref: "MobileGithubImportRequest",
+})
+export const MobileWorktreeCreateInput = Worktree.CreateInput.meta({
+  ref: "MobileWorktreeCreateInput",
+})
+export const MobileWorktreeRemoveInput = Worktree.RemoveInput.meta({
+  ref: "MobileWorktreeRemoveInput",
+})
+export const MobileWorktreeResetInput = Worktree.ResetInput.meta({
+  ref: "MobileWorktreeResetInput",
+})
 
 export type PromptHistoryRecord = {
   input: string

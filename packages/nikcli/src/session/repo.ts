@@ -1,4 +1,5 @@
 import { eq, and, desc, asc, inArray, isNotNull } from "drizzle-orm"
+import { parseModel, stringifyModel } from "@nikcli-ai/util/model"
 import { Database } from "@/database/database"
 import { sessionInfo } from "./session.sql"
 import type { Session } from "./index"
@@ -27,7 +28,15 @@ export namespace SessionRepo {
   /** Extract key fields for indexed columns; store the rest as JSON in `data` */
   function rowToInfo(row: SessionRow): Session.Info {
     // The `data` column holds the full session, parse it
-    return JSON.parse(row.data) as Session.Info
+    const info = JSON.parse(row.data) as Session.Info
+    // `last_model` is the source of truth for the cached "last used model";
+    // the JSON blob may be stale on rows written before this column existed.
+    if (row.lastModel) {
+      info.lastModel = parseModel(row.lastModel)
+    } else if (info.lastModel === undefined) {
+      delete info.lastModel
+    }
+    return info
   }
 
   /** Build a row from Session.Info for insertion */
@@ -43,6 +52,7 @@ export namespace SessionRepo {
       data: JSON.stringify(info),
       createdAt: info.time.created,
       updatedAt: info.time.updated,
+      lastModel: info.lastModel ? stringifyModel(info.lastModel) : null,
     }
   }
 
@@ -95,6 +105,7 @@ export namespace SessionRepo {
           version: row.version,
           data: row.data,
           updatedAt: row.updatedAt,
+          lastModel: row.lastModel,
         },
       })
       .run()
@@ -118,10 +129,29 @@ export namespace SessionRepo {
         version: row.version,
         data: row.data,
         updatedAt: row.updatedAt,
+        lastModel: row.lastModel,
       })
       .where(eq(sessionInfo.id, id))
       .run()
     return updated
+  }
+
+  /**
+   * Persist the last provider/model used in this session. Cheap path that
+   * touches one indexed column instead of re-writing the full JSON blob;
+   * called on every prompt resolution in `SessionPrompt.prepareUserMessage`.
+   *
+   * No-ops if the session is unknown or the value did not change, to avoid
+   * a needless write per turn. Also patches the in-memory `data` blob so the
+   * next read through `get()` reflects the update immediately.
+   */
+  export function setLastModel(id: string, model: { providerID: string; modelID: string }, tx: Executor = db()): void {
+    const existing = get(id)
+    if (!existing) return
+    const value = stringifyModel(model)
+    if (existing.lastModel && stringifyModel(existing.lastModel) === value) return
+    tx.update(sessionInfo).set({ lastModel: value, updatedAt: Date.now() }).where(eq(sessionInfo.id, id)).run()
+    existing.lastModel = model
   }
 
   export function remove(id: string, tx: Executor = db()): boolean {

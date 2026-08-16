@@ -17,20 +17,24 @@ import { createWorkspaceArchive, uploadWorkspaceArchive } from "@nikcli-ai/util/
 import { log, runProject, runSession, runSessionForSession } from "./helpers"
 import { body, isResponse, json } from "./request"
 
-export const TeleportInput = z.object({
-  title: z.string().optional(),
-  name: z.string().optional(),
-  origin: z.string().optional(),
-  permission: Session.Info.shape.permission.optional(),
-  messages: z.array(MessageV2.WithParts),
-  uploadID: z.string().optional(),
-})
-export const TeleportOutInput = z.object({
-  url: z.string(),
-  token: z.string(),
-  content: z.boolean().optional(),
-  includeGit: z.boolean().optional(),
-})
+export const TeleportInput = z
+  .object({
+    title: z.string().optional(),
+    name: z.string().optional(),
+    origin: z.string().optional(),
+    permission: Session.Info.shape.permission.optional(),
+    messages: z.array(MessageV2.WithParts),
+    uploadID: z.string().optional(),
+  })
+  .meta({ ref: "MobileTeleportInput" })
+export const TeleportOutInput = z
+  .object({
+    url: z.string(),
+    token: z.string(),
+    content: z.boolean().optional(),
+    includeGit: z.boolean().optional(),
+  })
+  .meta({ ref: "MobileTeleportOutInput" })
 export type TeleportResult = {
   sessionID: string
   title?: string

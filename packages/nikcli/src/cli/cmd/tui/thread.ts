@@ -357,7 +357,19 @@ export const TuiThreadCommand = cmd({
           })
         },
         upgradeNow: async (method: string, version: string) => {
-          await client.call("upgradeNow", { directory: cwd, method, version })
+          // Re-throw worker errors so the TUI toast in app.tsx can show the
+          // real reason. Without this, a failed upgrade silently disappears:
+          // the toast "Updating to v..." shows for 30s and the user is left
+          // with the old version and no explanation. The RPC layer preserves
+          // UpgradeFailedError.stderr across the worker hop (see
+          // test/tui/rpc-error.test.ts), so the toast only needs the error
+          // to actually reach it.
+          await client.call("upgradeNow", { directory: cwd, method, version }).catch((error) => {
+            Log.Default.error("upgrade failed", {
+              error: errorMessage(error),
+            })
+            throw error
+          })
         },
         startServer: !shouldStartServer
           ? async (options = {}) => {

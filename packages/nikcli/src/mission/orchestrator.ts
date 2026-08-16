@@ -115,6 +115,10 @@ type InFlight = {
   controller: AbortController
   execID?: string
   sessionID?: string
+  /** Session that fired `/mission/.../start`. Threaded into every worker
+   * prompt so the mission's freshly-created session inherits the caller's
+   * model instead of the global provider default. */
+  callerSessionID?: string
   /** Sandbox worktree the mission is bound to; undefined when running un-sandboxed. */
   directory?: string
 }
@@ -254,6 +258,8 @@ async function runGoal(
     timeoutMs: number
     /** Sandbox worktree to run in; undefined runs in the host directory. */
     directory?: string
+    /** Session that triggered the mission, for model inheritance. */
+    parentSessionID?: string
   },
   parentSignal: AbortSignal,
 ): Promise<{ ok: boolean; error?: string; timedOut: boolean }> {
@@ -281,6 +287,7 @@ async function runGoal(
       arguments: objective,
       agent: args.agent || DEFAULT_LOOP_AGENT,
       ...(args.model ? { model: args.model } : {}),
+      ...(args.parentSessionID ? { parentSessionID: args.parentSessionID } : {}),
     }
     await inSandbox(args.directory, () =>
       runSessionPrompt(
@@ -359,6 +366,7 @@ async function runOneExec(
         ...(target.tokenBudget ? { tokenBudget: target.tokenBudget } : {}),
         timeoutMs,
         ...(slot.directory ? { directory: slot.directory } : {}),
+        ...(slot.callerSessionID ? { parentSessionID: slot.callerSessionID } : {}),
       },
       signal,
     )
@@ -415,8 +423,18 @@ function featureTimeoutMs(def: MissionDefinition): number {
  * Drive the mission forward until it completes, errors, is paused, or is
  * aborted. Picks the current (first non-done) milestone, runs its ready
  * features sequentially, then runs validation, then advances.
+ *
+ * `callerSessionID` is the session that fired `/mission/.../start` (or
+ * undefined for CLI launches). It is threaded into every worker prompt so
+ * the mission's freshly-created session inherits the caller's model instead
+ * of the global provider default.
  */
-async function orchestrate(missionID: string, signal: AbortSignal, slot: InFlight): Promise<void> {
+async function orchestrate(
+  missionID: string,
+  signal: AbortSignal,
+  slot: InFlight,
+  callerSessionID?: string,
+): Promise<void> {
   const initial = await requireDef(missionID)
   // Materialize the sandbox first: every worker in this mission runs bound to
   // it. `ensureSandbox` never throws — a project that cannot be sandboxed
@@ -425,6 +443,7 @@ async function orchestrate(missionID: string, signal: AbortSignal, slot: InFligh
   slot.directory = sandbox?.directory
   const sessionID = await ensureSession(`mission: ${initial.name}`, sandbox !== undefined, sandbox?.directory)
   slot.sessionID = sessionID
+  slot.callerSessionID = callerSessionID
   patch(missionID, (prev) => ({
     ...prev,
     status: "running",
@@ -614,12 +633,20 @@ function finalize(missionID: string, reason: "paused" | "cancelled-or-paused"): 
  * Start (or resume) orchestrating a mission. Returns immediately if it is
  * already in flight, or if the global concurrency cap is reached. Errors are
  * caught and surfaced via Bus + Runtime state.
+ *
+ * `callerSessionID` is the session that fired the start. It is propagated to
+ * every worker prompt so the mission inherits the caller's last-used model
+ * instead of the global provider default. Omit for CLI launches that have no
+ * caller session (the CLI itself never uses a sessionID; its own prompt path
+ * goes through `prepareUserMessage` directly).
  */
-export async function start(missionID: string): Promise<void> {
+export async function start(missionID: string, options?: { callerSessionID?: string }): Promise<void> {
+  const callerSessionID = options?.callerSessionID
   const { inFlight } = instanceState()
   if (inFlight.has(missionID)) return
   const ctrl = new AbortController()
   const slot: InFlight = { controller: ctrl, promise: Promise.resolve() }
+  if (callerSessionID) slot.callerSessionID = callerSessionID
   inFlight.set(missionID, slot)
 
   try {
@@ -641,7 +668,7 @@ export async function start(missionID: string): Promise<void> {
 
     const real = (async () => {
       try {
-        await orchestrate(missionID, ctrl.signal, slot)
+        await orchestrate(missionID, ctrl.signal, slot, callerSessionID)
       } catch (error) {
         const message = describeError(error)
         log.error("orchestration failed", { missionID, error: message })

@@ -4,6 +4,7 @@ import path from "path"
 import { Tool } from "./tool"
 import { Question } from "../question"
 import { Session } from "../session"
+import { SessionRepo } from "@/session/repo"
 import { MessageV2 } from "../session/message-v2"
 import { Identifier } from "@nikcli-ai/util/id"
 import { Provider } from "../provider/provider"
@@ -14,6 +15,14 @@ import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 async function getLastModel(sessionID: string) {
+  // Prefer the persisted `lastModel` from the column we set on every prompt
+  // resolution. It survives a CLI restart, where the message-stream scan
+  // below would return nothing for a session whose only model was the one
+  // inherited from the caller. Fall through to the message stream only when
+  // the column is empty (legacy sessions, sessions created before this
+  // feature shipped).
+  const persisted = SessionRepo.get(sessionID)?.lastModel
+  if (persisted) return persisted
   for await (const item of MessageV2.stream(sessionID)) {
     if (item.info.role === "user" && item.info.model) return item.info.model
   }

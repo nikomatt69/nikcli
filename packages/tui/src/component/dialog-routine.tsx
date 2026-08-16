@@ -387,12 +387,10 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
     try {
       const chosen = model()
       const result = await sdk.client.mobile.routine.create({
-        payload: {
-          name: name(),
-          prompt: prompt(),
-          triggers: triggers(),
-          ...(chosen ? { model: chosen } : {}),
-        },
+        name: name(),
+        prompt: prompt(),
+        triggers: triggers(),
+        ...(chosen ? { model: chosen } : {}),
       })
       const routine = assertData<MobileRoutine>(result, "Failed to create routine")
       toast.show({ message: `Routine created: ${routine.name}`, variant: "success" })
@@ -555,7 +553,7 @@ function DialogRoutineActions(props: { routine: MobileRoutine; onDone: () => voi
     try {
       const result = await sdk.client.mobile.routine.update({
         id: props.routine.id,
-        payload: input,
+        ...input,
       })
       const routine = assertData<MobileRoutine>(result, "Failed to update routine")
       toast.show({ message: "Routine updated", variant: "success" })

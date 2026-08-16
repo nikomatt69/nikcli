@@ -29,6 +29,15 @@ export const sessionInfo = sqliteTable(
      * not carry the predicate.
      */
     timeSuspended: integer("time_suspended"),
+    /**
+     * Last provider/model used in this session, persisted as "providerID/modelID".
+     * Worker prompts (mission/loop/background/task/brain/plan) inherit from
+     * this when their caller session supplies it, so the user does not have to
+     * re-pick the model every time they spawn a child run.
+     *
+     * Set on every successful prompt resolution in `prepareUserMessage`.
+     */
+    lastModel: text("last_model"),
   },
   (table) => ({
     projectIdx: index("idx_session_info_project").on(table.projectId),

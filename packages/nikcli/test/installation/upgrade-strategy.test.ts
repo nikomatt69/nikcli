@@ -171,4 +171,39 @@ describe("deferred Windows swap (install.ps1)", () => {
     const ps1 = await readSrc("install.ps1")
     expect(ps1).toContain('-Filter "$App.exe.old.*"')
   })
+
+  it("applies a staged nikcli.update.*.exe on the next install run when the upgrade PID is gone", async () => {
+    const ps1 = await readSrc("install.ps1")
+    // The installation flow stages a new binary beside the running one when
+    // the in-place copy is locked. The detached helper that should swap it
+    // in runs after the installer exits, so if the user re-runs the
+    // installer (or another `nikcli upgrade`) before the helper has had a
+    // chance, the staged file must be applied instead of re-downloaded.
+    expect(ps1).toContain("Applied staged update from")
+    // The heuristic is the upgrade PID: if $env:NIKCLI_UPGRADE_PID points to
+    // a still-running nikcli.exe, leave the staged file alone for the helper.
+    expect(ps1).toContain("if ($env:NIKCLI_UPGRADE_PID)")
+    expect(ps1).toContain("Get-Process -Id $staleUpgrader")
+  })
+
+  it("probes the swapped binary to confirm the version actually changed", async () => {
+    const ps1 = await readSrc("install.ps1")
+    // After a successful swap (loop or rename-aside fallback), the helper
+    // probes the new binary's --version and writes a log line if it does
+    // not match the expected version. Without this, a corrupted file or a
+    // wrong target download would go unnoticed.
+    expect(ps1).toContain("`$installed = (& '$quotedTarget' --version 2>`$null | Select-Object -First 1)")
+    expect(ps1).toContain("probe reports '")
+  })
+
+  it("interpolates the expected version into the helper so the probe works on PS 5.1", async () => {
+    const ps1 = await readSrc("install.ps1")
+    // `Start-Process -Environment` was added in PowerShell 7, but Windows
+    // Server 2022 and Windows 10 hosts still ship PowerShell 5.1 by default.
+    // The expected version is therefore baked into the helper script at
+    // build time via a quoted interpolation, instead of being passed via
+    // -Environment / $env:NIKCLI_VERSION.
+    expect(ps1).toContain("$quotedVersion = $version.Replace(")
+    expect(ps1).not.toContain("-Environment @{ NIKCLI_VERSION = $env:NIKCLI_VERSION }")
+  })
 })

@@ -1464,6 +1464,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mission/${encodeURIComponent(input.id)}/start`,
+            body: { sessionID: input["sessionID"] },
             successStatus: 200,
             declaredStatuses: [404],
             empty: false,
@@ -1684,7 +1685,13 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mobile/github/import`,
-            body: input["payload"],
+            body: {
+              owner: input["owner"],
+              repo: input["repo"],
+              cloneUrl: input["cloneUrl"],
+              defaultBranch: input["defaultBranch"],
+              private: input["private"],
+            },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -1974,12 +1981,22 @@ export function make(options: ClientOptions) {
           },
           requestOptions,
         ),
-      worktreeCreate: (input: MobileWorktreeCreateInput, requestOptions?: RequestOptions) =>
+      worktreeCreate: (input?: MobileWorktreeCreateInput, requestOptions?: RequestOptions) =>
         request<MobileWorktreeCreateOutput>(
           {
             method: "POST",
             path: `/mobile/worktree`,
-            body: input["payload"],
+            body: {
+              name: input?.["name"],
+              branch: input?.["branch"],
+              branchPrefix: input?.["branchPrefix"],
+              baseBranch: input?.["baseBranch"],
+              remote: input?.["remote"],
+              startCommand: input?.["startCommand"],
+              detached: input?.["detached"],
+              sourceDirectory: input?.["sourceDirectory"],
+              root: input?.["root"],
+            },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -1991,7 +2008,7 @@ export function make(options: ClientOptions) {
           {
             method: "DELETE",
             path: `/mobile/worktree`,
-            body: input["payload"],
+            body: { directory: input["directory"], force: input["force"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -2003,7 +2020,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mobile/worktree/reset`,
-            body: input["payload"],
+            body: { directory: input["directory"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -2136,7 +2153,18 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mobile/loops`,
-            body: input["payload"],
+            body: {
+              name: input["name"],
+              stages: input["stages"],
+              trigger: input["trigger"],
+              maxRuns: input["maxRuns"],
+              timeoutMs: input["timeoutMs"],
+              createPR: input["createPR"],
+              sandbox: input["sandbox"],
+              worktree: input["worktree"],
+              paused: input["paused"],
+              enabled: input["enabled"],
+            },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -2153,7 +2181,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mobile/loops/generate`,
-            body: { description: input["description"], model: input["model"] },
+            body: { description: input["description"], model: input["model"], agent: input["agent"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -2199,7 +2227,18 @@ export function make(options: ClientOptions) {
           {
             method: "PATCH",
             path: `/mobile/loops/${encodeURIComponent(input.id)}`,
-            body: input["payload"],
+            body: {
+              name: input["name"],
+              stages: input["stages"],
+              trigger: input["trigger"],
+              maxRuns: input["maxRuns"],
+              timeoutMs: input["timeoutMs"],
+              createPR: input["createPR"],
+              sandbox: input["sandbox"],
+              worktree: input["worktree"],
+              paused: input["paused"],
+              enabled: input["enabled"],
+            },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -2284,7 +2323,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mobile/routines`,
-            body: input["payload"],
+            body: { name: input["name"], prompt: input["prompt"], triggers: input["triggers"], model: input["model"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -2318,7 +2357,13 @@ export function make(options: ClientOptions) {
           {
             method: "PATCH",
             path: `/mobile/routines/${encodeURIComponent(input.id)}`,
-            body: input["payload"],
+            body: {
+              name: input["name"],
+              prompt: input["prompt"],
+              triggers: input["triggers"],
+              model: input["model"],
+              paused: input["paused"],
+            },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -2787,6 +2832,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/loop/${encodeURIComponent(input.id)}/run`,
+            body: { sessionID: input["sessionID"] },
             successStatus: 200,
             declaredStatuses: [404],
             empty: false,

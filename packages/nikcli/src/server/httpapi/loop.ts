@@ -69,6 +69,15 @@ export namespace LoopHttpApi {
     enabled: Schema.Boolean,
   }).annotate({ identifier: "LoopToggleInput" })
 
+  /**
+   * Optional body for `POST /loop/:id/run`. Carries the session that fired
+   * the run, so the freshly-created loop session inherits that session's
+   * last-used model instead of falling back to the global provider default.
+   */
+  const RunPayload = Schema.Struct({
+    sessionID: Schema.optional(Schema.String),
+  }).annotate({ identifier: "LoopRunInput" })
+
   const GeneratePayload = Schema.Struct({
     description: Schema.String,
     model: Schema.optional(Schema.String),
@@ -139,6 +148,7 @@ export namespace LoopHttpApi {
     .add(
       HttpApiEndpoint.post("run", "/:id/run", {
         params: LoopIDPath,
+        payload: RunPayload,
         success: BooleanResult,
         error: NotFound,
       }),
@@ -290,11 +300,11 @@ export namespace LoopHttpApi {
         return jsonSafe(next)
       }),
 
-    run: ({ params }: { params: { id: string } }) =>
+    run: ({ params, payload }: { params: { id: string }; payload?: { sessionID?: string } }) =>
       Effect.gen(function* () {
         const def = yield* fromPromise(() => Manager.get(params.id))
         if (!def) return yield* failNotFound(`Loop "${params.id}" not found`)
-        void Engine.runOnce(params.id)
+        void Engine.runOnce(params.id, payload?.sessionID ? { callerSessionID: payload.sessionID } : {})
         return true
       }),
 

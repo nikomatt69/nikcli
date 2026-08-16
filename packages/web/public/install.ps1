@@ -137,6 +137,62 @@ Get-ChildItem -Path $installDir -Filter "$App.update.*.exe" -File -ErrorAction S
 Get-ChildItem -Path $installDir -Filter "$App.exe.old.*" -File -ErrorAction SilentlyContinue |
   ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
 
+# Apply any staged update left over from a previous upgrade that could not
+# swap in place. The staged binary is left beside the running one when
+# `nikcli upgrade` calls us; the detached helper that should swap it in runs
+# after this script exits, so if the user relaunches the installer (or another
+# `nikcli upgrade`) before the helper has had a chance to run, we apply the
+# staged binary here instead of re-downloading it.
+#
+# The catch is timing: we must not overwrite a nikcli.exe that is still
+# running, because Windows locks the image against writes. The staged binary
+# is matched to a specific upgrade PID via $env:NIKCLI_UPGRADE_PID that the
+# previous installer ran with. If that PID is set and the process is still
+# alive, we leave the staged file alone (the helper will do the swap). If it
+# is not set, or the process is gone, we apply it now.
+$stagedPending = Get-ChildItem -Path $installDir -Filter "$App.update.*.exe" -File -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTimeUtc -Descending |
+  Select-Object -First 1
+if ($stagedPending) {
+  $staleByPid = $true
+  if ($env:NIKCLI_UPGRADE_PID) {
+    $staleUpgrader = 0
+    [void][int]::TryParse($env:NIKCLI_UPGRADE_PID, [ref]$staleUpgrader)
+    if ($staleUpgrader -gt 0) {
+      $staleByPid = $false
+      try {
+        $running = Get-Process -Id $staleUpgrader -ErrorAction Stop
+        if ($running -and $running.Path -eq $targetExe) {
+          Step "Previous upgrade still pending (PID $staleUpgrader is running); will retry the swap"
+        } else {
+          $staleByPid = $true
+        }
+      } catch {
+        # The PID was set but the process is gone: safe to apply.
+        $staleByPid = $true
+      }
+    }
+  }
+  if ($staleByPid) {
+    if (Test-Path $targetExe) {
+      try {
+        Move-Item -LiteralPath $targetExe -Destination ($targetExe + ".old." + [System.Guid]::NewGuid().ToString("N")) -Force -ErrorAction Stop
+      } catch {
+        # The old binary is still locked: leave the staged file in place and
+        # let the next run (or the helper) try again. This is the same shape
+        # the live-install path falls back to.
+        Warn "Could not apply staged update: $($_.Exception.Message)"
+      }
+    }
+    try {
+      Move-Item -LiteralPath $stagedPending.FullName -Destination $targetExe -Force -ErrorAction Stop
+      Step "Applied staged update from $($stagedPending.Name)"
+    } catch {
+      Warn "Could not apply staged update: $($_.Exception.Message)"
+    }
+  }
+}
+
 # A deferred swap runs after this script is gone, so its only way to report a
 # failure is this log. Surface it once, then clear it.
 $updateLog = Join-Path $installDir "$App.update.log"
@@ -216,6 +272,7 @@ try {
       $quotedPending = $pendingExe.Replace("'", "''")
       $quotedTarget = $targetExe.Replace("'", "''")
       $quotedLog = (Join-Path $installDir "$App.update.log").Replace("'", "''")
+      $quotedVersion = $version.Replace("'", "''")
       # Two escape hatches the previous version lacked:
       #  - a 2 minute window instead of 10s, because moving a ~160MB binary on
       #    a slow disk (or behind AV) can take longer than that;
@@ -231,6 +288,17 @@ Wait-Process -Id $upgradePid -ErrorAction SilentlyContinue
 for (`$attempt = 0; `$attempt -lt 480; `$attempt++) {
   try {
     Move-Item -LiteralPath '$quotedPending' -Destination '$quotedTarget' -Force -ErrorAction Stop
+    # Confirm the swap took effect. The expected version is interpolated
+    # into the helper at build time so the probe works on PowerShell 5.1
+    # (where `Start-Process -Environment` was not added until 7.x).
+    # If the new binary's probe disagrees, the move may have succeeded but
+    # the file is corrupted or the wrong target was downloaded. Surface a
+    # mismatch so the next installer run warns about it.
+    `$installed = (& '$quotedTarget' --version 2>`$null | Select-Object -First 1)
+    if (`$installed) { `$installed = `$installed.Trim() }
+    if (`$installed -and (`$installed -replace '^v','') -ne ('$quotedVersion' -replace '^v','')) {
+      Set-Content -LiteralPath '$quotedLog' -Value ("Swapped to $quotedTarget but probe reports '" + `$installed + "' (expected '$quotedVersion')") -ErrorAction SilentlyContinue
+    }
     exit 0
   } catch {
     `$lastError = `$_.Exception.Message
@@ -243,6 +311,11 @@ try {
   `$aside = '$quotedTarget' + '.old.' + [System.Guid]::NewGuid().ToString('N')
   Move-Item -LiteralPath '$quotedTarget' -Destination `$aside -Force -ErrorAction Stop
   Move-Item -LiteralPath '$quotedPending' -Destination '$quotedTarget' -Force -ErrorAction Stop
+  `$installed = (& '$quotedTarget' --version 2>`$null | Select-Object -First 1)
+  if (`$installed) { `$installed = `$installed.Trim() }
+  if (`$installed -and (`$installed -replace '^v','') -ne ('$quotedVersion' -replace '^v','')) {
+    Set-Content -LiteralPath '$quotedLog' -Value ("Swapped to $quotedTarget but probe reports '" + `$installed + "' (expected '$quotedVersion')") -ErrorAction SilentlyContinue
+  }
   exit 0
 } catch {
   `$lastError = `$_.Exception.Message

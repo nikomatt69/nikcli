@@ -136,6 +136,9 @@ type InFlightRun = {
   controller: AbortController
   runID?: string
   sessionID?: string
+  /** Session that fired `/loop/.../run`. Threaded into every stage prompt so
+   * the loop's freshly-created session inherits the caller's model. */
+  callerSessionID?: string
   /** Sandbox worktree the run is bound to; undefined when running un-sandboxed. */
   directory?: string
 }
@@ -249,6 +252,7 @@ async function executeStage(
   sessionID: string,
   signal: AbortSignal,
   directory?: string,
+  parentSessionID?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const args = stage.tokenBudget ? `${stage.objective} --token-budget ${stage.tokenBudget}` : stage.objective
@@ -258,6 +262,7 @@ async function executeStage(
       arguments: args,
       agent: stage.agent || DEFAULT_LOOP_AGENT,
       ...(stage.model ? { model: stage.model } : {}),
+      ...(parentSessionID ? { parentSessionID } : {}),
     }
     await inSandbox(directory, () =>
       runSessionPrompt(
@@ -374,6 +379,7 @@ async function executeRun(
   signal: AbortSignal,
   onSessionID?: (sessionID: string) => void,
   sandbox?: RunSandbox.Info,
+  parentSessionID?: string,
 ): Promise<{
   ok: boolean
   firstError?: string
@@ -418,7 +424,14 @@ async function executeRun(
           firstError = "aborted"
           break
         }
-        const result = await (stageExecutorOverride ?? executeStage)(def, stage, sessionID, signal, sandbox?.directory)
+        const result = await (stageExecutorOverride ?? executeStage)(
+          def,
+          stage,
+          sessionID,
+          signal,
+          sandbox?.directory,
+          parentSessionID,
+        )
         if (!result.ok) {
           firstError = result.error ?? `Stage "${stage.name}" failed`
           break
@@ -523,7 +536,8 @@ async function executeRun(
  * can never both pass the `inFlight.has` guard. The first call replaces the
  * placeholder with a real promise; the second call returns the same promise.
  */
-export async function runOnce(id: string): Promise<void> {
+export async function runOnce(id: string, options?: { callerSessionID?: string }): Promise<void> {
+  const callerSessionID = options?.callerSessionID
   const { inFlight } = instanceState()
   // ── Synchronous claim ──────────────────────────────────────────────────────
   const existing = inFlight.get(id)
@@ -534,6 +548,7 @@ export async function runOnce(id: string): Promise<void> {
   const slot: InFlightRun = {
     controller: ctrl,
     promise: Promise.resolve(),
+    ...(callerSessionID ? { callerSessionID } : {}),
   }
   inFlight.set(id, slot)
   let timeout: ReturnType<typeof setTimeout> | undefined
@@ -619,6 +634,7 @@ export async function runOnce(id: string): Promise<void> {
             slot.sessionID = sessionID
           },
           sandbox,
+          callerSessionID,
         )
       } catch (error) {
         const message = describeError(error)

@@ -7,7 +7,46 @@ import { Session } from "@/session"
 import { Snapshot } from "@/snapshot"
 import { Workspace } from "@/workspace"
 import { ManagedWorktree } from "@/worktree/managed"
+import { Config } from "@/config/config"
 import * as Domain from "./domain"
+import {
+  MobileCommand,
+  MobileGithubDeviceAuthPollResult,
+  MobileGithubDeviceAuthStart,
+  MobileGithubImportRequest,
+  MobileGithubPublishInput,
+  MobileGithubPublishResult,
+  MobileGithubSessionCreateInput,
+  MobileGithubSessionCreateResult,
+  MobileGithubBranch,
+  MobileGithubImport,
+  MobileLoopGenerateInput,
+  MobileLoopRuntime,
+  MobileLoopRun,
+  MobileLoopTemplate,
+  MobileLoopWriteInput,
+  MobileMemorySearchHit,
+  MobilePermissionRespondInput,
+  MobilePromptHistoryEntry,
+  MobilePromptStashEntry,
+  MobileRoutine,
+  MobileRoutineCreateInput,
+  MobileRoutineRunInput,
+  MobileRoutineTriggerInput,
+  MobileRoutineUpdateInput,
+  MobileSessionCommandInput,
+  MobileSessionCreateInput,
+  MobileSessionDetail,
+  MobileSessionMessageInput,
+  MobileSessionSummary,
+  MobileWorktreeCreateInput,
+  MobileWorktreeRemoveInput,
+  MobileWorktreeResetInput,
+} from "@/server/mobile/helpers"
+import {
+  TeleportInput as MobileTeleportInput,
+  TeleportOutInput as MobileTeleportOutInput,
+} from "@/server/mobile/teleport"
 import { MobileAuth } from "@/mobile/auth"
 import { fromZod } from "@/util/zod-effect"
 
@@ -45,13 +84,13 @@ export namespace MobileHttpApi {
   const ProjectInfo = Project.InfoSchema
   const WorkspaceInfo = Workspace.InfoSchema
   const PtyInfo = Pty.InfoSchema
-  const RoutineRecord = Domain.Routine
   const LoopDefinition = Domain.LoopDefinition
-  const LoopRun = Domain.LoopRun
-  /** The full `nikcli.json` document; still zod-only, so it stays open. */
-  const ConfigInfo = Schema.Record(Schema.String, Schema.Unknown).annotate({
-    identifier: "MobileConfigInfo",
-  })
+  /**
+   * The full `nikcli.json` document. Derived from the zod schema via `fromZod`
+   * once `Config.Info` is a single source of truth — no hand-written copy to
+   * drift from the schema disk reads.
+   */
+  const ConfigInfo = fromZod(Config.Info).annotate({ identifier: "MobileConfigInfo" })
 
   /**
    * Derived from the zod schema that actually stores the token, not hand-copied.
@@ -61,6 +100,103 @@ export namespace MobileHttpApi {
    */
   const PublicToken = (fromZod(MobileAuth.PublicToken) as unknown as Schema.Struct<Schema.Struct.Fields>).annotate({
     identifier: "MobileAuthTokenPublic",
+  })
+
+  // Typed wrappers for the mobile contract — they pin the same shapes the
+  // dispatcher parses with at runtime so the SDK gets a real type instead of
+  // `Schema.Unknown` → `any`.
+  const MobileSessionSummaryEffect = fromZod(MobileSessionSummary).annotate({
+    identifier: "MobileSessionSummary",
+  })
+  const MobileSessionDetailEffect = fromZod(MobileSessionDetail).annotate({
+    identifier: "MobileSessionDetail",
+  })
+  const MobilePromptHistoryEffect = fromZod(MobilePromptHistoryEntry).annotate({
+    identifier: "MobilePromptHistoryEntry",
+  })
+  const MobilePromptStashEffect = fromZod(MobilePromptStashEntry).annotate({
+    identifier: "MobilePromptStashEntry",
+  })
+  const MobileMemorySearchEffect = fromZod(MobileMemorySearchHit).annotate({
+    identifier: "MobileMemorySearchHit",
+  })
+  const MobileCommandEffect = fromZod(MobileCommand).annotate({ identifier: "MobileCommand" })
+  const MobileGithubBranchEffect = fromZod(MobileGithubBranch).annotate({
+    identifier: "MobileGithubBranch",
+  })
+  const MobileGithubImportEffect = fromZod(MobileGithubImport).annotate({
+    identifier: "MobileGithubImport",
+  })
+  const MobileGithubDeviceAuthStartEffect = fromZod(MobileGithubDeviceAuthStart).annotate({
+    identifier: "MobileGithubDeviceAuthStart",
+  })
+  const MobileGithubDeviceAuthPollResultEffect = fromZod(MobileGithubDeviceAuthPollResult).annotate({
+    identifier: "MobileGithubDeviceAuthPollResult",
+  })
+  const MobileGithubPublishInputEffect = fromZod(MobileGithubPublishInput).annotate({
+    identifier: "MobileGithubPublishInput",
+  })
+  const MobileGithubPublishResultEffect = fromZod(MobileGithubPublishResult).annotate({
+    identifier: "MobileGithubPublishResult",
+  })
+  const MobileGithubSessionCreateInputEffect = fromZod(MobileGithubSessionCreateInput).annotate({
+    identifier: "MobileGithubSessionCreateInput",
+  })
+  const MobileGithubSessionCreateResultEffect = fromZod(MobileGithubSessionCreateResult).annotate({
+    identifier: "MobileGithubSessionCreateResult",
+  })
+  const MobileSessionCreateInputEffect = fromZod(MobileSessionCreateInput).annotate({
+    identifier: "MobileSessionCreateInput",
+  })
+  const MobileSessionMessageInputEffect = fromZod(MobileSessionMessageInput).annotate({
+    identifier: "MobileSessionMessageInput",
+  })
+  const MobilePermissionRespondInputEffect = fromZod(MobilePermissionRespondInput).annotate({
+    identifier: "MobilePermissionRespondInput",
+  })
+  const MobileLoopWriteInputEffect = fromZod(MobileLoopWriteInput).annotate({
+    identifier: "MobileLoopWriteInput",
+  })
+  const MobileLoopGenerateInputEffect = fromZod(MobileLoopGenerateInput).annotate({
+    identifier: "MobileLoopGenerateInput",
+  })
+  const MobileLoopTemplateEffect = fromZod(MobileLoopTemplate).annotate({
+    identifier: "MobileLoopTemplate",
+  })
+  const MobileLoopRuntimeEffect = fromZod(MobileLoopRuntime).annotate({
+    identifier: "MobileLoopRuntime",
+  })
+  const MobileLoopRunEffect = fromZod(MobileLoopRun).annotate({ identifier: "MobileLoopRun" })
+  const MobileRoutineEffect = fromZod(MobileRoutine).annotate({ identifier: "MobileRoutine" })
+  const MobileRoutineCreateInputEffect = fromZod(MobileRoutineCreateInput).annotate({
+    identifier: "MobileRoutineCreateInput",
+  })
+  const MobileRoutineUpdateInputEffect = fromZod(MobileRoutineUpdateInput).annotate({
+    identifier: "MobileRoutineUpdateInput",
+  })
+  const MobileRoutineRunInputEffect = fromZod(MobileRoutineRunInput).annotate({
+    identifier: "MobileRoutineRunInput",
+  })
+  const MobileRoutineTriggerInputEffect = fromZod(MobileRoutineTriggerInput).annotate({
+    identifier: "MobileRoutineTriggerInput",
+  })
+  const MobileTeleportInputEffect = fromZod(MobileTeleportInput).annotate({
+    identifier: "MobileTeleportInput",
+  })
+  const MobileTeleportOutInputEffect = fromZod(MobileTeleportOutInput).annotate({
+    identifier: "MobileTeleportOutInput",
+  })
+  const MobileWorktreeCreateInputEffect = fromZod(MobileWorktreeCreateInput).annotate({
+    identifier: "MobileWorktreeCreateInput",
+  })
+  const MobileWorktreeRemoveInputEffect = fromZod(MobileWorktreeRemoveInput).annotate({
+    identifier: "MobileWorktreeRemoveInput",
+  })
+  const MobileWorktreeResetInputEffect = fromZod(MobileWorktreeResetInput).annotate({
+    identifier: "MobileWorktreeResetInput",
+  })
+  const MobileGithubImportRequestEffect = fromZod(MobileGithubImportRequest).annotate({
+    identifier: "MobileGithubImportRequest",
   })
 
   const GithubUser = Schema.Struct({
@@ -124,164 +260,7 @@ export namespace MobileHttpApi {
     ),
   }).annotate({ identifier: "MobileBootstrap" })
 
-  const Command = Schema.Struct({
-    name: Schema.String,
-    description: Schema.optional(Schema.String),
-    agent: Schema.optional(Schema.String),
-    model: Schema.optional(Schema.String),
-    mcp: Schema.optional(Schema.Boolean),
-    skill: Schema.optional(Schema.Boolean),
-    subtask: Schema.optional(Schema.Boolean),
-    hints: Schema.Array(Schema.String),
-  }).annotate({ identifier: "MobileCommand" })
-
-  const PromptHistoryEntry = Schema.Struct({
-    id: Schema.String,
-    input: Schema.String,
-    mode: Schema.optional(Schema.Literals(["normal", "shell"])),
-    partsCount: Schema.Number,
-  }).annotate({ identifier: "MobilePromptHistoryEntry" })
-
-  const PromptStashEntry = Schema.Struct({
-    id: Schema.String,
-    input: Schema.String,
-    timestamp: Schema.Number,
-    partsCount: Schema.Number,
-  }).annotate({ identifier: "MobilePromptStashEntry" })
-
-  const MemorySearchHit = Schema.Struct({
-    id: Schema.String,
-    sessionID: Schema.String,
-    sessionTitle: Schema.String,
-    messageID: Schema.String,
-    role: Schema.Literals(["user", "assistant"]),
-    createdAt: Schema.Number,
-    preview: Schema.String,
-  }).annotate({ identifier: "MobileMemorySearchHit" })
-
-  const GithubBranch = Schema.Struct({
-    name: Schema.String,
-    protected: Schema.optional(Schema.Boolean),
-    commit: Schema.Struct({ sha: Schema.String }),
-  }).annotate({ identifier: "MobileGithubBranch" })
-
-  /** Mirrors `MobileGithubRepo.Import`. */
-  const GithubImport = Schema.Struct({
-    owner: Schema.String,
-    repo: Schema.String,
-    fullName: Schema.String,
-    directory: Schema.String,
-    cloneUrl: Schema.String,
-    defaultBranch: Schema.String,
-    private: Schema.Boolean,
-    importedAt: Schema.Number,
-    updatedAt: Schema.Number,
-    projectID: Schema.optional(Schema.String),
-  }).annotate({ identifier: "MobileGithubImport" })
-
-  const GithubDeviceAuthStart = Schema.Struct({
-    deviceCode: Schema.String,
-    userCode: Schema.String,
-    verificationUri: Schema.String,
-    verificationUriComplete: Schema.optional(Schema.String),
-    expiresAt: Schema.Number,
-    interval: Schema.Number,
-  }).annotate({ identifier: "MobileGithubDeviceAuthStart" })
-
-  const GithubDeviceAuthPollResult = Schema.Struct({
-    status: Schema.Literals(["pending", "approved", "denied", "expired"]),
-    interval: Schema.optional(Schema.Number),
-    user: Schema.optional(GithubUser),
-  }).annotate({ identifier: "MobileGithubDeviceAuthPollResult" })
-
   const ExecutionTarget = Schema.Literals(["local", "container"])
-
-  const GithubSessionCreateInput = Schema.Struct({
-    owner: Schema.String,
-    repo: Schema.String,
-    cloneUrl: Schema.String,
-    htmlUrl: Schema.optional(Schema.String),
-    defaultBranch: Schema.String,
-    baseBranch: Schema.String,
-    private: Schema.optional(Schema.Boolean),
-    title: Schema.optional(Schema.String),
-    executionTarget: Schema.optional(ExecutionTarget),
-  }).annotate({ identifier: "MobileGithubSessionCreateInput" })
-
-  const GithubSessionCreateResult = Schema.Struct({
-    session: SessionInfo,
-    worktree: WorktreeInfo,
-    project: ProjectInfo,
-    workspace: Schema.optional(WorkspaceInfo),
-  }).annotate({ identifier: "MobileGithubSessionCreateResult" })
-
-  const SessionSummary = Schema.Struct({
-    info: SessionInfo,
-    status: Schema.optional(Schema.Unknown),
-  }).annotate({ identifier: "MobileSessionSummary" })
-
-  const SessionDetail = Schema.Struct({
-    info: SessionInfo,
-    status: Schema.optional(Schema.Unknown),
-    messages: Schema.Array(MessageV2.WithPartsSchema),
-    artifacts: Schema.Array(Schema.Unknown),
-    permissions: Schema.Array(Schema.Unknown),
-    questions: Schema.Array(Schema.Unknown),
-  }).annotate({ identifier: "MobileSessionDetail" })
-
-  const SessionCreateInput = Schema.Struct({
-    parentID: Schema.optional(Schema.String),
-    title: Schema.optional(Schema.String),
-    permission: Schema.optional(Schema.Unknown),
-    github: Schema.optional(Schema.Unknown),
-    executionTarget: Schema.optional(ExecutionTarget),
-  }).annotate({ identifier: "MobileSessionCreateInput" })
-
-  const SessionCommandInput = Schema.Struct({
-    command: Schema.String,
-    arguments: Schema.optional(Schema.String),
-    agent: Schema.optional(Schema.String),
-    model: Schema.optional(
-      Schema.Struct({
-        providerID: Schema.String,
-        modelID: Schema.String,
-      }),
-    ),
-    variant: Schema.optional(Schema.String),
-  }).annotate({ identifier: "MobileSessionCommandInput" })
-
-  const PromptPayload = Schema.Struct({
-    messageID: Schema.optional(Schema.String),
-    model: Schema.optional(
-      Schema.Struct({
-        providerID: Schema.String,
-        modelID: Schema.String,
-      }),
-    ),
-    agent: Schema.optional(Schema.String),
-    noReply: Schema.optional(Schema.Boolean),
-    tools: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
-    format: Schema.optional(Schema.Unknown),
-    system: Schema.optional(Schema.String),
-    variant: Schema.optional(Schema.String),
-    parts: Schema.Array(MessageV2.PartSchema),
-  }).annotate({ identifier: "MobileSessionMessageInput" })
-
-  const GithubPublishInput = Schema.Struct({
-    title: Schema.optional(Schema.String),
-    body: Schema.optional(Schema.String),
-    commitMessage: Schema.optional(Schema.String),
-  }).annotate({ identifier: "MobileGithubPublishInput" })
-
-  const GithubPublishResult = Schema.Struct({
-    commitSha: Schema.String,
-    branch: Schema.String,
-    pullRequest: Schema.Struct({
-      number: Schema.Number,
-      url: Schema.String,
-      title: Schema.String,
-    }),
-  }).annotate({ identifier: "MobileGithubPublishResult" })
 
   const TeleportResult = Schema.Struct({
     sessionID: Schema.String,
@@ -290,22 +269,6 @@ export namespace MobileHttpApi {
     directory: Schema.optional(Schema.String),
     workspace: Schema.Boolean,
   }).annotate({ identifier: "MobileTeleportResult" })
-
-  const TeleportInPayload = Schema.Struct({
-    title: Schema.optional(Schema.String),
-    name: Schema.optional(Schema.String),
-    origin: Schema.optional(Schema.String),
-    permission: Schema.optional(Schema.Unknown),
-    messages: Schema.Array(Schema.Unknown),
-    uploadID: Schema.optional(Schema.String),
-  }).annotate({ identifier: "MobileTeleportInput" })
-
-  const TeleportOutPayload = Schema.Struct({
-    url: Schema.String,
-    token: Schema.String,
-    content: Schema.optional(Schema.Boolean),
-    includeGit: Schema.optional(Schema.Boolean),
-  }).annotate({ identifier: "MobileTeleportOutInput" })
 
   const GitChange = Schema.Struct({
     status: Schema.Literals(["added", "modified", "deleted", "renamed"]),
@@ -376,14 +339,7 @@ export namespace MobileHttpApi {
     behindBy: Schema.Number,
   }).annotate({ identifier: "MobileGitBranch" })
 
-  const LoopRuntime = Schema.Struct({
-    loopID: Schema.String,
-    status: Schema.Literals(["idle", "running", "paused", "error", "cancelling"]),
-    runs: Schema.Number,
-    lastRunAt: Schema.optional(Schema.Number),
-    lastError: Schema.optional(Schema.String),
-    sessionID: Schema.optional(Schema.String),
-  }).annotate({ identifier: "MobileLoopRuntime" })
+  const LoopRuntime = MobileLoopRuntimeEffect
 
   export const Group = HttpApiGroup.make("mobile")
     // --- auth tokens ---
@@ -415,7 +371,7 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.get("commandList", "/command", {
-        success: Schema.Array(Command),
+        success: Schema.Array(MobileCommandEffect),
       }).annotate(OpenApi.Identifier, "mobile.command.list"),
     )
     .add(
@@ -426,24 +382,24 @@ export namespace MobileHttpApi {
     // --- memory ---
     .add(
       HttpApiEndpoint.get("memoryHistory", "/memory/history", {
-        success: Schema.Array(PromptHistoryEntry),
+        success: Schema.Array(MobilePromptHistoryEffect),
       }).annotate(OpenApi.Identifier, "mobile.memory.history"),
     )
     .add(
       HttpApiEndpoint.get("memorySearch", "/memory/search", {
         query: Schema.Struct({ query: Schema.String }),
-        success: Schema.Array(MemorySearchHit),
+        success: Schema.Array(MobileMemorySearchEffect),
       }).annotate(OpenApi.Identifier, "mobile.memory.search"),
     )
     .add(
       HttpApiEndpoint.get("memoryStashList", "/memory/stash", {
-        success: Schema.Array(PromptStashEntry),
+        success: Schema.Array(MobilePromptStashEffect),
       }).annotate(OpenApi.Identifier, "mobile.memory.stash.list"),
     )
     .add(
       HttpApiEndpoint.post("memoryStashCreate", "/memory/stash", {
         payload: Schema.Struct({ input: Schema.String }),
-        success: PromptStashEntry,
+        success: MobilePromptStashEffect,
       }).annotate(OpenApi.Identifier, "mobile.memory.stash.create"),
     )
     .add(
@@ -455,18 +411,21 @@ export namespace MobileHttpApi {
     // --- github ---
     .add(
       HttpApiEndpoint.get("githubRepos", "/github/repos", {
+        // The upstream GitHub repo body is opaque to the server; typing the
+        // row would mean restating a third-party schema, which is exactly the
+        // drift the open-payload exception is meant to avoid. Justified.
         success: Schema.Array(Schema.Unknown),
       }).annotate(OpenApi.Identifier, "mobile.github.repos"),
     )
     .add(
       HttpApiEndpoint.get("githubBranches", "/github/repos/:owner/:repo/branches", {
         params: Schema.Struct({ owner: Schema.String, repo: Schema.String }),
-        success: Schema.Array(GithubBranch),
+        success: Schema.Array(MobileGithubBranchEffect),
       }).annotate(OpenApi.Identifier, "mobile.github.branches"),
     )
     .add(
       HttpApiEndpoint.get("githubImports", "/github/imports", {
-        success: Schema.Array(GithubImport),
+        success: Schema.Array(MobileGithubImportEffect),
       }).annotate(OpenApi.Identifier, "mobile.github.imports"),
     )
     .add(
@@ -477,13 +436,13 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.post("githubOauthDeviceStart", "/github/oauth/device", {
-        success: GithubDeviceAuthStart,
+        success: MobileGithubDeviceAuthStartEffect,
       }).annotate(OpenApi.Identifier, "mobile.github.oauth.device.start"),
     )
     .add(
       HttpApiEndpoint.post("githubOauthDevicePoll", "/github/oauth/device/poll", {
         payload: Schema.Struct({ deviceCode: Schema.String }),
-        success: GithubDeviceAuthPollResult,
+        success: MobileGithubDeviceAuthPollResultEffect,
       }).annotate(OpenApi.Identifier, "mobile.github.oauth.device.poll"),
     )
     .add(
@@ -499,16 +458,14 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.post("githubImport", "/github/import", {
-        payload: Schema.Unknown.annotate({
-          description: "MobileGithubRepo.ImportRequest",
-        }),
-        success: Schema.Struct({ import: GithubImport, project: ProjectInfo }),
+        payload: MobileGithubImportRequestEffect,
+        success: Schema.Struct({ import: MobileGithubImportEffect, project: ProjectInfo }),
       }).annotate(OpenApi.Identifier, "mobile.github.import"),
     )
     .add(
       HttpApiEndpoint.post("githubSessionCreate", "/github/session", {
-        payload: GithubSessionCreateInput,
-        success: GithubSessionCreateResult,
+        payload: MobileGithubSessionCreateInputEffect,
+        success: MobileGithubSessionCreateResultEffect,
       }).annotate(OpenApi.Identifier, "mobile.github.session.create"),
     )
     // --- sessions ---
@@ -518,19 +475,19 @@ export namespace MobileHttpApi {
           limit: Schema.optional(Schema.NumberFromString),
           search: Schema.optional(Schema.String),
         }),
-        success: Schema.Array(SessionSummary),
+        success: Schema.Array(MobileSessionSummaryEffect),
       }).annotate(OpenApi.Identifier, "mobile.session.list"),
     )
     .add(
       HttpApiEndpoint.post("sessionCreate", "/session", {
-        payload: SessionCreateInput,
+        payload: MobileSessionCreateInputEffect,
         success: SessionInfo,
       }).annotate(OpenApi.Identifier, "mobile.session.create"),
     )
     .add(
       HttpApiEndpoint.get("sessionDetail", "/session/:sessionID", {
         params: SessionIDPath,
-        success: SessionDetail,
+        success: MobileSessionDetailEffect,
       }).annotate(OpenApi.Identifier, "mobile.session.detail"),
     )
     .add(
@@ -551,20 +508,22 @@ export namespace MobileHttpApi {
     .add(
       HttpApiEndpoint.get("sessionCommandList", "/session/:sessionID/command", {
         params: SessionIDPath,
-        success: Schema.Array(Command),
+        success: Schema.Array(MobileCommandEffect),
       }).annotate(OpenApi.Identifier, "mobile.session.command.list"),
     )
     .add(
       HttpApiEndpoint.post("sessionCommand", "/session/:sessionID/command", {
         params: SessionIDPath,
-        payload: SessionCommandInput,
+        payload: fromZod(MobileSessionCommandInput).annotate({
+          identifier: "MobileSessionCommandInput",
+        }),
         success: MessageV2.WithPartsSchema,
       }).annotate(OpenApi.Identifier, "mobile.session.command"),
     )
     .add(
       HttpApiEndpoint.post("sessionMessage", "/session/:sessionID/message", {
         params: SessionIDPath,
-        payload: PromptPayload,
+        payload: MobileSessionMessageInputEffect,
         success: Schema.Struct({ accepted: Schema.Literal(true) }),
       }).annotate(OpenApi.Identifier, "mobile.session.message"),
     )
@@ -580,7 +539,7 @@ export namespace MobileHttpApi {
           sessionID: Schema.String,
           permissionID: Schema.String,
         }),
-        payload: Schema.Struct({ response: Schema.String }),
+        payload: MobilePermissionRespondInputEffect,
         success: Success,
       }).annotate(OpenApi.Identifier, "mobile.permission.respond"),
     )
@@ -608,8 +567,8 @@ export namespace MobileHttpApi {
     .add(
       HttpApiEndpoint.post("sessionPublish", "/session/:sessionID/publish", {
         params: SessionIDPath,
-        payload: GithubPublishInput,
-        success: GithubPublishResult,
+        payload: MobileGithubPublishInputEffect,
+        success: MobileGithubPublishResultEffect,
       }).annotate(OpenApi.Identifier, "mobile.github.session.publish"),
     )
     .add(
@@ -621,6 +580,9 @@ export namespace MobileHttpApi {
     .add(
       HttpApiEndpoint.get("sessionStream", "/session/:sessionID/stream", {
         params: SessionIDPath,
+        // SSE frames are `{ type, properties }` — the open-payload exception is
+        // meant for exactly this. The stream encodes the bus event, not a
+        // closed union.
         success: HttpApiSchema.StreamSse({ data: Schema.Unknown }),
       }).annotate(OpenApi.Identifier, "mobile.session.stream"),
     )
@@ -645,37 +607,33 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.post("teleportIn", "/teleport", {
-        payload: TeleportInPayload,
+        payload: MobileTeleportInputEffect,
         success: TeleportResult,
       }).annotate(OpenApi.Identifier, "mobile.session.teleport"),
     )
     .add(
       HttpApiEndpoint.post("teleportOut", "/session/:sessionID/teleport", {
         params: SessionIDPath,
-        payload: TeleportOutPayload,
+        payload: MobileTeleportOutInputEffect,
         success: TeleportResult,
       }).annotate(OpenApi.Identifier, "mobile.session.teleport.out"),
     )
     // --- worktree ---
     .add(
       HttpApiEndpoint.post("worktreeCreate", "/worktree", {
-        payload: Schema.Unknown.annotate({
-          description: "WorktreeCreateInput",
-        }),
+        payload: MobileWorktreeCreateInputEffect,
         success: WorktreeInfo,
       }).annotate(OpenApi.Identifier, "mobile.worktree.create"),
     )
     .add(
       HttpApiEndpoint.delete("worktreeRemove", "/worktree", {
-        payload: Schema.Unknown.annotate({
-          description: "WorktreeRemoveInput",
-        }),
+        payload: MobileWorktreeRemoveInputEffect,
         success: Success,
       }).annotate(OpenApi.Identifier, "mobile.worktree.remove"),
     )
     .add(
       HttpApiEndpoint.post("worktreeReset", "/worktree/reset", {
-        payload: Schema.Unknown.annotate({ description: "WorktreeResetInput" }),
+        payload: MobileWorktreeResetInputEffect,
         success: Success,
       }).annotate(OpenApi.Identifier, "mobile.worktree.reset"),
     )
@@ -774,23 +732,18 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.post("loopCreate", "/loops", {
-        payload: Schema.Unknown.annotate({
-          description: "MobileLoopWriteInput",
-        }),
+        payload: MobileLoopWriteInputEffect,
         success: LoopDefinition,
       }).annotate(OpenApi.Identifier, "mobile.loop.create"),
     )
     .add(
       HttpApiEndpoint.get("loopTemplates", "/loops/templates", {
-        success: Schema.Struct({ templates: Schema.Array(Schema.Unknown) }),
+        success: Schema.Struct({ templates: Schema.Array(MobileLoopTemplateEffect) }),
       }).annotate(OpenApi.Identifier, "mobile.loop.templates"),
     )
     .add(
       HttpApiEndpoint.post("loopGenerate", "/loops/generate", {
-        payload: Schema.Struct({
-          description: Schema.String,
-          model: Schema.optional(Schema.String),
-        }),
+        payload: MobileLoopGenerateInputEffect,
         success: LoopDefinition,
       }).annotate(OpenApi.Identifier, "mobile.loop.generate"),
     )
@@ -799,7 +752,7 @@ export namespace MobileHttpApi {
         query: Schema.Struct({
           limit: Schema.optional(Schema.NumberFromString),
         }),
-        success: Schema.Struct({ runs: Schema.Array(LoopRun) }),
+        success: Schema.Struct({ runs: Schema.Array(MobileLoopRunEffect) }),
       }).annotate(OpenApi.Identifier, "mobile.loop.runs.recent"),
     )
     .add(
@@ -817,9 +770,7 @@ export namespace MobileHttpApi {
     .add(
       HttpApiEndpoint.patch("loopUpdate", "/loops/:id", {
         params: IDPath,
-        payload: Schema.Unknown.annotate({
-          description: "MobileLoopWriteInput",
-        }),
+        payload: MobileLoopWriteInputEffect,
         success: LoopDefinition,
       }).annotate(OpenApi.Identifier, "mobile.loop.update"),
     )
@@ -829,7 +780,7 @@ export namespace MobileHttpApi {
         query: Schema.Struct({
           limit: Schema.optional(Schema.NumberFromString),
         }),
-        success: Schema.Struct({ runs: Schema.Array(LoopRun) }),
+        success: Schema.Struct({ runs: Schema.Array(MobileLoopRunEffect) }),
       }).annotate(OpenApi.Identifier, "mobile.loop.runs"),
     )
     .add(
@@ -866,21 +817,19 @@ export namespace MobileHttpApi {
     // --- routines ---
     .add(
       HttpApiEndpoint.get("routineList", "/routines", {
-        success: Schema.Array(RoutineRecord),
+        success: Schema.Array(MobileRoutineEffect),
       }).annotate(OpenApi.Identifier, "mobile.routine.list"),
     )
     .add(
       HttpApiEndpoint.post("routineCreate", "/routines", {
-        payload: Schema.Unknown.annotate({
-          description: "MobileRoutineCreateInput",
-        }),
-        success: RoutineRecord,
+        payload: MobileRoutineCreateInputEffect,
+        success: MobileRoutineEffect,
       }).annotate(OpenApi.Identifier, "mobile.routine.create"),
     )
     .add(
       HttpApiEndpoint.get("routineGet", "/routines/:id", {
         params: IDPath,
-        success: RoutineRecord,
+        success: MobileRoutineEffect,
       }).annotate(OpenApi.Identifier, "mobile.routine.get"),
     )
     .add(
@@ -892,35 +841,33 @@ export namespace MobileHttpApi {
     .add(
       HttpApiEndpoint.patch("routineUpdate", "/routines/:id", {
         params: IDPath,
-        payload: Schema.Unknown.annotate({
-          description: "MobileRoutineUpdateInput",
-        }),
-        success: RoutineRecord,
+        payload: MobileRoutineUpdateInputEffect,
+        success: MobileRoutineEffect,
       }).annotate(OpenApi.Identifier, "mobile.routine.update"),
     )
     .add(
       HttpApiEndpoint.post("routineRun", "/routines/:id/run", {
         params: IDPath,
-        payload: Schema.Struct({ text: Schema.optional(Schema.String) }),
+        payload: MobileRoutineRunInputEffect,
         success: SessionInfo,
       }).annotate(OpenApi.Identifier, "mobile.routine.run"),
     )
     .add(
       HttpApiEndpoint.post("routinePause", "/routines/:id/pause", {
         params: IDPath,
-        success: RoutineRecord,
+        success: MobileRoutineEffect,
       }).annotate(OpenApi.Identifier, "mobile.routine.pause"),
     )
     .add(
       HttpApiEndpoint.post("routineResume", "/routines/:id/resume", {
         params: IDPath,
-        success: RoutineRecord,
+        success: MobileRoutineEffect,
       }).annotate(OpenApi.Identifier, "mobile.routine.resume"),
     )
     .add(
       HttpApiEndpoint.post("routineTrigger", "/routines/trigger/:token", {
         params: Schema.Struct({ token: Schema.String }),
-        payload: Schema.Struct({ text: Schema.optional(Schema.String) }),
+        payload: MobileRoutineTriggerInputEffect,
         success: SessionInfo,
       }).annotate(OpenApi.Identifier, "mobile.routine.trigger"),
     )

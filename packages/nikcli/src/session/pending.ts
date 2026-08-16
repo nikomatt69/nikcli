@@ -33,6 +33,14 @@ export namespace SessionPending {
     system: z.string().optional(),
     variant: z.string().optional(),
     parts: z.array(PromptParts.InputPart),
+    /**
+     * Caller session id, when the prompt is fired on behalf of another
+     * session (mission worker, loop worker, background run, brain pass,
+     * task subagent). Used as a fallback in `prepareUserMessage` when this
+     * session has no last-used model yet, so workers inherit from their
+     * caller instead of the global provider default.
+     */
+    parentSessionID: Identifier.schema("session").optional(),
   })
   export type PromptInput = z.infer<typeof PromptInput>
 

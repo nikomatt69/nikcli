@@ -40,6 +40,13 @@ export namespace PromptCommands {
     agentList(): Promise<Agent.Info[]>
     defaultAgent(): Promise<string>
     lastModel(sessionID: string): Promise<{ providerID: string; modelID: string }>
+    /**
+     * Resolve the model that a worker should use when the worker session has
+     * no messages yet. Falls back through `parentSessionID` (caller session)
+     * before the global default, so a mission launched from session S picks
+     * up S's model instead of openrouter.
+     */
+    inheritedModel(sessionID: string, parentSessionID?: string): Promise<{ providerID: string; modelID: string }>
     providerGetModel(providerID: string, modelID: string): Promise<Provider.Model>
     sessionGet(sessionID: string): Promise<Session.Info>
     sessionUpdate(
@@ -324,6 +331,13 @@ export namespace PromptCommands {
     arguments: z.string(),
     variant: z.string().optional(),
     parts: z.array(PromptParts.InputPart).optional(),
+    /**
+     * Caller session id, when the prompt is being fired on behalf of another
+     * session (mission worker, loop worker, background run, brain pass, …).
+     * Used as a fallback when `sessionID` itself has no last-model: a freshly
+     * spawned worker session has no messages yet, but the caller does.
+     */
+    parentSessionID: Identifier.schema("session").optional(),
   })
   export type CommandInput = z.infer<typeof CommandInput>
 
@@ -404,7 +418,7 @@ export namespace PromptCommands {
         }
       }
       if (input.model) return Provider.parseModel(input.model)
-      return await deps.lastModel(input.sessionID)
+      return await deps.inheritedModel(input.sessionID, input.parentSessionID)
     })()
 
     try {
@@ -437,7 +451,7 @@ export namespace PromptCommands {
     const userModel = isSubtask
       ? input.model
         ? Provider.parseModel(input.model)
-        : await deps.lastModel(input.sessionID)
+        : await deps.inheritedModel(input.sessionID, input.parentSessionID)
       : taskModel
 
     if (parsedGoal?.type === "subcommand") {
@@ -501,6 +515,7 @@ export namespace PromptCommands {
         parts: [{ type: "text", text: commandResult.text }],
         variant: input.variant,
         noReply: true,
+        ...(input.parentSessionID ? { parentSessionID: input.parentSessionID } : {}),
       })) as MessageV2.WithParts
       Bus.publish(Command.Event.Executed, {
         name: input.command,
@@ -574,6 +589,7 @@ export namespace PromptCommands {
       agent: userAgent,
       parts,
       variant: input.variant,
+      ...(input.parentSessionID ? { parentSessionID: input.parentSessionID } : {}),
     })) as MessageV2.WithParts
 
     Bus.publish(Command.Event.Executed, {

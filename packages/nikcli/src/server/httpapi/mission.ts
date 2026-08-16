@@ -209,6 +209,16 @@ export namespace MissionHttpApi {
     appendDependsOn: Schema.optional(Schema.Array(Schema.String)),
   }).annotate({ identifier: "MissionFeatureMutateInput" })
 
+  /**
+   * Optional body for `POST /mission/:id/start`. Carries the session that
+   * fired the start, so the freshly-created mission session can inherit that
+   * session's last-used model instead of falling back to the global provider
+   * default.
+   */
+  const StartPayload = Schema.Struct({
+    sessionID: Schema.optional(Schema.String),
+  }).annotate({ identifier: "MissionStartInput" })
+
   export const Group = HttpApiGroup.make("mission")
     .add(HttpApiEndpoint.get("list", "/", { success: ListOutput }))
     .add(HttpApiEndpoint.get("templates", "/templates", { success: TemplatesOutput }))
@@ -257,6 +267,7 @@ export namespace MissionHttpApi {
     .add(
       HttpApiEndpoint.post("start", "/:id/start", {
         params: MissionIDPath,
+        payload: StartPayload,
         success: BooleanResult,
         error: NotFound,
       }),
@@ -404,11 +415,11 @@ export namespace MissionHttpApi {
         return true
       }),
 
-    start: ({ params }: { params: { id: string } }) =>
+    start: ({ params, payload }: { params: { id: string }; payload?: { sessionID?: string } }) =>
       Effect.gen(function* () {
         const def = yield* fromPromise(() => Manager.get(params.id))
         if (!def) return yield* failNotFound(`Mission "${params.id}" not found`)
-        void Engine.start(params.id)
+        void Engine.start(params.id, payload?.sessionID ? { callerSessionID: payload.sessionID } : {})
         return true
       }),
 

@@ -183,6 +183,18 @@ export namespace Session {
         diff: Schema.optional(Schema.String),
       }).annotate(strip),
     ),
+    /**
+     * Last provider/model used in this session. Persisted as a structured
+     * record so workers (mission/loop/background/task/brain/plan) spawned
+     * from this session can inherit the model without re-prompting the user
+     * and without falling back to the global provider default.
+     */
+    lastModel: Schema.optional(
+      Schema.Struct({
+        providerID: Schema.String,
+        modelID: Schema.String,
+      }).annotate(strip),
+    ),
   }).annotate({ ...strip, identifier: "Session" })
   export const Info = zodObject(InfoSchema)
   export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
