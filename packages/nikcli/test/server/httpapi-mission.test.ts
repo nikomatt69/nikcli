@@ -128,18 +128,16 @@ describe("Mission HttpApi", () => {
     expect(gotBody.mission.id).toBe(mission.id)
     expect(gotBody.runtime.missionID).toBe(mission.id)
 
-    // Update with mismatched id must 400 with the legacy body.
+    // The path is the identity: a body `id` (still tolerated for legacy
+    // callers) is overwritten before zod parsing, so the update succeeds and
+    // the mission keeps the path id.
     const mismatch = await request(`/mission/${mission.id}`, directory, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...gotBody.mission, id: "mission_other" }),
     })
-    expect(mismatch.status).toBe(400)
-    const mismatchBody = (await mismatch.json()) as {
-      name: string
-      data: { message: string }
-    }
-    expect(mismatchBody.name).toBe("ValidationError")
+    expect(mismatch.status).toBe(200)
+    expect(((await mismatch.json()) as { id: string }).id).toBe(mission.id)
 
     const updated = await request(`/mission/${mission.id}`, directory, {
       method: "POST",

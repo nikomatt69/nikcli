@@ -75,13 +75,13 @@ export namespace LoopHttpApi {
     agent: Schema.optional(Schema.String),
   }).annotate({ identifier: "LoopGenerateInput" })
 
-  /** Create body: full definition minus server-assigned id/createdAt. */
-  const CreatePayload = Schema.Unknown.annotate({
-    identifier: "LoopCreateInput",
-  })
-  const UpdatePayload = Schema.Unknown.annotate({
-    identifier: "LoopUpdateInput",
-  })
+  /**
+   * Create takes the definition minus the server-assigned fields; update takes
+   * it minus `id`, which the path carries. Both come from `Domain`, so the
+   * contract enforces what the handlers previously assumed by casting.
+   */
+  const CreatePayload = Domain.LoopCreateInput
+  const UpdatePayload = Domain.LoopUpdateInput
 
   export const Group = HttpApiGroup.make("loop")
     .add(HttpApiEndpoint.get("list", "/", { success: ListOutput }))
@@ -226,9 +226,9 @@ export namespace LoopHttpApi {
         ),
       ),
 
-    upsert: ({ payload }: { payload: unknown }) =>
+    upsert: ({ payload }: { payload: Schema.Schema.Type<typeof Domain.LoopCreateInput> }) =>
       Effect.gen(function* () {
-        const body = payload as Omit<LoopDefinition, "id" | "createdAt">
+        const body = payload
         const id = generateID()
         const def: LoopDefinition = {
           ...body,
@@ -244,12 +244,18 @@ export namespace LoopHttpApi {
         return jsonSafe(saved)
       }),
 
-    update: ({ params, payload }: { params: { id: string }; payload: unknown }) =>
+    update: ({
+      params,
+      payload,
+    }: {
+      params: { id: string }
+      payload: Schema.Schema.Type<typeof Domain.LoopUpdateInput>
+    }) =>
       Effect.gen(function* () {
-        const body = payload as LoopDefinition
-        if (body.id !== params.id) {
-          return yield* failValidation("Path id and body id do not match")
-        }
+        // The path is the identity. The old "path id and body id do not match"
+        // check is gone because the body can no longer carry an id to disagree
+        // with — the contract does not accept one.
+        const body = { ...payload, id: params.id } as LoopDefinition
         const err = validateDefinition(body)
         if (err) return yield* failValidation(err)
         const existing = yield* fromPromise(() => Manager.get(params.id))

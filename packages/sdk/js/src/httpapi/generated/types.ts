@@ -643,7 +643,18 @@ export type MobileAuthTokenPublic = {
   scope?: string | undefined
 }
 
-export type MobileProject = any
+export type MobileProject = {
+  id: string
+  worktree: string
+  canonical: string
+  vcs?: "git" | undefined
+  name?: string | undefined
+  icon?: { url?: string | undefined; override?: string | undefined; color?: string | undefined } | undefined
+  commands?: { start?: string | undefined } | undefined
+  time: { created: number; updated: number; initialized?: number | undefined }
+  sandboxes: Array<string>
+  current: boolean
+}
 
 export type MobileCommand = {
   name: string
@@ -2976,7 +2987,272 @@ export type VoiceTranscribeOutput = VoiceTranscribeResult
 
 export type ProfileGetOutput = ProfileInfoOrNull
 
-export type ProfilePatchInput = { readonly payload: { readonly [x: string]: unknown } }
+export type ProfilePatchInput = {
+  readonly name?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["name"]
+  readonly role?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["role"]
+  readonly about?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["about"]
+  readonly stack?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["stack"]
+  readonly expertise?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["expertise"]
+  readonly learning?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["learning"]
+  readonly skills?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["skills"]
+  readonly tools?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["tools"]
+  readonly conventions?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["conventions"]
+  readonly communication?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["communication"]
+  readonly custom?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["custom"]
+  readonly habits?: {
+    readonly name?: string | undefined
+    readonly role?: string | undefined
+    readonly about?: string | undefined
+    readonly stack?: ReadonlyArray<string> | undefined
+    readonly expertise?: ReadonlyArray<string> | undefined
+    readonly learning?: ReadonlyArray<string> | undefined
+    readonly skills?: ReadonlyArray<string> | undefined
+    readonly tools?:
+      | { readonly preferred?: ReadonlyArray<string> | undefined; readonly avoid?: ReadonlyArray<string> | undefined }
+      | undefined
+    readonly conventions?: ReadonlyArray<string> | undefined
+    readonly communication?:
+      | {
+          readonly verbosity?: "concise" | "balanced" | "detailed" | undefined
+          readonly language?: string | undefined
+          readonly explain?: boolean | undefined
+        }
+      | undefined
+    readonly custom?: string | undefined
+    readonly habits?: boolean | undefined
+  }["habits"]
+}
 
 export type ProfilePatchOutput = ProfileInfo
 
@@ -4280,11 +4556,560 @@ export type MissionGetInput = { readonly id: { readonly id: string }["id"] }
 
 export type MissionGetOutput = MissionGetOutput2
 
-export type MissionUpsertInput = { readonly payload: unknown }
+export type MissionUpsertInput = {
+  readonly name: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["name"]
+  readonly brief: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["brief"]
+  readonly milestones: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["milestones"]
+  readonly models?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["models"]
+  readonly timeoutMs?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["timeoutMs"]
+  readonly sandbox?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["sandbox"]
+  readonly worktree?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["worktree"]
+}
 
 export type MissionUpsertOutput = MissionDefinition
 
-export type MissionUpdateInput = { readonly id: { readonly id: string }["id"]; readonly payload: unknown }
+export type MissionUpdateInput = {
+  readonly id: { readonly id: string }["id"]
+  readonly name: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["name"]
+  readonly brief: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["brief"]
+  readonly milestones: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["milestones"]
+  readonly models?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["models"]
+  readonly timeoutMs?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["timeoutMs"]
+  readonly sandbox?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["sandbox"]
+  readonly worktree?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["worktree"]
+  readonly status?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["status"]
+  readonly createdAt: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["createdAt"]
+}
 
 export type MissionUpdateOutput = MissionDefinition
 
@@ -7339,11 +8164,445 @@ export type LoopGetInput = { readonly id: { readonly id: string }["id"] }
 
 export type LoopGetOutput = LoopGetOutput2
 
-export type LoopUpsertInput = { readonly payload: unknown }
+export type LoopUpsertInput = {
+  readonly name: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled?: boolean | undefined
+  }["name"]
+  readonly stages: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled?: boolean | undefined
+  }["stages"]
+  readonly trigger: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled?: boolean | undefined
+  }["trigger"]
+  readonly maxRuns?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled?: boolean | undefined
+  }["maxRuns"]
+  readonly timeoutMs?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled?: boolean | undefined
+  }["timeoutMs"]
+  readonly createPR?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled?: boolean | undefined
+  }["createPR"]
+  readonly sandbox?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled?: boolean | undefined
+  }["sandbox"]
+  readonly worktree?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled?: boolean | undefined
+  }["worktree"]
+  readonly paused?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled?: boolean | undefined
+  }["paused"]
+  readonly enabled?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled?: boolean | undefined
+  }["enabled"]
+}
 
 export type LoopUpsertOutput = LoopDefinition
 
-export type LoopUpdateInput = { readonly id: { readonly id: string }["id"]; readonly payload: unknown }
+export type LoopUpdateInput = {
+  readonly id: { readonly id: string }["id"]
+  readonly name: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["name"]
+  readonly stages: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["stages"]
+  readonly trigger: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["trigger"]
+  readonly maxRuns?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["maxRuns"]
+  readonly timeoutMs?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["timeoutMs"]
+  readonly createPR?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["createPR"]
+  readonly sandbox?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["sandbox"]
+  readonly worktree?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["worktree"]
+  readonly paused?: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["paused"]
+  readonly enabled: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["enabled"]
+  readonly createdAt: {
+    readonly name: string
+    readonly stages: ReadonlyArray<{
+      readonly name: string
+      readonly agent: string
+      readonly model?: string | undefined
+      readonly objective: string
+      readonly tokenBudget?: number | undefined
+    }>
+    readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
+    readonly maxRuns?: number | undefined
+    readonly timeoutMs?: number | undefined
+    readonly createPR?: boolean | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly paused?: boolean | undefined
+    readonly enabled: boolean
+    readonly createdAt: number
+  }["createdAt"]
+}
 
 export type LoopUpdateOutput = LoopDefinition
 

@@ -14,7 +14,7 @@ export namespace ConfigHttpApi {
    * generated clients get `KeybindsConfig`, `McpLocalConfig`, `ReferenceConfig`
    * and friends as named types.
    */
-  export const Info = Schema.StructWithRest(fromZod(Config.Info) as Schema.Struct<Schema.Struct.Fields>, [
+  export const Info = Schema.StructWithRest(fromZod(Config.Info) as unknown as Schema.Struct<Schema.Struct.Fields>, [
     // The document keeps an open tail. Two reasons: forward compatibility with
     // a client on a newer config schema, and the codegen writes a struct
     // payload once per field it contributes — which for a document this size
@@ -53,8 +53,18 @@ export namespace ConfigHttpApi {
 
   export const Group = HttpApiGroup.make("config")
     .add(HttpApiEndpoint.get("get", "/", { success: Info }))
-    .add(HttpApiEndpoint.patch("update", "/", { payload: Info, success: Info, error: UpdateError }))
-    .add(HttpApiEndpoint.get("providers", "/providers", { success: ProviderSummary }))
+    .add(
+      HttpApiEndpoint.patch("update", "/", {
+        payload: Info,
+        success: Info,
+        error: UpdateError,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("providers", "/providers", {
+        success: ProviderSummary,
+      }),
+    )
     .prefix("/config")
 
   export const Api = HttpApi.make("nikcli").add(Group)
@@ -69,7 +79,10 @@ export namespace ConfigHttpApi {
   function asUpdateError(cause: unknown) {
     if (cause instanceof Config.JsonError || cause instanceof Config.InvalidError) {
       const { _tag: _ignored, ...data } = cause
-      return Effect.fail({ name: cause._tag, data: { ...data } as Record<string, unknown> })
+      return Effect.fail({
+        name: cause._tag,
+        data: { ...data } as Record<string, unknown>,
+      })
     }
     return Effect.die(cause)
   }

@@ -41,7 +41,7 @@ export namespace TuiHttpApi {
    */
   const TuiConfigInfo = Schema.StructWithRest(
     Schema.Struct({
-      ...(fromZod(TuiConfig.Info) as Schema.Struct<Schema.Struct.Fields>).fields,
+      ...(fromZod(TuiConfig.Info) as unknown as Schema.Struct<Schema.Struct.Fields>).fields,
       plugin_meta: Schema.optional(
         Schema.Record(
           Schema.String,

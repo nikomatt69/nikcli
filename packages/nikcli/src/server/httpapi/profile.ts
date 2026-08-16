@@ -15,7 +15,15 @@ export namespace ProfileHttpApi {
   /** `undefined` is a real answer here: the user may simply not have a profile yet. */
   const MaybeInfo = Schema.NullOr(Info).annotate({ identifier: "ProfileInfoOrNull" })
 
-  const PatchPayload = Schema.Record(Schema.String, Schema.Unknown).annotate({ identifier: "ProfilePatchInput" })
+  /**
+   * The editable half of the profile, from the service's own `InputSchema`.
+   *
+   * Was an open record, so the contract said "any object" while
+   * `Profile.Service.patch` accepted exactly `Profile.Input` — the client had no
+   * way to know which keys were real, and a typo reached the writer as a field
+   * to merge rather than an error.
+   */
+  const PatchPayload = Profile.InputSchema.annotate({ identifier: "ProfilePatchInput" })
 
   const Deleted = Schema.Struct({ deleted: Schema.Boolean }).annotate({ identifier: "ProfileDeleted" })
 
@@ -62,7 +70,10 @@ export namespace ProfileHttpApi {
           return (yield* profile.get()) ?? null
         }),
       ),
-    patch: ({ payload }: { payload: Record<string, unknown> }) =>
+    // The decoded payload is deeply readonly; `Profile.Input` is the mutable
+    // view the writer merges into. Same fields either way — the cast drops
+    // `readonly`, not type information, which is why it is not `as unknown as`.
+    patch: ({ payload }: { payload: Schema.Schema.Type<typeof Profile.InputSchema> }) =>
       run(
         Effect.gen(function* () {
           const profile = yield* Profile.Service

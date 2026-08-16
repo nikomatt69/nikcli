@@ -223,14 +223,12 @@ export class LoopApi {
     const error = validateDefinition(def)
     if (error) throw new Error(error)
     const res = await this.client.loop.upsert({
-      payload: {
-        name: def.name,
-        stages: def.stages,
-        trigger: def.trigger,
-        ...(def.maxRuns !== undefined ? { maxRuns: def.maxRuns } : {}),
-        ...(def.createPR === true ? { createPR: true } : {}),
-        enabled: def.enabled,
-      },
+      name: def.name,
+      stages: def.stages,
+      trigger: def.trigger,
+      ...(def.maxRuns !== undefined ? { maxRuns: def.maxRuns } : {}),
+      ...(def.createPR === true ? { createPR: true } : {}),
+      enabled: def.enabled,
     })
     const saved = asDefinition((res.data as unknown) ?? undefined)
     if (!saved) throw new Error("Server returned an invalid loop definition")
@@ -242,16 +240,13 @@ export class LoopApi {
     if (error) throw new Error(error)
     const res = await this.client.loop.update({
       id: def.id,
-      payload: {
-        id: def.id,
-        name: def.name,
-        stages: def.stages,
-        trigger: def.trigger,
-        ...(def.maxRuns !== undefined ? { maxRuns: def.maxRuns } : {}),
-        ...(def.createPR === true ? { createPR: true } : {}),
-        enabled: def.enabled,
-        createdAt: def.createdAt,
-      },
+      name: def.name,
+      stages: def.stages,
+      trigger: def.trigger,
+      ...(def.maxRuns !== undefined ? { maxRuns: def.maxRuns } : {}),
+      ...(def.createPR === true ? { createPR: true } : {}),
+      enabled: def.enabled,
+      createdAt: def.createdAt,
     })
     const saved = asDefinition((res.data as unknown) ?? undefined)
     if (!saved) throw new Error("Server returned an invalid loop definition")

@@ -12,6 +12,7 @@ import {
   type MissionDefinition,
 } from "@/mission/schema"
 import { Log } from "@nikcli-ai/util/log"
+import { fromZod } from "@/util/zod-effect"
 
 export namespace MissionHttpApi {
   const log = Log.create({ service: "httpapi.mission" })
@@ -164,23 +165,43 @@ export namespace MissionHttpApi {
     agent: Schema.optional(Schema.String),
   }).annotate({ identifier: "MissionGenerateInput" })
 
-  /** Create body: full definition minus server-assigned id/createdAt/status. */
-  const CreatePayload = Schema.Unknown.annotate({
-    identifier: "MissionCreateInput",
-  })
-  const UpdatePayload = Schema.Unknown.annotate({
-    identifier: "MissionUpdateInput",
-  })
-
-  // The legacy Hono route validates bodies with these zod schemas, which also
-  // apply schema defaults (feature status, milestone validation policy, …).
-  // Parse with the same schemas so persisted shapes stay identical.
+  // These zod schemas validate bodies and apply schema defaults (feature
+  // status, milestone validation policy, …). The handlers still parse with
+  // them, so persisted shapes stay identical.
   const CreateInputZod = MissionDefinitionSchema.omit({
     id: true,
     createdAt: true,
     status: true,
   })
   const UpdateInputZod = MissionDefinitionSchema
+
+  /**
+   * Create body: full definition minus server-assigned id/createdAt/status.
+   *
+   * Derived from the very zod schema the handler parses with, rather than
+   * restated in Effect. A hand-written copy would be a second definition of a
+   * shape that already has defaults, refinements and a milestone policy baked
+   * in, and the two would drift silently — the contract would advertise one
+   * body while the handler accepted another.
+   *
+   * `fromZod` maps `.default(x)` to optional, which is what a create body
+   * actually is: the default is applied by the zod parse afterwards, so the
+   * contract must not demand the field up front.
+   */
+  const CreatePayload = fromZod(CreateInputZod).annotate({
+    identifier: "MissionCreateInput",
+  })
+  /**
+   * Update body: the definition except `id`, which the path already carries.
+   *
+   * The generated clients flatten path params and body fields into one argument
+   * object, so a body `id` beside `/:id` is a field collision the codegen
+   * rejects. The handler puts the path id back before parsing, so what reaches
+   * `Manager.upsert` is unchanged.
+   */
+  const UpdatePayload = fromZod(UpdateInputZod.omit({ id: true })).annotate({
+    identifier: "MissionUpdateInput",
+  })
 
   const FeatureMutatePayload = Schema.Struct({
     status: Schema.optional(Schema.Literals(["pending", "running", "done", "blocked", "skipped", "error"])),
@@ -345,14 +366,15 @@ export namespace MissionHttpApi {
 
     update: ({ params, payload }: { params: { id: string }; payload: unknown }) =>
       Effect.gen(function* () {
-        const parsed = UpdateInputZod.safeParse(payload)
+        // The path is the identity: put it back before parsing, so the zod
+        // schema (and its defaults) still see a whole definition. The old
+        // "path id and body id do not match" check is gone because the body can
+        // no longer carry an id to disagree with.
+        const parsed = UpdateInputZod.safeParse({ ...(payload as Record<string, unknown>), id: params.id })
         if (!parsed.success) {
           return yield* failValidation(parsed.error.issues[0]?.message ?? "Invalid mission definition")
         }
         const body = parsed.data
-        if (body.id !== params.id) {
-          return yield* failValidation("Path id and body id do not match")
-        }
         const err = validateDefinition(body)
         if (err) return yield* failValidation(err)
         const existing = yield* fromPromise(() => Manager.get(params.id))

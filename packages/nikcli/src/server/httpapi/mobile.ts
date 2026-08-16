@@ -49,7 +49,9 @@ export namespace MobileHttpApi {
   const LoopDefinition = Domain.LoopDefinition
   const LoopRun = Domain.LoopRun
   /** The full `nikcli.json` document; still zod-only, so it stays open. */
-  const ConfigInfo = Schema.Record(Schema.String, Schema.Unknown).annotate({ identifier: "MobileConfigInfo" })
+  const ConfigInfo = Schema.Record(Schema.String, Schema.Unknown).annotate({
+    identifier: "MobileConfigInfo",
+  })
 
   /**
    * Derived from the zod schema that actually stores the token, not hand-copied.
@@ -57,7 +59,7 @@ export namespace MobileHttpApi {
    * The hand-written version had drifted: it omitted `lastUsedAt`, which is the one field a
    * client needs to tell whether a phone has ever connected with the token it was handed.
    */
-  const PublicToken = (fromZod(MobileAuth.PublicToken) as Schema.Struct<Schema.Struct.Fields>).annotate({
+  const PublicToken = (fromZod(MobileAuth.PublicToken) as unknown as Schema.Struct<Schema.Struct.Fields>).annotate({
     identifier: "MobileAuthTokenPublic",
   })
 
@@ -67,7 +69,20 @@ export namespace MobileHttpApi {
     avatar_url: Schema.optional(Schema.String),
   })
 
-  const MobileProject = Schema.Unknown.annotate({ identifier: "MobileProject" })
+  /**
+   * A project as the mobile surface sees it: the project record plus which one
+   * the instance is currently bound to.
+   *
+   * The fields come from `Project.InfoSchema`, the service's own schema, rather
+   * than being restated here — the producer is literally a spread of that
+   * record (`{ ...Instance.project, current }` in `server/mobile/misc.ts`), so
+   * a hand-written copy would be a third description of one object, free to
+   * drift from both the service and `/project`.
+   */
+  const MobileProject = Schema.Struct({
+    ...Project.InfoSchema.fields,
+    current: Schema.Boolean,
+  }).annotate({ identifier: "MobileProject" })
 
   const Bootstrap = Schema.Struct({
     version: Schema.String,
@@ -484,7 +499,9 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.post("githubImport", "/github/import", {
-        payload: Schema.Unknown.annotate({ description: "MobileGithubRepo.ImportRequest" }),
+        payload: Schema.Unknown.annotate({
+          description: "MobileGithubRepo.ImportRequest",
+        }),
         success: Schema.Struct({ import: GithubImport, project: ProjectInfo }),
       }).annotate(OpenApi.Identifier, "mobile.github.import"),
     )
@@ -524,7 +541,10 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.get("sessionDiff", "/session/:sessionID/diff/:messageID", {
-        params: Schema.Struct({ sessionID: Schema.String, messageID: Schema.String }),
+        params: Schema.Struct({
+          sessionID: Schema.String,
+          messageID: Schema.String,
+        }),
         success: Schema.Array(Snapshot.FileDiffSchema),
       }).annotate(OpenApi.Identifier, "mobile.session.diff"),
     )
@@ -556,21 +576,32 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.post("permissionRespond", "/session/:sessionID/permissions/:permissionID", {
-        params: Schema.Struct({ sessionID: Schema.String, permissionID: Schema.String }),
+        params: Schema.Struct({
+          sessionID: Schema.String,
+          permissionID: Schema.String,
+        }),
         payload: Schema.Struct({ response: Schema.String }),
         success: Success,
       }).annotate(OpenApi.Identifier, "mobile.permission.respond"),
     )
     .add(
       HttpApiEndpoint.post("questionRespond", "/session/:sessionID/question/:requestID", {
-        params: Schema.Struct({ sessionID: Schema.String, requestID: Schema.String }),
-        payload: Schema.Struct({ answers: Schema.Array(Schema.Array(Schema.String)) }),
+        params: Schema.Struct({
+          sessionID: Schema.String,
+          requestID: Schema.String,
+        }),
+        payload: Schema.Struct({
+          answers: Schema.Array(Schema.Array(Schema.String)),
+        }),
         success: Success,
       }).annotate(OpenApi.Identifier, "mobile.question.respond"),
     )
     .add(
       HttpApiEndpoint.delete("questionReject", "/session/:sessionID/question/:requestID", {
-        params: Schema.Struct({ sessionID: Schema.String, requestID: Schema.String }),
+        params: Schema.Struct({
+          sessionID: Schema.String,
+          requestID: Schema.String,
+        }),
         success: Success,
       }).annotate(OpenApi.Identifier, "mobile.question.reject"),
     )
@@ -628,13 +659,17 @@ export namespace MobileHttpApi {
     // --- worktree ---
     .add(
       HttpApiEndpoint.post("worktreeCreate", "/worktree", {
-        payload: Schema.Unknown.annotate({ description: "WorktreeCreateInput" }),
+        payload: Schema.Unknown.annotate({
+          description: "WorktreeCreateInput",
+        }),
         success: WorktreeInfo,
       }).annotate(OpenApi.Identifier, "mobile.worktree.create"),
     )
     .add(
       HttpApiEndpoint.delete("worktreeRemove", "/worktree", {
-        payload: Schema.Unknown.annotate({ description: "WorktreeRemoveInput" }),
+        payload: Schema.Unknown.annotate({
+          description: "WorktreeRemoveInput",
+        }),
         success: Success,
       }).annotate(OpenApi.Identifier, "mobile.worktree.remove"),
     )
@@ -713,7 +748,10 @@ export namespace MobileHttpApi {
     .add(
       HttpApiEndpoint.post("gitPush", "/git/push", {
         query: Schema.Struct({ upstream: Schema.optional(Schema.String) }),
-        success: Schema.Struct({ success: Schema.Literal(true), pushed: Schema.Boolean }),
+        success: Schema.Struct({
+          success: Schema.Literal(true),
+          pushed: Schema.Boolean,
+        }),
       }).annotate(OpenApi.Identifier, "mobile.git.push"),
     )
     .add(
@@ -736,7 +774,9 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.post("loopCreate", "/loops", {
-        payload: Schema.Unknown.annotate({ description: "MobileLoopWriteInput" }),
+        payload: Schema.Unknown.annotate({
+          description: "MobileLoopWriteInput",
+        }),
         success: LoopDefinition,
       }).annotate(OpenApi.Identifier, "mobile.loop.create"),
     )
@@ -756,7 +796,9 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.get("loopRunsRecent", "/loops/runs/recent", {
-        query: Schema.Struct({ limit: Schema.optional(Schema.NumberFromString) }),
+        query: Schema.Struct({
+          limit: Schema.optional(Schema.NumberFromString),
+        }),
         success: Schema.Struct({ runs: Schema.Array(LoopRun) }),
       }).annotate(OpenApi.Identifier, "mobile.loop.runs.recent"),
     )
@@ -775,14 +817,18 @@ export namespace MobileHttpApi {
     .add(
       HttpApiEndpoint.patch("loopUpdate", "/loops/:id", {
         params: IDPath,
-        payload: Schema.Unknown.annotate({ description: "MobileLoopWriteInput" }),
+        payload: Schema.Unknown.annotate({
+          description: "MobileLoopWriteInput",
+        }),
         success: LoopDefinition,
       }).annotate(OpenApi.Identifier, "mobile.loop.update"),
     )
     .add(
       HttpApiEndpoint.get("loopRuns", "/loops/:id/runs", {
         params: IDPath,
-        query: Schema.Struct({ limit: Schema.optional(Schema.NumberFromString) }),
+        query: Schema.Struct({
+          limit: Schema.optional(Schema.NumberFromString),
+        }),
         success: Schema.Struct({ runs: Schema.Array(LoopRun) }),
       }).annotate(OpenApi.Identifier, "mobile.loop.runs"),
     )
@@ -825,7 +871,9 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.post("routineCreate", "/routines", {
-        payload: Schema.Unknown.annotate({ description: "MobileRoutineCreateInput" }),
+        payload: Schema.Unknown.annotate({
+          description: "MobileRoutineCreateInput",
+        }),
         success: RoutineRecord,
       }).annotate(OpenApi.Identifier, "mobile.routine.create"),
     )
@@ -844,7 +892,9 @@ export namespace MobileHttpApi {
     .add(
       HttpApiEndpoint.patch("routineUpdate", "/routines/:id", {
         params: IDPath,
-        payload: Schema.Unknown.annotate({ description: "MobileRoutineUpdateInput" }),
+        payload: Schema.Unknown.annotate({
+          description: "MobileRoutineUpdateInput",
+        }),
         success: RoutineRecord,
       }).annotate(OpenApi.Identifier, "mobile.routine.update"),
     )

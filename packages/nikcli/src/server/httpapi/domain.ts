@@ -35,8 +35,17 @@ export const LoopStage = Schema.Struct({
   tokenBudget: Schema.optional(Schema.Number),
 }).annotate({ identifier: "LoopStage" })
 
-export const LoopDefinition = Schema.Struct({
-  id: Schema.String,
+/**
+ * Everything about a loop that the author supplies. `id`, `createdAt` and
+ * `enabled` are deliberately absent: the server assigns the first two and
+ * defaults the third.
+ *
+ * Split out so the definition and the create body share one list. `Schema.Struct`
+ * **strips** undeclared keys on decode, so a create body restated by hand would
+ * silently drop any field it forgot — on the write path, where the loss is
+ * durable. Adding a field here reaches both shapes at once.
+ */
+const LoopAuthoredFields = {
   name: Schema.String,
   stages: Schema.Array(LoopStage),
   trigger: LoopTrigger,
@@ -46,9 +55,35 @@ export const LoopDefinition = Schema.Struct({
   sandbox: Schema.optional(Schema.Boolean),
   worktree: Schema.optional(LoopWorktree),
   paused: Schema.optional(Schema.Boolean),
+}
+
+export const LoopDefinition = Schema.Struct({
+  id: Schema.String,
+  ...LoopAuthoredFields,
   enabled: Schema.Boolean,
   createdAt: Schema.Number,
 }).annotate({ identifier: "LoopDefinition" })
+
+/** Create body: the authored fields, with `enabled` optional (handler defaults it to `true`). */
+export const LoopCreateInput = Schema.Struct({
+  ...LoopAuthoredFields,
+  enabled: Schema.optional(Schema.Boolean),
+}).annotate({ identifier: "LoopCreateInput" })
+
+/**
+ * Update body: the whole definition except `id`, which the path already carries.
+ *
+ * `id` is left out because the generated clients flatten path params and body
+ * fields into one argument object, so a body `id` beside `/:id` is a field
+ * collision the codegen rejects outright. Dropping it is also the shape the
+ * rest of this surface already uses — `ProjectUpdateInput` and
+ * `SessionUpdateInput` both keep identity in the path.
+ */
+export const LoopUpdateInput = Schema.Struct({
+  ...LoopAuthoredFields,
+  enabled: Schema.Boolean,
+  createdAt: Schema.Number,
+}).annotate({ identifier: "LoopUpdateInput" })
 
 export const LoopPullRequestRef = Schema.Struct({
   number: Schema.Number,

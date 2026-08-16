@@ -177,9 +177,22 @@ export type Endpoint6_0Output = EffectValue<ReturnType<RawClient["profile"]["get
 export type ProfileGetOperation<E = never> = () => Effect.Effect<Endpoint6_0Output, E>
 
 type Endpoint6_1Request = Parameters<RawClient["profile"]["patch"]>[0]
-export type Endpoint6_1Input = { readonly payload: Endpoint6_1Request["payload"] }
+export type Endpoint6_1Input = {
+  readonly name?: Endpoint6_1Request["payload"]["name"]
+  readonly role?: Endpoint6_1Request["payload"]["role"]
+  readonly about?: Endpoint6_1Request["payload"]["about"]
+  readonly stack?: Endpoint6_1Request["payload"]["stack"]
+  readonly expertise?: Endpoint6_1Request["payload"]["expertise"]
+  readonly learning?: Endpoint6_1Request["payload"]["learning"]
+  readonly skills?: Endpoint6_1Request["payload"]["skills"]
+  readonly tools?: Endpoint6_1Request["payload"]["tools"]
+  readonly conventions?: Endpoint6_1Request["payload"]["conventions"]
+  readonly communication?: Endpoint6_1Request["payload"]["communication"]
+  readonly custom?: Endpoint6_1Request["payload"]["custom"]
+  readonly habits?: Endpoint6_1Request["payload"]["habits"]
+}
 export type Endpoint6_1Output = EffectValue<ReturnType<RawClient["profile"]["patch"]>>
-export type ProfilePatchOperation<E = never> = (input: Endpoint6_1Input) => Effect.Effect<Endpoint6_1Output, E>
+export type ProfilePatchOperation<E = never> = (input?: Endpoint6_1Input) => Effect.Effect<Endpoint6_1Output, E>
 
 export type Endpoint6_2Output = EffectValue<ReturnType<RawClient["profile"]["clear"]>>
 export type ProfileClearOperation<E = never> = () => Effect.Effect<Endpoint6_2Output, E>
@@ -518,14 +531,30 @@ export type Endpoint14_4Output = EffectValue<ReturnType<RawClient["mission"]["ge
 export type MissionGetOperation<E = never> = (input: Endpoint14_4Input) => Effect.Effect<Endpoint14_4Output, E>
 
 type Endpoint14_5Request = Parameters<RawClient["mission"]["upsert"]>[0]
-export type Endpoint14_5Input = { readonly payload: Endpoint14_5Request["payload"] }
+export type Endpoint14_5Input = {
+  readonly name: Endpoint14_5Request["payload"]["name"]
+  readonly brief: Endpoint14_5Request["payload"]["brief"]
+  readonly milestones: Endpoint14_5Request["payload"]["milestones"]
+  readonly models?: Endpoint14_5Request["payload"]["models"]
+  readonly timeoutMs?: Endpoint14_5Request["payload"]["timeoutMs"]
+  readonly sandbox?: Endpoint14_5Request["payload"]["sandbox"]
+  readonly worktree?: Endpoint14_5Request["payload"]["worktree"]
+}
 export type Endpoint14_5Output = EffectValue<ReturnType<RawClient["mission"]["upsert"]>>
 export type MissionUpsertOperation<E = never> = (input: Endpoint14_5Input) => Effect.Effect<Endpoint14_5Output, E>
 
 type Endpoint14_6Request = Parameters<RawClient["mission"]["update"]>[0]
 export type Endpoint14_6Input = {
   readonly id: Endpoint14_6Request["params"]["id"]
-  readonly payload: Endpoint14_6Request["payload"]
+  readonly name: Endpoint14_6Request["payload"]["name"]
+  readonly brief: Endpoint14_6Request["payload"]["brief"]
+  readonly milestones: Endpoint14_6Request["payload"]["milestones"]
+  readonly models?: Endpoint14_6Request["payload"]["models"]
+  readonly timeoutMs?: Endpoint14_6Request["payload"]["timeoutMs"]
+  readonly sandbox?: Endpoint14_6Request["payload"]["sandbox"]
+  readonly worktree?: Endpoint14_6Request["payload"]["worktree"]
+  readonly status?: Endpoint14_6Request["payload"]["status"]
+  readonly createdAt: Endpoint14_6Request["payload"]["createdAt"]
 }
 export type Endpoint14_6Output = EffectValue<ReturnType<RawClient["mission"]["update"]>>
 export type MissionUpdateOperation<E = never> = (input: Endpoint14_6Input) => Effect.Effect<Endpoint14_6Output, E>
@@ -1457,14 +1486,35 @@ export type Endpoint21_4Output = EffectValue<ReturnType<RawClient["loop"]["get"]
 export type LoopGetOperation<E = never> = (input: Endpoint21_4Input) => Effect.Effect<Endpoint21_4Output, E>
 
 type Endpoint21_5Request = Parameters<RawClient["loop"]["upsert"]>[0]
-export type Endpoint21_5Input = { readonly payload: Endpoint21_5Request["payload"] }
+export type Endpoint21_5Input = {
+  readonly name: Endpoint21_5Request["payload"]["name"]
+  readonly stages: Endpoint21_5Request["payload"]["stages"]
+  readonly trigger: Endpoint21_5Request["payload"]["trigger"]
+  readonly maxRuns?: Endpoint21_5Request["payload"]["maxRuns"]
+  readonly timeoutMs?: Endpoint21_5Request["payload"]["timeoutMs"]
+  readonly createPR?: Endpoint21_5Request["payload"]["createPR"]
+  readonly sandbox?: Endpoint21_5Request["payload"]["sandbox"]
+  readonly worktree?: Endpoint21_5Request["payload"]["worktree"]
+  readonly paused?: Endpoint21_5Request["payload"]["paused"]
+  readonly enabled?: Endpoint21_5Request["payload"]["enabled"]
+}
 export type Endpoint21_5Output = EffectValue<ReturnType<RawClient["loop"]["upsert"]>>
 export type LoopUpsertOperation<E = never> = (input: Endpoint21_5Input) => Effect.Effect<Endpoint21_5Output, E>
 
 type Endpoint21_6Request = Parameters<RawClient["loop"]["update"]>[0]
 export type Endpoint21_6Input = {
   readonly id: Endpoint21_6Request["params"]["id"]
-  readonly payload: Endpoint21_6Request["payload"]
+  readonly name: Endpoint21_6Request["payload"]["name"]
+  readonly stages: Endpoint21_6Request["payload"]["stages"]
+  readonly trigger: Endpoint21_6Request["payload"]["trigger"]
+  readonly maxRuns?: Endpoint21_6Request["payload"]["maxRuns"]
+  readonly timeoutMs?: Endpoint21_6Request["payload"]["timeoutMs"]
+  readonly createPR?: Endpoint21_6Request["payload"]["createPR"]
+  readonly sandbox?: Endpoint21_6Request["payload"]["sandbox"]
+  readonly worktree?: Endpoint21_6Request["payload"]["worktree"]
+  readonly paused?: Endpoint21_6Request["payload"]["paused"]
+  readonly enabled: Endpoint21_6Request["payload"]["enabled"]
+  readonly createdAt: Endpoint21_6Request["payload"]["createdAt"]
 }
 export type Endpoint21_6Output = EffectValue<ReturnType<RawClient["loop"]["update"]>>
 export type LoopUpdateOperation<E = never> = (input: Endpoint21_6Input) => Effect.Effect<Endpoint21_6Output, E>

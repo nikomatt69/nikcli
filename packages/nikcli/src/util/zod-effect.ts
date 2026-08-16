@@ -15,7 +15,9 @@ import z from "zod"
  * one anonymous blob.
  */
 
-type ZodAny = z.ZodType & { readonly _zod: { readonly def: Record<string, any> } }
+type ZodAny = z.ZodType & {
+  readonly _zod: { readonly def: Record<string, any> }
+}
 
 /**
  * `.default(x)` is treated as optional rather than required. A parsed config
@@ -39,8 +41,8 @@ export function overrideZod<S extends Schema.Top>(schema: z.ZodType, effect: S):
   return effect
 }
 
-export function fromZod(schema: z.ZodType): Schema.Top {
-  return convert(schema as ZodAny, new Map()).schema
+export function fromZod<T extends z.ZodType>(schema: T): Schema.Codec<z.input<T>, z.input<T>> {
+  return convert(schema as ZodAny, new Map()).schema as unknown as Schema.Codec<z.input<T>, z.input<T>>
 }
 
 function identifierOf(node: ZodAny): string | undefined {
@@ -111,12 +113,17 @@ function build(node: ZodAny, cache: Map<ZodAny, Converted>): Converted {
       const items = (def.items as ZodAny[]).map((item) => convert(item, cache).schema)
       const rest = def.rest as ZodAny | undefined
       if (!rest) return { schema: Schema.Tuple(items) }
-      return { schema: Schema.TupleWithRest(Schema.Tuple(items), [convert(rest, cache).schema]) }
+      return {
+        schema: Schema.TupleWithRest(Schema.Tuple(items), [convert(rest, cache).schema]),
+      }
     }
     case "optional":
       return { schema: convert(def.innerType, cache).schema, [OPTIONAL]: true }
     case "nullable":
-      return { schema: Schema.NullOr(convert(def.innerType, cache).schema), [OPTIONAL]: true }
+      return {
+        schema: Schema.NullOr(convert(def.innerType, cache).schema),
+        [OPTIONAL]: true,
+      }
     case "default":
     case "prefault":
       return { schema: convert(def.innerType, cache).schema, [OPTIONAL]: true }

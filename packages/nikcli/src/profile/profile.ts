@@ -31,10 +31,16 @@ export namespace Profile {
   const VerbositySchema = Schema.Literals(["concise", "balanced", "detailed"])
   export type Verbosity = Schema.Schema.Type<typeof VerbositySchema>
 
-  export const InfoSchema = Schema.Struct({
-    version: Schema.Number,
-    /** Account this profile belongs to, or `"local"` when signed out. */
-    key: Schema.String,
+  /**
+   * The editable half of a profile — everything the user actually writes.
+   *
+   * Split out so {@link InfoSchema} and {@link InputSchema} share one list
+   * instead of a struct and a hand-maintained `Omit`. `PATCH /profile` types its
+   * body from this, so a new profile field becomes editable over HTTP the moment
+   * it is added here, and cannot be advertised as patchable while the writer
+   * ignores it.
+   */
+  const EditableFields = {
     /** How the user wants to be addressed. */
     name: Schema.optional(Schema.String),
     /** Job title / seniority — "senior backend engineer", "design engineer". */
@@ -75,14 +81,25 @@ export namespace Profile {
      * shown to agents. Absent means enabled — opting out is the deliberate act.
      */
     habits: Schema.optional(Schema.Boolean),
+  }
+
+  export const InfoSchema = Schema.Struct({
+    version: Schema.Number,
+    /** Account this profile belongs to, or `"local"` when signed out. */
+    key: Schema.String,
+    ...EditableFields,
     updatedAt: Schema.Number,
   }).annotate({ identifier: "Profile" })
 
   export const Info = zodObject(InfoSchema)
   export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
-  /** The editable half of {@link Info} — everything except bookkeeping fields. */
-  export type Input = Partial<Omit<Info, "version" | "key" | "updatedAt">>
+  /**
+   * The editable half of {@link Info} — everything except the bookkeeping
+   * fields (`version`, `key`, `updatedAt`), which the writer assigns.
+   */
+  export const InputSchema = Schema.Struct(EditableFields).annotate({ identifier: "ProfileInput" })
+  export type Input = DeepMutable<Schema.Schema.Type<typeof InputSchema>>
 
   export class IOError extends Schema.TaggedErrorClass<IOError>()("ProfileIOError", {
     message: Schema.String,

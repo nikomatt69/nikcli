@@ -6,5 +6,7 @@
  * on-disk `daemon.ts` under `/$bunfs`, and re-execing this binary just to bind
  * a Unix socket is killed by the OS (SIGKILL on a ~280MB image).
  */
+import "./util/document-shim"
+
 const { runCli } = await import("./cli-main")
 await runCli()

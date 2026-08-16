@@ -57,9 +57,11 @@ Both eviction paths write a final frame before closing:
 
 wrapped in the route's envelope. This frame is written past the budget on purpose — a client being dropped should learn why. It is additive: it appears only where the previous behaviour was a silent close, and clients dispatch by `type`, so an unknown type has no listeners.
 
-### Not implemented: public filtering
+### Public filtering: landed separately
 
-The proposal's "public filter" stage has no counterpart in the code, because nothing marks a bus event as internal today. Every event that reached a client before still does. Adding a filter is a wire change and needs its own decision — that decision is now [public-event-filter.md](./public-event-filter.md) (roadmap E3c), which names the six internal types and settles that a withheld event is absent from the wire rather than typed. Nothing in this document changes when it lands: the filter sits in `Feed.broadcast` ahead of encoding, so both envelopes stay exactly as described here.
+The proposal's "public filter" stage had no counterpart here, because nothing marked a bus event as internal. It landed 2026-08-16 as its own decision — [public-event-filter.md](./public-event-filter.md) — which names the six internal types and settles that a withheld event is absent from the wire rather than typed.
+
+Nothing in this document changed: the filter sits in `Feed.broadcast` ahead of the encode, so both envelopes are exactly as described here. One correction it did force — `broadcast` does not apply `Envelope` (that is for connection-local frames), so each feed also supplies a `TypeOf` extractor; the global feed's reads through the `GlobalBus` `{directory, payload}` wrapper.
 
 ## Behavior Before This Change
 
