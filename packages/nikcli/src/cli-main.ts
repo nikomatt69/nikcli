@@ -4,8 +4,12 @@
  * `--computer-use-daemon` re-entry does not pay the CLI module graph before
  * binding the Unix socket.
  */
+import { installPluginInstaller } from "./plugin/installer"
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
+
+// Every CLI command that can install a plugin runs through this entry.
+installPluginInstaller()
 import { RunCommand } from "./cli/cmd/run"
 import { GenerateCommand } from "./cli/cmd/generate"
 import { Log } from "@nikcli-ai/util/log"

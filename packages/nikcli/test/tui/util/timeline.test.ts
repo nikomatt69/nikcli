@@ -3,7 +3,7 @@ import {
   formatMessageLineForTimeline,
   truncateOneLine,
   lastUserMessageLine,
-} from "@/cli/cmd/tui/util/timeline-style-text"
+} from "@tui/util/timeline-style-text"
 import { recordBenchmark } from "../../benchmarks/runner"
 
 describe("formatMessageLineForTimeline", () => {

@@ -6,7 +6,7 @@ import { Global } from "@nikcli-ai/util/global"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Flock } from "@nikcli-ai/util/flock"
 
-import { parsePluginSpecifier, pluginSource } from "./shared"
+import { parsePluginSpecifier, pluginSource } from "./plugin-shared"
 
 export namespace PluginMeta {
   type Source = "file" | "npm"

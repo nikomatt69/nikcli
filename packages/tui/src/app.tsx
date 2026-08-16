@@ -76,8 +76,8 @@ import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
 import { EditorContextProvider } from "./context/editor"
 import type { TuiConfig } from "@nikcli-ai/sdk/httpapi"
-import { TuiConfig as TuiConfigLocal } from "@/config/tui"
 import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
+import { setPluginHost, type TuiPluginHost } from "./plugin/host"
 import { dbg as dbgApp } from "./feature-plugins/background/__debug"
 import { BackgroundImage } from "./feature-plugins/background/view"
 import { DevToolsBar } from "./feature-plugins/devtools/bar"
@@ -135,6 +135,25 @@ export function tui(input: {
   upgradeNow?: (method: string, version: string) => Promise<void>
   startServer?: (options?: StartServerOptions) => Promise<string>
   createMobileToken?: (options?: CreateMobileTokenOptions) => Promise<CreatedMobileToken>
+  /**
+   * Config-surface operations the plugin runtime cannot perform itself.
+   *
+   * Required, not optional like the other host props: a terminal without it
+   * cannot watch the config surface or install a plugin, and every entry point
+   * that starts a TUI is a host file that can supply it.
+   */
+  pluginHost: TuiPluginHost
+  /**
+   * The merged TUI config, already read.
+   *
+   * A prop rather than a call, because of when it is needed: it feeds
+   * `rendererConfig`, so it is consumed *before the renderer exists* — and at
+   * that instant no transport does either. Over HTTP the call fails with
+   * `ClientError: Transport`; over worker RPC it never settles at all, because
+   * `Rpc.call` posts and waits with no timeout. The host reads it locally and
+   * hands it over. Everything after the first frame uses `sdk.client.tui.config()`.
+   */
+  tuiConfig?: TuiConfig
 }) {
   // promise to prevent immediate exit
   return new Promise<void>((resolve, reject) => {
@@ -150,7 +169,10 @@ export function tui(input: {
         // installed its RPC `onmessage`, so a request here fails with `ClientError: Transport`
         // or, over worker RPC, never settles at all: `Rpc.call` posts and waits forever.
         // Everything after the first frame uses `sdk.client.tui.config()`.
-        const tuiCfg = await TuiConfigLocal.get().catch(() => ({}) as TuiConfig)
+        // Installed before anything can reach the plugin runtime.
+        setPluginHost(input.pluginHost)
+
+        const tuiCfg = input.tuiConfig ?? ({} as TuiConfig)
         const drive = Boolean(process.env.NIKCLI_DRIVE)
         const headless = drive && process.env.NIKCLI_DRIVE_RENDERER === "headless"
         // In drive mode the renderer must still be built from *this* package's

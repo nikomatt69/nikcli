@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { buildSupportPromptParts } from "@/cli/cmd/tui/component/support-prompt-parts"
+import { buildSupportPromptParts } from "@tui/component/support-prompt-parts"
 
 describe("support prompt parts", () => {
   it("builds text and file parts", () => {

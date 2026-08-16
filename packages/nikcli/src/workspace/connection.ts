@@ -18,7 +18,7 @@
  */
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
-import { GlobalBus } from "@/bus/global"
+import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { withInstanceAsync } from "@/effect"

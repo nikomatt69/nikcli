@@ -1,6 +1,6 @@
 import z from "zod"
 import { BusEvent } from "@/bus/bus-event"
-import { GlobalBus } from "@/bus/global"
+import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { Identifier } from "@nikcli-ai/util/id"
 import { Project } from "@/project/project"
 import { InstanceBootstrap } from "@/project/bootstrap"

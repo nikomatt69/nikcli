@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createWakeDedup } from "@/cli/cmd/tui/util/wake-dedup"
+import { createWakeDedup } from "@tui/util/wake-dedup"
 
 /**
  * Extractor function that mirrors the one wired into `sdk.tsx`. Kept

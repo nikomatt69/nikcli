@@ -68,7 +68,7 @@ describe("upgrade failure reporting", () => {
   })
 
   it("makes the TUI toast fall back to stderr instead of the empty message", async () => {
-    const app = await readSrc("packages/nikcli/src/cli/cmd/tui/app.tsx")
+    const app = await readSrc("packages/tui/src/app.tsx")
     // Match on the name, never `instanceof`. The upgrade runs in the worker, so the error reaches
     // the terminal as a plain `Error` rebuilt by `Rpc` — the class does not cross the boundary and
     // the `instanceof` form this test used to require was dead, leaving the toast on its generic

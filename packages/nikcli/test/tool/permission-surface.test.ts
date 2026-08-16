@@ -25,7 +25,7 @@ preserveTestEnv([
 const { InstanceScope } = await import("@/effect")
 const { ToolRegistry } = await import("@/tool/registry")
 const { Agent } = await import("@/agent/agent")
-const { permissionPresetPatch } = await import("@/cli/cmd/tui/util/permission-presets")
+const { permissionPresetPatch } = await import("@tui/util/permission-presets")
 
 /**
  * Permissions that gate something other than a registry tool. They will never

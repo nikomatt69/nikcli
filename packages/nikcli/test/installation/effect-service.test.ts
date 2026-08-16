@@ -10,7 +10,7 @@ import {
   SDKProvider,
   useSDK,
   type GlobalEnvelope,
-} from "@/cli/cmd/tui/context/sdk"
+} from "@tui/context/sdk"
 import fs from "fs/promises"
 import path from "path"
 import { TERMINAL_RESET_SEQUENCE } from "@nikcli-ai/util/win32"
@@ -185,14 +185,14 @@ describe("Update dialog wiring (cross-platform)", () => {
   })
 
   it("the TUI subscribes to installation.update-available and shows a confirm dialog", async () => {
-    const source = await readSrc("packages/nikcli/src/cli/cmd/tui/app.tsx")
+    const source = await readSrc("packages/tui/src/app.tsx")
     expect(source).toContain("InstallationEventName.updateAvailable")
     expect(source).toContain("DialogConfirm.show(")
     expect(source).toContain("Update Available")
   })
 
   it("the TUI dialog passes the detected install method to upgradeNow", async () => {
-    const source = await readSrc("packages/nikcli/src/cli/cmd/tui/app.tsx")
+    const source = await readSrc("packages/tui/src/app.tsx")
     expect(source).toContain("upgradeNow?.(method")
   })
 
@@ -286,7 +286,7 @@ describe("Update dialog wiring (cross-platform)", () => {
 
     const [thread, app] = await Promise.all([
       readSrc("packages/nikcli/src/cli/cmd/tui/thread.ts"),
-      readSrc("packages/nikcli/src/cli/cmd/tui/app.tsx"),
+      readSrc("packages/tui/src/app.tsx"),
     ])
     expect(thread).toContain('client.call("checkUpgrade"')
     expect(thread).toContain("upgrade check failed")

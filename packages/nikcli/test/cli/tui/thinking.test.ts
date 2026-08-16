@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { reasoningSummary } from "@/cli/cmd/tui/context/thinking"
+import { reasoningSummary } from "@tui/context/thinking"
 
 describe("reasoningSummary", () => {
   test("extracts a leading summary title and leaves markdown body", () => {

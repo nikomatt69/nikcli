@@ -19,7 +19,7 @@ import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from 
 import { encodeSixel, pickDecoder, resize } from "@nikcli-ai/tui-image"
 import { BrowserFramePump, cellSize, type FrameTransmission, type PumpStats } from "@tui/util/browser-frames"
 import { InputScheduler } from "@tui/util/browser-input"
-import { preparePhoton } from "@/image/photon"
+import { preparePhoton } from "@nikcli-ai/util/photon"
 import { registerNativeOverlay, type NativeOverlay } from "./tui-image"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"

@@ -1,7 +1,6 @@
 import path from "path"
 import { fileURLToPath, pathToFileURL } from "url"
 import semver from "semver"
-import { BunProc } from "@/bun"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { isRecord } from "@nikcli-ai/util/record"
 
@@ -102,9 +101,26 @@ export async function checkPluginCompatibility(target: string, nikcliVersion: st
   }
 }
 
+/**
+ * How a package specifier becomes a directory on disk.
+ *
+ * Everything else in this module is path and manifest work that both the server
+ * and the terminal do; this one line shells out to `bun install`, which is the
+ * host's job and the only reason the module used to live in `packages/nikcli`.
+ * The host sets it once at startup — `src/plugin/shared.ts` does, on import.
+ */
+let installPackage: ((pkg: string, version: string) => Promise<string>) | undefined
+
+export function configurePluginInstaller(install: (pkg: string, version: string) => Promise<string>): void {
+  installPackage = install
+}
+
 export async function resolvePluginTarget(spec: string, parsed = parsePluginSpecifier(spec)) {
   if (isPathPluginSpec(spec)) return resolvePathPluginTarget(spec)
-  return BunProc.install(parsed.pkg, parsed.version)
+  if (!installPackage) {
+    throw new Error(`Cannot install ${parsed.pkg}: no package installer is configured in this process`)
+  }
+  return installPackage(parsed.pkg, parsed.version)
 }
 
 export async function readPluginPackage(target: string) {

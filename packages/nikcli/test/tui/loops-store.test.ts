@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import * as Store from "@/cli/cmd/tui/feature-plugins/loops/store"
+import * as Store from "@tui/feature-plugins/loops/store"
 
 function fakeKv(): Store.KvLike & { data: Record<string, unknown> } {
   const data: Record<string, unknown> = {}

@@ -107,7 +107,6 @@ const LOCK_DURATION_MS = 60 * 60 * 1000 // 1 hour
 const BRAIN_SESSION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 const SESSION_REVIEW_LIMIT = 10
 const SESSION_REVIEW_MAX_CHARS = 12_000
-export { BRAIN_SESSION_TITLE } from "@nikcli-ai/util/brain-constants"
 import { BRAIN_SESSION_TITLE } from "@nikcli-ai/util/brain-constants"
 
 function memoryPath(): string {

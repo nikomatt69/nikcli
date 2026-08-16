@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import type { TuiCommand, TuiPluginApi } from "@nikcli-ai/plugin/tui"
-import { createKeymapApi } from "@/cli/cmd/tui/plugin/keymap"
+import { createKeymapApi } from "@tui/plugin/keymap"
 
 function fakeCommandApi() {
   const registrations: Array<() => TuiCommand[]> = []

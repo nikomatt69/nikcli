@@ -1,4 +1,4 @@
-import { GlobalBus } from "../../bus/global"
+import { GlobalBus } from "@nikcli-ai/util/global-bus"
 
 export function shouldForwardWorkspaceEvent(eventDirectory: string | undefined, allowed: Array<string | undefined>) {
   const targets = allowed.filter((target): target is string => Boolean(target))

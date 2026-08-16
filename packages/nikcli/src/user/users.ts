@@ -1,7 +1,6 @@
 import { eq, and, or, sql, desc, asc } from "drizzle-orm"
 import { createHash, randomBytes } from "node:crypto"
 import type { UserSchema } from "@nikcli-ai/util/user-schema"
-import { UserSession } from "@nikcli-ai/util/user-session"
 import { Database } from "@/database/database"
 import { users, userSessions, chatContacts, chatMessages } from "./users.sql"
 
@@ -497,15 +496,9 @@ export namespace UserDB {
   // Active TUI session persisted to disk
   // ============================================================================
 
-  // The store itself is `@nikcli-ai/util/user-session`: a file, no tables. It
-  // moved so the terminal can read the token without importing this module —
-  // and with it drizzle — for one line of text. These stay as the names every
-  // backend caller already uses.
-
-  export const getActiveSession = UserSession.get
-  export const getActiveSessionSync = UserSession.getSync
-  export const saveActiveSession = UserSession.save
-  export const clearActiveSession = UserSession.clear
+  // The active-session token lives in `@nikcli-ai/util/user-session`: a file,
+  // no tables. Callers import it directly — this module used to re-export the
+  // four functions during the migration, which is over.
 
   // ============================================================================
   // Chat — contacts, messages, search

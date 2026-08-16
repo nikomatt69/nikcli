@@ -24,9 +24,13 @@ export const AttachCommand = cmd({
     // Lazy: ./app pulls in TuiPluginRuntime, whose OpenTUI runtime Bun plugin
     // must not install during CLI startup (startup-graph rule; it also breaks
     // require() of not-yet-cached CJS deps once installed).
-    const { tui } = await import("./app")
+    const { tui } = await import("@nikcli-ai/tui/app")
+    const { localPluginHost } = await import("./plugin/host-local")
+    const { TuiConfig } = await import("@/config/tui")
     await tui({
       url: args.url,
+      pluginHost: localPluginHost,
+      tuiConfig: await TuiConfig.get().catch(() => undefined),
       args: { sessionID: args.session },
       directory: args.dir ? process.cwd() : undefined,
     })

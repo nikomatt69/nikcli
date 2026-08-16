@@ -2,7 +2,7 @@ import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/u
 import { Effect, Layer, Schema } from "effect"
 import z from "zod"
 import { BusEvent } from "@/bus/bus-event"
-import { GlobalBus } from "@/bus/global"
+import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { Installation } from "@/installation"
 import { Instance } from "@/project/instance"
 

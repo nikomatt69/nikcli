@@ -3,11 +3,13 @@ import { Rpc } from "@tui/util/rpc"
 import { type rpc } from "./worker"
 import path from "path"
 import { UI } from "@/cli/ui"
+import { localPluginHost } from "./plugin/host-local"
+import { TuiConfig } from "@/config/tui"
 import { iife } from "@nikcli-ai/util/iife"
 import { Log } from "@nikcli-ai/util/log"
 import { withNetworkOptions, resolveNetworkOptions, shouldStartHttpServer } from "@/cli/network"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
-import type { EventSource } from "./context/sdk"
+import type { EventSource } from "@nikcli-ai/tui/context/sdk"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "@nikcli-ai/util/win32"
 import { errorMessage } from "@nikcli-ai/util/error-format"
 import { Process } from "@nikcli-ai/util/process"
@@ -326,9 +328,15 @@ export const TuiThreadCommand = cmd({
     try {
       win32DisableProcessedInput()
 
-      const { tui } = await import("./app")
+      const { tui } = await import("@nikcli-ai/tui/app")
+      // Read here, not in the terminal: it feeds the renderer config, so it is
+      // needed before any transport exists. See `tui()`'s `tuiConfig` prop.
+      const tuiConfig = await TuiConfig.get().catch(() => undefined)
+
       const tuiPromise = tui({
         url,
+        pluginHost: localPluginHost,
+        tuiConfig,
         directory: cwd,
         fetch: customFetch,
         events,

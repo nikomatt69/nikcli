@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { Usage } from "@/cli/cmd/tui/util/usage"
+import { Usage } from "@tui/util/usage"
 import { recordBenchmark } from "../../benchmarks/runner"
 
 describe("Usage.formatTokens", () => {

@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema } from "effect"
 import { Config } from "@/config/config"
-import { preparePhoton } from "@/image/photon"
+import { preparePhoton } from "@nikcli-ai/util/photon"
 import type { MessageV2 } from "@/session/message-v2"
 import { Log } from "@nikcli-ai/util/log"
 

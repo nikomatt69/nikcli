@@ -13,11 +13,10 @@ import path from "path"
 import { fileURLToPath } from "url"
 
 import { pluginOptions, pluginSpecifier, type PluginOptions, type PluginSpec } from "@nikcli-ai/util/plugin-spec"
-import { TuiConfig } from "@/config/tui"
+import { pluginHost, type PluginConfigInfo, type PluginConfigMeta } from "./host"
 import { Log } from "@nikcli-ai/util/log"
 import { errorData, errorMessage } from "@nikcli-ai/util/error-format"
 import { isRecord } from "@nikcli-ai/util/record"
-import { withInstanceAsync } from "@/effect"
 import {
   checkPluginCompatibility,
   getPluginIdFromPackage,
@@ -30,9 +29,9 @@ import {
   resolvePluginId,
   resolvePluginTarget,
   type PluginSource,
-} from "@/plugin/shared"
-import { PluginMeta } from "@/plugin/meta"
-import { installPlugin as installModulePlugin, patchPluginConfig, readPluginManifest } from "@/plugin/install"
+} from "@nikcli-ai/util/plugin-shared"
+import { PluginMeta } from "@nikcli-ai/util/plugin-meta"
+import { installPlugin as installModulePlugin, patchPluginConfig, readPluginManifest } from "@nikcli-ai/util/plugin-install"
 import { addTheme, hasTheme } from "../context/theme"
 import { createKeymapApi } from "./keymap"
 import { Global } from "@nikcli-ai/util/global"
@@ -61,7 +60,7 @@ type PluginLoad = {
    */
   version: string
   /** Config metadata, kept so a hot reload can re-resolve with the same scope. */
-  config_meta?: TuiConfig.PluginMeta
+  config_meta?: PluginConfigMeta
   /**
    * Where this plugin came from. Only `config` entries follow the config file:
    * a plugin added at runtime is not removed when it is absent from `tui.json`.
@@ -109,7 +108,7 @@ type RuntimeState = {
     string,
     {
       item: PluginSpec
-      meta: TuiConfig.PluginMeta
+      meta: PluginConfigMeta
     }
   >
   watcher?: SourceWatcher
@@ -175,7 +174,7 @@ function resolveRoot(root: string) {
   return path.resolve(process.cwd(), root)
 }
 
-function createThemeInstaller(meta: TuiConfig.PluginMeta, root: string, spec: string): TuiTheme["install"] {
+function createThemeInstaller(meta: PluginConfigMeta, root: string, spec: string): TuiTheme["install"] {
   return async (file) => {
     const raw = file.startsWith("file://") ? fileURLToPath(file) : file
     const src = path.isAbsolute(raw) ? raw : path.resolve(root, raw)
@@ -227,7 +226,7 @@ type LoadHooks = {
 
 async function loadExternalPlugin(
   item: PluginSpec,
-  meta: TuiConfig.PluginMeta | undefined,
+  meta: PluginConfigMeta | undefined,
   retry = false,
   hooks?: LoadHooks,
 ): Promise<PluginLoad | undefined> {
@@ -462,7 +461,7 @@ function readPluginEnabledMap(value: unknown) {
   )
 }
 
-function pluginEnabledState(state: RuntimeState, config: TuiConfig.Info) {
+function pluginEnabledState(state: RuntimeState, config: PluginConfigInfo) {
   return {
     ...readPluginEnabledMap(config.plugin_enabled),
     ...readPluginEnabledMap(state.api.kv.get(KV_KEY, {})),
@@ -726,10 +725,12 @@ function watchLocalSources(state: RuntimeState) {
 async function watchConfigSources(state: RuntimeState) {
   const watcher = state.watcher
   if (!watcher) return
-  const sources = await withInstanceAsync({ directory: state.directory }, () => TuiConfig.sources()).catch((error) => {
-    log.warn("failed to resolve tui config sources", { error })
-    return undefined
-  })
+  const sources = await pluginHost()
+    .sources(state.directory)
+    .catch((error) => {
+      log.warn("failed to resolve tui config sources", { error })
+      return undefined
+    })
   if (!sources) return
   for (const file of sources.files) watcher.addFile(file)
   // addPath, not addDirectory: a discovery directory that does not exist yet
@@ -796,7 +797,7 @@ async function reloadPluginEntry(
   override?: {
     /** Re-declared config entry, when the reload is driven by a config change. */
     item?: PluginSpec
-    meta?: TuiConfig.PluginMeta
+    meta?: PluginConfigMeta
     /** Reload even when the source is byte-identical (changed options). */
     force?: boolean
   },
@@ -866,10 +867,12 @@ async function removePluginEntry(state: RuntimeState, plugin: PluginEntry) {
 async function reconcileConfiguredPlugins(state: RuntimeState) {
   if (Flag.NIKCLI_PURE) return
 
-  const config = await TuiConfig.reload().catch((error) => {
-    log.warn("failed to reload tui config", { error })
-    return undefined
-  })
+  const config = await pluginHost()
+    .reload(state.directory)
+    .catch((error) => {
+      log.warn("failed to reload tui config", { error })
+      return undefined
+    })
   if (!config) return
 
   const desired = new Map<string, PluginSpec>()
@@ -943,7 +946,8 @@ async function reconcileConfiguredPlugins(state: RuntimeState) {
  * events are nearly free.
  */
 async function reloadLocalPlugins(state: RuntimeState) {
-  await withInstanceAsync({ directory: state.directory }, async () => {
+  // No instance wrapper: every host call below takes its own directory.
+  {
     await reconcileConfiguredPlugins(state).catch((error) => {
       fail("failed to reconcile configured tui plugins", { directory: state.directory, error })
     })
@@ -953,14 +957,14 @@ async function reloadLocalPlugins(state: RuntimeState) {
         fail("failed to hot reload tui plugin", { path: plugin.load.spec, id: plugin.id, error })
       })
     }
-  })
+  }
   // A plugin whose id changed, or one added at runtime, needs its own watch;
   // so do config files and plugin directories that appeared since the last pass.
   watchLocalSources(state)
   await watchConfigSources(state)
 }
 
-function applyInitialPluginEnabledState(state: RuntimeState, config: TuiConfig.Info) {
+function applyInitialPluginEnabledState(state: RuntimeState, config: PluginConfigInfo) {
   const map = pluginEnabledState(state, config)
   for (const plugin of state.plugins) {
     const enabled = map[plugin.id]
@@ -972,7 +976,7 @@ function applyInitialPluginEnabledState(state: RuntimeState, config: TuiConfig.I
 async function resolveExternalPlugins(
   list: PluginSpec[],
   wait: () => Promise<void>,
-  meta: (item: PluginSpec) => TuiConfig.PluginMeta | undefined,
+  meta: (item: PluginSpec) => PluginConfigMeta | undefined,
   origin: PluginLoad["origin"] = "config",
 ) {
   const loaded = await Promise.all(list.map((item) => loadExternalPlugin(item, meta(item), false, { origin })))
@@ -1074,7 +1078,7 @@ async function addExternalPluginEntries(state: RuntimeState, ready: PluginLoad[]
   return { plugins, ok }
 }
 
-function defaultPluginMeta(state: RuntimeState): TuiConfig.PluginMeta {
+function defaultPluginMeta(state: RuntimeState): PluginConfigMeta {
   return {
     scope: "local",
     source: state.api.state.path.config || path.join(state.directory, ".nikcli", "tui.json"),
@@ -1123,13 +1127,11 @@ async function addPluginBySpec(state: RuntimeState | undefined, raw: string) {
 
   const meta = pending?.meta ?? defaultPluginMeta(state)
 
-  const ready = await withInstanceAsync({ directory: state.directory }, () =>
-    resolveExternalPlugins(
-      [item],
-      () => TuiConfig.waitForDependencies(),
-      () => meta,
-      "runtime",
-    ),
+  const ready = await resolveExternalPlugins(
+    [item],
+    () => pluginHost().waitForDependencies(state.directory),
+    () => meta,
+    "runtime",
   ).catch((error) => {
     fail("failed to add tui plugin", { path: nextSpec, error })
     return [] as PluginLoad[]
@@ -1354,9 +1356,11 @@ export namespace TuiPluginRuntime {
     }
     runtime = next
 
-    await withInstanceAsync({ directory: cwd }, async () => {
+    // The instance wrapper this replaced also caught: a plugin that throws on
+    // load must not take the whole terminal down with it.
+    try {
       {
-        const config = await TuiConfig.get()
+        const config = await pluginHost().get(cwd)
         const plugins = Flag.NIKCLI_PURE ? [] : (config.plugin ?? [])
         if (Flag.NIKCLI_PURE && config.plugin?.length) {
           log.info("skipping external tui plugins in pure mode", { count: config.plugin.length })
@@ -1374,7 +1378,7 @@ export namespace TuiPluginRuntime {
 
         const ready = await resolveExternalPlugins(
           plugins,
-          () => TuiConfig.waitForDependencies(),
+          () => pluginHost().waitForDependencies(cwd),
           (item) => config.plugin_meta?.[pluginSpecifier(item)],
         )
         await addExternalPluginEntries(next, ready)
@@ -1406,10 +1410,10 @@ export namespace TuiPluginRuntime {
           await activatePluginEntry(next, plugin, false)
         }
       }
-    }).catch((error) => {
+    } catch (error) {
       dbg("load() failed", String(error))
       fail("failed to load tui plugins", { directory: cwd, error })
-    })
+    }
 
     // Hot reload: watch local plugin sources so editing one swaps that plugin
     // in place, without restarting the TUI or any other plugin. npm packages

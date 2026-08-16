@@ -19,7 +19,7 @@ import {
   type RendererKind,
 } from "@nikcli-ai/tui-image"
 import { useTheme } from "@tui/context/theme"
-import { preparePhoton } from "@/image/photon"
+import { preparePhoton } from "@nikcli-ai/util/photon"
 
 /**
  * Image preview component built on top of `@nikcli-ai/tui-image`.

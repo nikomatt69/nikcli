@@ -2,8 +2,8 @@
 
 | Field  | Value                                                                   |
 | ------ | ----------------------------------------------------------------------- |
-| Status | **In progress** — sections 1–3 landed 2026-08-14/15; 240 `@/` imports → 20 static, 0 dynamic |
-| Scope  | `packages/nikcli/src/cli/cmd/tui` → `packages/tui`                      |
+| Status | **Sections 1–5 landed** 2026-08-14/16. `packages/tui` typechecks standalone; the compat re-exports are gone |
+| Scope  | `packages/nikcli/src/cli/cmd/tui` → `packages/tui` (**done**)           |
 | Buys   | A TUI that builds, tests, and starts without the backend graph          |
 
 ## Goal
@@ -37,23 +37,22 @@ Measured 2026-08-15, after sections 1–3:
 | Lines                       | ~68,000                                                                                                                 |
 | Largest subtrees            | `component/` 75, `feature-plugins/` 47, `routes/` 40, `util/` 33, `context/` 26                                         |
 | Files already using the SDK | 73                                                                                                                      |
-| `@/` import statements      | **20 static, 0 dynamic** (was 240 static) — 10 of them are in `thread.ts`/`worker.ts`, which are host files |
+| `@/` import statements      | **17 static, 0 dynamic** (was 240 static) — 12 in host files, 4 in `photon`, 1 deliberate in `app.tsx` |
 | Path alias                  | `@tui/*` → `./src/cli/cmd/tui/*` (already package-shaped)                                                               |
 
 The `@tui/*` alias is the good news: internal imports are already written as if the directory were a package root, so most files move without an edit.
 
 ### What Actually Blocks The Move
 
-There are **20 static `@/` import statements** left and no dynamic ones. Excluding the ten in the two host files, the TUI proper sits at 10 — four of which are the deliberate `photon` exception — and what remains is a different kind of problem from what was removed: not modules in the wrong folder, but the terminal calling backend services in-process.
+There are **17 static `@/` import statements** left and no dynamic ones, and **none of them is movable work**: twelve are in host files (`thread.ts`, `worker.ts`, `plugin/host-local.ts`), four are the `photon` exception, and one is `app.tsx`'s deliberate local config read.
 
-| Concern                                                                      | Count | What it needs                                                                                                                                                                 |
-| ---------------------------------------------------------------------------- | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@/image/photon`                                     |     4 | **Deliberately left** — see below.                                                                                                          |
-| `@/plugin/*` (shared, meta, install)                 |     3 | Plugin install is a host operation; invert it the way `upgradeNow` already is.                                                             |
-| `@/effect` (+ `@/effect/runtime`)                    |     2 | The vehicle, not the target: it goes when the calls below do.                                                                               |
-| `@/config/*`                                         |     2 | `plugin/runtime.ts` calls `TuiConfig.{sources,reload,get,waitForDependencies}` for install and hot reload — host operations, not reads.     |
-| `@/cli/*`                                            |     4 | All in `thread.ts`, a host file.                                                                                                           |
-| `@/{bus,installation,mobile,project,server}`         |     6 | All in `worker.ts`, a host file.                                                                                                           |
+Section 3 is therefore complete: **the terminal no longer calls a backend service in-process anywhere.**
+
+| Remaining import                                     | Count | Why it stays                                                                                                    |
+| ---------------------------------------------------- | ----: | ----------------------------------------------------------------------------------------------------------------- |
+| `@/{cli,project,server,mobile,installation,bus,config,effect}` |    12 | `thread.ts`, `worker.ts` and `plugin/host-local.ts` — host files that stay in `packages/nikcli` (see the boundary). |
+| `@/image/photon`                                     |     4 | **Deliberate.** It primes the WASM path before the decoder's first `import()`; only a compiled binary can validate it. |
+| `@/config/tui` in `app.tsx`                          |     1 | **Deliberate.** The one config read that happens before any transport exists — see `GET /tui/config` below.         |
 
 **There are no `await import("@/…")` left.** There were four, and they mattered: lazy-loading a subsystem keeps it out of the startup graph, which is why they were written that way, but it decouples nothing and hides the dependency from exactly the measurement this document runs on. Keep counting both forms.
 
@@ -152,6 +151,18 @@ The prompt composer resolved the OpenRouter API key from `auth.json` and `nikcli
 The obvious translation is a route that hands the key to the client. That is not a translation: it turns a file only the local user can read into something any authenticated caller can fetch. **Recording is a device concern and stays in the terminal; the credential is not, so the call moved instead.** `POST /voice/transcribe` takes base64 audio and returns a transcript, and `src/voice/transcribe.ts` owns both endpoint shapes. The composer is 25 lines: read the file, send bytes, read a string.
 
 The route reports failure in the body rather than as an HTTP error, because every failure is a sentence the composer shows verbatim — "credits required", "no transcript returned", "API key not configured" — and none of them changes what the client does next.
+
+### Plugin lifecycle: three moves and one inversion
+
+The last chunk was `plugin/runtime.ts` — five backend imports for a file whose whole job is loading plugins into the terminal. Splitting it needed both tools, and which one applied was decided by *what the dependency actually was*, not by where the file sat.
+
+**Three moves.** `plugin/shared.ts`, `plugin/meta.ts` and `plugin/install.ts` are path work, manifest parsing and JSONC patching — 732 lines, and between them exactly two backend touch points: one line calling `BunProc.install`, and `ConfigPaths.fileInDirectory`, which is two `path.join`s. The installer is now a `configurePluginInstaller` hook that `src/plugin/shared.ts` sets on import (so every backend caller keeps both its path and its behaviour), the filename pair became `@nikcli-ai/util/config-file` with `ConfigPaths` delegating to it, and all three modules live in `@nikcli-ai/util`. `packages/util` gained `jsonc-parser` and `semver`.
+
+**One inversion.** What was left is genuinely host work: enumerate the config files to watch, force a re-read when one changes, wait for a plugin's dependencies to install. Those are `TuiPluginHost`, supplied by `thread.ts` and `attach.ts` from `plugin/host-local.ts` — a **host file** that keeps `@/config/tui` and `@/effect`, and stays in `packages/nikcli` at section 4 alongside `thread.ts` and `worker.ts`.
+
+**Each operation takes its directory.** That is what removed `@/effect`: the runtime used to wrap its own calls in `withInstanceAsync`, so the instance binding moved to the host, where the instance actually lives. Two wrappers disappeared with it — and the one around `load()` was also catching, so its `try`/`catch` had to be reinstated by hand. A removed wrapper is not only a removed argument.
+
+The rule these three sections converged on: **an endpoint is for data the server owns; a hook is for a dependency the module has; an inversion is for an operation the host performs.** Reaching for the wrong one shows up as a second copy of a catalog, a client-side credential, or a terminal running `bun install`.
 
 ### The brain scheduler belongs to the host
 
@@ -289,7 +300,28 @@ What is left pointing into the TUI is `cli-main.ts` registering `AttachCommand` 
 
 Still open beyond that: `@/effect` (11) is bound to `Instance` and goes with the service calls; `@/config/*` (8) needs `TuiConfig.get()` and the plugin-spec helpers to arrive over the SDK; `@/plugin/*` (8) are host operations that invert the way `upgradeNow` already does.
 
-**4. Create the package and move the tree.** With sections 1–3 landed, this is a `git mv` plus a `package.json`, because `@tui/*` already resolves internally. Keep the alias pointing at the new location during the move, and leave `worker.ts` and `thread.ts` behind in `src/cli/cmd/tui/` (see the ownership boundary above).
+**4. Create the package and move the tree.** Landed 2026-08-16. `packages/tui` holds 264 files; `src/cli/cmd/tui/` keeps four host files — `thread.ts`, `worker.ts`, `attach.ts` and `plugin/host-local.ts` — so the literal `./src/cli/cmd/tui/worker.ts` in the three build scripts is still correct and the compiled binary still emits the worker chunk at the matching bunfs path.
+
+It was not only a `git mv`. What the move actually cost, in the order it surfaced:
+
+- **`exports` needs both extensions.** `"./*": "./src/*.ts"` cannot reach `context/sdk.tsx`. The fallback-array form works: `"./*": ["./src/*.ts", "./src/*.tsx"]`.
+- **The last five `@/` imports had to go, not be aliased.** Aliasing `packages/tui` back at `packages/nikcli` is the one thing the migration rules forbid, so `app.tsx`'s deliberate local config read became a `tuiConfig` prop that `thread.ts` and `attach.ts` fill — which is *better* placed than before, since the read has to happen before any transport exists and the host is who can do it — and `photon` moved to `@nikcli-ai/util/photon`, where the server's `image.ts` also uses it.
+- **Ambient declarations do not travel through a package boundary.** `photon` imports a `.wasm` asset, so every program compiling it needs `wasm.d.ts` in its own include set: `packages/tui` and `packages/util` each got a copy.
+- **Two non-source assets moved with it.** `parsers-config.ts` (tree-sitter highlight config, TUI-only) sat at the `packages/nikcli` root behind a six-level relative import.
+- **The test paths were already prepared** — `TUI_SRC` was a one-line edit, exactly as intended — but four tests *outside* `test/tui/` still spelled `packages/nikcli/src/cli/cmd/tui/app.tsx` and failed loudly with ENOENT, which is the good failure. One assertion had to change meaning: `cli-commands-benchmark-suite` checked every module specifier contained `/cli/`, which is no longer what a TUI module looks like.
+
+**Verified:** `bun run typecheck` (34 packages, 0 errors), `packages/tui` typechecking with no path to `packages/nikcli`, `bun test` at its two-failure baseline, a real `--single` build, and `bun run smoke:tui` — the compiled binary booting the real TUI in a PTY and painting 6,641 characters. `--version` and `--help` prove nothing here; only the smoke does.
+
+**Startup did not regress**, which this section had no way to check until now. `bun run bench:startup <binary>` spawns the real binary in a PTY and stops the clock at the first frame carrying printable text; all runs share one `NIKCLI_TEST_HOME` and the first is discarded, because a fresh home pays for migrations and config bootstrap — real costs, but not ones a packaging change moves.
+
+| Binary                                | Warm, best of 3 |
+| ------------------------------------- | --------------: |
+| Released 1.285.0 (pre-move)           |  6110 / 6099 ms |
+| This build (post-move)                |  6181 / 6068 ms |
+
+Two interleaved pairs, because one series each proves nothing about ordering. The spread within a series (6068–6248 ms) is larger than the difference between them. The baseline is the *installed release binary* rather than a rebuild of the old tree — that is what makes the comparison possible without checking out over uncommitted work, and it is the honest label for it.
+
+A fresh home costs 7.3–11.0 s to first paint, against 6.1 s warm. Migrations and config bootstrap are most of a first run, and no packaging change will move that number.
 
 _Prepared 2026-08-15._ The tests no longer spell the tree's path. Twenty-four files did: seventeen imported modules through `../../src/cli/cmd/tui/…` (now `@tui/…`, which the alias repoints for free) and eight read the source as _text_, which is the case that matters. Those now take their root from `test/tui/tui-source.ts` — `SRC`, `TUI_SRC`, `source()`, `tuiSource()`, `stripComments()` — so the move edits one line.
 
@@ -297,7 +329,11 @@ The reason to centralise it is a failure mode, not tidiness. A missing file read
 
 One path stays hardcoded on purpose: `./src/cli/cmd/tui/worker.ts` in `script/build.ts`, `packages/nikcli/script/build.ts` and `cross-build-windows.ts`. It is correct precisely because section 4 excludes `worker.ts` from the move — the exclusion _is_ the mitigation. A stale cross-package `"@tui/*"` alias in `packages/sdk-next/tsconfig.json`, unused by any file there, was removed rather than repointed.
 
-**5. Delete the compatibility re-exports** introduced in sections 1–3.
+**5. Delete the compatibility re-exports.** Landed 2026-08-16. `src/bus/global.ts`, `src/plugin/shared.ts` and the four `UserDB.{get,save,clear}ActiveSession*` aliases are gone, along with the three older ones (`FUSION_*` from `provider/transform`, `BRAIN_SESSION_TITLE` from `brain/index`, `HerdrBridge` from `plugin/herdr/index`) and `OPENROUTER_VOICES_LIST` from the speak tool. Callers import the shared package directly.
+
+**One of them was doing real work, not just forwarding.** `src/plugin/shared.ts` also *configured* the installer hook as a side effect of being imported — so whether the terminal could install a plugin depended on some module further down its import graph having pulled that file in first. It happened to work because `thread.ts` reaches `@/config/tui`, which imported it. That is luck, not design. The wiring is now `src/plugin/installer.ts` with one exported function, called explicitly by the two entry points that can install: `cli-main.ts` and `plugin/host-local.ts`.
+
+A re-export that has a side effect is not a compatibility shim — deleting it silently removes behaviour. Check what each one *does* before treating it as forwarding.
 
 **6. Add the second consumer.** Only after the package stands alone. Until then "extraction" is a claim, not a fact.
 

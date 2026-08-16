@@ -1,6 +1,6 @@
 // Quick smoke test for the support docs indexer.
 // Run with: bun run scripts/support-docs-smoke.ts
-import { buildSupportDocsIndex, clearSupportDocsCache } from "../src/cli/cmd/tui/util/support-docs"
+import { buildSupportDocsIndex, clearSupportDocsCache } from "@nikcli-ai/tui/util/support-docs"
 
 const root = "/Volumes/SSD/Projects/nikcli"
 

@@ -1,6 +1,7 @@
 import path from "path"
 import os from "os"
 import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
+import { configFilesInDirectory } from "@nikcli-ai/util/config-file"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Flag } from "@nikcli-ai/util/flag"
 import { Global } from "@nikcli-ai/util/global"
@@ -62,8 +63,9 @@ export namespace ConfigPaths {
     ]
   })
 
+  /** One definition, shared with `@nikcli-ai/util/plugin-install`. */
   export function fileInDirectory(dir: string, name: string) {
-    return [path.join(dir, `${name}.jsonc`), path.join(dir, `${name}.json`)]
+    return configFilesInDirectory(dir, name)
   }
 
   export class JsonError extends Schema.TaggedErrorClass<JsonError>()("ConfigPathsJsonError", {

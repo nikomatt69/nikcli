@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@nikcli-ai/tui",
+  "version": "1.285.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./app": "./src/app.tsx",
+    "./*": ["./src/*.ts", "./src/*.tsx"]
+  },
+  "bin": {
+    "nikcli-tui": "./bin/nikcli-tui.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "start": "bun run ./bin/nikcli-tui.ts",
+    "smoke:standalone": "bun run script/standalone-smoke.ts"
+  },
+  "dependencies": {
+    "@nikcli-ai/browser-control": "workspace:*",
+    "@nikcli-ai/computer-use": "workspace:*",
+    "@nikcli-ai/plugin": "workspace:*",
+    "@nikcli-ai/remote": "workspace:*",
+    "@nikcli-ai/sdk": "workspace:*",
+    "@nikcli-ai/simulation": "workspace:*",
+    "@nikcli-ai/tui-image": "workspace:*",
+    "@nikcli-ai/tui-math": "workspace:*",
+    "@nikcli-ai/util": "workspace:*",
+    "@opentui/core": "0.4.5",
+    "@opentui/solid": "0.4.5",
+    "@solid-primitives/event-bus": "1.1.2",
+    "@solid-primitives/scheduled": "1.5.2",
+    "cli-sound": "1.1.3",
+    "clipboardy": "4.0.0",
+    "diff": "catalog:",
+    "effect": "4.0.0-beta.83",
+    "fuzzysort": "3.1.0",
+    "open": "10.1.2",
+    "opentui-spinner": "0.0.7",
+    "remeda": "catalog:",
+    "solid-js": "catalog:",
+    "strip-ansi": "7.1.2",
+    "turndown": "7.2.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "bun-pty": "0.4.4",
+    "@types/turndown": "5.0.5",
+    "typescript": "catalog:"
+  }
+}

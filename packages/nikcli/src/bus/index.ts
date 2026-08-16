@@ -1,7 +1,7 @@
 import z from "zod"
 import { Log } from "@nikcli-ai/util/log"
 import { BusEvent } from "./bus-event"
-import { GlobalBus } from "./global"
+import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, runtimeFor, withCurrentInstance } from "@/effect"
 import { IslandBridge } from "@nikcli-ai/util/island-bridge"

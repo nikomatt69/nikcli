@@ -14,7 +14,7 @@ import type {
   SessionEntry,
 } from "@nikcli-ai/sdk/httpapi"
 import { createStore } from "solid-js/store"
-import { createV2Data } from "@/cli/cmd/tui/plugin/data"
+import { createV2Data } from "@tui/plugin/data"
 
 function fixture() {
   const root = {

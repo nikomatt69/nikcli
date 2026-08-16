@@ -27,7 +27,8 @@ preserveTestEnv([
 ])
 
 const { Instance } = await import("../../src/project/instance")
-const { BRAIN_SESSION_TITLE, getBrainConfig, getBrainProviderModel } = await import("../../src/brain")
+const { getBrainConfig, getBrainProviderModel } = await import("../../src/brain")
+const { BRAIN_SESSION_TITLE } = await import("@nikcli-ai/util/brain-constants")
 
 const projectDirs: string[] = []
 

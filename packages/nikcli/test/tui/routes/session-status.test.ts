@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { sessionStatusDisplay, formatTreeChangeSummary } from "@/cli/cmd/tui/routes/tree/session-status"
+import { sessionStatusDisplay, formatTreeChangeSummary } from "@tui/routes/tree/session-status"
 import { RGBA } from "@opentui/core"
 import { recordBenchmark } from "../../benchmarks/runner"
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { sessionRequestContext } from "@/cli/cmd/tui/component/prompt"
+import { sessionRequestContext } from "@tui/component/prompt"
 
 describe("prompt session request context", () => {
   it("builds prompt and command context for an attached session", () => {

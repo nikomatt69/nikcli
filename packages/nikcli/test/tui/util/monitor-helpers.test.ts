@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { getMonitorsForSession } from "@/cli/cmd/tui/util/monitor-helpers"
+import { getMonitorsForSession } from "@tui/util/monitor-helpers"
 
 describe("getMonitorsForSession", () => {
   it("returns live monitor event snapshots before a tool part has monitor metadata", () => {

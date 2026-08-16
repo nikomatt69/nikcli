@@ -2,7 +2,7 @@ import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Sw
 import { RGBA } from "@opentui/core"
 import { pickDecoder, resize } from "@nikcli-ai/tui-image"
 import { useTheme } from "@tui/context/theme"
-import { preparePhoton } from "@/image/photon"
+import { preparePhoton } from "@nikcli-ai/util/photon"
 
 const MAX_PREVIEW_BYTES = 10 * 1024 * 1024
 const MAX_PREVIEW_COLUMNS = 60

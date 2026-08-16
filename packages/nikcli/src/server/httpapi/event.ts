@@ -1,5 +1,5 @@
 import { Bus } from "@/bus"
-import { GlobalBus } from "@/bus/global"
+import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { Instance } from "@/project/instance"
 import { Log } from "@nikcli-ai/util/log"
 import { EventFeed } from "./event-feed"

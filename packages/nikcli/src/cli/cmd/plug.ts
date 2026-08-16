@@ -3,8 +3,12 @@ import type { Argv } from "yargs"
 
 import { ConfigPaths } from "../../config/paths"
 import { Global } from "@nikcli-ai/util/global"
-import { installPlugin, patchPluginConfig, readPluginManifest } from "../../plugin/install"
-import { resolvePluginTarget } from "../../plugin/shared"
+import { installPlugin, patchPluginConfig, readPluginManifest } from "@nikcli-ai/util/plugin-install"
+import { resolvePluginTarget } from "@nikcli-ai/util/plugin-shared"
+import { installPluginInstaller } from "../../plugin/installer"
+
+// Reachable directly (`nikcli plug …`), not only through `cli-main`.
+installPluginInstaller()
 import { Instance } from "../../project/instance"
 import { withInstanceAsync } from "@/effect"
 import { errorMessage } from "@nikcli-ai/util/error-format"

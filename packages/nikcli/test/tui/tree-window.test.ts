@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { clampSelectionToWindow, scrollWindowStart, windowStartFor } from "@/cli/cmd/tui/routes/tree/tree-window"
+import { clampSelectionToWindow, scrollWindowStart, windowStartFor } from "@tui/routes/tree/tree-window"
 
 describe("windowStartFor", () => {
   it("keeps the window when the selection is already inside it", () => {

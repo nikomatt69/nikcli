@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { Plugin } from "@nikcli-ai/plugin/v2/tui"
 import type { Context } from "@nikcli-ai/plugin/v2/tui/context"
 import type { TuiDispose, TuiPluginApi, TuiRouteCurrent, TuiRouteDefinition } from "@nikcli-ai/plugin/tui"
-import { readV2TuiPlugin } from "@/cli/cmd/tui/plugin/v2"
+import { readV2TuiPlugin } from "@tui/plugin/v2"
 
 function host() {
   const routes: TuiRouteDefinition[] = []

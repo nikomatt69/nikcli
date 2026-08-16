@@ -7,13 +7,13 @@ import {
   printParseErrorCode,
 } from "jsonc-parser"
 
-import { ConfigPaths } from "@/config/paths"
+import { configFilesInDirectory } from "./config-file"
 import { Global } from "@nikcli-ai/util/global"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Flock } from "@nikcli-ai/util/flock"
 import { isRecord } from "@nikcli-ai/util/record"
 
-import { parsePluginSpecifier, readPluginPackage, resolvePluginTarget } from "./shared"
+import { parsePluginSpecifier, readPluginPackage, resolvePluginTarget } from "./plugin-shared"
 
 type Mode = "noop" | "add" | "replace"
 type Kind = "server" | "tui"
@@ -85,7 +85,7 @@ const defaultPatchDeps: PatchDeps = {
     await Filesystem.write(file, text)
   },
   exists: (file) => Filesystem.exists(file),
-  files: (dir, name) => ConfigPaths.fileInDirectory(dir, name),
+  files: (dir, name) => configFilesInDirectory(dir, name),
 }
 
 function pluginSpec(item: unknown) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
-import { sessionCommandLabels } from "@/cli/cmd/tui/routes/session/session-command-labels"
-import { en } from "@/cli/cmd/tui/i18n/en"
-import { zh } from "@/cli/cmd/tui/i18n/zh"
+import { sessionCommandLabels } from "@tui/routes/session/session-command-labels"
+import { en } from "@tui/i18n/en"
+import { zh } from "@tui/i18n/zh"
 
 function fakeLang(locale: "en" | "zh") {
   const dict = locale === "en" ? en : zh

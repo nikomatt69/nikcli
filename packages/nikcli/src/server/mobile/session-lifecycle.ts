@@ -1,6 +1,6 @@
 import z from "zod"
 import { Effect } from "effect"
-import { GlobalBus } from "@/bus/global"
+import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { GithubApi } from "@/connectors/api/github"
 import { withInstanceAsync } from "@/effect"
 import { MobileGithubRepo } from "@/mobile/github-repo"

@@ -9,7 +9,7 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { pickDecoder, type PixelImage } from "@nikcli-ai/tui-image"
-import { preparePhoton } from "@/image/photon"
+import { preparePhoton } from "@nikcli-ai/util/photon"
 import { IMAGE_EXTENSIONS, isImagePath } from "./settings"
 import { prepare } from "./pixels"
 

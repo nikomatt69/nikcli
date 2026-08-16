@@ -3,8 +3,8 @@ import { mkdtemp, readdir, rm, writeFile } from "fs/promises"
 import { tmpdir } from "os"
 import path from "path"
 import { pathToFileURL } from "url"
-import { createSourceWatcher, entrypointMtime, freshSpecifier, localSource } from "@/cli/cmd/tui/plugin/reload"
-import { clearPluginStorage, pluginStorage } from "@/cli/cmd/tui/plugin/storage"
+import { createSourceWatcher, entrypointMtime, freshSpecifier, localSource } from "@tui/plugin/reload"
+import { clearPluginStorage, pluginStorage } from "@tui/plugin/storage"
 
 async function scratch() {
   const dir = await mkdtemp(path.join(tmpdir(), "nikcli-tui-reload-"))

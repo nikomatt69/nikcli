@@ -6,7 +6,7 @@
  * across macOS, Linux, and Windows runners — no real `setTimeout` involved.
  */
 import { describe, expect, it } from "bun:test"
-import { createDoubleEsc, type DoubleEscContext, type TimerHandle, type TimerLike } from "@/cli/cmd/tui/util/double-esc"
+import { createDoubleEsc, type DoubleEscContext, type TimerHandle, type TimerLike } from "@tui/util/double-esc"
 
 interface FakeTimer extends TimerLike {
   advance(ms: number): void

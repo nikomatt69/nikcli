@@ -1,6 +1,7 @@
 import path from "path"
 import { Log } from "@nikcli-ai/util/log"
 import { UserDB } from "@/user/users"
+import { UserSession } from "@nikcli-ai/util/user-session"
 import { ArtifactRepo } from "./repo"
 
 /**
@@ -102,7 +103,7 @@ export namespace Artifact {
   export async function token(): Promise<string | undefined> {
     const env = process.env["NIKCLI_STORE_TOKEN"]
     if (env) return env
-    const active = UserDB.getActiveSessionSync()
+    const active = UserSession.getSync()
     if (!active) return undefined
     try {
       return UserDB.verifySession(active) ? active : undefined
@@ -115,7 +116,7 @@ export namespace Artifact {
   /** Display identity attached to anonymous publishes (best-effort). */
   function localAuthor(): string | undefined {
     try {
-      const active = UserDB.getActiveSessionSync()
+      const active = UserSession.getSync()
       if (!active) return undefined
       const user = UserDB.verifySession(active)
       return user ? user.email : undefined
@@ -126,7 +127,7 @@ export namespace Artifact {
 
   /** Resolve the active CLI identity; kept as a command-friendly status check. */
   export async function login(): Promise<{ token: string; user: UserDB.PublicUser }> {
-    const active = UserDB.getActiveSessionSync()
+    const active = UserSession.getSync()
     const user = active ? UserDB.verifySession(active) : null
     if (!active || !user) throw new NotLoggedInError()
     return { token: active, user }

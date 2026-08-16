@@ -2,7 +2,6 @@ import { Effect } from "effect"
 import { OpenRouterProvider as OpenRouterBase } from "@nikcli-ai/util/tts/openrouter"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
-export { OPENROUTER_VOICES_LIST } from "@nikcli-ai/util/tts/openrouter"
 
 const BASE_URL = "https://openrouter.ai/api/v1"
 

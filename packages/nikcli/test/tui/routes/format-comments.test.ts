@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import { hasAnyComments, formatCommentsForAI } from "@/cli/cmd/tui/routes/changes/format-comments"
-import type { Comment } from "@/cli/cmd/tui/routes/changes/comment-box"
+import { hasAnyComments, formatCommentsForAI } from "@tui/routes/changes/format-comments"
+import type { Comment } from "@tui/routes/changes/comment-box"
 import { recordBenchmark } from "../../benchmarks/runner"
 
 function makeComment(overrides: Partial<Comment> = {}): Comment {

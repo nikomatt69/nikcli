@@ -34,7 +34,6 @@ import { Global } from "@nikcli-ai/util/global"
 import { Log } from "@nikcli-ai/util/log"
 import { Instance } from "@/project/instance"
 
-export { HerdrBridge } from "@nikcli-ai/util/herdr-bridge"
 
 const log = Log.create({ service: "herdr-plugin" })
 

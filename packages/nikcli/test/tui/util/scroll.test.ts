@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { CustomSpeedScroll, getScrollAcceleration } from "@/cli/cmd/tui/util/scroll"
+import { CustomSpeedScroll, getScrollAcceleration } from "@tui/util/scroll"
 import { recordBenchmark } from "../../benchmarks/runner"
 
 describe("CustomSpeedScroll", () => {
