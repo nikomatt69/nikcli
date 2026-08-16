@@ -84,13 +84,8 @@ export namespace Project {
   export const Directory = zodObject(DirectorySchema)
   export type Directory = Schema.Schema.Type<typeof DirectorySchema>
 
-  const DirectoriesUpdatedSchema = Schema.Struct({
-    projectID: Schema.String,
-  }).annotate({ identifier: "ProjectDirectoriesUpdated" })
-
   export const Event = {
     Updated: BusEvent.schema("project.updated", InfoSchema),
-    DirectoriesUpdated: BusEvent.schema("project.directories.updated", DirectoriesUpdatedSchema),
   }
 
   const UpdateInputSchema = Schema.Struct({

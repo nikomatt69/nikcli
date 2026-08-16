@@ -59,7 +59,7 @@ wrapped in the route's envelope. This frame is written past the budget on purpos
 
 ### Not implemented: public filtering
 
-The proposal's "public filter" stage has no counterpart in the code, because nothing marks a bus event as internal today. Every event that reached a client before still does. Adding a filter is a wire change and needs its own decision.
+The proposal's "public filter" stage has no counterpart in the code, because nothing marks a bus event as internal today. Every event that reached a client before still does. Adding a filter is a wire change and needs its own decision — that decision is now [public-event-filter.md](./public-event-filter.md) (roadmap E3c), which names the six internal types and settles that a withheld event is absent from the wire rather than typed. Nothing in this document changes when it lands: the filter sits in `Feed.broadcast` ahead of encoding, so both envelopes stay exactly as described here.
 
 ## Behavior Before This Change
 

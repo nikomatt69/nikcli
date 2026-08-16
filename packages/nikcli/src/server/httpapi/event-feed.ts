@@ -1,3 +1,4 @@
+import { BusEvent } from "@/bus/bus-event"
 import { Log } from "@nikcli-ai/util/log"
 
 /**
@@ -44,6 +45,18 @@ export namespace EventFeed {
    * drops every event client-side.
    */
   export type Envelope = (event: LocalEvent) => unknown
+
+  /**
+   * Reads the event type out of whatever shape this feed broadcasts.
+   *
+   * `broadcast` does **not** apply `Envelope` — that wraps connection-local
+   * frames only. Each feed is handed values already in its own wire shape: the
+   * instance feed receives the `Bus` event unwrapped (`{type, properties}`),
+   * the global feed receives the `GlobalBus` payload (`{directory, payload}`).
+   * So the visibility filter needs the same per-feed knowledge the envelope
+   * carries, rather than assuming a `type` at the top level.
+   */
+  export type TypeOf = (event: unknown) => string | undefined
 
   export function frame(value: unknown): Uint8Array {
     return encoder.encode(`data: ${JSON.stringify(value)}\n\n`)
@@ -143,7 +156,10 @@ export namespace EventFeed {
   export class Feed {
     private readonly connections = new Set<Connection>()
 
-    constructor(private readonly envelope: Envelope) {}
+    constructor(
+      private readonly envelope: Envelope,
+      private readonly typeOf: TypeOf = (event) => (event as { type?: string } | undefined)?.type,
+    ) {}
 
     get size() {
       return this.connections.size
@@ -167,9 +183,17 @@ export namespace EventFeed {
      *
      * With no connections attached the event is not encoded at all, so a
      * headless server pays nothing for the subscription it keeps.
+     *
+     * Internal events return here too, ahead of the encode, for the same
+     * reason: withholding one must cost less than sending it, not more. A
+     * withheld event produces no frame at all — there is no typed placeholder,
+     * because a placeholder would republish the existence and the exact timing
+     * of the process-local activity the filter exists to keep inside. See
+     * `specs/v2/public-event-filter.md`.
      */
     broadcast(event: unknown) {
       if (this.connections.size === 0) return
+      if (BusEvent.isInternal(this.typeOf(event))) return
       let encoded: Uint8Array
       try {
         encoded = frame(event)

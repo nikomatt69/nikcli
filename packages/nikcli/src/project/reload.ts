@@ -28,6 +28,13 @@ export namespace InstanceReload {
 
   const DEBOUNCE_MS = 300
 
+  /**
+   * Both internal: no subscriber in this process or in any client. What a
+   * client actually needs from a reload is the invalidated state itself, which
+   * arrives as `config`/provider events; these two carry the reloading
+   * machinery's own progress, including the absolute paths of the files that
+   * triggered it. See `specs/v2/public-event-filter.md`.
+   */
   export const Event = {
     Started: BusEvent.schema(
       "instance.reload.started",
@@ -35,6 +42,7 @@ export namespace InstanceReload {
         directory: Schema.String,
         files: Schema.Array(Schema.String),
       }),
+      { visibility: "internal" },
     ),
     Completed: BusEvent.schema(
       "instance.reloaded",
@@ -43,6 +51,7 @@ export namespace InstanceReload {
         files: Schema.Array(Schema.String),
         durationMs: Schema.Number,
       }),
+      { visibility: "internal" },
     ),
   }
 

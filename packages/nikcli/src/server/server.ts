@@ -10,7 +10,7 @@ import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstab
 import { OpenApi } from "effect/unstable/httpapi"
 import { Log } from "@nikcli-ai/util/log"
 import { HttpApiBridge } from "./httpapi/bridge"
-import { isAccountPath } from "./httpapi/account-path"
+import { isInstanceLessPath } from "./httpapi/instance-less"
 import { PublicApi } from "./httpapi/public"
 import { MDNS } from "./mdns"
 import { PublicRoutes } from "./public"
@@ -41,10 +41,9 @@ export namespace Server {
 
   async function fallback(request: Request) {
     const pathname = new URL(request.url).pathname
-    const response =
-      pathname.startsWith("/global/") || pathname.startsWith("/user/") || isAccountPath(pathname)
-        ? await HttpApiBridge.handleGlobal(request, { upstreamAuthVerified: true })
-        : await HttpApiBridge.handle(request, { upstreamAuthVerified: true })
+    const response = isInstanceLessPath(pathname)
+      ? await HttpApiBridge.handleGlobal(request, { upstreamAuthVerified: true })
+      : await HttpApiBridge.handle(request, { upstreamAuthVerified: true })
     if (response.status !== 404) return response
     if (pathname.startsWith("/mobile/") || pathname === "/mobile") return response
     return PublicRoutes.proxy(request)

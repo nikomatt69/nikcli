@@ -26,9 +26,7 @@ export const { use: useTelemetry, provider: TelemetryProvider } = createSimpleCo
     const sdk = useSDK()
     const [records, setRecords] = createSignal<TelemetryRecord[]>([])
 
-    // `telemetry.record` is not in the generated Event union; subscribe by
-    // string with a cast (the emitter forwards every server event by type).
-    ;(sdk.event as any).on("telemetry.record", (event: { properties: TelemetryRecord }) => {
+    sdk.event.on("telemetry.record", (event) => {
       setRecords((prev) => {
         const next = prev.concat(event.properties)
         return next.length > MAX_RECORDS ? next.slice(next.length - MAX_RECORDS) : next

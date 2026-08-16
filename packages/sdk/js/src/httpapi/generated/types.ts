@@ -1312,8 +1312,6 @@ export type ConfigReloadResponse = { reloaded: boolean; directory: string }
 
 export type SuccessFlag = { success: boolean }
 
-export type ProjectDirectoriesUpdated = { projectID: string }
-
 export type EventTelemetryRecord = {
   type: "telemetry.record"
   properties: {
@@ -1367,11 +1365,6 @@ export type EventInstallationUpdateAvailable = {
 export type EventServerConnected = { type: "server.connected"; properties: {} }
 
 export type EventGlobalDisposed = { type: "global.disposed"; properties: {} }
-
-export type EventLspClientDiagnostics = {
-  type: "lsp.client.diagnostics"
-  properties: { serverID: string; path: string }
-}
 
 export type EventLspUpdated = { type: "lsp.updated"; properties: {} }
 
@@ -1432,29 +1425,9 @@ export type EventTuiSessionSelect = { type: "tui.session.select"; properties: { 
 
 export type EventMcpToolsChanged = { type: "mcp.tools.changed"; properties: { server: string } }
 
-export type EventMcpBrowserOpenFailed = {
-  type: "mcp.browser.open.failed"
-  properties: { mcpName: string; url: string }
-}
-
-export type EventCommandExecuted = {
-  type: "command.executed"
-  properties: { name: string; sessionID: string; arguments: string; messageID: string }
-}
-
 export type EventFileWatcherUpdated = {
   type: "file.watcher.updated"
   properties: { file: string; event: "add" | "change" | "unlink" }
-}
-
-export type EventInstanceReloadStarted = {
-  type: "instance.reload.started"
-  properties: { directory: string; files: Array<string> }
-}
-
-export type EventInstanceReloaded = {
-  type: "instance.reloaded"
-  properties: { directory: string; files: Array<string>; durationMs: number }
 }
 
 export type EventVcsBranchUpdated = { type: "vcs.branch.updated"; properties: { branch?: string | undefined } }
@@ -1589,11 +1562,6 @@ export type EventLoopRunFinished = {
 }
 
 export type EventLoopRuntimeChanged = { type: "loop.runtime.changed"; properties: { loopID: string } }
-
-export type EventLoopAborted = {
-  type: "loop.aborted"
-  properties: { loopID: string; runID?: string | undefined; reason: string }
-}
 
 export type EventMissionUpserted = { type: "mission.upserted"; properties: { missionID: string } }
 
@@ -2049,11 +2017,6 @@ export type Workspace1 = {
   branch: string | null
   projectID: string
   config: WorkspaceConfig
-}
-
-export type EventProjectDirectoriesUpdated = {
-  type: "project.directories.updated"
-  properties: ProjectDirectoriesUpdated
 }
 
 export type EventPermissionAsked = { type: "permission.asked"; properties: PermissionRequest1 }
@@ -2729,7 +2692,6 @@ export type EventMessagePartUpdated = {
 
 export type Event =
   | EventProjectUpdated
-  | EventProjectDirectoriesUpdated
   | EventTelemetryRecord
   | EventServerInstanceDisposed
   | EventPermissionAsked
@@ -2741,7 +2703,6 @@ export type Event =
   | EventInstallationUpdateAvailable
   | EventServerConnected
   | EventGlobalDisposed
-  | EventLspClientDiagnostics
   | EventLspUpdated
   | EventMessageUpdated
   | EventMessageRemoved
@@ -2759,11 +2720,7 @@ export type Event =
   | EventTuiToastShow
   | EventTuiSessionSelect
   | EventMcpToolsChanged
-  | EventMcpBrowserOpenFailed
-  | EventCommandExecuted
   | EventFileWatcherUpdated
-  | EventInstanceReloadStarted
-  | EventInstanceReloaded
   | EventVcsBranchUpdated
   | EventTodoUpdated
   | EventSessionStatus
@@ -2788,7 +2745,6 @@ export type Event =
   | EventLoopRunStarted
   | EventLoopRunFinished
   | EventLoopRuntimeChanged
-  | EventLoopAborted
   | EventMissionUpserted
   | EventMissionRemoved
   | EventMissionStarted

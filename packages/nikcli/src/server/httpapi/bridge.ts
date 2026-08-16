@@ -7,9 +7,8 @@ import { ChatbotHttp } from "./chatbot"
 import { HttpApiEvent } from "./event"
 import { HttpApiPrompt } from "./prompt"
 import { PublicHttpApi } from "./public"
-import { UsersHttp } from "./users"
-import { AccountHttp } from "./account"
-import { isAccountPath } from "./account-path"
+import { rawGlobalHandlers } from "./global-handlers"
+import { instanceLessRoot } from "./instance-less"
 import { Auth } from "./auth"
 
 export namespace HttpApiBridge {
@@ -349,16 +348,9 @@ export namespace HttpApiBridge {
     if (request.method === "GET" && pathname === "/global/event") {
       return HttpApiEvent.handle()
     }
-    if (pathname.startsWith("/user/")) {
-      // Raw handlers: the legacy /user routes are outside the OpenAPI surface
-      // and reuse one { error } body shape across statuses, which the HttpApi
-      // error encoder cannot discriminate.
-      const response = await UsersHttp.handle(request)
-      if (response) return response
-    }
-    if (isAccountPath(pathname)) {
-      // Same reason as /user/: eight tagged login errors, one { error } body.
-      const response = await AccountHttp.handle(request)
+    const root = instanceLessRoot(pathname)
+    if (root) {
+      const response = await rawGlobalHandlers[root]?.(request)
       if (response) return response
     }
     return webHandler(request, Context.empty() as Context.Context<any>)

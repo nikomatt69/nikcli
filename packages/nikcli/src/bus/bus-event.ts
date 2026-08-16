@@ -1,4 +1,3 @@
-import z from "zod"
 import type { ZodType } from "zod"
 import { Effect, Schema } from "effect"
 import { resolve } from "effect/SchemaAST"
@@ -8,22 +7,66 @@ import { Log } from "@nikcli-ai/util/log"
 export namespace BusEvent {
   const log = Log.create({ service: "event" })
 
+  /**
+   * Whether an event may leave the process on the public SSE feed.
+   *
+   * `internal` events still reach in-process `Bus.subscribe` callers exactly as
+   * before — two of them exist precisely because a module waits on its own work
+   * over the bus — but they are withheld from `/event` and `/global/event`, and
+   * they are absent from the generated `Event` union so no client can type
+   * against something it will never receive.
+   *
+   * The bit lives on the declaration rather than in a list inside the feed. A
+   * list away from the thing it describes is the shape that drifts: nothing
+   * forces the two to agree, and the failure — an internal event quietly going
+   * public — reports itself nowhere.
+   *
+   * See `specs/v2/public-event-filter.md`.
+   */
+  export type Visibility = "public" | "internal"
+
   export type Definition = {
     type: string
     properties: ZodType
     /** Present when the event payload was defined via `BusEvent.schema` (Effect Schema). */
     schema?: Schema.Top
+    /** Defaults to `"public"`. */
+    visibility?: Visibility
+  }
+
+  export type Options = {
+    visibility?: Visibility
   }
 
   const registry = new Map<string, Definition>()
 
-  export function define<Type extends string, Properties extends ZodType>(type: Type, properties: Properties) {
+  export function define<Type extends string, Properties extends ZodType>(
+    type: Type,
+    properties: Properties,
+    options?: Options,
+  ) {
     const result = {
       type,
       properties,
+      visibility: options?.visibility ?? ("public" as const),
     }
     registry.set(type, result)
     return result
+  }
+
+  /** Is this event withheld from the public SSE feed? Unknown types are public. */
+  export function isInternal(type: string | undefined): boolean {
+    if (!type) return false
+    return registry.get(type)?.visibility === "internal"
+  }
+
+  /** The withheld types, for tests and audits. */
+  export function internalTypes(): string[] {
+    return registry
+      .values()
+      .filter((def) => def.visibility === "internal")
+      .map((def) => def.type)
+      .toArray()
   }
 
   /**
@@ -37,6 +80,7 @@ export namespace BusEvent {
   export function schema<Type extends string, Fields extends Schema.Struct.Fields>(
     type: Type,
     properties: Schema.Struct<Fields>,
+    options?: Options,
   ) {
     const annotations = resolve(properties.ast) as Record<PropertyKey, unknown> | undefined
     const hasIdentifier = typeof annotations?.identifier === "string"
@@ -45,6 +89,7 @@ export namespace BusEvent {
       type,
       properties: zodObject(annotated),
       schema: annotated as Schema.Top,
+      visibility: options?.visibility ?? ("public" as const),
     }
     registry.set(type, result)
     return result
@@ -141,56 +186,43 @@ export namespace BusEvent {
 
   /** Event types still registered through the legacy zod `define` (no Effect Schema yet). */
   export function unmigrated() {
-    return registry
-      .values()
+    return publicDefinitions()
       .filter((def) => !def.schema)
       .map((def) => def.type)
-      .toArray()
-  }
-
-  export function payloads() {
-    return z
-      .discriminatedUnion(
-        "type",
-        registry
-          .entries()
-          .map(([type, def]) => {
-            return z
-              .object({
-                type: z.literal(type),
-                properties: def.properties,
-              })
-              .meta({
-                ref: "Event" + "." + def.type,
-              })
-          })
-          .toArray() as any,
-      )
-      .meta({
-        ref: "Event",
-      })
   }
 
   /**
-   * Effect Schema union of every registered event, mirroring `payloads()`.
-   * Requires every event to be registered via `BusEvent.schema` — throws otherwise,
-   * listing the stragglers, so the Effect PublicApi contract can never silently
-   * publish a partial Event union.
+   * Every event that may reach a client. Internal events are excluded here
+   * rather than at each call site, so the contract, the migration check and any
+   * future consumer cannot disagree about what "public" means.
+   */
+  function publicDefinitions() {
+    return registry
+      .values()
+      .filter((def) => def.visibility !== "internal")
+      .toArray()
+  }
+
+  /**
+   * Effect Schema union of every **public** registered event.
+   *
+   * Requires every one of them to be registered via `BusEvent.schema` — throws
+   * otherwise, listing the stragglers, so the Effect PublicApi contract can
+   * never silently publish a partial Event union. Internal events are exempt
+   * from that requirement because they are not on the contract at all.
    */
   export function schemas() {
     const missing = unmigrated()
     if (missing.length > 0) {
       throw new Error(`BusEvent.schemas(): events not migrated to Effect Schema: ${missing.join(", ")}`)
     }
-    const members = registry
-      .entries()
-      .map(([type, def]) =>
+    const members = publicDefinitions()
+      .map((def) =>
         Schema.Struct({
-          type: Schema.Literal(type),
+          type: Schema.Literal(def.type),
           properties: def.schema!,
-        }).annotate({ identifier: "Event." + type }),
+        }).annotate({ identifier: "Event." + def.type }),
       )
-      .toArray()
     return Schema.Union(members as unknown as [Schema.Top, Schema.Top, ...Schema.Top[]]).annotate({
       identifier: "Event",
       discriminator: "type",

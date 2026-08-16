@@ -65,12 +65,16 @@ export namespace MCP {
     }),
   )
 
+  // Internal: `cli/cmd/mcp.ts` subscribes in the same process to print the
+  // authorization URL when the browser could not be opened for it. A remote
+  // client has no browser to fall back to. See `specs/v2/public-event-filter.md`.
   export const BrowserOpenFailed = BusEvent.schema(
     "mcp.browser.open.failed",
     Schema.Struct({
       mcpName: Schema.String,
       url: Schema.String,
     }),
+    { visibility: "internal" },
   )
 
   export class Failed extends Schema.TaggedErrorClass<Failed>()("MCPFailed", {

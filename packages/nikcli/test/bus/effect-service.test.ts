@@ -8,11 +8,21 @@ import os from "os"
 import path from "path"
 import z from "zod"
 
+/**
+ * Legacy zod-only `define`, on purpose: this suite covers that path.
+ *
+ * Marked internal so it stays out of `BusEvent.schemas()`. The registry is
+ * process-wide, and that union throws listing any **public** event without an
+ * Effect Schema — so before visibility existed, this one fixture broke
+ * `schemas()` for every other test file sharing the process. A test fixture has
+ * no business on the public contract either way.
+ */
 const TestEvent = BusEvent.define(
   "test.bus.effect",
   z.object({
     value: z.string(),
   }),
+  { visibility: "internal" },
 )
 
 describe("Bus.Service", () => {

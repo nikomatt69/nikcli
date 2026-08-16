@@ -30,6 +30,7 @@ These documents explain V2 behavior that is difficult to recover from one source
 | [Provider policy](./provider-policy.md)                                 | Accepted and implemented | Define ordered `provider.use` decisions and legacy compatibility.                    |
 | [TUI theme migration](./tui-theme-migration.md)                         | U3 and U2 done           | Nested tokens derived from flat colors. `Theme` is nested-only; documents stay flat. |
 | [Session v2 write path](./session-v2-write-path.md)                     | Implemented              | Persist entries first; derive v1 from them; HTTP uses `SessionV2`.                   |
+| [Public event filter](./public-event-filter.md)                         | Proposed (roadmap E3)    | Which bus events are internal, and why withheld means absent rather than typed.      |
 
 ## Historical Context
 

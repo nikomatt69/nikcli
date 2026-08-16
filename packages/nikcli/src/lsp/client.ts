@@ -32,12 +32,17 @@ export namespace LSPClient {
   export type Error = InitializeError
 
   export const Event = {
+    // Internal: this module publishes it and this module waits on it (see the
+    // `Bus.subscribe` below). It is the bus used as in-process request/response,
+    // and serving it to a remote client would leak local file paths and the
+    // timing of local analysis. See `specs/v2/public-event-filter.md`.
     Diagnostics: BusEvent.schema(
       "lsp.client.diagnostics",
       Schema.Struct({
         serverID: Schema.String,
         path: Schema.String,
       }),
+      { visibility: "internal" },
     ),
   }
 

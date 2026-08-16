@@ -35,6 +35,14 @@ export namespace HttpApiEvent {
   /** The global stream wraps everything in `{payload}`. */
   const globalEnvelope: EventFeed.Envelope = (event) => ({ payload: event })
 
+  /**
+   * `GlobalBus` emits `{ directory?, payload }` — already wrapped — so the
+   * visibility filter has to reach one level in. The instance feed keeps the
+   * default extractor because `Bus.subscribeAll` hands over the bare event.
+   */
+  const globalTypeOf: EventFeed.TypeOf = (event) =>
+    (event as { payload?: { type?: string } } | undefined)?.payload?.type
+
   function instanceFeed(directory: string) {
     const existing = instanceFeeds.get(directory)
     if (existing) return existing.feed
@@ -114,7 +122,7 @@ export namespace HttpApiEvent {
    * One `GlobalBus` listener serves every connection, which also keeps this
    * route from ever being the source of a `MaxListenersExceededWarning`.
    */
-  const globalFeed = new EventFeed.Feed(globalEnvelope)
+  const globalFeed = new EventFeed.Feed(globalEnvelope, globalTypeOf)
   let globalListener: ((event: unknown) => void) | undefined
 
   function attachGlobalListener() {

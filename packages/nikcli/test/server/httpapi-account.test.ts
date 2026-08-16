@@ -25,7 +25,7 @@ preserveTestEnv([
 const { Instance } = await import("@/project/instance")
 const { Server } = await import("@/server/server")
 const { UserDB } = await import("@/user/users")
-const { isAccountPath } = await import("@/server/httpapi/account-path")
+const { isAccountPath } = await import("@/server/httpapi/instance-less")
 
 function get(pathname: string, token?: string) {
   return Server.fetch(

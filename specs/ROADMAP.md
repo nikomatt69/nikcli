@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-16**.
+Last reconciled against the source: **2026-08-16** (second pass: H2 landed, E3 spec landed).
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -26,8 +26,6 @@ Horizons are ordering, not dates. An item moves up when its dependency lands, no
 | ID      | Horizon  | Item                                                           |
 | ------- | -------- | -------------------------------------------------------------- |
 | **H1**  | Now      | Close unjustified `Schema.Unknown` on the HttpApi contract     |
-| **H2**  | Now      | One instance-less path module (`/user`, `/global`, `/account`) |
-| **E3**  | Contract | Public event filter (spec before code)                         |
 | **H3**  | Later    | Generate the SDK namespaced view (`compat.ts`)                 |
 | **I1**  | Later    | Reconcile Identifier (`util/id` vs `util/identifier`)          |
 | **T3**  | Later    | Output codecs on structured built-ins                          |
@@ -84,6 +82,7 @@ State the wins, so nobody re-plans them:
 - **Durable pending input** (was S1, landed 2026-08-14). Busy input lives in `session_pending` until atomic batched promotion, outside transcript history. The TUI restores queued message cards with `press ctrl-enter to send`: Enter queues, Ctrl/Cmd+Enter with text steers the new input, and the same shortcut with an empty composer changes the oldest queued card to steering until promotion. Canonical retry identity, targeted waiters, safe compaction boundaries, cancellation, and graceful restart remain intact without claiming hard-crash recovery or clustered ownership. See [v2/durable-pending-input.md](./v2/durable-pending-input.md).
 - **Instruction sync** (was S3, landed 2026-08-14). Request assembly admits a `session.instructions.updated` delta of content hashes, stores bodies once in `instruction_blob`, and renders the system prefix from the fold. A failed later read keeps the last stored value. Successful compaction moves the epoch without re-reading sources. TUI and desktop show changed keys from the delta (not prose or hashes). See [v2/instruction-sync-proposal.md](./v2/instruction-sync-proposal.md).
 - **V2 write path** (S4, 2026-08-14). Entries persist first; v1 is `toV1*` of those rows; HTTP create/prompt share `SessionV2`. `prompt_data` stays on `message_info`. `SessionPrompt.loop` still runs the step engine. See [v2/session-v2-write-path.md](./v2/session-v2-write-path.md).
+- **One instance-less path module** (was H2, landed 2026-08-16). `httpapi/instance-less.ts` owns the root table (`/global`, `/user`, `/account`), each root claiming its bare path as well as its subtree. `HttpApiBridge.handleGlobal`, `Server.fallback`, `ServerRouter.dispatch` and `PublicRoutes.globalRequest` ask `isInstanceLessPath` / `instanceLessRoot` instead of spelling prefixes out. The raw handlers are one `InstanceLessDispatch` record in `httpapi/global-handlers.ts`, keyed by the root union, so adding a root fails `bun run typecheck` until it says what answers — the drift that used to be uncheckable is now a compile error. That record is a second module and not part of `instance-less.ts` on purpose: `server.ts` and `server-router.ts` need only the path predicate, and folding the handlers in would pull `UsersHttp` and `AccountHttp` into their module graph. `test/server/instance-less-paths.test.ts` pins the predicate and fails if a decision site re-spells a prefix. `account-path.ts` is gone; no HTTP wire change, `check:routes` clean.
 - **TUI package extracted** (was U1, landed 2026-08-16). `packages/tui` (`@nikcli-ai/tui`) holds the terminal. `packages/nikcli/src/cli/cmd/tui/` keeps four host files — `thread.ts`, `worker.ts`, `attach.ts`, `plugin/host-local.ts` — so the literal `./src/cli/cmd/tui/worker.ts` in the build scripts stays correct. `packages/tui` has no `@/` import and no `nikcli-ai` dependency; its tsconfig does not reference `packages/nikcli`. The second consumer is `packages/tui/bin/nikcli-tui.ts` → `src/host/standalone.ts`, which attaches to a server it did not start. Compatibility re-exports that only forwarded are gone; the installer hook is wired explicitly. See [tui-package.md](./tui-package.md).
 
 ---
@@ -120,30 +119,9 @@ State the wins, so nobody re-plans them:
   Analytics already shows the intended shape: real Effect structs, with a comment that a drift fails the request. Loop/mission create is the opposite: the **interface** is open, so the **implementation** cannot enforce what it already knows.
 
 - **Blocks** — Typed mobile/SDK callers; any new field on those objects; trusting the encoder on write routes.
-- **Done when** — The measure command in [README.md](./README.md) lists only the justified open payloads (SSE, polymorphic `session_entry` / sync frames, bodyless redirects, genuine upstream passthrough). Loop and mission create/update reuse `Domain.*` (create = definition minus server-assigned fields). `MobileProject` is `fromZod` of the helper. Profile patch is the editable half of `Profile.InfoSchema`. Mobile payloads that already have a zod or Effect source reuse it. `bun run generate:httpapi-clients` and `bun run check:routes` pass. Land one group at a time; curl the write route against a real server — the encoder rejects `undefined` as empty data, not as an error.
+- **Done when** — Both measure commands in [README.md](./README.md) §Open payloads list only the justified open payloads — the second one matters, because the headline `^export type … = any$` grep cannot see `MobileConfigInfo`'s open body or a `payload: unknown` write input, which are two of the targets in the table above (SSE, polymorphic `session_entry` / sync frames, bodyless redirects, genuine upstream passthrough). Loop and mission create/update reuse `Domain.*` (create = definition minus server-assigned fields). `MobileProject` is `fromZod` of the helper. Profile patch is the editable half of `Profile.InfoSchema`. Mobile payloads that already have a zod or Effect source reuse it. `bun run generate:httpapi-clients` and `bun run check:routes` pass. Land one group at a time; curl the write route against a real server — the encoder rejects `undefined` as empty data, not as an error.
 - **Keep `Unknown`** — `SessionV2` entry/state/event lists (`SessionEntry.Entry` grows without a contract bump; that is the open-payload exception). SSE (`/event`, `/sync/stream`, mobile session stream). Share short-links. GitHub repo list: type the `imported*` wrapper fields; the upstream repo body may stay open. Do not pin `SessionEntry.Entry` through `fromZod` as part of this item.
 - **Spec** — [README.md](./README.md) §Open payloads; `packages/nikcli/AGENTS.md` §Schema rules.
-
-### One instance-less path module (H2)
-
-- **Buys** — Adding an instance-less route is one edit. A bare path cannot fall into the instance branch and 404 as "no account".
-- **Evidence** — [tui-package.md](./tui-package.md) records the failure: `startsWith("/account/")` sends `GET /account` down the instance branch. `isAccountPath` exists in `httpapi/account-path.ts` and the four sites import it, but `/user/` and `/global/` are still spelled out in all four — `httpapi/bridge.ts`, `server/public.ts`, `server/server-router.ts`, `server/server.ts`. They have to agree; nothing checks that they do.
-- **Blocks** — Any new instance-less group (the next `/account`).
-- **Done when** — One predicate (or a small table) covers `/user`, `/global`, and `/account`, including the bare-path case. The four sites call it and do not mention those prefixes. A test fails if a listed path is served as instance-scoped. No HTTP wire change.
-- **Depends on** — nothing. Can land beside H1.
-
----
-
-## Define contracts
-
-Contracts. These change what the system promises, so each needs its spec landed before its code.
-
-### Public event filter (E3)
-
-- **Buys** — Internal bus events stop crossing the public SSE **seam**. A stalled or curious client cannot observe process-local noise.
-- **Evidence** — [v2/event-stream-architecture.md](./v2/event-stream-architecture.md) §"Not implemented: public filtering": nothing marks a bus event as internal today; every event that reached a client before E1 still does. Adding a filter is a wire change.
-- **Blocks** — Nothing in current work. Do not implement a filter without this spec.
-- **Done when** — A short spec names which event types are internal, what a filtered-out event looks like on the wire (absent vs. typed), and that both `/event` and `/global/event` envelopes stay distinct. Then a code item can move up.
 
 ---
 
@@ -176,7 +154,7 @@ These are evidenced leftovers, not product ideas. They wait because a smaller it
 
 - **Buys** — One live dispatcher for JSON contract-only routes. `check:routes` cannot miss a served path. `/account` gets the same generation contract `/user` already has.
 - **Evidence** — `PublicApi` adds eight contract-only groups. Live serving is a second pathname stack (`PublicRoutes` / `extra.ts` / `HttpApiPrompt`). `ContractExtraHttpApi.HandlersLive` is an Effect copy of those routes; the only importer of `contract-extra.ts` is `public.ts`, and it adds the groups, not `HandlersLive`. `SessionHttpApi.HandlersLive` is also unreferenced (`public.ts` re-lists the same `.handle` names). `/user/*` is on `UsersGroup`; `/account`, `/account/login`, and `/account/login/complete` are not on `PublicApi`. `GET /config/profiles` is served from `extra.ts` and is absent from `rawRouteImplementations` (the POSTs are listed).
-- **Depends on** — H2 if a new instance-less group is added for `/account`.
+- **Depends on** — nothing now that H2 landed: `/account` is already a root in `httpapi/instance-less.ts`, so putting it on `PublicApi` is a contract edit, not a routing one.
 - **Done when** — `HandlersLive` in `contract-extra.ts` is deleted or is the single live adapter. `GET /config/profiles` is in `inventory.ts`. `/account` is on `PublicApi` the way `/user` is. `bun run check:routes --strict` is clean. SSE, prompt streaming, and websocket upgrades stay raw (see non-goals).
 
 ### Import / teleport / run write through SessionV2 (S4 remainder)

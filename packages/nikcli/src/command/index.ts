@@ -14,6 +14,10 @@ import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Command {
   export const Event = {
+    // Internal: no subscriber anywhere, in this process or any client. It is
+    // kept because the publish sites in `session/prompt-commands.ts` are the
+    // natural hook for in-process command auditing; it just has no business on
+    // the wire. See `specs/v2/public-event-filter.md`.
     Executed: BusEvent.schema(
       "command.executed",
       Schema.Struct({
@@ -22,6 +26,7 @@ export namespace Command {
         arguments: Schema.String,
         messageID: Identifier.schemaEffect("message"),
       }),
+      { visibility: "internal" },
     ),
   }
 

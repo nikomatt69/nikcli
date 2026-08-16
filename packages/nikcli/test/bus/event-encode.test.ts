@@ -36,10 +36,11 @@ describe("BusEvent.encode", () => {
   })
 
   // Legacy zod-only events take the same branch as an unregistered type
-  // (`encoderFor` finds no codec). Covering it with a real `BusEvent.define`
-  // fixture would leave an unmigrated event in the shared registry and break
-  // `BusEvent.schemas()` for every test file sharing the process — which is
-  // exactly what `test.bus.effect` already does.
+  // (`encoderFor` finds no codec), so an unregistered type covers it without a
+  // fixture. A real `BusEvent.define` fixture is fine now too, as long as it is
+  // marked `internal` — `schemas()` requires an Effect Schema only for public
+  // events, which is what `test.bus.effect` in `effect-service.test.ts` relies
+  // on. Left as-is because the branch under test does not need the registration.
   it("passes an event with no registered codec through untouched", () => {
     const event = { type: "test.encode.unknown", properties: { anything: true } }
     expect(BusEvent.encode(event)).toBe(event)

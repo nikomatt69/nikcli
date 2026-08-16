@@ -93,7 +93,14 @@ export const LoopEvent = {
       loopID: Schema.String,
     }),
   ),
-  /** Emitted when the engine refuses to start a run (or aborts one in flight). */
+  /**
+   * Emitted when the engine refuses to start a run (or aborts one in flight).
+   *
+   * Internal: no subscriber, and the client-visible consequence already arrives
+   * as `loop.run.finished` / `loop.runtime.changed`. This one carries the
+   * engine's private reason (`"capacity"`, `"user-pause"`), which is scheduling
+   * detail, not conversation state. See `specs/v2/public-event-filter.md`.
+   */
   Aborted: BusEvent.schema(
     "loop.aborted",
     Schema.Struct({
@@ -101,6 +108,7 @@ export const LoopEvent = {
       runID: Schema.optional(Schema.String),
       reason: Schema.String,
     }),
+    { visibility: "internal" },
   ),
 }
 
