@@ -216,13 +216,12 @@ export namespace BusEvent {
     if (missing.length > 0) {
       throw new Error(`BusEvent.schemas(): events not migrated to Effect Schema: ${missing.join(", ")}`)
     }
-    const members = publicDefinitions()
-      .map((def) =>
-        Schema.Struct({
-          type: Schema.Literal(def.type),
-          properties: def.schema!,
-        }).annotate({ identifier: "Event." + def.type }),
-      )
+    const members = publicDefinitions().map((def) =>
+      Schema.Struct({
+        type: Schema.Literal(def.type),
+        properties: def.schema!,
+      }).annotate({ identifier: "Event." + def.type }),
+    )
     return Schema.Union(members as unknown as [Schema.Top, Schema.Top, ...Schema.Top[]]).annotate({
       identifier: "Event",
       discriminator: "type",

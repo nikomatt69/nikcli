@@ -196,8 +196,7 @@ export namespace ServerRouter {
     const url = new URL(request.url)
     // `/sync/stream` is not a root of its own: one SSE path, served instance-less
     // by `PublicRoutes.globalRequest`, with no sibling under `/sync/`.
-    const global =
-      isInstanceLessPath(url.pathname) || (request.method === "GET" && url.pathname === "/sync/stream")
+    const global = isInstanceLessPath(url.pathname) || (request.method === "GET" && url.pathname === "/sync/stream")
     if (global) {
       const raw = await PublicRoutes.globalRequest(request)
       if (raw) return raw

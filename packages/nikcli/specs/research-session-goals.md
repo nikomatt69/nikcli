@@ -111,7 +111,7 @@ Files: `session/goal.ts` (service + schema), `session/goal-repo.ts` (SQL repo),
 ### 2.1 Schema — `session/goal.ts`
 
 - `StatusEffect` — `active | paused | blocked | usage_limited |
-  budget_limited | complete`. — `goal.ts:11-18`
+budget_limited | complete`. — `goal.ts:11-18`
 - `StateEffect` — the goal state: `sessionID`, `goalID`, `objective`,
   `status`, optional `tokenBudget`, `tokensUsed`, `timeUsedSeconds`,
   `iterationCount`, `timeCreated`, `timeUpdated`. — `goal.ts:22-33`
@@ -177,20 +177,20 @@ through prompt text in three places:
    > "Call with status \"complete\" only after verifying every requirement is
    > satisfied. Call with status \"blocked\" only when the same blocking
    > condition has repeated for 3 consecutive goal turns."
-   — `tool/goal.ts:103-107`
+   > — `tool/goal.ts:103-107`
 2. Continuation prompt injected into the loop:
    > "Call update_goal with status \"complete\" only after current evidence
    > proves every requirement is satisfied. Call update_goal with status
    > \"blocked\" only when the same blocker has repeated for 3 consecutive
    > goal turns."
-   — `goal.ts:175` (inside `continuationPrompt`, `goal.ts:163-178`)
-   (Same wording in `budgetLimitPrompt`/`iterationLimitPrompt` at 192, 208.)
+   > — `goal.ts:175` (inside `continuationPrompt`, `goal.ts:163-178`)
+   > (Same wording in `budgetLimitPrompt`/`iterationLimitPrompt` at 192, 208.)
 3. The native `/goal` command template:
    > "Use `update_goal` with `complete` only after the goal is verified, and
    > with `blocked` only under the repeated-blocker rule."
-   — `command/template/goal.txt:10`, reinforced by the Mission section
-   (`goal.txt:16`), Operating Loop verification rule (`goal.txt:24-31`), and
-   "What Counts as Verification" tiers (`goal.txt:54-63`).
+   > — `command/template/goal.txt:10`, reinforced by the Mission section
+   > (`goal.txt:16`), Operating Loop verification rule (`goal.txt:24-31`), and
+   > "What Counts as Verification" tiers (`goal.txt:54-63`).
 
 The **loop enforcement** (when the goal keeps running) lives in
 `nextGoalPrompt` (`prompt.ts:230-262`): after a clean model finish, if
@@ -244,7 +244,7 @@ Layers: `tool/task.ts` (the `task` tool + background orchestration),
 - `BackgroundRun.RecordSchema` — id, sessionID, parentSessionID, agent,
   parentAgent, prompt, status, createdAt/updatedAt/completedAt, artifactPath,
   title, workspaceID, sandbox, source (`task | model-subtask | advisor |
-  research | ultrareview | delegator | delegator-followup | loop | other`),
+research | ultrareview | delegator | delegator-followup | loop | other`),
   role (`worker | delegator | followup | advisor | other`), result/progress
   summaries, error, metadata, owner/lease fields (`ownerID`, `ownerPID`,
   `heartbeatAt`), delegator link fields, and job-tree fields (`jobID`,
@@ -310,7 +310,7 @@ turn is not blocked on completion; the wake comes later via
   - **Project memory** — `.github/instructions/memory.instruction.md`
     (what is true about the codebase). — `brain/index.ts:112-114, 203-217`
   - **User habits** — `Profile.habitsFile(...)` (`.nikcli/habits.md`), what the
-    *person* repeats (workflows, tools, corrections). — `brain/index.ts:125-142`
+    _person_ repeats (workflows, tools, corrections). — `brain/index.ts:125-142`
 - `Brain.shouldTrigger` gates on enabled/memory-enabled, `minHours` since last
   run, a 10-min scan throttle, and `minSessions` new sessions.
   — `brain/index.ts:268-303`
@@ -389,18 +389,18 @@ writes at `brain/index.ts:131-138`).
 
 ## Key file map
 
-| Concern | File | Notes |
-| --- | --- | --- |
-| Session record/CRUD | `src/session/index.ts` | InfoSchema 123-186, create 444-503, remove 549-649 |
-| Message/part model | `src/session/message-v2.ts` | PartSchema 483-498, WithPartsSchema 589-594, toModelMessages 694-942 |
-| Agent loop | `src/session/prompt.ts` | runLoop 661-1325 |
-| Provider stream → parts | `src/session/processor.ts` | process 253+, LLM.stream 284 |
-| Goal service/schema | `src/session/goal.ts` | whole file |
-| Goal persistence | `src/session/goal-repo.ts`, `src/session/goal.sql.ts` | SQL |
-| Goal tools | `src/tool/goal.ts` | create/get/update |
-| Goal command | `src/command/index.ts:8,68,150-158`, `src/command/template/goal.txt` | `/goal` |
-| Event bus | `src/bus/index.ts`, `src/bus/bus-event.ts`, `src/bus/all-events.ts` | |
-| Delegation manager | `src/delegation/manager.ts` | delegation.completed 16-24 |
-| Background run | `src/background/run.ts`, `src/background/repo.ts` | RecordSchema 44-78 |
-| Task tool / background | `src/tool/task.ts` | wakeParentSession 579-630, launch 632-880 |
-| Brain / memory | `src/brain/index.ts`, `src/brain/scheduler.ts` | |
+| Concern                 | File                                                                 | Notes                                                                |
+| ----------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Session record/CRUD     | `src/session/index.ts`                                               | InfoSchema 123-186, create 444-503, remove 549-649                   |
+| Message/part model      | `src/session/message-v2.ts`                                          | PartSchema 483-498, WithPartsSchema 589-594, toModelMessages 694-942 |
+| Agent loop              | `src/session/prompt.ts`                                              | runLoop 661-1325                                                     |
+| Provider stream → parts | `src/session/processor.ts`                                           | process 253+, LLM.stream 284                                         |
+| Goal service/schema     | `src/session/goal.ts`                                                | whole file                                                           |
+| Goal persistence        | `src/session/goal-repo.ts`, `src/session/goal.sql.ts`                | SQL                                                                  |
+| Goal tools              | `src/tool/goal.ts`                                                   | create/get/update                                                    |
+| Goal command            | `src/command/index.ts:8,68,150-158`, `src/command/template/goal.txt` | `/goal`                                                              |
+| Event bus               | `src/bus/index.ts`, `src/bus/bus-event.ts`, `src/bus/all-events.ts`  |                                                                      |
+| Delegation manager      | `src/delegation/manager.ts`                                          | delegation.completed 16-24                                           |
+| Background run          | `src/background/run.ts`, `src/background/repo.ts`                    | RecordSchema 44-78                                                   |
+| Task tool / background  | `src/tool/task.ts`                                                   | wakeParentSession 579-630, launch 632-880                            |
+| Brain / memory          | `src/brain/index.ts`, `src/brain/scheduler.ts`                       |                                                                      |

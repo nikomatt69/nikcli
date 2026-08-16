@@ -1,12 +1,12 @@
 # Public Event Filter
 
-| Field  | Value                                                                                            |
-| ------ | ------------------------------------------------------------------------------------------------ |
-| Status | **Implemented** 2026-08-16 (was roadmap E3, then E3c)                                            |
-| Scope  | `src/bus/bus-event.ts`, `src/server/httpapi/event-feed.ts`, `src/server/httpapi/event.ts`        |
-| Buys   | Internal bus traffic stops crossing the public SSE seam                                          |
-| Wire   | **Changed.** Six types left the wire and left the generated `Event` union.                       |
-| Tests  | `test/server/event-visibility.test.ts`                                                           |
+| Field  | Value                                                                                     |
+| ------ | ----------------------------------------------------------------------------------------- |
+| Status | **Implemented** 2026-08-16 (was roadmap E3, then E3c)                                     |
+| Scope  | `src/bus/bus-event.ts`, `src/server/httpapi/event-feed.ts`, `src/server/httpapi/event.ts` |
+| Buys   | Internal bus traffic stops crossing the public SSE seam                                   |
+| Wire   | **Changed.** Six types left the wire and left the generated `Event` union.                |
+| Tests  | `test/server/event-visibility.test.ts`                                                    |
 
 ## The Problem
 
@@ -14,14 +14,14 @@
 
 The cost is not hypothetical. Measured 2026-08-16 against `packages/nikcli/src`, of the 64 declared `BusEvent.schema` types, **six reach every SSE client and no client anywhere reads them**:
 
-| Type                      | Published by                             | Who reads it                                       |
-| ------------------------- | ---------------------------------------- | -------------------------------------------------- |
-| `lsp.client.diagnostics`  | `lsp/client.ts:63`                       | `lsp/client.ts:215` — **the same module**          |
-| `mcp.browser.open.failed` | `mcp/index.ts:849`                       | `cli/cmd/mcp.ts:293` — **the same process**        |
-| `command.executed`        | `session/prompt-commands.ts:505,579`     | nobody                                              |
-| `instance.reload.started` | `project/reload.ts` (`InstanceReload`)   | nobody                                              |
-| `instance.reloaded`       | `project/reload.ts` (`InstanceReload`)   | nobody                                              |
-| `loop.aborted`            | `loop/engine.ts:543` and siblings        | nobody                                              |
+| Type                      | Published by                           | Who reads it                                |
+| ------------------------- | -------------------------------------- | ------------------------------------------- |
+| `lsp.client.diagnostics`  | `lsp/client.ts:63`                     | `lsp/client.ts:215` — **the same module**   |
+| `mcp.browser.open.failed` | `mcp/index.ts:849`                     | `cli/cmd/mcp.ts:293` — **the same process** |
+| `command.executed`        | `session/prompt-commands.ts:505,579`   | nobody                                      |
+| `instance.reload.started` | `project/reload.ts` (`InstanceReload`) | nobody                                      |
+| `instance.reloaded`       | `project/reload.ts` (`InstanceReload`) | nobody                                      |
+| `loop.aborted`            | `loop/engine.ts:543` and siblings      | nobody                                      |
 
 "Nobody" is repo-wide: zero references in `packages/tui`, `packages/app`, `packages/mobile`, `packages/desktop`, outside the generated `Event` union itself. Reproduce with:
 
@@ -85,7 +85,7 @@ Consequence worth stating: internal events are invisible in production debugging
 
 An internal type leaves the generated `Event` union in `packages/sdk/js/src/httpapi/generated/types.ts`. This is the wire change, and it is the point: a client must not be able to type against an event it will never receive.
 
-For the six types above the change is free — no client references them today. That is exactly why this set is the right one to land first, and why the set is chosen from measured consumption rather than from what *looks* internal.
+For the six types above the change is free — no client references them today. That is exactly why this set is the right one to land first, and why the set is chosen from measured consumption rather than from what _looks_ internal.
 
 ## Initial Internal Set
 

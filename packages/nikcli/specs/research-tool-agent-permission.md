@@ -20,18 +20,18 @@ Core file: `src/tool/tool.ts`.
 
 `Tool.Context<M>` (`tool.ts:42-53`) is what every tool body receives:
 
-| field | type | notes |
-|-------|------|-------|
-| `sessionID` | `string` | current session id |
-| `messageID` | `string` | current assistant message id |
-| `agent` | `string` | agent **name** (string, not `Agent.Info`) |
-| `abort` | `AbortSignal` | cooperative cancellation |
-| `callID` | `string` | tool-call id |
-| `extra?` | `Record<string, unknown>` | e.g. `{ model, bypassAgentCheck }` |
-| `messages?` | `MessageV2.WithParts[]` | optional message history |
-| `metadata(input)` | `(input) => void` | update running tool-part title/metadata |
-| `progress(input)` | `(input) => Promise<void>` | streaming structured progress |
-| `ask(input)` | `(input) => Promise<void>` | permission gate (see §6) |
+| field             | type                       | notes                                     |
+| ----------------- | -------------------------- | ----------------------------------------- |
+| `sessionID`       | `string`                   | current session id                        |
+| `messageID`       | `string`                   | current assistant message id              |
+| `agent`           | `string`                   | agent **name** (string, not `Agent.Info`) |
+| `abort`           | `AbortSignal`              | cooperative cancellation                  |
+| `callID`          | `string`                   | tool-call id                              |
+| `extra?`          | `Record<string, unknown>`  | e.g. `{ model, bypassAgentCheck }`        |
+| `messages?`       | `MessageV2.WithParts[]`    | optional message history                  |
+| `metadata(input)` | `(input) => void`          | update running tool-part title/metadata   |
+| `progress(input)` | `(input) => Promise<void>` | streaming structured progress             |
+| `ask(input)`      | `(input) => Promise<void>` | permission gate (see §6)                  |
 
 ### Result shape
 
@@ -155,37 +155,37 @@ Each agent merges `defaults` + agent-specific overrides + user config
 
 ### Primary agents (`mode: "primary"`)
 
-| name | role / notes | permission deltas vs defaults |
-|------|--------------|-------------------------------|
-| `ralph` (`agent.ts:179-197`) | Autonomous loop agent; iterates until done. | `question: allow` |
-| `build` (`agent.ts:198-215`) | Build/feature agent. Adds monitor-tool awareness. | `question: allow`, `plan_enter: allow` |
-| `plan` (`agent.ts:216-241`) | Planning agent. | `question: allow`, `plan_exit: allow`, `edit: deny` except `.nikcli/plans/*.md` and data/plans; allows data `plans/*` external dir |
-| `compaction` (`agent.ts:606-620`) | Hidden internal compaction pass. | `*: deny` |
-| `title` (`agent.ts:621-636`) | Hidden title-generation pass (`temperature: 0.5`). | `*: deny` |
-| `summary` (`agent.ts:734-748`) | Hidden summary-generation pass. | `*: deny` |
+| name                              | role / notes                                       | permission deltas vs defaults                                                                                                      |
+| --------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `ralph` (`agent.ts:179-197`)      | Autonomous loop agent; iterates until done.        | `question: allow`                                                                                                                  |
+| `build` (`agent.ts:198-215`)      | Build/feature agent. Adds monitor-tool awareness.  | `question: allow`, `plan_enter: allow`                                                                                             |
+| `plan` (`agent.ts:216-241`)       | Planning agent.                                    | `question: allow`, `plan_exit: allow`, `edit: deny` except `.nikcli/plans/*.md` and data/plans; allows data `plans/*` external dir |
+| `compaction` (`agent.ts:606-620`) | Hidden internal compaction pass.                   | `*: deny`                                                                                                                          |
+| `title` (`agent.ts:621-636`)      | Hidden title-generation pass (`temperature: 0.5`). | `*: deny`                                                                                                                          |
+| `summary` (`agent.ts:734-748`)    | Hidden summary-generation pass.                    | `*: deny`                                                                                                                          |
 
 ### Subagents (`mode: "subagent"`)
 
-| name | role / notes | permission deltas |
-|------|--------------|-------------------|
-| `scout` (`agent.ts:343-377`) | Read-only research of external libs/repos. Gated by `NIKCLI_EXPERIMENTAL_SCOUT` (default on). | `*: deny`; read/grep/glob/list/tree/webfetch/websearch/codesearch/repo_clone/repo_overview allow; external `repos/*` allow |
-| `researcher` (`agent.ts:378-444`) | Hidden read-only background evidence collector. | `*: deny`; read/grep/glob/list/tree/websearch/webfetch/memory_search/context_collect/context_related/delegation/delegator allow; `task` allow only for `fast-explore`/`planner` (researcher denied) |
-| `ultrareview-reviewer` (`agent.ts:472-500`) | Hidden single-domain reviewer in ultrareview fleet. | `*: deny`; read/grep/glob/list/bash allow |
-| `delegator` (`agent.ts:584-605`) | Hidden coordination agent synthesising background results. | `*: deny`; `task: allow` (required by DelegationTool's `ctx.ask({permission:"task"})`), read allow |
+| name                                        | role / notes                                                                                  | permission deltas                                                                                                                                                                                   |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scout` (`agent.ts:343-377`)                | Read-only research of external libs/repos. Gated by `NIKCLI_EXPERIMENTAL_SCOUT` (default on). | `*: deny`; read/grep/glob/list/tree/webfetch/websearch/codesearch/repo_clone/repo_overview allow; external `repos/*` allow                                                                          |
+| `researcher` (`agent.ts:378-444`)           | Hidden read-only background evidence collector.                                               | `*: deny`; read/grep/glob/list/tree/websearch/webfetch/memory_search/context_collect/context_related/delegation/delegator allow; `task` allow only for `fast-explore`/`planner` (researcher denied) |
+| `ultrareview-reviewer` (`agent.ts:472-500`) | Hidden single-domain reviewer in ultrareview fleet.                                           | `*: deny`; read/grep/glob/list/bash allow                                                                                                                                                           |
+| `delegator` (`agent.ts:584-605`)            | Hidden coordination agent synthesising background results.                                    | `*: deny`; `task: allow` (required by DelegationTool's `ctx.ask({permission:"task"})`), read allow                                                                                                  |
 
 ### `mode: "all"` (usable as both primary and subagent)
 
-| name | role / notes | permission deltas |
-|------|--------------|-------------------|
-| `general` (`agent.ts:242-256`) | General-purpose parallel agent. | `todoread: deny`, `todowrite: deny` |
-| `explore` (`agent.ts:257-283`) | Fast codebase explorer. | `*: deny`; read/grep/glob/list/bash/webfetch/websearch/codesearch allow |
-| `fast-explore` (`agent.ts:284-311`) | Read-only quick inspector. | `*: deny`; read/grep/glob/list/tree allow |
-| `planner` (`agent.ts:312-342`) | Planning subagent (read-only). | `*: deny`; read/grep/glob/list/tree/webfetch/websearch/codesearch allow |
-| `code-reviewer` (`agent.ts:445-471`) | Code review. | `*: deny`; read/grep/glob/list/bash allow |
-| `debugger` (`agent.ts:501-528`) | Debug failures, minimal fixes. | `*: deny`; read/grep/glob/list/bash/edit allow |
-| `test-runner` (`agent.ts:529-555`) | Run/analyze tests. | `*: deny`; read/grep/list/bash/edit allow |
-| `refactor` (`agent.ts:556-583`) | Safe refactors. | `*: deny`; read/grep/glob/list/bash/edit allow |
-| `support` (`agent.ts:637-733`) | Hidden docs/help assistant (invoked from `/support`). | `*: deny`; read-only `bash` allowlist (see below) |
+| name                                 | role / notes                                          | permission deltas                                                       |
+| ------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| `general` (`agent.ts:242-256`)       | General-purpose parallel agent.                       | `todoread: deny`, `todowrite: deny`                                     |
+| `explore` (`agent.ts:257-283`)       | Fast codebase explorer.                               | `*: deny`; read/grep/glob/list/bash/webfetch/websearch/codesearch allow |
+| `fast-explore` (`agent.ts:284-311`)  | Read-only quick inspector.                            | `*: deny`; read/grep/glob/list/tree allow                               |
+| `planner` (`agent.ts:312-342`)       | Planning subagent (read-only).                        | `*: deny`; read/grep/glob/list/tree/webfetch/websearch/codesearch allow |
+| `code-reviewer` (`agent.ts:445-471`) | Code review.                                          | `*: deny`; read/grep/glob/list/bash allow                               |
+| `debugger` (`agent.ts:501-528`)      | Debug failures, minimal fixes.                        | `*: deny`; read/grep/glob/list/bash/edit allow                          |
+| `test-runner` (`agent.ts:529-555`)   | Run/analyze tests.                                    | `*: deny`; read/grep/list/bash/edit allow                               |
+| `refactor` (`agent.ts:556-583`)      | Safe refactors.                                       | `*: deny`; read/grep/glob/list/bash/edit allow                          |
+| `support` (`agent.ts:637-733`)       | Hidden docs/help assistant (invoked from `/support`). | `*: deny`; read-only `bash` allowlist (see below)                       |
 
 The `support` agent's `bash` permission is a read-only allowlist of literal
 patterns (`nikcli --version`, `nikcli doctor *`, `cat *`, `ls *`, `find *`,
@@ -249,12 +249,12 @@ not a runtime enforcement point.
 
 ```ts
 export const TOOL_PERMISSION: Record<string, string> = {
-  monitor: "bash",       // monitor shares the bash permission
+  monitor: "bash", // monitor shares the bash permission
   edit: "edit",
   write: "edit",
   patch: "edit",
   multiedit: "edit",
-  apply_patch: "edit",   // edit-family collapses to `edit`
+  apply_patch: "edit", // edit-family collapses to `edit`
 }
 ```
 
@@ -397,7 +397,7 @@ Enforced in `src/tool/registry.ts` `layer` (derived state), `registry.ts:278-358
    a file is skipped unless `isToolPathAllowed` matches by absolute path,
    basename, or extension-less name (`registry.ts:215-219`).
 6. **sha256 pinning** (`registry.ts:318-329`): `expectedHash =
-   pins[match] ?? pins[base] ?? pins[namespace]`; if set, the file is hashed
+pins[match] ?? pins[base] ?? pins[namespace]`; if set, the file is hashed
    (`sha256File`, `registry.ts:221-225`) and a mismatch logs an error and
    **refuses to load** the file.
 7. `import(match)` then `Object.entries<ToolDefinition>(mod)` →
@@ -432,7 +432,7 @@ security boundary (`flag.ts:167-172`). `Flag.autoApprove()` reads
 
 - `Skill.Info` schema (`skill.ts:26-38`): `name`, `description`, `location`,
   optional `category`, `tags`, `version`. `Skill.Loaded = Info & { dir,
-  content }` (`skill.ts:39-42`).
+content }` (`skill.ts:39-42`).
 - Errors (`skill.ts:44-79`): `InvalidError`, `NameMismatchError`,
   `NotFoundError`, `AlreadyExistsError`, plus `ConfigMarkdown.FrontmatterError`
   in the `Skill.Error` union.
@@ -524,21 +524,21 @@ in the tool result.
 
 ## Key file index
 
-| Concern | File |
-|---------|------|
-| Tool define / Info / Context / Result | `src/tool/tool.ts` |
-| Tool registry, autoload, plugin tools | `src/tool/registry.ts` |
-| Agents + permissions | `src/agent/agent.ts` |
-| Permission schema | `src/permission/schema.ts` |
-| Permission pure evaluator + coupling map | `src/permission/ruleset.ts` |
-| Permission service (ask/reply) | `src/permission/next.ts` |
-| Permission persistence | `src/permission/permission-repo.ts`, `permission.sql.ts` |
-| Bash arity / shell split | `src/permission/arity.ts`, `shell-split.ts` |
-| Tool resolution + ctx.ask wiring | `src/session/tools.ts` |
-| Doom-loop ask | `src/session/processor.ts` |
-| Provider policy | `src/policy/policy.ts` |
-| Plugin service + hooks | `src/plugin/index.ts`, `packages/plugin/src/index.ts` |
-| Plugin tool shape | `packages/plugin/src/tool.ts` |
-| Skill service + tool | `src/skill/skill.ts`, `src/tool/skill.ts` |
-| tool.allow / tool.pin config | `src/config/config.ts:1651-1667` |
-| Flags | `@nikcli-ai/util/flag` (`flag.ts`) |
+| Concern                                  | File                                                     |
+| ---------------------------------------- | -------------------------------------------------------- |
+| Tool define / Info / Context / Result    | `src/tool/tool.ts`                                       |
+| Tool registry, autoload, plugin tools    | `src/tool/registry.ts`                                   |
+| Agents + permissions                     | `src/agent/agent.ts`                                     |
+| Permission schema                        | `src/permission/schema.ts`                               |
+| Permission pure evaluator + coupling map | `src/permission/ruleset.ts`                              |
+| Permission service (ask/reply)           | `src/permission/next.ts`                                 |
+| Permission persistence                   | `src/permission/permission-repo.ts`, `permission.sql.ts` |
+| Bash arity / shell split                 | `src/permission/arity.ts`, `shell-split.ts`              |
+| Tool resolution + ctx.ask wiring         | `src/session/tools.ts`                                   |
+| Doom-loop ask                            | `src/session/processor.ts`                               |
+| Provider policy                          | `src/policy/policy.ts`                                   |
+| Plugin service + hooks                   | `src/plugin/index.ts`, `packages/plugin/src/index.ts`    |
+| Plugin tool shape                        | `packages/plugin/src/tool.ts`                            |
+| Skill service + tool                     | `src/skill/skill.ts`, `src/tool/skill.ts`                |
+| tool.allow / tool.pin config             | `src/config/config.ts:1651-1667`                         |
+| Flags                                    | `@nikcli-ai/util/flag` (`flag.ts`)                       |

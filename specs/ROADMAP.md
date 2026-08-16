@@ -23,15 +23,15 @@ The previous plan closed one durability model, one HTTP surface, and one TUI pac
 
 Horizons are ordering, not dates. An item moves up when its dependency lands, not when someone has time.
 
-| ID      | Horizon  | Item                                                           |
-| ------- | -------- | -------------------------------------------------------------- |
-| **H1**  | Now      | Close unjustified `Schema.Unknown` on the HttpApi contract     |
-| **H3**  | Later    | Generate the SDK namespaced view (`compat.ts`)                 |
-| **I1**  | Later    | Reconcile Identifier (`util/id` vs `util/identifier`)          |
-| **T3**  | Later    | Output codecs on structured built-ins                          |
-| **H4**  | Later    | Close contract-only strangler leftovers                        |
-| **S4r** | Later    | Import / teleport / run write through SessionV2                |
-| **X2**  | Later    | Delete adapters with no production callers                     |
+| ID      | Horizon | Item                                                       |
+| ------- | ------- | ---------------------------------------------------------- |
+| **H1**  | Now     | Close unjustified `Schema.Unknown` on the HttpApi contract |
+| **H3**  | Later   | Generate the SDK namespaced view (`compat.ts`)             |
+| **I1**  | Later   | Reconcile Identifier (`util/id` vs `util/identifier`)      |
+| **T3**  | Later   | Output codecs on structured built-ins                      |
+| **H4**  | Later   | Close contract-only strangler leftovers                    |
+| **S4r** | Later   | Import / teleport / run write through SessionV2            |
+| **X2**  | Later   | Delete adapters with no production callers                 |
 
 ---
 

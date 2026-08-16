@@ -3,6 +3,28 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.288.0 (August 2026)
+
+## Core
+
+- Expand theme catalog with new themes and enhance test coverage (@nikomatt69)
+- Enhance update handling and session management (@nikomatt69)
+- Add character-entities dependency and refactor profile and loop schemas (@nikomatt69)
+- Introduce event visibility management and internal event handling (@nikomatt69)
+
+## Desktop
+
+- Refactor global SDK and SDK context for improved type safety and structure (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(bus): introduce event visibility management and internal event handling
+  - feat(nikcli): add character-entities dependency and refactor profile and loop schemas
+  - feat(nikcli): enhance update handling and session management
+  - feat(tui): expand theme catalog with new themes and enhance test coverage
+  - feat(sdk): refactor global SDK and SDK context for improved type safety and structure
+
 ## v1.287.0 (August 2026)
 
 - No notable changes

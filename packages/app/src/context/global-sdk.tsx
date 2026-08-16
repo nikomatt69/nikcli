@@ -1,125 +1,116 @@
-import {
-  createNikcliClient,
-  type Event,
-  type NikcliClient,
-} from "@nikcli-ai/sdk/httpapi";
-import { createSimpleContext } from "@nikcli-ai/ui/context";
-import {
-  createGlobalEmitter,
-  type GlobalEmitter,
-} from "@solid-primitives/event-bus";
-import { batch, onCleanup } from "solid-js";
-import { usePlatform } from "./platform";
-import { useServer } from "./server";
+import { createNikcliClient, type Event, type NikcliClient } from "@nikcli-ai/sdk/httpapi"
+import { createSimpleContext } from "@nikcli-ai/ui/context"
+import { createGlobalEmitter, type GlobalEmitter } from "@solid-primitives/event-bus"
+import { batch, onCleanup } from "solid-js"
+import { usePlatform } from "./platform"
+import { useServer } from "./server"
 
 export interface GlobalSDK {
-  url: string;
-  client: NikcliClient;
+  url: string
+  client: NikcliClient
   event: GlobalEmitter<{
-    [key: string]: Event;
-  }>;
+    [key: string]: Event
+  }>
 }
 
-export const { use: useGlobalSDK, provider: GlobalSDKProvider } =
-  createSimpleContext<GlobalSDK, {}>({
-    name: "GlobalSDK",
-    init: (): GlobalSDK => {
-      const server = useServer();
-      const platform = usePlatform();
-      const abort = new AbortController();
+export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleContext<GlobalSDK, {}>({
+  name: "GlobalSDK",
+  init: (): GlobalSDK => {
+    const server = useServer()
+    const platform = usePlatform()
+    const abort = new AbortController()
 
-      const eventSdk = createNikcliClient({
-        baseUrl: server.url,
-        signal: abort.signal,
-        fetch: platform.fetch,
-      });
-      const emitter = createGlobalEmitter<{
-        [key: string]: Event;
-      }>();
+    const eventSdk = createNikcliClient({
+      baseUrl: server.url,
+      signal: abort.signal,
+      fetch: platform.fetch,
+    })
+    const emitter = createGlobalEmitter<{
+      [key: string]: Event
+    }>()
 
-      type Queued = { directory: string; payload: Event };
+    type Queued = { directory: string; payload: Event }
 
-      let queue: Array<Queued | undefined> = [];
-      let buffer: Array<Queued | undefined> = [];
-      const coalesced = new Map<string, number>();
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      let last = 0;
+    let queue: Array<Queued | undefined> = []
+    let buffer: Array<Queued | undefined> = []
+    const coalesced = new Map<string, number>()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let last = 0
 
-      const key = (directory: string, payload: Event) => {
-        if (payload.type === "session.status")
-          return `session.status:${directory}:${payload.properties.sessionID}`;
-        if (payload.type === "lsp.updated") return `lsp.updated:${directory}`;
-        if (payload.type === "message.part.updated") {
-          const part = payload.properties.part;
-          return `message.part.updated:${directory}:${part.messageID}:${part.id}`;
+    const key = (directory: string, payload: Event) => {
+      if (payload.type === "session.status") return `session.status:${directory}:${payload.properties.sessionID}`
+      if (payload.type === "lsp.updated") return `lsp.updated:${directory}`
+      if (payload.type === "message.part.updated") {
+        const part = payload.properties.part
+        return `message.part.updated:${directory}:${part.messageID}:${part.id}`
+      }
+    }
+
+    const flush = () => {
+      if (timer) clearTimeout(timer)
+      timer = undefined
+
+      if (queue.length === 0) return
+
+      const events = queue
+      queue = buffer
+      buffer = events
+      queue.length = 0
+      coalesced.clear()
+
+      last = Date.now()
+      batch(() => {
+        for (const event of events) {
+          if (!event) continue
+          emitter.emit(event.directory, event.payload)
         }
-      };
+      })
 
-      const flush = () => {
-        if (timer) clearTimeout(timer);
-        timer = undefined;
+      buffer.length = 0
+    }
 
-        if (queue.length === 0) return;
+    const schedule = () => {
+      if (timer) return
+      const elapsed = Date.now() - last
+      timer = setTimeout(flush, Math.max(0, 16 - elapsed))
+    }
 
-        const events = queue;
-        queue = buffer;
-        buffer = events;
-        queue.length = 0;
-        coalesced.clear();
-
-        last = Date.now();
-        batch(() => {
-          for (const event of events) {
-            if (!event) continue;
-            emitter.emit(event.directory, event.payload);
+    void (async () => {
+      const events = await eventSdk.global.event()
+      let yielded = Date.now()
+      for await (const event of events.stream) {
+        const directory = event.directory ?? "global"
+        const payload = event.payload
+        const k = key(directory, payload)
+        if (k) {
+          const i = coalesced.get(k)
+          if (i !== undefined) {
+            queue[i] = undefined
           }
-        });
-
-        buffer.length = 0;
-      };
-
-      const schedule = () => {
-        if (timer) return;
-        const elapsed = Date.now() - last;
-        timer = setTimeout(flush, Math.max(0, 16 - elapsed));
-      };
-
-      void (async () => {
-        const events = await eventSdk.global.event();
-        let yielded = Date.now();
-        for await (const event of events.stream) {
-          const directory = event.directory ?? "global";
-          const payload = event.payload;
-          const k = key(directory, payload);
-          if (k) {
-            const i = coalesced.get(k);
-            if (i !== undefined) {
-              queue[i] = undefined;
-            }
-            coalesced.set(k, queue.length);
-          }
-          queue.push({ directory, payload });
-          schedule();
-
-          if (Date.now() - yielded < 8) continue;
-          yielded = Date.now();
-          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+          coalesced.set(k, queue.length)
         }
-      })()
-        .finally(flush)
-        .catch(() => undefined);
+        queue.push({ directory, payload })
+        schedule()
 
-      onCleanup(() => {
-        abort.abort();
-        flush();
-      });
+        if (Date.now() - yielded < 8) continue
+        yielded = Date.now()
+        await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      }
+    })()
+      .finally(flush)
+      .catch(() => undefined)
 
-      const sdk = createNikcliClient({
-        baseUrl: server.url,
-        fetch: platform.fetch,
-        throwOnError: true,
-      });
+    onCleanup(() => {
+      abort.abort()
+      flush()
+    })
 
-      return { url: server.url, client: sdk, event: emitter };
-    },
-  });
+    const sdk = createNikcliClient({
+      baseUrl: server.url,
+      fetch: platform.fetch,
+      throwOnError: true,
+    })
+
+    return { url: server.url, client: sdk, event: emitter }
+  },
+})

@@ -17,12 +17,7 @@ import { instanceLessRoot, instanceLessRoots, isAccountPath, isInstanceLessPath 
  */
 const SRC = path.join(import.meta.dir, "..", "..", "src")
 
-const DECISION_SITES = [
-  "server/httpapi/bridge.ts",
-  "server/server.ts",
-  "server/server-router.ts",
-  "server/public.ts",
-]
+const DECISION_SITES = ["server/httpapi/bridge.ts", "server/server.ts", "server/server-router.ts", "server/public.ts"]
 
 describe("instance-less paths", () => {
   it("claims the bare path as well as the subtree for every root", () => {

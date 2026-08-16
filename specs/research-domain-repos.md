@@ -49,7 +49,7 @@ singleton for domain modules.
 `schema.ts` is the type-level schema for `drizzle(native, { schema })`. It
 re-exports every per-domain `sqliteTable` const in one place. See §4 for the
 full map. **Notable:** the analytics tables (`analytics_stat`, `analytics_share`,
-`analytics_publish`) are *not* re-exported here (see §3.14).
+`analytics_publish`) are _not_ re-exported here (see §3.14).
 
 ### 1.3 `index.ts` (3 lines)
 
@@ -59,6 +59,7 @@ Re-exports the two namespaces: `Database` (`./database`) and `DatabaseMigration`
 ### 1.4 `migration.ts` — migration runner (45 lines)
 
 `DatabaseMigration` namespace:
+
 - `Migration` type = `{ id, up(database: BunDatabase): void }` (`:8-11`).
 - `completed()` (`:13-23`) ensures a `migration` bookkeeping table
   (`id TEXT PRIMARY KEY, time_completed INTEGER NOT NULL`) and returns the set
@@ -87,34 +88,34 @@ One file per migration, named `<UTC timestamp>_<slug>.ts`, each exporting a
 
 The full ordered list (from `migration.gen.ts:29-56`):
 
-| migration id | what it does |
-|---|---|
-| `20260610211500_initial` | account, config, users, user_sessions, chat, mobile_tokens, workspace |
-| `20260611000000_session_message_todo_permission` | session/message/todo/permission tables |
-| `20260611010000_sync_event_sequence` | sync event + sequence |
-| `20260611020000_import_legacy_databases` | legacy DB import |
-| `20260611030000_import_json_storage` | JSON-storage import |
-| `20260611040000_import_sync_json` | sync JSON import |
-| `20260612000000_session_v2_event` | v2 event table (later dropped) |
-| `20260630000000_sync_unify` | sync unification |
-| `20260630000100_workspace_drop_events` | drop `workspace.events`/`event_limit` |
-| `20260716000000_user_external_subject` | `users.external_subject` |
-| `20260805000000_session_entry` | `session_entry` table |
-| `20260805120000_drop_session_v2_event` | drop v2 event table |
-| `20260805130000_session_entry_id_order` | entry id ordering |
-| `20260811000000_analytics_stat` | `analytics_stat` |
-| `20260814000000_loop_sql` | loop tables |
-| `20260814010000_session_time_suspended` | `session_info.time_suspended` (partial index) |
-| `20260814020000_domain_sql` | mission/monitor/share/artifact tables + JSON import |
-| `20260814030000_project_sql` | `project` table |
-| `20260814040000_analytics_share` | `analytics_share` |
-| `20260814050000_session_goal` | `session_goal` |
-| `20260814060000_background_run` | `background_run` |
-| `20260814070000_routine` | `routine` |
-| `20260814080000_session_diff` | `session_diff` |
-| `20260814090000_workspace_json` | workspace JSON import |
-| `20260814100000_session_pending` | `session_pending` |
-| `20260814110000_instruction_sync` | `instruction_blob`/`instruction_state` |
+| migration id                                     | what it does                                                          |
+| ------------------------------------------------ | --------------------------------------------------------------------- |
+| `20260610211500_initial`                         | account, config, users, user_sessions, chat, mobile_tokens, workspace |
+| `20260611000000_session_message_todo_permission` | session/message/todo/permission tables                                |
+| `20260611010000_sync_event_sequence`             | sync event + sequence                                                 |
+| `20260611020000_import_legacy_databases`         | legacy DB import                                                      |
+| `20260611030000_import_json_storage`             | JSON-storage import                                                   |
+| `20260611040000_import_sync_json`                | sync JSON import                                                      |
+| `20260612000000_session_v2_event`                | v2 event table (later dropped)                                        |
+| `20260630000000_sync_unify`                      | sync unification                                                      |
+| `20260630000100_workspace_drop_events`           | drop `workspace.events`/`event_limit`                                 |
+| `20260716000000_user_external_subject`           | `users.external_subject`                                              |
+| `20260805000000_session_entry`                   | `session_entry` table                                                 |
+| `20260805120000_drop_session_v2_event`           | drop v2 event table                                                   |
+| `20260805130000_session_entry_id_order`          | entry id ordering                                                     |
+| `20260811000000_analytics_stat`                  | `analytics_stat`                                                      |
+| `20260814000000_loop_sql`                        | loop tables                                                           |
+| `20260814010000_session_time_suspended`          | `session_info.time_suspended` (partial index)                         |
+| `20260814020000_domain_sql`                      | mission/monitor/share/artifact tables + JSON import                   |
+| `20260814030000_project_sql`                     | `project` table                                                       |
+| `20260814040000_analytics_share`                 | `analytics_share`                                                     |
+| `20260814050000_session_goal`                    | `session_goal`                                                        |
+| `20260814060000_background_run`                  | `background_run`                                                      |
+| `20260814070000_routine`                         | `routine`                                                             |
+| `20260814080000_session_diff`                    | `session_diff`                                                        |
+| `20260814090000_workspace_json`                  | workspace JSON import                                                 |
+| `20260814100000_session_pending`                 | `session_pending`                                                     |
+| `20260814110000_instruction_sync`                | `instruction_blob`/`instruction_state`                                |
 
 ---
 
@@ -140,7 +141,6 @@ synchronously. Most repos also accept a `tx: Executor = db()` parameter on write
 so a projector can run inside the same transaction (see the executor pattern in
 §5).
 
-
 ### 3.1 Session (`src/session/`)
 
 The largest domain. It owns several tables (one `*.sql.ts` each) and one repo per
@@ -148,18 +148,18 @@ table.
 
 **Tables:**
 
-| table (const) | file | purpose / key columns |
-|---|---|---|
-| `session_info` (`sessionInfo`) | `session.sql.ts:7-38` | Session rows. `id` PK; `project_id`, `title`, `directory` NOT NULL; `parent_id`, `workspace_id` nullable; `version`; **`data`** = full JSON `Session.Info`; `created_at`, `updated_at`; `time_suspended` (nullable, private). Indexes: `idx_session_info_project/parent/workspace`. Partial index on `time_suspended` lives only in migration `20260814010000_session_time_suspended` (comment at `:21-30`). |
-| `message_info` (`messageInfo`) | `message.sql.ts:8-26` | Messages. `id` PK; `session_id` FK→`session_info.id` `ON DELETE CASCADE`; `role`; `info` = full JSON `MessageV2.Info`; `prompt_data` (canonical admitted prompt); `created_at`. Indexes: session, role. |
-| `message_part` (`messagePart`) | `message.sql.ts:32-49` | Parts. `id` PK; `message_id`, `session_id` NOT NULL; `type`; `info` = JSON Part; `sort_key` (ordering = id for ascending). Indexes: message, session, `(message_id, sort_key)`. |
-| `todo_info` (`todoInfo`) | `todo.sql.ts:7-12` | One row per session; `session_id` PK; `todos` JSON array (default `"[]"`). |
-| `session_goal` (`sessionGoal`) | `goal.sql.ts:14-18` | One live goal per session; `session_id` PK; `data` = whole `SessionGoal.State`; `updated_at`. |
-| `session_diff` (`sessionDiff`) | `diff.sql.ts:17-21` | Session-level `FileDiff[]`; `session_id` PK; `data`; `updated_at`. Not a rebuildable cache (see comment `:7-16`). |
-| `session_pending` (`sessionPending`) | `pending.sql.ts:3-17` | Pending prompt inputs; `id` PK; `session_id`; `delivery` enum `steer`/`queue`; `message_id`; `data`; `created_at`. Unique index `(session_id, message_id)`. |
-| `instruction_blob` (`instructionBlob`) | `instruction.sql.ts:3-6` | Content-addressed instruction bodies; `hash` PK; `body`. |
-| `instruction_state` (`instructionState`) | `instruction.sql.ts:8-15` | Fold state per session; `session_id` PK; `epoch_seq`, `updated_seq`; `parent_session_id`, `parent_seq`; `data` = JSON Fold. |
-| `session_entry` (`sessionEntry`) | `v2/entry.sql.ts:22-41` | Flat v2 read model; `id` PK (entry id `evt_…`); `session_id`, `message_id`; `type`; `ref` = stable upsert identity; `info` JSON `SessionEntry`; `timestamp`. Unique index `(session_id, ref)`. |
+| table (const)                            | file                      | purpose / key columns                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `session_info` (`sessionInfo`)           | `session.sql.ts:7-38`     | Session rows. `id` PK; `project_id`, `title`, `directory` NOT NULL; `parent_id`, `workspace_id` nullable; `version`; **`data`** = full JSON `Session.Info`; `created_at`, `updated_at`; `time_suspended` (nullable, private). Indexes: `idx_session_info_project/parent/workspace`. Partial index on `time_suspended` lives only in migration `20260814010000_session_time_suspended` (comment at `:21-30`). |
+| `message_info` (`messageInfo`)           | `message.sql.ts:8-26`     | Messages. `id` PK; `session_id` FK→`session_info.id` `ON DELETE CASCADE`; `role`; `info` = full JSON `MessageV2.Info`; `prompt_data` (canonical admitted prompt); `created_at`. Indexes: session, role.                                                                                                                                                                                                      |
+| `message_part` (`messagePart`)           | `message.sql.ts:32-49`    | Parts. `id` PK; `message_id`, `session_id` NOT NULL; `type`; `info` = JSON Part; `sort_key` (ordering = id for ascending). Indexes: message, session, `(message_id, sort_key)`.                                                                                                                                                                                                                              |
+| `todo_info` (`todoInfo`)                 | `todo.sql.ts:7-12`        | One row per session; `session_id` PK; `todos` JSON array (default `"[]"`).                                                                                                                                                                                                                                                                                                                                   |
+| `session_goal` (`sessionGoal`)           | `goal.sql.ts:14-18`       | One live goal per session; `session_id` PK; `data` = whole `SessionGoal.State`; `updated_at`.                                                                                                                                                                                                                                                                                                                |
+| `session_diff` (`sessionDiff`)           | `diff.sql.ts:17-21`       | Session-level `FileDiff[]`; `session_id` PK; `data`; `updated_at`. Not a rebuildable cache (see comment `:7-16`).                                                                                                                                                                                                                                                                                            |
+| `session_pending` (`sessionPending`)     | `pending.sql.ts:3-17`     | Pending prompt inputs; `id` PK; `session_id`; `delivery` enum `steer`/`queue`; `message_id`; `data`; `created_at`. Unique index `(session_id, message_id)`.                                                                                                                                                                                                                                                  |
+| `instruction_blob` (`instructionBlob`)   | `instruction.sql.ts:3-6`  | Content-addressed instruction bodies; `hash` PK; `body`.                                                                                                                                                                                                                                                                                                                                                     |
+| `instruction_state` (`instructionState`) | `instruction.sql.ts:8-15` | Fold state per session; `session_id` PK; `epoch_seq`, `updated_seq`; `parent_session_id`, `parent_seq`; `data` = JSON Fold.                                                                                                                                                                                                                                                                                  |
+| `session_entry` (`sessionEntry`)         | `v2/entry.sql.ts:22-41`   | Flat v2 read model; `id` PK (entry id `evt_…`); `session_id`, `message_id`; `type`; `ref` = stable upsert identity; `info` JSON `SessionEntry`; `timestamp`. Unique index `(session_id, ref)`.                                                                                                                                                                                                               |
 
 **Repos** (all synchronous via `Database.syncDb()`):
 
@@ -249,7 +249,6 @@ only because something queries/orders by them.
   `listRunning()` (every `status = "running"` row across sessions, `:66-72`).
   The in-process `ActiveRuntime` map is the live source; this is the durable copy.
 
-
 ### 3.6 Share (`src/share/`)
 
 - **`session_share`** (`share.sql.ts:13-17`): `session_id` PK; `mode` nullable;
@@ -280,7 +279,7 @@ only because something queries/orders by them.
 
 ### 3.9 Sync (`src/sync/`)
 
-Sync is both the **event log** for remote/multi-device sync *and* the write path
+Sync is both the **event log** for remote/multi-device sync _and_ the write path
 for event-sourced domain mutation (see `sync-event.ts:13-40`).
 
 **Tables** (`sync.sql.ts`):
@@ -290,7 +289,7 @@ for event-sourced domain mutation (see `sync-event.ts:13-40`).
   (default `"local"`); `origin_seq` nullable. Six indexes incl.
   `(project_id, aggregate, seq)` and `(project_id, origin, aggregate, seq)`.
 - **`sync_snapshot`** (`:55-71`): composite PK `(project_id, aggregate,
-  aggregate_id)`; `last_seq`; `state` JSON; `updated_at`.
+aggregate_id)`; `last_seq`; `state` JSON; `updated_at`.
 - **`sync_outbox`** (`:77-93`): `id` PK; `event_id`, `target` NOT NULL; `status`
   default `"pending"`; `attempts` default 0; `last_error`; `next_attempt_at`;
   `created_at`; indexes `(status, next_attempt_at)` and `(event_id)`.
@@ -383,8 +382,8 @@ for event-sourced domain mutation (see `sync-event.ts:13-40`).
   `created_at`.
 - **`analytics_publish`** (`stat.sql.ts:88-100`): published-period cursor;
   unique `(grain, period_key)`; `published_revision`, `published_at`.
-- **Access pattern is *raw SQL*, not the Drizzle client.** The three tables are
-  *defined* in `stat.sql.ts` but **not re-exported in `schema.ts`**, and the
+- **Access pattern is _raw SQL_, not the Drizzle client.** The three tables are
+  _defined_ in `stat.sql.ts` but **not re-exported in `schema.ts`**, and the
   modules read/write via `Database.syncNative()` / `Database.Service.native`:
   - `AnalyticsRollup` (`rollup.ts:20-…`) runs `DELETE/INSERT/UPDATE … SELECT`
     over `analytics_stat`/`analytics_publish`, deriving rollups from
@@ -403,30 +402,30 @@ for event-sourced domain mutation (see `sync-event.ts:13-40`).
 
 ## 4. `schema.ts` re-export map (`src/database/schema.ts:1-23`)
 
-| exported const(s) | source module |
-|---|---|
-| `account`, `config` | `@/account/account.sql` |
-| `chatContacts`, `chatMessages`, `users`, `userSessions` | `@/user/users.sql` |
-| `mobileTokens` | `@/mobile/auth.sql` |
-| `workspace` | `@/workspace/workspace.sql` |
-| `sessionInfo` | `@/session/session.sql` |
-| `messageInfo`, `messagePart` | `@/session/message.sql` |
-| `sessionEntry` | `@/session/v2/entry.sql` |
-| `todoInfo` | `@/session/todo.sql` |
-| `sessionGoal` | `@/session/goal.sql` |
-| `sessionDiff` | `@/session/diff.sql` |
-| `sessionPending` | `@/session/pending.sql` |
-| `instructionBlob`, `instructionState` | `@/session/instruction.sql` |
-| `permissionRuleset` | `@/permission/permission.sql` |
-| `syncEvent`, `syncSequence`, `syncSnapshot`, `syncOutbox` | `@/sync/sync.sql` |
-| `loop`, `loopRun` | `@/loop/loop.sql` |
-| `mission`, `missionExec` | `@/mission/mission.sql` |
-| `monitor` | `@/monitor/monitor.sql` |
-| `sessionShare`, `localShare` | `@/share/share.sql` |
-| `artifact` | `@/artifact/artifact.sql` |
-| `backgroundRun` | `@/background/run.sql` |
-| `routine` | `@/mobile/routine.sql` |
-| `project` | `@/project/project.sql` |
+| exported const(s)                                         | source module                 |
+| --------------------------------------------------------- | ----------------------------- |
+| `account`, `config`                                       | `@/account/account.sql`       |
+| `chatContacts`, `chatMessages`, `users`, `userSessions`   | `@/user/users.sql`            |
+| `mobileTokens`                                            | `@/mobile/auth.sql`           |
+| `workspace`                                               | `@/workspace/workspace.sql`   |
+| `sessionInfo`                                             | `@/session/session.sql`       |
+| `messageInfo`, `messagePart`                              | `@/session/message.sql`       |
+| `sessionEntry`                                            | `@/session/v2/entry.sql`      |
+| `todoInfo`                                                | `@/session/todo.sql`          |
+| `sessionGoal`                                             | `@/session/goal.sql`          |
+| `sessionDiff`                                             | `@/session/diff.sql`          |
+| `sessionPending`                                          | `@/session/pending.sql`       |
+| `instructionBlob`, `instructionState`                     | `@/session/instruction.sql`   |
+| `permissionRuleset`                                       | `@/permission/permission.sql` |
+| `syncEvent`, `syncSequence`, `syncSnapshot`, `syncOutbox` | `@/sync/sync.sql`             |
+| `loop`, `loopRun`                                         | `@/loop/loop.sql`             |
+| `mission`, `missionExec`                                  | `@/mission/mission.sql`       |
+| `monitor`                                                 | `@/monitor/monitor.sql`       |
+| `sessionShare`, `localShare`                              | `@/share/share.sql`           |
+| `artifact`                                                | `@/artifact/artifact.sql`     |
+| `backgroundRun`                                           | `@/background/run.sql`        |
+| `routine`                                                 | `@/mobile/routine.sql`        |
+| `project`                                                 | `@/project/project.sql`       |
 
 **Not re-exported (intentionally):** `analyticsStat`, `analyticsShare`,
 `analyticsPublish` (from `@/analytics/stat.sql`) — analytics uses raw SQL, so they
