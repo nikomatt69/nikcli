@@ -38,6 +38,7 @@ mkdir -p \
   "$CTX/packages/http-recorder" \
   "$CTX/packages/httpapi-codegen" \
   "$CTX/packages/simulation" \
+  "$CTX/packages/tui" \
   "$CTX/packages/tui-image" \
   "$CTX/packages/tui-math" \
   "$CTX/packages/terminal-control" \
@@ -69,6 +70,7 @@ cp "$ROOT/packages/llm/package.json" "$CTX/packages/llm/package.json"
 cp "$ROOT/packages/http-recorder/package.json" "$CTX/packages/http-recorder/package.json"
 cp "$ROOT/packages/httpapi-codegen/package.json" "$CTX/packages/httpapi-codegen/package.json"
 cp "$ROOT/packages/simulation/package.json" "$CTX/packages/simulation/package.json"
+cp "$ROOT/packages/tui/package.json" "$CTX/packages/tui/package.json"
 cp "$ROOT/packages/tui-image/package.json" "$CTX/packages/tui-image/package.json"
 cp "$ROOT/packages/tui-math/package.json" "$CTX/packages/tui-math/package.json"
 cp "$ROOT/packages/terminal-control/package.json" "$CTX/packages/terminal-control/package.json"
@@ -115,6 +117,7 @@ rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/llm/"           "$CTX/packages/llm/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/http-recorder/" "$CTX/packages/http-recorder/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/httpapi-codegen/" "$CTX/packages/httpapi-codegen/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/simulation/"     "$CTX/packages/simulation/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/tui/"           "$CTX/packages/tui/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/tui-image/"     "$CTX/packages/tui-image/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/tui-math/"       "$CTX/packages/tui-math/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/terminal-control/" "$CTX/packages/terminal-control/"

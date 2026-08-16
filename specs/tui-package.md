@@ -2,7 +2,7 @@
 
 | Field  | Value                                                                   |
 | ------ | ----------------------------------------------------------------------- |
-| Status | **Sections 1–5 landed** 2026-08-14/16. `packages/tui` typechecks standalone; the compat re-exports are gone |
+| Status | **Complete** 2026-08-14/16. `packages/tui` stands alone and has a second consumer that proves it |
 | Scope  | `packages/nikcli/src/cli/cmd/tui` → `packages/tui` (**done**)           |
 | Buys   | A TUI that builds, tests, and starts without the backend graph          |
 
@@ -335,7 +335,23 @@ One path stays hardcoded on purpose: `./src/cli/cmd/tui/worker.ts` in `script/bu
 
 A re-export that has a side effect is not a compatibility shim — deleting it silently removes behaviour. Check what each one *does* before treating it as forwarding.
 
-**6. Add the second consumer.** Only after the package stands alone. Until then "extraction" is a claim, not a fact.
+**6. Add the second consumer.** Landed 2026-08-16 — as an executable check rather than a product surface.
+
+`packages/desktop` was the obvious candidate and is the wrong one: it is a Tauri webview app, and the TUI renders through `@opentui/solid` to a terminal. (`@opentui/webrenderer` does not bridge that gap — it is a *webview inside the TUI*, the opposite direction.) Rendering the terminal in the desktop is a product feature, not a packaging check, and section 6 exists for the packaging check.
+
+So the second consumer is `packages/tui/bin/nikcli-tui.ts` → `src/host/standalone.ts`: the real terminal, attached to a nikcli server it did not start, importing `@nikcli-ai/tui` and the SDK and **nothing** from `packages/nikcli`. That boundary is structural — `packages/tui/package.json` has no dependency on `nikcli-ai` — so if a backend chain creeps back in, this host stops building while the CLI's own entry points keep working, because they carry the backend anyway.
+
+Two things it does without, both honest limits rather than stubs:
+
+- **No external plugins.** The plugin runtime needs the config *surface* — which files to watch, when a dependency install finished — and that is local filesystem work belonging to whoever owns the project. A client attached to someone else's server has no such surface, so `remotePluginHost` reports none and only internal plugins load.
+- **No local config read.** `tui()` takes the renderer config as a prop because it is needed before any transport exists; here the transport is a server that is *already listening*, so the host simply asks it.
+
+**Verified** by `bun run smoke:standalone <url>` against a real `nikcli serve`: 580 printable characters painted. Two failures on the way there are worth keeping:
+
+- `bun run <file>` resolves its argument as a *script name* first and prints the script list instead of executing the file. The harness spawns `bun <file>`.
+- Bun reads `jsxImportSource` from the nearest tsconfig **to the cwd**, not to the entry file. Started from a scratch directory, JSX fell back to `react/jsx-dev-runtime` and the app could not load — a failure that looks like a missing dependency and is not one. A consumer runs from its own package root; the CLI does the equivalent explicitly, by passing `tsconfig` and the Solid plugin to `Bun.build`.
+
+**Deployment**: `packages/tui` is a build-time dependency of the nikcli binary, so `Dockerfile`, `Dockerfile.serve` and `script/railway-deploy.sh` each copy it twice — once as a manifest for the `bun install` layer, once as source. It cannot be one of the stubbed workspace entries in `Dockerfile.serve`: `thread.ts` imports `@nikcli-ai/tui/app` and the build bundles it.
 
 ## Verification
 
