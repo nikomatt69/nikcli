@@ -23,17 +23,17 @@ The previous plan closed one durability model, one HTTP surface, and one TUI pac
 
 Horizons are ordering, not dates. An item moves up when its dependency lands, not when someone has time.
 
-| ID | Horizon | Item |
-| -- | ------- | ---- |
-| **H1** | Now | Close unjustified `Schema.Unknown` on the HttpApi contract |
-| **H2** | Now | One instance-less path module (`/user`, `/global`, `/account`) |
-| **E3** | Contract | Public event filter (spec before code) |
-| **H3** | Later | Generate the SDK namespaced view (`compat.ts`) |
-| **I1** | Later | Reconcile Identifier (`util/id` vs `util/identifier`) |
-| **T3** | Later | Output codecs on structured built-ins |
-| **H4** | Later | Close contract-only strangler leftovers |
-| **S4r** | Later | Import / teleport / run write through SessionV2 |
-| **X2** | Later | Delete adapters with no production callers |
+| ID      | Horizon  | Item                                                           |
+| ------- | -------- | -------------------------------------------------------------- |
+| **H1**  | Now      | Close unjustified `Schema.Unknown` on the HttpApi contract     |
+| **H2**  | Now      | One instance-less path module (`/user`, `/global`, `/account`) |
+| **E3**  | Contract | Public event filter (spec before code)                         |
+| **H3**  | Later    | Generate the SDK namespaced view (`compat.ts`)                 |
+| **I1**  | Later    | Reconcile Identifier (`util/id` vs `util/identifier`)          |
+| **T3**  | Later    | Output codecs on structured built-ins                          |
+| **H4**  | Later    | Close contract-only strangler leftovers                        |
+| **S4r** | Later    | Import / teleport / run write through SessionV2                |
+| **X2**  | Later    | Delete adapters with no production callers                     |
 
 ---
 
@@ -109,13 +109,13 @@ State the wins, so nobody re-plans them:
 
   The last four plus the three SessionV2 names are the open-payload cases listed in [README.md](./README.md) (polymorphic entries, SSE frames, bodyless redirects). The rest already have a source the contract is not using:
 
-  | Contract name                         | Source already in tree                                                                                          | What the handler does today                                      |
-  | ------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-  | `LoopCreateInput` / `LoopUpdateInput` | `Domain.LoopDefinition` in `httpapi/domain.ts`; zod `LoopDefinitionSchema` in `loop/schema.ts`                  | `payload as Omit<LoopDefinition, "id" \| "createdAt">`           |
-  | `MissionCreateInput` / `Update`       | `MissionDefinitionSchema.omit({ id, createdAt, status })` already bound as `CreateInputZod` in `httpapi/mission.ts` | Contract is `Schema.Unknown`; zod parse is a side path           |
-  | `MobileProject`                       | `Project.Info.extend({ current: z.boolean() })` in `server/mobile/helpers.ts`                                   | `httpapi/mobile.ts` annotates `Schema.Unknown`                   |
-  | `ProfilePatchInput`                   | `Profile.InfoSchema` / `Profile.Input` in `profile/profile.ts`                                                  | `Schema.Record(Schema.String, Schema.Unknown)`                   |
-  | Mobile config / parts / loop bodies   | `fromZod(Config.Info)` in `httpapi/config.ts`; `MessageV2.PartSchema`; `Domain.LoopDefinition`                  | Still `Schema.Unknown` / open records in `httpapi/mobile.ts`     |
+  | Contract name                         | Source already in tree                                                                                              | What the handler does today                                  |
+  | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+  | `LoopCreateInput` / `LoopUpdateInput` | `Domain.LoopDefinition` in `httpapi/domain.ts`; zod `LoopDefinitionSchema` in `loop/schema.ts`                      | `payload as Omit<LoopDefinition, "id" \| "createdAt">`       |
+  | `MissionCreateInput` / `Update`       | `MissionDefinitionSchema.omit({ id, createdAt, status })` already bound as `CreateInputZod` in `httpapi/mission.ts` | Contract is `Schema.Unknown`; zod parse is a side path       |
+  | `MobileProject`                       | `Project.Info.extend({ current: z.boolean() })` in `server/mobile/helpers.ts`                                       | `httpapi/mobile.ts` annotates `Schema.Unknown`               |
+  | `ProfilePatchInput`                   | `Profile.InfoSchema` / `Profile.Input` in `profile/profile.ts`                                                      | `Schema.Record(Schema.String, Schema.Unknown)`               |
+  | Mobile config / parts / loop bodies   | `fromZod(Config.Info)` in `httpapi/config.ts`; `MessageV2.PartSchema`; `Domain.LoopDefinition`                      | Still `Schema.Unknown` / open records in `httpapi/mobile.ts` |
 
   Analytics already shows the intended shape: real Effect structs, with a comment that a drift fails the request. Loop/mission create is the opposite: the **interface** is open, so the **implementation** cannot enforce what it already knows.
 
