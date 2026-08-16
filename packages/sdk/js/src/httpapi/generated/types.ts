@@ -136,6 +136,14 @@ export type BrainResult = {
   sessionID?: string | undefined
 }
 
+export type ChatbotBot = { name: string; type: string; running: boolean; webhookPath: string }
+
+export type ChatbotStartResult = { running: boolean; error?: string | undefined }
+
+export type ChatbotStopResult = { removed: boolean }
+
+export type VoiceTranscribeResult = { transcript: string; error?: string | undefined }
+
 export type ProfileInfo = {
   version: number
   key: string
@@ -2992,6 +3000,23 @@ export type BrainStatusOutput = BrainStatus
 export type BrainTriggerInput = { readonly force?: { readonly force?: boolean | undefined }["force"] }
 
 export type BrainTriggerOutput = BrainResult
+
+export type ChatbotBotsOutput = Array<ChatbotBot>
+
+export type ChatbotStartInput = { readonly name: { readonly name: string }["name"] }
+
+export type ChatbotStartOutput = ChatbotStartResult
+
+export type ChatbotStopInput = { readonly name: { readonly name: string }["name"] }
+
+export type ChatbotStopOutput = ChatbotStopResult
+
+export type VoiceTranscribeInput = {
+  readonly audio: { readonly audio: string; readonly format?: string | undefined }["audio"]
+  readonly format?: { readonly audio: string; readonly format?: string | undefined }["format"]
+}
+
+export type VoiceTranscribeOutput = VoiceTranscribeResult
 
 export type ProfileGetOutput = ProfileInfoOrNull
 

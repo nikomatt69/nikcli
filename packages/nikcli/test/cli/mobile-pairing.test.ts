@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { generateQRMatrix } from "@nikcli-ai/remote"
 import { buildMobilePairingDeepLink } from "../../src/cli/cmd/mobile"
-import { normalizeMobileServerUrl, renderQRRows } from "../../src/cli/cmd/tui/component/dialog-mobile-connect"
+import { normalizeMobileServerUrl, renderQRRows } from "@tui/component/dialog-mobile-connect"
 
 describe("mobile pairing", () => {
   test("builds the deep link consumed by the mobile app", () => {

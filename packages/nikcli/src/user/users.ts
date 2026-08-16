@@ -1,9 +1,7 @@
 import { eq, and, or, sql, desc, asc } from "drizzle-orm"
 import { createHash, randomBytes } from "node:crypto"
-import fs from "fs/promises"
-import { readFileSync } from "fs"
-import path from "path"
-import { Global } from "@nikcli-ai/util/global"
+import type { UserSchema } from "@nikcli-ai/util/user-schema"
+import { UserSession } from "@nikcli-ai/util/user-session"
 import { Database } from "@/database/database"
 import { users, userSessions, chatContacts, chatMessages } from "./users.sql"
 
@@ -40,18 +38,11 @@ export namespace UserDB {
   // Types — keep the same public API shape for backwards compatibility
   // ============================================================================
 
-  export type User = {
-    id: string
-    username: string
-    email: string
-    password_hash: string
-    display_name: string | null
-    role: "admin" | "user"
-    created_at: number
-    updated_at: number
-  }
+  /** One definition, shared with every `/user/*` caller that is not this module. */
+  export type PublicUser = UserSchema.PublicUser
 
-  export type PublicUser = Omit<User, "password_hash">
+  /** The public shape plus the secret that never leaves the server. */
+  export type User = PublicUser & { password_hash: string }
 
   export type Session = {
     id: string
@@ -506,37 +497,15 @@ export namespace UserDB {
   // Active TUI session persisted to disk
   // ============================================================================
 
-  const SESSION_FILE = path.join(Global.Path.data, "user-session.token")
+  // The store itself is `@nikcli-ai/util/user-session`: a file, no tables. It
+  // moved so the terminal can read the token without importing this module —
+  // and with it drizzle — for one line of text. These stay as the names every
+  // backend caller already uses.
 
-  export async function getActiveSession(): Promise<string | null> {
-    try {
-      const token = await Bun.file(SESSION_FILE).text()
-      return token.trim() || null
-    } catch {
-      return null
-    }
-  }
-
-  export function getActiveSessionSync(): string | null {
-    try {
-      const token = readFileSync(SESSION_FILE, "utf8").trim()
-      return token || null
-    } catch {
-      return null
-    }
-  }
-
-  export async function saveActiveSession(token: string): Promise<void> {
-    await Bun.write(SESSION_FILE, token)
-    // chmod is Unix-only, skip on Windows
-    if (process.platform !== "win32") {
-      await fs.chmod(SESSION_FILE, 0o600).catch(() => undefined)
-    }
-  }
-
-  export async function clearActiveSession(): Promise<void> {
-    await fs.unlink(SESSION_FILE).catch(() => undefined)
-  }
+  export const getActiveSession = UserSession.get
+  export const getActiveSessionSync = UserSession.getSync
+  export const saveActiveSession = UserSession.save
+  export const clearActiveSession = UserSession.clear
 
   // ============================================================================
   // Chat — contacts, messages, search

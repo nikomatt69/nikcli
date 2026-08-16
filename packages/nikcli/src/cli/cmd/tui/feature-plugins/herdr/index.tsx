@@ -1,7 +1,7 @@
 /**
  * nikcli Herdr — internal TUI plugin.
  *
- * Surfaces the server-side Herdr bridge (`packages/nikcli/src/plugin/herdr/`)
+ * Surfaces the server-side Herdr bridge (`@nikcli-ai/util/herdr-bridge`)
  * as a toggleable plugin, exactly the way the Island plugin wraps its
  * bridge. The plugin is loaded unconditionally, but the bridge stays
  * dormant until the user toggles it on — keeping nikcli totally silent on
@@ -15,8 +15,8 @@
  *     flips the bridge on/off.
  *   - `herdr.refresh` that pulls a fresh snapshot and repaints the dialog.
  */
-import { HerdrBridge } from "@/plugin/herdr/bridge"
-import type { HerdrSnapshot } from "@/plugin/herdr/bridge"
+import { HerdrBridge } from "@nikcli-ai/util/herdr-bridge"
+import type { HerdrSnapshot } from "@nikcli-ai/util/herdr-bridge"
 import { DialogHerdrStatus } from "./dialog"
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 

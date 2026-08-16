@@ -1,12 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { RGBA } from "@opentui/core"
-import {
-  contrastFg,
-  deriveSemanticTokens,
-  luminance,
-  tint,
-  type TokenSource,
-} from "../../src/cli/cmd/tui/context/theme-tokens"
+import { contrastFg, deriveSemanticTokens, luminance, tint, type TokenSource } from "@tui/context/theme-tokens"
+import { TUI_SRC, tuiSource } from "./tui-source"
 
 function rgb(r: number, g: number, b: number): RGBA {
   return RGBA.fromInts(r, g, b)
@@ -155,7 +150,7 @@ describe("deriveSemanticTokens", () => {
 
 describe("highlighter source", () => {
   it("does not read flat syntax* keys from getSyntaxRules", async () => {
-    const src = await Bun.file(new URL("../../src/cli/cmd/tui/context/theme.tsx", import.meta.url)).text()
+    const src = await tuiSource("context/theme.tsx")
     const start = src.indexOf("function getSyntaxRules")
     const body = src.slice(start)
     expect(body).not.toMatch(/theme\.syntax[A-Z]/)
@@ -167,17 +162,21 @@ describe("highlighter source", () => {
 
 describe("TUI callers", () => {
   it("do not read retired flat theme keys outside the theme module", async () => {
-    const root = new URL("../../src/cli/cmd/tui/", import.meta.url)
     const glob = new Bun.Glob("**/*.{ts,tsx}")
     const banned =
       /theme\.(textMuted|text|primary|secondary|warning|error|success|info|backgroundPanel|backgroundElement|backgroundMenu|background|borderSubtle|borderActive)\b/
     const bareAccent = /theme\.accent(?!\.\w)/
     const hits: string[] = []
-    for await (const file of glob.scan({ cwd: root.pathname })) {
+    let scanned = 0
+    for await (const file of glob.scan({ cwd: TUI_SRC })) {
       if (file.startsWith("context/theme")) continue
-      const src = await Bun.file(new URL(file, root)).text()
+      scanned++
+      const src = await tuiSource(file)
       if (banned.test(src) || bareAccent.test(src)) hits.push(file)
     }
+    // A scan over a cwd that does not exist yields nothing, so this assertion
+    // would pass without reading a single file. Prove the tree was there.
+    expect(scanned).toBeGreaterThan(200)
     expect(hits).toEqual([])
   })
 })

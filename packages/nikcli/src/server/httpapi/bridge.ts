@@ -8,6 +8,8 @@ import { HttpApiEvent } from "./event"
 import { HttpApiPrompt } from "./prompt"
 import { PublicHttpApi } from "./public"
 import { UsersHttp } from "./users"
+import { AccountHttp } from "./account"
+import { isAccountPath } from "./account-path"
 import { Auth } from "./auth"
 
 export namespace HttpApiBridge {
@@ -354,6 +356,11 @@ export namespace HttpApiBridge {
       const response = await UsersHttp.handle(request)
       if (response) return response
     }
+    if (isAccountPath(pathname)) {
+      // Same reason as /user/: eight tagged login errors, one { error } body.
+      const response = await AccountHttp.handle(request)
+      if (response) return response
+    }
     return webHandler(request, Context.empty() as Context.Context<any>)
   }
 
@@ -374,8 +381,10 @@ export namespace HttpApiBridge {
       if (promptAsync) return HttpApiPrompt.promptAsync(request, decodeURIComponent(promptAsync[1]))
       if (pathname.startsWith("/chatbot/")) {
         // Webhook receivers need the raw Request (signature verification), so
-        // they bypass the schema-encoding router like the other specials.
-        return ChatbotHttp.handle(request).then((response) => response ?? new Response("Not Found", { status: 404 }))
+        // they bypass the schema-encoding router like the other specials. An
+        // unmatched path falls through — `/chatbot/bots*` is a declared group.
+        const webhook = await ChatbotHttp.handle(request)
+        if (webhook) return webhook
       }
     }
     // Requests normally arrive through Server.fetch(), whose router already

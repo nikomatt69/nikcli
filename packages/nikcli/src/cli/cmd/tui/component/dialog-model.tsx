@@ -8,9 +8,7 @@ import { createDialogProviderOptions, DialogProvider } from "./dialog-provider"
 import { useKeybind } from "../context/keybind"
 import * as fuzzysort from "fuzzysort"
 import { Keybind } from "@tui/util/keybind"
-import { Config } from "@/config/config"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect/runtime"
-import { Effect } from "effect"
+import { useSDK } from "@tui/context/sdk"
 
 export function useConnected() {
   const sync = useSync()
@@ -27,6 +25,7 @@ export function DialogModel(props: {
   const sync = useSync()
   const dialog = useDialog()
   const keybind = useKeybind()
+  const sdk = useSDK()
   const [ref, setRef] = createSignal<DialogSelectRef<unknown>>()
   const [query, setQuery] = createSignal("")
 
@@ -252,15 +251,7 @@ export function DialogModel(props: {
             const model = option.value as { providerID: string; modelID: string }
             const modelString = `${model.providerID}/${model.modelID}`
             dialog.clear()
-            void runPromiseWithLayer(
-              Config.defaultLayer,
-              withCurrentInstance(
-                Effect.gen(function* () {
-                  const service = yield* Config.Service
-                  yield* service.update({ model: modelString })
-                }),
-              ),
-            )
+            void sdk.client.config.update({ payload: { model: modelString } as never })
             local.model.set(model, { recent: true })
           },
         },

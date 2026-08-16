@@ -22,6 +22,8 @@
     "bench": "bun run --conditions=browser test/bench/viz.tsx",
     "bench:compare": "bun run script/bench-compare.ts",
     "build": "bun run script/build.ts",
+    "build:single": "bun run script/build.ts --single",
+    "dev:bin": "bun run build:single && dist/*/bin/nikcli",
     "smoke:tui": "bun run script/tui-smoke.ts",
     "generate:httpapi-clients": "bun run script/generate-httpapi-clients.ts",
     "check:routes": "bun run script/check-route-coverage.ts",

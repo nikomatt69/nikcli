@@ -29,6 +29,21 @@ Authority follows the concern. When a document and the code disagree, the code w
 | [SQL + Drizzle adoption](./storage/nikcli-sql-drizzle-adoption.md) | Implemented | The central database runtime, migrations, and domain-owned schema.     |
 | [Retire JSON storage](./storage/remove-json-storage.md)            | Retired     | Both storage modules are deleted; production storage imports are zero. |
 
+## Open payloads
+
+`Schema.Unknown` on an endpoint `success` or a domain object compiles to `any` in the SDK. Keep it only for payloads that are genuinely open, and name the reason here rather than in a side document:
+
+- **Upstream passthrough** — a third-party body the server does not interpret.
+- **Polymorphic event-sourced entries** — `session_entry` / sync frames whose variant set grows without a contract bump.
+- **SSE frames** — the encoded event feed; the wire is `{ type, properties }`, not a closed union at the HTTP layer.
+- **Bodyless redirects** — share short-links and similar 3xx responses.
+
+Everything else gets a real schema. Measure leftovers with:
+
+```sh
+grep -cE '^export type [A-Za-z0-9_]+ = (any|Array<any>)$' packages/sdk/js/src/httpapi/generated/types.ts
+```
+
 ## Rules
 
 - A document states its **Status** in the first lines: `Current`, `Proposed`, `Accepted and implemented`, or `Historical`.

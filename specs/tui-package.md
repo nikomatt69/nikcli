@@ -2,7 +2,7 @@
 
 | Field  | Value                                                                   |
 | ------ | ----------------------------------------------------------------------- |
-| Status | **In progress** — sections 1–3 landed 2026-08-14; 240 `@/` imports → 46 |
+| Status | **In progress** — sections 1–3 landed 2026-08-14/15; 240 `@/` imports → 20 static, 0 dynamic |
 | Scope  | `packages/nikcli/src/cli/cmd/tui` → `packages/tui`                      |
 | Buys   | A TUI that builds, tests, and starts without the backend graph          |
 
@@ -29,7 +29,7 @@ The SDK is the TUI's backend boundary. Missing data or operations get added to t
 
 ## Current State
 
-Measured 2026-08-14, after sections 1–3:
+Measured 2026-08-15, after sections 1–3:
 
 | Fact                        | Value                                                                                                                   |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -37,26 +37,25 @@ Measured 2026-08-14, after sections 1–3:
 | Lines                       | ~68,000                                                                                                                 |
 | Largest subtrees            | `component/` 75, `feature-plugins/` 47, `routes/` 40, `util/` 33, `context/` 26                                         |
 | Files already using the SDK | 73                                                                                                                      |
-| `@/` import statements      | **46 static + 5 dynamic** (was 240 static) — 11 of the static ones are in `thread.ts`/`worker.ts`, which are host files |
+| `@/` import statements      | **20 static, 0 dynamic** (was 240 static) — 10 of them are in `thread.ts`/`worker.ts`, which are host files |
 | Path alias                  | `@tui/*` → `./src/cli/cmd/tui/*` (already package-shaped)                                                               |
 
 The `@tui/*` alias is the good news: internal imports are already written as if the directory were a package root, so most files move without an edit.
 
 ### What Actually Blocks The Move
 
-There are **46 static and 5 dynamic `@/` import statements** left. Excluding the eleven in the two host files, the TUI proper sits at 35 + 5 — and what remains is a different kind of problem from what was removed: not modules in the wrong folder, but the terminal calling backend services in-process.
+There are **20 static `@/` import statements** left and no dynamic ones. Excluding the ten in the two host files, the TUI proper sits at 10 — four of which are the deliberate `photon` exception — and what remains is a different kind of problem from what was removed: not modules in the wrong folder, but the terminal calling backend services in-process.
 
 | Concern                                                                      | Count | What it needs                                                                                                                                                                 |
 | ---------------------------------------------------------------------------- | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@/effect` (+ `@/effect/runtime`)                                            |    11 | The vehicle, not the target: it goes when the calls below do.                                                                                                                 |
-| `@/plugin/*` (herdr, island, shared, meta, install)                          |     8 | Plugin install and the two bridges are host operations; invert them the way `upgradeNow` already is.                                                                          |
-| `@/config/*`                                                                 |     3 | `plugin/runtime.ts` still calls `TuiConfig.{sources,reload,get,waitForDependencies}` for plugin install and hot reload — host operations, not config reads.                   |
-| `@/user/users`, `@/account`, `@/auth`                                        |     7 | The login dialogs call `UserDB` directly. `/user/*` exists but as raw handlers outside the OpenAPI surface, so it is not in the generated client — reach it with `sdk.fetch`. |
-| `@/image/photon`                                                             |     4 | **Deliberately left** — see below.                                                                                                                                            |
-| `@/tool/speak/openrouter`                                                    |     2 | Needs an audio-models endpoint.                                                                                                                                               |
-| `await import("@/…")` — `@/chatbot` (3), `@/brain/scheduler`, `@/user/users` |     5 | Whole subsystems, lazily loaded.                                                                                                                                              |
+| `@/image/photon`                                     |     4 | **Deliberately left** — see below.                                                                                                          |
+| `@/plugin/*` (shared, meta, install)                 |     3 | Plugin install is a host operation; invert it the way `upgradeNow` already is.                                                             |
+| `@/effect` (+ `@/effect/runtime`)                    |     2 | The vehicle, not the target: it goes when the calls below do.                                                                               |
+| `@/config/*`                                         |     2 | `plugin/runtime.ts` calls `TuiConfig.{sources,reload,get,waitForDependencies}` for install and hot reload — host operations, not reads.     |
+| `@/cli/*`                                            |     4 | All in `thread.ts`, a host file.                                                                                                           |
+| `@/{bus,installation,mobile,project,server}`         |     6 | All in `worker.ts`, a host file.                                                                                                           |
 
-**Count `await import("@/…")` too.** A static grep for `from "@/"` misses five more: `@/chatbot` (3), `@/brain/scheduler` (1), `@/user/users` (1). Lazy-loading a subsystem keeps it out of the startup graph, which is why they were written that way — but it does not decouple anything, and it hides the dependency from exactly the measurement this document runs on.
+**There are no `await import("@/…")` left.** There were four, and they mattered: lazy-loading a subsystem keeps it out of the startup graph, which is why they were written that way, but it decouples nothing and hides the dependency from exactly the measurement this document runs on. Keep counting both forms.
 
 **`@/image/photon` stays where it is on purpose.** It primes `globalThis.__NIKCLI_PHOTON_WASM_PATH` before the decoder's first `import()`, and its own comment records the failure mode when that resolution is wrong: _"a compiled binary loses the WASM decoder entirely."_ Moving a bundler-sensitive asset path for four imports, when no test exercises image decoding from the installer binary, trades a verified state for an unverifiable one.
 
@@ -81,6 +80,82 @@ Two more moved the same day, and neither needed a new route — only a call site
 **Brain.** The session footer recomputed the brain's state from three in-process reads — `getBrainConfig()`, `readLastBrainAt()`, `getSessionsCountSince()` — on a 60-second timer, and `GET /brain` already returns exactly that triple plus `shouldTrigger` and the model. The settings dialog wanted the same config, and `/brain/trigger` covered the plugin's "Run Brain" command. Four dynamic imports gone; only `initBrainScheduler()` stays, because starting a scheduler is a host operation, not a read.
 
 Verifying these means curling the routes against a real server; `bun run src/index.ts serve --port …` is enough and much faster than building a binary. Watch for stray writes while you do it: creating a mobile token during a probe writes to the user's real token store, so revoke it afterwards.
+
+### `/user`, and the credential that stays local
+
+The read half landed 2026-08-15. `GET /user/me` and `/user/status` already existed; `GET /user/me/stats` is new and returns the profile view's two counters. It derives the account from the bearer, never from a path parameter — in process the dialog passed whichever id it held, and that is not a check a route may skip. Regression test: `test/server/httpapi-user-stats.test.ts`, which gives one user's token and counts another user's contact.
+
+**The session token deliberately does not move behind an endpoint.** It is what the terminal presents to authenticate, so a server cannot answer "which session does this machine hold" without already having it — and it must be readable before any transport exists. It was a four-function file store inside `UserDB` touching none of its tables, so reaching it cost the terminal drizzle and the whole user schema for one line of text; it is now `@nikcli-ai/util/user-session`, with `UserDB` re-exporting the four names so no backend caller changed. This is the same call as `@/image/photon`: local because of what it is, not because moving it was hard.
+
+Two consequences worth keeping:
+
+**An authoritative check became a late one.** `verifySession` answered during render; `GET /user/me` answers a frame later. Rendering the signed-out branch meanwhile would offer "Sign in" to someone already signed in, so the account menu holds on `Checking account…` — over worker RPC that is one frame. The profile counters show `—` rather than `0` until they arrive, because `0` reads as "no contacts".
+
+**`null` is not `false`.** `UserApi.hasUsers` answers `null` when the question could not be asked. `app.tsx` treats only an explicit `false` as first run — reading an unreachable server as "no users" would restart onboarding for someone who already has an account.
+
+Since `/user/*` sits outside the OpenAPI surface there is no generated type, so `PublicUser` is declared once in `@nikcli-ai/util/user-schema` and `UserDB.User` is now that shape plus `password_hash` — the alternative was a hand-copy that drifts, which is the `MobileAuth.PublicToken` failure again.
+
+The write half landed the same day, and needed exactly one new route. Registration, password login and logout already existed: `POST /user/register` and `POST /user/login` both answer `{token, user}`, which is the whole of `dialog-login.tsx`. Only the self-service password change had no home — `PATCH /user/:id` can set a password but never asks for the current one, because an admin resetting another account has none to give. `POST /user/me/password` verifies the old one where the hash lives, instead of the terminal reading the user row and deciding for itself. Regression test: `test/server/httpapi-user-password.test.ts`, including that a wrong current password leaves the old one working.
+
+`dialog-login.tsx` and `dialog-auth-manage.tsx` no longer import `@/user/users` at all. Three things fell out of routing them:
+
+- **The dialogs can no longer say *which* credential was wrong.** `/user/login` answers the same `Invalid credentials` for an unknown email and a bad password, so the two retry prompts collapsed into one. That is the route declining to confirm whether an address has an account here.
+- **Registration now obeys policy it used to bypass.** `UserDB.create` ran whatever the dialog asked; the route refuses when OAuth is required, and once any account exists only an admin may add another.
+- **`useSDK()` is unreadable from `DialogLogin.run`.** It runs from an async continuation, where Solid's owner is gone and `useContext` returns undefined — so the transport is a parameter, passed by the caller that still holds the context. Any dialog entry point reached through `await` has the same constraint.
+
+### `/account`, and the four places that decide what is instance-less
+
+Landed 2026-08-15. Three raw handlers — `GET /account`, `POST /account/login`, `POST /account/login/complete` — retire `@/account` from the terminal. Raw again for the `/user/*` reason, and more so: the flow has eight tagged error cases that a dialog renders as one string.
+
+**Adding an instance-less path means editing four files, not one.** The bridge, `Server.fallback`, the router's `global` test and `PublicRoutes.globalRequest` each spell out `/user/`, and they have to agree. `/account` adds a trap the `/user/` prefix never had: the bare path is itself a route, so `startsWith("/account/")` sends `GET /account` down the instance branch, where it 404s with no directory bound — and a 404 there reads as "no account", which is a legitimate answer. Hence one `isAccountPath` predicate the four import, and `test/server/httpapi-account.test.ts` asserting the bare path reaches the handler.
+
+**The poll became one blocking request.** `complete` waits for the browser approval server-side and hands back the issuer session. Its `onPending` callback had no wire form and needed none: it only rewrote a status line that says the same thing for every unfinished poll, so the dialog sets it once before waiting. Escape aborts the request through the caller's own `AbortSignal` — which is why `send` takes one instead of always imposing its 30s timeout.
+
+**It deliberately does not mint a local session.** The access token *is* the bearer, and `server/identity-auth.ts` provisions the local user from it on the first authenticated request; issuing an `nku_` session here as well would create a second identity for the same person. The terminal stores the token and asks `GET /user/me` — which is also why `ensureExternalUser` never needed a route.
+
+**`GET /account` answers `null`, not 401, without a bearer.** "Who is signed in" and "nobody is" are the same answer to a dialog, and the terminal asks on mount, before any sign-in. The bearer check exists at all because the route carries an email address and the server can be listening on a port — in process there was nothing to ask.
+
+### TTS: a hook, not a second implementation
+
+`@/tool/speak/openrouter` was on this list as "needs an audio-models endpoint". It did not. `getAudioModels()` returns three hardcoded strings and the voice catalog is a constant — the terminal only ever asks for those two, and never synthesizes; the `speak` tool runs server-side in the worker, with its own module instance of `ttsRegistry`.
+
+What actually tied the module to the backend was one method: `getConfig()` reading `Auth.get("openrouter")` and the provider options out of `nikcli.json`. So the provider moved whole to `@nikcli-ai/util/tts/openrouter` with the credential lookup behind a `resolveCredentials()` hook that reads env, and `src/tool/speak/openrouter.ts` is now a subclass that overrides it — precedence unchanged (env, `auth.json`, `provider.openrouter.options`), 276 lines down to 70. One provider id, one catalog, one request path.
+
+The general form, and it is worth applying before writing any endpoint: **when a module is backend-bound by one method, extract the method, not the module.** An endpoint would have shipped a second copy of the catalog and a network round trip for a constant.
+
+### The chat-bot manager, and a group that is not raw
+
+The `/chatbot/*` webhook receivers stay raw — platform SDKs verify signatures against the untouched `Request` — but the three management routes are declared (`GET /chatbot/bots`, `POST /chatbot/bots/:name/{start,stop}`). The caller decides: a TUI **feature plugin** reaches the server through `api.client.<group>`, the generated client, and a raw handler is unreachable from there. That is the rule for anything a plugin must call.
+
+Three things this cost that the next declared group will not:
+
+- **A shared prefix means the raw branch must fall through.** Both dispatch sites answered `404` for anything under `/chatbot/` that `ChatbotHttp.handle` did not match, which would have shadowed the declared routes entirely. They now fall through, and unmatched paths 404 from the router instead — same answer, one layer later.
+- **A path parameter has to be declared.** `HttpApiEndpoint.post("start", "/bots/:name/start", …)` without a `params` schema fails codegen, not typecheck: `GenerationError: Missing path parameter: name`.
+- **`compat.ts` is hand-maintained.** Codegen produced the raw and Effect clients happily; `api.client.chatbot` did not exist until the group was added to the namespaced view by hand.
+
+**And one that cost an hour.** `public.ts` imports the group module to declare it, so a top-level `import { ChatBot }` there loads the Chat SDK into every process that merely serves HTTP — and it registers state on import. The symptom was **71 failures across `ToolRegistry`, the permission surfaces and the OpenAPI baseline**, none of them in a chatbot test, and every one of them passing when its file ran alone. The import is now lazy inside the handlers. Anything a declared group touches at module scope is paid by the whole server: keep the group file to schemas, and reach for the subsystem inside the handler.
+
+The join of "configured" and "running" also moved server-side, because only the process that owns the bots knows which are up — the terminal was reading its synced config and calling `getAllBots()` in process, and only half of that was ever derivable from config.
+
+### The herdr and island bridges were never backend
+
+Both were filed under "host operations to invert". They are not operations at all: they are **terminal integrations** — herdr talks to a local multiplexer over a unix socket, island writes snapshot files macOS reads — and between them, 1,418 lines whose only backend import was `GlobalBus`, an `EventEmitter` with no imports of its own. So the bus moved to `@nikcli-ai/util/global-bus` (with `src/bus/global.ts` re-exporting for every backend caller) and both bridges followed it, joining `remote-tunnel` as things that live in the shared package because both sides run them.
+
+The island bridge needed two answers it could not have there: the HTTP port and a session's parent/title. Neither could move — they belong to whoever owns the server and the session store — so `IslandBridge.configure({ port, identity })` takes them from `src/bus/index.ts`, right where `start()` is already called on publish. Both stay lazily imported, and both already had working fallbacks (`0`, empty strings), so a terminal that never configures the bridge degrades exactly as before instead of failing.
+
+This is the same shape as the TTS split, and the second time it has paid: **a module is rarely backend-bound as a whole, only at one or two points.** Find the points, hand them in, and the module stops being backend code.
+
+### Voice: move the call, not the key
+
+The prompt composer resolved the OpenRouter API key from `auth.json` and `nikcli.json` and posted the recorded WAV to OpenRouter itself — about 200 lines, two endpoint shapes and a 402 special case, all of it needing `Auth` and the Effect runtime *in the terminal*.
+
+The obvious translation is a route that hands the key to the client. That is not a translation: it turns a file only the local user can read into something any authenticated caller can fetch. **Recording is a device concern and stays in the terminal; the credential is not, so the call moved instead.** `POST /voice/transcribe` takes base64 audio and returns a transcript, and `src/voice/transcribe.ts` owns both endpoint shapes. The composer is 25 lines: read the file, send bytes, read a string.
+
+The route reports failure in the body rather than as an HTTP error, because every failure is a sentence the composer shows verbatim — "credits required", "no transcript returned", "API key not configured" — and none of them changes what the client does next.
+
+### The brain scheduler belongs to the host
+
+`initBrainScheduler()` ran from the TUI plugin's activation, which meant the hourly consolidation only happened while a terminal was attached, and made the terminal responsible for starting a background job it does not own. It is now armed in `project/bootstrap.ts` next to `Routine.restoreSchedulers()` — the same place, for the same reason — and lazily imported there so a bootstrap that never reviews does not evaluate the provider chain.
 
 ### `/profile`, and where a preview belongs
 
@@ -215,6 +290,12 @@ What is left pointing into the TUI is `cli-main.ts` registering `AttachCommand` 
 Still open beyond that: `@/effect` (11) is bound to `Instance` and goes with the service calls; `@/config/*` (8) needs `TuiConfig.get()` and the plugin-spec helpers to arrive over the SDK; `@/plugin/*` (8) are host operations that invert the way `upgradeNow` already does.
 
 **4. Create the package and move the tree.** With sections 1–3 landed, this is a `git mv` plus a `package.json`, because `@tui/*` already resolves internally. Keep the alias pointing at the new location during the move, and leave `worker.ts` and `thread.ts` behind in `src/cli/cmd/tui/` (see the ownership boundary above).
+
+_Prepared 2026-08-15._ The tests no longer spell the tree's path. Twenty-four files did: seventeen imported modules through `../../src/cli/cmd/tui/…` (now `@tui/…`, which the alias repoints for free) and eight read the source as _text_, which is the case that matters. Those now take their root from `test/tui/tui-source.ts` — `SRC`, `TUI_SRC`, `source()`, `tuiSource()`, `stripComments()` — so the move edits one line.
+
+The reason to centralise it is a failure mode, not tidiness. A missing file read throws, but `theme-tokens.test.ts`'s `Bun.Glob.scan` over a cwd that no longer exists yields **nothing**, so its asserted-absence check passed while reading zero files. `TUI_SRC` is existence-checked at import (verified: pointing it at a non-existent directory turns that test red), and the scan now asserts it walked more than 200 files.
+
+One path stays hardcoded on purpose: `./src/cli/cmd/tui/worker.ts` in `script/build.ts`, `packages/nikcli/script/build.ts` and `cross-build-windows.ts`. It is correct precisely because section 4 excludes `worker.ts` from the move — the exclusion _is_ the mitigation. A stale cross-package `"@tui/*"` alias in `packages/sdk-next/tsconfig.json`, unused by any file there, was removed rather than repointed.
 
 **5. Delete the compatibility re-exports** introduced in sections 1–3.
 

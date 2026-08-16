@@ -189,6 +189,17 @@ export async function InstanceBootstrap() {
     Log.Default.warn("failed to restore routines on startup", { error })
   })
 
+  // Arm the hourly brain review for this instance. The TUI used to do this on
+  // plugin load, which meant the scheduler only ran when a terminal happened to
+  // be attached — and made the terminal responsible for starting a background
+  // job it does not own. Lazily imported: the brain pulls the provider chain,
+  // which no bootstrap that never reviews should evaluate.
+  await import("@/brain/scheduler")
+    .then((module) => module.initBrainScheduler())
+    .catch((error) => {
+      Log.Default.warn("failed to start the brain scheduler on startup", { error })
+    })
+
   // Config hot reload: watch the instance's config surface and invalidate
   // reloadable per-instance state when files change, announcing the reload
   // on the bus so connected clients stay in sync without a restart.

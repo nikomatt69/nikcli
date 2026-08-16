@@ -9,6 +9,8 @@ import { ContractExtraHttpApi } from "./contract-extra"
 import { MobileHttpApi } from "./mobile"
 import { MobileHandlersLive } from "./mobile-handlers"
 import { BrainHttpApi } from "./brain"
+import { ChatbotHttpApi } from "./chatbot-api"
+import { VoiceHttpApi } from "./voice"
 import { ProfileHttpApi } from "./profile"
 import { ConfigHttpApi } from "./config"
 import { ConnectorsHttpApi } from "./connectors"
@@ -41,6 +43,8 @@ export namespace PublicHttpApi {
     .add(AnalyticsHttpApi.Group)
     .add(AppHttpApi.Group)
     .add(BrainHttpApi.Group)
+    .add(ChatbotHttpApi.Group)
+    .add(VoiceHttpApi.Group)
     .add(ProfileHttpApi.Group)
     .add(ConfigHttpApi.Group)
     .add(ConnectorsHttpApi.Group)
@@ -242,6 +246,17 @@ export namespace PublicHttpApi {
       .handle("trigger", (request) => BrainHttpApi.handlers.trigger(request)),
   )
 
+  const ChatbotHandlersLive = HttpApiBuilder.group(Api, "chatbot", (handlers) =>
+    handlers
+      .handle("bots", () => ChatbotHttpApi.handlers.bots())
+      .handle("start", (request) => ChatbotHttpApi.handlers.start(request))
+      .handle("stop", (request) => ChatbotHttpApi.handlers.stop(request)),
+  )
+
+  const VoiceHandlersLive = HttpApiBuilder.group(Api, "voice", (handlers) =>
+    handlers.handle("transcribe", (request) => VoiceHttpApi.handlers.transcribe(request)),
+  )
+
   const ProfileHandlersLive = HttpApiBuilder.group(Api, "profile", (handlers) =>
     handlers
       .handle("get", () => ProfileHttpApi.handlers.get())
@@ -338,6 +353,8 @@ export namespace PublicHttpApi {
         AnalyticsHandlersLive,
         AppHandlersLive.pipe(Layer.provide(AppHttpApi.DependenciesLive)),
         BrainHandlersLive,
+        ChatbotHandlersLive,
+        VoiceHandlersLive,
         ProfileHandlersLive,
         ConfigHandlersLive.pipe(Layer.provide(ConfigHttpApi.DependenciesLive)),
         ConnectorsHandlersLive.pipe(Layer.provide(ConnectorsHttpApi.DependenciesLive)),

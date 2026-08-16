@@ -8,6 +8,8 @@
   "packageManager": "bun@1.3.14",
   "scripts": {
     "dev": "bun run --cwd packages/nikcli --conditions=browser src/index.ts",
+    "build:single": "bun run --cwd packages/nikcli build:single",
+    "dev:bin": "bun run --cwd packages/nikcli dev:bin",
     "typecheck": "bun turbo typecheck",
     "prepare": "husky",
     "random": "echo 'Random script'",

@@ -28,13 +28,13 @@ import path from "node:path"
 import type { Hooks, PluginInput } from "@nikcli-ai/plugin"
 import { tool as definePluginTool } from "@nikcli-ai/plugin/tool"
 import z from "zod"
-import { HerdrBridge } from "./bridge"
-import * as bridge from "./bridge"
+import { HerdrBridge } from "@nikcli-ai/util/herdr-bridge"
+import * as bridge from "@nikcli-ai/util/herdr-bridge"
 import { Global } from "@nikcli-ai/util/global"
 import { Log } from "@nikcli-ai/util/log"
 import { Instance } from "@/project/instance"
 
-export { HerdrBridge } from "./bridge"
+export { HerdrBridge } from "@nikcli-ai/util/herdr-bridge"
 
 const log = Log.create({ service: "herdr-plugin" })
 

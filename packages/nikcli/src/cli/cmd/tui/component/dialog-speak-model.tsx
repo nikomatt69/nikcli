@@ -6,7 +6,7 @@ import { useSDK } from "@tui/context/sdk"
 import { useToast } from "@tui/ui/toast"
 import { ttsRegistry, type TTSProvider, type TTSVoice } from "@nikcli-ai/util/tts/provider"
 import { ELEVENLABS_VOICES_LIST, elevenLabsProvider } from "@nikcli-ai/util/tts/elevenlabs"
-import { OPENROUTER_VOICES_LIST, openRouterProvider } from "@/tool/speak/openrouter"
+import { OPENROUTER_VOICES_LIST, openRouterProvider } from "@nikcli-ai/util/tts/openrouter"
 
 // Register providers
 ttsRegistry.register(elevenLabsProvider)

@@ -2,8 +2,8 @@ import { expect, test } from "bun:test"
 import { RGBA } from "@opentui/core"
 import { testRender } from "@opentui/solid"
 import { createPixelImage } from "@nikcli-ai/tui-image"
-import { bufferSize, compose } from "../../src/cli/cmd/tui/feature-plugins/background/pixels"
-import "../../src/cli/cmd/tui/feature-plugins/background/renderable"
+import { bufferSize, compose } from "@tui/feature-plugins/background/pixels"
+import "@tui/feature-plugins/background/renderable"
 
 const COLUMNS = 80
 const ROWS = 24

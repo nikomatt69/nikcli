@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { fileURLToPath } from "node:url"
+import { source, tuiSource } from "./tui-source"
 
 /**
  * `/profile` stays reachable.
@@ -9,15 +9,9 @@ import { fileURLToPath } from "node:url"
  * the source is the cheap way to catch that — mounting the dialog would drag in
  * the whole TUI (see `entry-coverage.test.ts` for the same trade).
  */
-const root = fileURLToPath(new URL("../../src/", import.meta.url))
-
-async function source(file: string) {
-  return await Bun.file(root + file).text()
-}
-
 describe("profile command", () => {
   it("is registered with its slash names and lazily loads the dialog", async () => {
-    const app = await source("cli/cmd/tui/app.tsx")
+    const app = await tuiSource("app.tsx")
 
     expect(app).toContain('value: "account.profile"')
     expect(app).toContain('name: "profile"')
@@ -28,7 +22,7 @@ describe("profile command", () => {
   })
 
   it("resolves to an exported dialog", async () => {
-    const dialog = await source("cli/cmd/tui/component/dialog-profile.tsx")
+    const dialog = await tuiSource("component/dialog-profile.tsx")
     expect(dialog).toContain("export function DialogProfile()")
   })
 

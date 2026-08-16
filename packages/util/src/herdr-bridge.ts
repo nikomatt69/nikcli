@@ -40,7 +40,7 @@ import fs from "fs/promises"
 import { homedir } from "os"
 import path from "path"
 import { z } from "zod"
-import { GlobalBus } from "@/bus/global"
+import { GlobalBus } from "./global-bus"
 import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "herdr-bridge" })

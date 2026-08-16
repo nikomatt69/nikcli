@@ -1,7 +1,7 @@
 import fs from "fs/promises"
 import { homedir, platform } from "os"
 import path from "path"
-import { GlobalBus } from "@/bus/global"
+import { GlobalBus } from "./global-bus"
 import { Log } from "@nikcli-ai/util/log"
 
 /**
@@ -176,17 +176,34 @@ export namespace IslandBridge {
     if (!(await appIsRunning())) wakeApp()
   }
 
+  /**
+   * What the host can answer that this module cannot.
+   *
+   * The bridge runs on both sides — the worker writes snapshots, the terminal
+   * reads them — so it lives in the shared package. These two lookups only ever
+   * happen on the writing side, and both have a working fallback, so instead of
+   * importing the server they are handed in by whoever owns it.
+   */
+  export type Host = {
+    port?: () => Promise<number>
+    identity?: (sessionID: string) => Promise<{ parentID: string; agentTitle: string }>
+  }
+
+  let host: Host = {}
+
+  /** Called by the process that owns the HTTP server and the session store. */
+  export function configure(next: Host): void {
+    host = next
+  }
+
   async function currentPort(): Promise<number> {
     if (process.env.NIKCLI_PORT) {
       const n = Number(process.env.NIKCLI_PORT)
       if (Number.isFinite(n) && n > 0) return n
     }
     try {
-      // Lazy/dynamic: only pulled in when a snapshot is actually written, so CLI
-      // invocations that never touch the HTTP server don't pay for importing it.
-      const { Server } = await import("@/server/server")
-      const port = Number(Server.url().port)
-      return Number.isFinite(port) ? port : 0
+      const port = await host.port?.()
+      return Number.isFinite(port) ? (port as number) : 0
     } catch {
       return 0
     }
@@ -207,9 +224,8 @@ export namespace IslandBridge {
    *  not on every write, which would otherwise hit the DB on every status tick. */
   async function lookupIdentity(sessionID: string): Promise<{ parentID: string; agentTitle: string }> {
     try {
-      const { SessionRepo } = await import("@/session/repo")
-      const info = SessionRepo.get(sessionID)
-      return { parentID: info?.parentID ?? "", agentTitle: info?.title ?? "" }
+      const info = await host.identity?.(sessionID)
+      return { parentID: info?.parentID ?? "", agentTitle: info?.agentTitle ?? "" }
     } catch {
       return { parentID: "", agentTitle: "" }
     }

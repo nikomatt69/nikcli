@@ -1,0 +1,196 @@
+import type { UserSchema } from "@nikcli-ai/util/user-schema"
+import { UserSession } from "@nikcli-ai/util/user-session"
+
+/**
+ * The terminal's reader for `/user/*`.
+ *
+ * These routes are raw `Response` handlers outside the OpenAPI surface, so the
+ * generated client has no methods for them and every call goes through
+ * `sdk.fetch` by hand. Two things that are not optional:
+ *
+ * - **`sdk.fetch`, never global `fetch`.** In a normal run there is no
+ *   listening HTTP server: the base URL is the synthetic `http://nikcli.local`
+ *   and `sdk.fetch` marshals the request over worker RPC into `Server.fetch`.
+ *   A hand-built `fetch` fails DNS silently — no error, no log line.
+ * - **The bearer comes from the local token store.** The token is what this
+ *   machine holds; the server cannot infer it. `/user/me` answers 401 without
+ *   it, which reads as "signed out" — the correct answer, not an error.
+ */
+export namespace UserApi {
+  export type Sdk = { url?: string; fetch: typeof fetch }
+
+  async function get<T>(sdk: Sdk, path: string, headers?: HeadersInit): Promise<T | null> {
+    const base = sdk.url
+    if (!base) return null
+    try {
+      const res = await sdk.fetch(`${base.replace(/\/$/, "")}${path}`, {
+        headers,
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) return null
+      return (await res.json()) as T
+    } catch {
+      return null
+    }
+  }
+
+  async function authed<T>(sdk: Sdk, path: string): Promise<T | null> {
+    const token = UserSession.getSync()
+    if (!token) return null
+    return get<T>(sdk, path, { authorization: `Bearer ${token}` })
+  }
+
+  /**
+   * A write, with the server's own message on failure.
+   *
+   * Every `/user/*` failure body is `{ error }` with only the status differing —
+   * which is why these routes are raw handlers rather than an `HttpApi` group —
+   * so the message is the whole result and the dialogs show it verbatim rather
+   * than inventing one.
+   */
+  export type Result<T> = { ok: true; data: T } | { ok: false; error: string }
+
+  async function send<T>(
+    sdk: Sdk,
+    method: string,
+    path: string,
+    body?: unknown,
+    signal?: AbortSignal,
+  ): Promise<Result<T>> {
+    const base = sdk.url
+    if (!base) return { ok: false, error: "No server" }
+    const token = UserSession.getSync()
+    try {
+      const res = await sdk.fetch(`${base.replace(/\/$/, "")}${path}`, {
+        method,
+        headers: {
+          "content-type": "application/json",
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        // A device-code poll waits for a human, so it carries the caller's own
+        // signal instead of a timeout. Everything else keeps the 30s bound.
+        signal: signal ?? AbortSignal.timeout(30_000),
+      })
+      const payload = (await res.json().catch(() => undefined)) as { error?: string } | undefined
+      if (!res.ok) return { ok: false, error: payload?.error ?? `Request failed (${res.status})` }
+      return { ok: true, data: payload as T }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /** The signed-in account, or `null` when this machine holds no valid session. */
+  export function me(sdk: Sdk) {
+    return authed<UserSchema.PublicUser>(sdk, "/user/me")
+  }
+
+  /** Contact and unread counters for the signed-in account. */
+  export function stats(sdk: Sdk) {
+    return authed<UserSchema.Stats>(sdk, "/user/me/stats")
+  }
+
+  /**
+   * Whether any account exists on this install — the first-run signal.
+   *
+   * Deliberately unauthenticated: `/user/status` is one of the three paths
+   * `Auth.isPublicPath` admits, because asking it is what happens *before*
+   * anyone can be signed in. An unreachable server answers `null`, which the
+   * caller must not read as "no users" — that would restart onboarding for
+   * someone who already has an account.
+   */
+  export async function hasUsers(sdk: Sdk): Promise<boolean | null> {
+    const result = await get<{ hasUsers: boolean }>(sdk, "/user/status")
+    return result ? result.hasUsers : null
+  }
+
+  export type Session = { token: string; user: UserSchema.PublicUser }
+
+  /**
+   * Create the local account and its session.
+   *
+   * The route enforces policy the in-process call did not: registration is
+   * refused when OAuth is required, and once any account exists only an admin
+   * may add another. That is the point of going through it.
+   */
+  export function register(sdk: Sdk, input: { username: string; email: string; password: string }) {
+    return send<Session>(sdk, "POST", "/user/register", input)
+  }
+
+  /**
+   * Exchange a password for a session.
+   *
+   * The route answers the same "Invalid credentials" for an unknown email and a
+   * wrong password, so the dialog can no longer say which was wrong — that is
+   * the route refusing to confirm whether an address has an account here.
+   */
+  export function login(sdk: Sdk, input: { email: string; password: string }) {
+    return send<Session>(sdk, "POST", "/user/login", input)
+  }
+
+  /** Revoke the session server-side. The caller still has to drop the local token. */
+  export function logout(sdk: Sdk) {
+    return send<{ ok: boolean }>(sdk, "POST", "/user/logout")
+  }
+
+  /**
+   * The browser sign-in flow, as the terminal sees it.
+   *
+   * `complete` is one call that blocks until the user approves and hands back
+   * the issuer session. The access token is the bearer: storing it and asking
+   * `/user/me` is what provisions the local user, so nothing here mints a
+   * second identity. Pass an `AbortSignal` so escape actually stops waiting.
+   */
+  export type AccountInfo = {
+    id: string
+    email: string
+    url: string
+    active_org_id?: string | null
+    created_at: number
+    updated_at: number
+  }
+
+  export type LoginStart = {
+    deviceCode: string
+    userCode: string
+    verificationUrl: string
+    verificationUrlComplete: string
+    interval: number
+    expiresIn: number
+    expiresAt: number
+  }
+
+  /** `null` also answers "nobody is signed in" — the dialogs treat both the same. */
+  export function account(sdk: Sdk) {
+    return authed<AccountInfo | null>(sdk, "/account").then((value) => value ?? null)
+  }
+
+  export function accountLogin(sdk: Sdk) {
+    return send<LoginStart>(sdk, "POST", "/account/login")
+  }
+
+  export type AccountSession = {
+    accountID: string
+    accessToken: string
+    expiresIn: number
+    email: string | null
+  }
+
+  export function accountComplete(
+    sdk: Sdk,
+    input: { deviceCode: string; expiresIn?: number },
+    signal?: AbortSignal,
+  ): Promise<Result<AccountSession>> {
+    return send(sdk, "POST", "/account/login/complete", input, signal)
+  }
+
+  /** Rotate the caller's own password. The current one is verified server-side. */
+  export function changePassword(sdk: Sdk, input: { current: string; next: string }) {
+    return send<UserSchema.PublicUser>(sdk, "POST", "/user/me/password", input)
+  }
+
+  /** Self-edit; the route allows it for the bearer's own id (or an admin). */
+  export function update(sdk: Sdk, id: string, patch: { displayName?: string; password?: string }) {
+    return send<UserSchema.PublicUser>(sdk, "PATCH", `/user/${encodeURIComponent(id)}`, patch)
+  }
+}

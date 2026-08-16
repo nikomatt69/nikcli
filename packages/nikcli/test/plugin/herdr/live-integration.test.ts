@@ -9,7 +9,7 @@ import { describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import * as bridge from "@/plugin/herdr/bridge"
+import * as bridge from "@nikcli-ai/util/herdr-bridge"
 
 const { detect, reportAgent, releasePane, status, snapshot } = bridge
 

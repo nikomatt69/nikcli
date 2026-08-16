@@ -2,33 +2,17 @@ import { createMemo, createSignal, onMount } from "solid-js"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useToast } from "../../ui/toast"
 import { useDialog } from "@tui/ui/dialog"
-import { Config } from "@/config/config"
 import { useSync } from "../../context/sync"
-import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { useSDK } from "@tui/context/sdk"
-import { Effect } from "effect"
 import { DialogModel } from "../dialog-model"
 
 type BrainOption = "enabled" | "minHours" | "minSessions" | "memoryEnabled" | "model" | "resetModel"
-
-function configUpdate(config: Config.Info) {
-  return runPromiseWithLayer(
-    Config.defaultLayer,
-    withCurrentInstance(
-      Effect.gen(function* () {
-        const service = yield* Config.Service
-        yield* service.update(config)
-      }),
-    ),
-  )
-}
 
 export function DialogSettingsBrain() {
   const toast = useToast()
   const dialog = useDialog()
   const sync = useSync()
   const sdk = useSDK()
-  const instanceDirectory = () => sync.data.path.directory || process.cwd()
 
   const [brainEnabled, setBrainEnabled] = createSignal(true)
   const [memoryEnabled, setMemoryEnabled] = createSignal(true)
@@ -105,17 +89,19 @@ export function DialogSettingsBrain() {
     success: string,
     rollback: () => void,
   ) => {
-    try {
-      await withInstanceAsync({ directory: instanceDirectory() }, () => configUpdate({ experimental: patch as any }))
-      toast.show({ message: success, variant: "success" })
-      dialog.clear()
-    } catch (error) {
+    const { error } = await sdk.client.config.update({
+      payload: { experimental: patch } as never,
+    })
+    if (error) {
       rollback()
       toast.show({
-        message: error instanceof Error ? error.message : "Failed to update Brain settings",
+        message: "Failed to update Brain settings",
         variant: "error",
       })
+      return
     }
+    toast.show({ message: success, variant: "success" })
+    dialog.clear()
   }
 
   const setBrainModelPersisted = async (model: { providerID: string; modelID: string } | undefined) => {

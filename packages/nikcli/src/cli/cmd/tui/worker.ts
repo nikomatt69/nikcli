@@ -9,7 +9,7 @@ import { GlobalBus } from "@/bus/global"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
 import { Flag } from "@nikcli-ai/util/flag"
 import { Process } from "@nikcli-ai/util/process"
-import { IslandBridge } from "@/plugin/island/bridge"
+import { IslandBridge } from "@nikcli-ai/util/island-bridge"
 import { MobileAuth } from "@/mobile/auth"
 
 Process.ensureMetadata("worker")

@@ -418,12 +418,12 @@ export namespace Sync {
    * bridge and the workspace reducer can participate in Effect's
    * resource model.
    *
-   * Methods are 1:1 with the design in `specs/effect/sync-service.md`:
+   * Methods are 1:1 with the sync HTTP surface (see `specs/v2/event-stream-architecture.md` for the feed):
    *  - `start`  → kick the hub connection, idempotent (mirrors `SyncCliInit.startForAllProjects`)
    *  - `push`   → write to local outbox + emit on `GlobalBus("event")`
-   *  - `outbox` → paginated GET (mirrors `GET /sync/outbox` in `routes/sync.ts`)
+   *  - `outbox` → paginated GET (mirrors `GET /sync/outbox`)
    *  - `snapshot` → cold-start projection (mirrors `SyncProjection.byAggregate`)
-   *  - `state`  → configured/url/pending/failed stats (mirrors `GET /sync/stats` in `routes/sync.ts`)
+   *  - `state`  → configured/url/pending/failed stats (mirrors `GET /sync/stats`)
    *
    * All methods return `Effect<…, never, never>` (no service dependency)
    * because they are plain async wrappers over the free functions and

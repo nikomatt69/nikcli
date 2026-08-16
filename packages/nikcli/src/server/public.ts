@@ -5,6 +5,8 @@ import { ChatbotHttp } from "./httpapi/chatbot"
 import { HttpApiEvent } from "./httpapi/event"
 import { HttpApiPrompt } from "./httpapi/prompt"
 import { UsersHttp } from "./httpapi/users"
+import { AccountHttp } from "./httpapi/account"
+import { isAccountPath } from "./httpapi/account-path"
 import { extraRequest } from "./extra"
 import { companionResponse } from "./companion"
 import { SyncHttpApi } from "./httpapi/sync"
@@ -45,6 +47,7 @@ export namespace PublicRoutes {
     if (request.method === "GET" && pathname === "/global/event") return HttpApiEvent.handle()
     if (request.method === "GET" && pathname === "/sync/stream") return SyncHttpApi.handleSse(request)
     if (pathname.startsWith("/user/")) return (await UsersHttp.handle(request)) ?? undefined
+    if (isAccountPath(pathname)) return (await AccountHttp.handle(request)) ?? undefined
   }
 
   export async function instanceRequest(request: Request): Promise<Response | undefined> {
@@ -59,7 +62,10 @@ export namespace PublicRoutes {
     const promptAsync = pathname.match(/^\/session\/([^/]+)\/prompt_async$/)
     if (promptAsync) return HttpApiPrompt.promptAsync(request, decodeURIComponent(promptAsync[1]))
     if (pathname.startsWith("/chatbot/")) {
-      return (await ChatbotHttp.handle(request)) ?? new Response("Not Found", { status: 404 })
+      // Falls through when unmatched: `/chatbot/bots*` is a declared group, and
+      // answering 404 here would shadow it.
+      const webhook = await ChatbotHttp.handle(request)
+      if (webhook) return webhook
     }
   }
 

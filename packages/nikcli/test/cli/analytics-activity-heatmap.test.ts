@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { buildActivityGrid, computeActivityStats, type DayStats } from "../../src/cli/cmd/tui/util/analytics-aggregator"
+import { buildActivityGrid, computeActivityStats, type DayStats } from "@tui/util/analytics-aggregator"
 
 // Build a minimal DayStats for a given date. Only `date` and `tokens` are
 // exercised by the heatmap helpers; the rest default to 0.

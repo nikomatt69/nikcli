@@ -411,7 +411,7 @@ export namespace ToolRegistry {
           ApplyPatchTool,
           ...(Flag.NIKCLI_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
           ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
-          ...(Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE && Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
+          ...(Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
           SpeakTool,
           VoiceTool,
           OpenTUIVizTool,

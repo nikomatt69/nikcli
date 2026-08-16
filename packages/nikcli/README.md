@@ -74,9 +74,9 @@ Local development runs the CLI entrypoint at `packages/nikcli/src/index.ts`.
 
 ## Specs
 
-In-repo design and roadmap documents for contributors:
+In-repo design and roadmap documents live at the repo root (`specs/`, not this package):
 
-- [`specs/integration-plan-verified.md`](./specs/integration-plan-verified.md) — the verified internal-refactor roadmap (Effect services, Hono→HttpApi, schema, ALS, `packages/server` extraction). 9 phases, ordered by dependency.
-- [`specs/ROADMAP.md`](./specs/ROADMAP.md) — the canonical product and engineering roadmap.
-- [`specs/effect/`](./specs/effect/) — detailed Effect-migration specs feeding the integration plan.
-- [`specs/v2/`](./specs/v2/) — v2 API surface and TUI/keymap/notifications/message-shape specs.
+- [`specs/ROADMAP.md`](../../specs/ROADMAP.md) — the ordered plan: what is done, what is next.
+- [`specs/tui-package.md`](../../specs/tui-package.md) — live work: move the TUI into `packages/tui`.
+- [`specs/v2/`](../../specs/v2/) — session, tools, events, instructions, catalog, provider policy.
+- [`specs/storage/`](../../specs/storage/) — `nikcli.db` runtime and the retired JSON store.

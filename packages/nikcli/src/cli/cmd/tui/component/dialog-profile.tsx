@@ -1,13 +1,11 @@
 import { createMemo, createResource, createSignal } from "solid-js"
-import { Effect } from "effect"
-import { Account } from "@/account"
-import { runPromiseWithLayer } from "@/effect"
 import type { NikcliClient, ProfileInfo } from "@nikcli-ai/sdk/httpapi"
 
 /** The reply-length setting, as the contract spells it. */
 type ProfileVerbosity = NonNullable<NonNullable<ProfileInfo["communication"]>["verbosity"]>
 import { useProject } from "@tui/context/project"
 import { useSDK } from "@tui/context/sdk"
+import { UserApi } from "@tui/util/user-api"
 import { useTheme } from "@tui/context/theme"
 import { useDialog } from "@tui/ui/dialog"
 import { useToast } from "@tui/ui/toast"
@@ -64,14 +62,8 @@ function loadPreview(client: NikcliClient, worktree: string) {
     .catch(() => ({ lines: [] as readonly string[], habitsFile: "" }))
 }
 
-function activeEmail() {
-  return runPromiseWithLayer(
-    Account.defaultLayer,
-    Effect.gen(function* () {
-      const account = yield* Account.Service
-      return yield* account.active()
-    }),
-  )
+function activeEmail(sdk: UserApi.Sdk) {
+  return UserApi.account(sdk)
     .then((info) => info?.email)
     .catch(() => undefined)
 }
@@ -133,7 +125,7 @@ export function DialogProfile() {
   const worktree = () => project.instance.path().worktree || project.instance.directory()
 
   const [profile, { refetch }] = createResource(() => loadProfile(sdk.client))
-  const [email] = createResource(activeEmail)
+  const [email] = createResource(() => activeEmail(sdk))
   const [habits, { refetch: refetchHabits }] = createResource(worktree, (dir) => loadHabits(sdk.client, dir))
   const [promptBlock, { refetch: refetchPreview }] = createResource(worktree, (dir) => loadPreview(sdk.client, dir))
 

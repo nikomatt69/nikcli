@@ -57,9 +57,6 @@ import { DialogMobileConnect } from "../dialog-mobile-connect"
 import { DialogWebPreview } from "../dialog-web-preview"
 import os from "os"
 import path from "path"
-import { Auth } from "@/auth"
-import { Effect } from "effect"
-import { runPromiseWithLayer } from "@/effect"
 import { friendlyErrorMessage } from "../../util/error-message"
 import { PromptJobsInlineCompact } from "../prompt-jobs-inline"
 import { getMonitorsSorted, type MonitorInfo } from "../../util/monitor-helpers"
@@ -73,10 +70,6 @@ export type PromptProps = {
   ref?: (ref: PromptRef) => void
   hint?: JSX.Element
   showPlaceholder?: boolean
-}
-
-function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
-  return runPromiseWithLayer(Auth.defaultLayer, effect)
 }
 
 export type PromptRef = {
@@ -100,8 +93,6 @@ const money = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
 })
-const VOICE_TRANSCRIBE_MODEL = "openai/gpt-audio-mini"
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 const SWIFT_MIC_PERMISSION_ERROR = "__NIKCLI_MIC_PERMISSION_DENIED__"
 
 const SWIFT_RECORDER_SOURCE = String.raw`
@@ -426,220 +417,32 @@ export function Prompt(props: PromptProps) {
     return merged
   }
 
-  function openRouterEndpoint(baseURL: string, endpoint: string): string {
-    return `${baseURL.replace(/\/+$/, "")}${endpoint}`
-  }
-
-  function normalizeOpenRouterBaseURL(value: string | undefined): string {
-    if (!value) return OPENROUTER_BASE_URL
-    try {
-      const parsed = new URL(value)
-      if (!parsed.hostname.endsWith("openrouter.ai")) {
-        return OPENROUTER_BASE_URL
-      }
-      return `${parsed.origin}/api/v1`
-    } catch {
-      return OPENROUTER_BASE_URL
-    }
-  }
-
-  async function openRouterErrorDetail(response: Response): Promise<string> {
-    const text = await response.text().catch(() => "")
-    if (!text) return response.statusText
-    try {
-      const parsed = JSON.parse(text) as {
-        error?: { message?: string }
-        message?: string
-      }
-      return parsed.error?.message ?? parsed.message ?? text
-    } catch {
-      return text
-    }
-  }
-
-  async function resolveOpenRouterConfig(): Promise<{
-    apiKey: string
-    baseURL: string
-  }> {
-    const auth = await runAuth(
-      Effect.gen(function* () {
-        const auth = yield* Auth.Service
-        return yield* auth.get("openrouter")
-      }),
-    ).catch(() => undefined)
-    const providerOptions = (sync.data.config as any)?.provider?.openrouter?.options ?? {}
-    const optionApiKey = typeof providerOptions.apiKey === "string" ? providerOptions.apiKey : undefined
-
-    const apiKey =
-      process.env.NIKCLI_OPENROUTER_API_KEY ??
-      process.env.OPENROUTER_API_KEY ??
-      (auth?.type === "api" ? auth.key : undefined) ??
-      optionApiKey
-
-    if (!apiKey || !apiKey.trim()) {
-      throw new Error("OpenRouter API key not configured")
-    }
-
-    const baseURL = normalizeOpenRouterBaseURL(
-      process.env.NIKCLI_OPENROUTER_BASE_URL ??
-        process.env.OPENROUTER_BASE_URL ??
-        (typeof providerOptions.baseURL === "string" ? providerOptions.baseURL : undefined),
-    )
-
-    return {
-      apiKey: apiKey.trim(),
-      baseURL,
-    }
-  }
-
-  async function transcribeVoiceAudioViaResponses(
-    base64Audio: string,
-    config: { apiKey: string; baseURL: string },
-    signal: AbortSignal,
-  ): Promise<string> {
-    const response = await fetch(openRouterEndpoint(config.baseURL, "/responses"), {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://nikcli.store/",
-        "X-Title": "nikcli",
-      },
-      body: JSON.stringify({
-        model: process.env.NIKCLI_VOICE_TRANSCRIBE_MODEL ?? VOICE_TRANSCRIBE_MODEL,
-        temperature: 0,
-        input: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: "Transcribe this audio. Return only the transcript text without extra commentary.",
-              },
-              {
-                type: "input_audio",
-                input_audio: {
-                  data: base64Audio,
-                  format: "wav",
-                },
-              },
-            ],
-          },
-        ],
-      }),
-      signal,
-    })
-
-    if (!response.ok) {
-      const detail = await openRouterErrorDetail(response)
-      throw new Error(`OpenRouter transcription failed (${response.status}): ${detail}`)
-    }
-
-    const result = (await response.json()) as {
-      output_text?: string
-      output?: Array<{
-        content?: Array<{
-          type?: string
-          text?: string
-        }>
-      }>
-    }
-
-    const fromOutputText = (result.output_text ?? "").trim()
-    if (fromOutputText) return fromOutputText
-
-    const fromContent =
-      result.output
-        ?.flatMap((x) => x.content ?? [])
-        .map((x) => (x.type === "output_text" && x.text ? x.text : ""))
-        .join(" ")
-        .trim() ?? ""
-
-    if (!fromContent) {
-      throw new Error("No transcript returned")
-    }
-
-    return fromContent
-  }
-
+  /**
+   * Recording is a device concern; the credential is not.
+   *
+   * This used to resolve the OpenRouter key from `auth.json` and `nikcli.json`
+   * and post the WAV itself — about 200 lines, two endpoint shapes and a 402
+   * special case, all of it needing `Auth` in the terminal. The server holds
+   * the key, so it makes the call: the composer sends bytes and gets a string.
+   *
+   * The route reports failure in the body, so an empty transcript with an
+   * `error` is the shape to check, not a rejected promise.
+   */
   async function transcribeVoiceAudio(filePath: string): Promise<string> {
     const audio = await Bun.file(filePath).arrayBuffer()
     if (audio.byteLength === 0) {
       throw new Error("Recorded audio is empty")
     }
 
-    const config = await resolveOpenRouterConfig()
-    const base64Audio = Buffer.from(audio).toString("base64")
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 60_000)
-
-    try {
-      const response = await fetch(openRouterEndpoint(config.baseURL, "/chat/completions"), {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://nikcli.store/",
-          "X-Title": "nikcli",
-        },
-        body: JSON.stringify({
-          model: process.env.NIKCLI_VOICE_TRANSCRIBE_MODEL ?? VOICE_TRANSCRIBE_MODEL,
-          temperature: 0,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Transcribe this audio. Return only the transcript text without extra commentary.",
-                },
-                {
-                  type: "input_audio",
-                  input_audio: {
-                    data: base64Audio,
-                    format: "wav",
-                  },
-                },
-              ],
-            },
-          ],
-        }),
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        if (response.status === 402) {
-          const detail = await openRouterErrorDetail(response)
-          throw new Error(`OpenRouter audio credits required: ${detail}`)
-        }
-        const detail = await openRouterErrorDetail(response)
-        throw new Error(`OpenRouter transcription failed (${response.status}): ${detail}`)
-      }
-
-      const result = (await response.json()) as {
-        choices?: Array<{
-          message?: {
-            content?: unknown
-          }
-        }>
-      }
-
-      const content = result.choices?.[0]?.message?.content
-      const transcript = extractTranscriptContent(content)
-      if (!transcript) {
-        throw new Error("No transcript returned")
-      }
-      return transcript
-    } catch (error) {
-      const message = error instanceof Error ? error.message : ""
-      if (message.includes("credits required") || message.includes("(402)")) {
-        throw error
-      }
-
-      return transcribeVoiceAudioViaResponses(base64Audio, config, controller.signal)
-    } finally {
-      clearTimeout(timeout)
-    }
+    const result = await sdk.client.voice.transcribe({
+      audio: Buffer.from(audio).toString("base64"),
+      format: "wav",
+    })
+    const error = result.data?.error
+    if (error) throw new Error(error)
+    const transcript = result.data?.transcript
+    if (!transcript) throw new Error("No transcript returned")
+    return transcript
   }
 
   let isStartingRecording = false

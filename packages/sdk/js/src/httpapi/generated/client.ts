@@ -29,6 +29,13 @@ import type {
   BrainStatusOutput,
   BrainTriggerInput,
   BrainTriggerOutput,
+  ChatbotBotsOutput,
+  ChatbotStartInput,
+  ChatbotStartOutput,
+  ChatbotStopInput,
+  ChatbotStopOutput,
+  VoiceTranscribeInput,
+  VoiceTranscribeOutput,
   ProfileGetOutput,
   ProfilePatchInput,
   ProfilePatchOutput,
@@ -825,6 +832,49 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/brain/trigger`,
             body: { force: input?.["force"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    chatbot: {
+      bots: (requestOptions?: RequestOptions) =>
+        request<ChatbotBotsOutput>(
+          { method: "GET", path: `/chatbot/bots`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      start: (input: ChatbotStartInput, requestOptions?: RequestOptions) =>
+        request<ChatbotStartOutput>(
+          {
+            method: "POST",
+            path: `/chatbot/bots/${encodeURIComponent(input.name)}/start`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      stop: (input: ChatbotStopInput, requestOptions?: RequestOptions) =>
+        request<ChatbotStopOutput>(
+          {
+            method: "POST",
+            path: `/chatbot/bots/${encodeURIComponent(input.name)}/stop`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    voice: {
+      transcribe: (input: VoiceTranscribeInput, requestOptions?: RequestOptions) =>
+        request<VoiceTranscribeOutput>(
+          {
+            method: "POST",
+            path: `/voice/transcribe`,
+            body: { audio: input["audio"], format: input["format"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,

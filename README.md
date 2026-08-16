@@ -4,7 +4,7 @@
 
 Nikcli is a **fork of [OpenCode](https://github.com/anomalyco/opencode)**, the open source coding agent (the repo previously lived at `sst/opencode` — same project, same org). **All credit for the original project goes to the OpenCode authors and its community** — nikcli exists only because that work is open source, and every part of nikcli that came from OpenCode remains theirs.
 
-This fork is maintained by **nikomatt69**. On top of the OpenCode base, nikcli adds new commands (`goal`, `routine`, `mobile`, `ads`, `heap`, `locale`, `brain-model` / `image-model` / `speak-model`, `workspace-serve`, …), ACP integration, the Loops/Goal/Routines system, mobile pairing with a dedicated Expo app, the web companion UI, multi-channel bots, the Session v2 engine, and the in-progress migration to `Effect` Schema.
+This fork is maintained by **nikomatt69**. On top of the OpenCode base, nikcli adds new commands (`goal`, `routine`, `mobile`, `ads`, `heap`, `locale`, `brain-model` / `image-model` / `speak-model`, `workspace-serve`, …), ACP integration, the Loops/Goal/Routines system, mobile pairing with a dedicated Expo app, the web companion UI, multi-channel bots, the Session v2 engine, and Effect Schema throughout the HTTP contract.
 
 > Nikcli is **not** affiliated with, endorsed by, or supported by the OpenCode project. Please report nikcli issues here, not upstream. Full credits, history, and the original license live in the upstream repository: [https://github.com/anomalyco/opencode](https://github.com/anomalyco/opencode).
 
@@ -46,7 +46,7 @@ This fork is maintained by **nikomatt69**. On top of the OpenCode base, nikcli a
 Nikcli is not just a CLI to chat with a model: it is a **complete agentic platform** that orchestrates models, tools, subagents and project context. Its main surfaces:
 
 - **Interactive TUI** — a full-screen terminal application built on [OpenTUI](https://github.com/sst/opentui) and Solid.js: sessions, turn queues, history, autocomplete, permissions, modal dialogs, remote attach.
-- **Headless server** — HTTP + SSE + WebSocket built on [Hono](https://hono.dev) with automatic OpenAPI spec generation and a regenerated TypeScript/JavaScript SDK.
+- **Headless server** — HTTP + SSE + WebSocket on Effect `HttpApi` and `Bun.serve`, with OpenAPI and a generated TypeScript/JavaScript SDK.
 - **One-shot CLI** — non-interactive execution (`run`, `goal`, `mission`, `agent`, `generate`, `github`, `pr`, `stats`, `export` / `import`).
 - **Web companion** — SolidStart/Cloudflare UI for sessions and sharing (`nikcli web`, `nikcli companion serve`).
 - **Mobile companion** — Expo / React Native app in `packages/mobile` with QR pairing and `nikcli://` deep links.
@@ -258,7 +258,7 @@ All main commands (registered in `packages/nikcli/src/index.ts`):
 | `nikcli acp`                                                                  | Starts an ACP (Agent Client Protocol) server for external editors.                                    |
 | `nikcli mcp`                                                                  | Manage MCP servers: add, OAuth auth, list, status, debug.                                             |
 | `nikcli tui` (default) · `nikcli attach <url>`                                | Local TUI or attach to a remote server.                                                               |
-| `nikcli serve`                                                                | Starts a headless Hono server (HTTP + SSE + WebSocket) with OpenAPI.                                  |
+| `nikcli serve`                                                                | Starts a headless Effect HttpApi server (HTTP + SSE + WebSocket) with OpenAPI.                        |
 | `nikcli web`                                                                  | Starts the server and opens the web UI in the browser.                                                |
 | `nikcli workspace-serve`                                                      | Starts the multi-workspace event server (proactive sync).                                             |
 | `nikcli companion serve`                                                      | Server with integrated companion UI (also accessible from mobile).                                    |
@@ -538,15 +538,16 @@ First-class MCP server with OAuth auth (`packages/nikcli/src/mcp`):
 
 ### HTTP/SSE/WebSocket server
 
-`packages/nikcli/src/server/server.ts` builds a Hono app with:
+`packages/nikcli/src/server/server.ts` owns the listener and request pipeline. The contract lives in `src/server/httpapi/`:
 
-- **Auto-generated OpenAPI** (`hono-openapi` + `generateSpecs`) → TS/JS SDK in `packages/sdk/js` and other languages.
-- **Routes** in `server/routes/`: `project`, `session`, `file`, `pty`, `mcp`, `connectors`, `chatbot`, `companion`, `mobile`, `provider`, `config`, `permission`, `loop`, `question`, `global`, `tui`, `experimental`, `users`, `workspace`.
-- **SSE** (`streamSSE`) for realtime events to the TUI, mobile, web.
-- **WebSocket** for the TUI.
+- **Effect `HttpApi`** groups plus raw handlers on `Bun.serve`. OpenAPI and the generated clients come from `PublicApi`.
+- **Clients** — `bun run generate:httpapi-clients` writes `@nikcli-ai/sdk/httpapi` and the in-process Effect client. There is no Hono app and no hey-api step.
+- **Routes** — session, file, pty, mcp, connectors, mobile, provider, config, permission, loop, question, global, tui, experimental, users, workspace, …
+- **SSE** for realtime events to the TUI, mobile, web (`EventFeed`).
+- **WebSocket** for PTY connect.
 - **mDNS** (`server/mdns.ts`) with `bonjour-service` for local discovery.
 - **Proxy** (`server/proxy.ts`) to route to container/sandbox instances.
-- **Auth**: optional basic auth (`hono/basic-auth`), `NIKCLI_SERVER_PASSWORD`, `NIKCLI_SERVER_TAILSCALE_AUTH` to trust Tailscale headers on loopback.
+- **Auth**: optional basic auth, `NIKCLI_SERVER_PASSWORD`, `NIKCLI_SERVER_TAILSCALE_AUTH` to trust Tailscale headers on loopback.
 
 ### Web apps
 

@@ -178,6 +178,14 @@ export function compat(raw: Raw, defaults: CompatDefaults = {}) {
       status: result0(raw.brain.status),
       trigger: result(raw.brain.trigger),
     },
+    chatbot: {
+      bots: result0(raw.chatbot.bots),
+      start: result(raw.chatbot.start),
+      stop: result(raw.chatbot.stop),
+    },
+    voice: {
+      transcribe: result(raw.voice.transcribe),
+    },
     command: {
       list: result0(raw["top-level"].command),
     },

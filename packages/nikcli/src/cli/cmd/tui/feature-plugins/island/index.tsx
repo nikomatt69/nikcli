@@ -2,7 +2,7 @@
  * nikcli Island — internal TUI plugin.
  *
  * Surfaces the macOS notch companion app (`packages/nikcli-island`, driven by
- * `src/plugin/island/bridge.ts`) as a toggleable plugin, the same way
+ * `@nikcli-ai/util/island-bridge`) as a toggleable plugin, the same way
  * Computer/Browser wrap their own backing drivers. The plugin is loaded only
  * when the CLI is started with `--island`; activating it turns the bridge on for the current
  * session; deactivating it via the Plugin Manager clears this session's
@@ -11,7 +11,7 @@
  * aren't affected by this toggle: they self-activate through `Bus.publish`
  * independently, gated by `--island` and `NIKCLI_ISLAND_DISABLE`.
  */
-import { IslandBridge } from "@/plugin/island/bridge"
+import { IslandBridge } from "@nikcli-ai/util/island-bridge"
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 
 const id = "internal:island"

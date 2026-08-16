@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { SETTINGS_CATEGORIES, settingsCommandOptions } from "../../src/cli/cmd/tui/component/dialog-settings"
+import { SETTINGS_CATEGORIES, settingsCommandOptions } from "@tui/component/dialog-settings"
 
 describe("settings command search", () => {
   test("provides category and individual setting entries with supplemental keywords", () => {

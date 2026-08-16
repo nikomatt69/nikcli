@@ -14,6 +14,7 @@ import { HttpApiBridge } from "./httpapi/bridge"
 import { bodyLimitResponse } from "./middleware/body-limit"
 import { ServerProxy } from "./proxy"
 import { PublicRoutes } from "./public"
+import { isAccountPath } from "./httpapi/account-path"
 import { ServerWebSocket, type WebSocketData } from "./websocket"
 
 export namespace ServerRouter {
@@ -196,6 +197,7 @@ export namespace ServerRouter {
     const global =
       url.pathname.startsWith("/global/") ||
       url.pathname.startsWith("/user/") ||
+      isAccountPath(url.pathname) ||
       (request.method === "GET" && url.pathname === "/sync/stream")
     if (global) {
       const raw = await PublicRoutes.globalRequest(request)

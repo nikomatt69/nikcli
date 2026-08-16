@@ -10,7 +10,6 @@
     "customConditions": ["browser"],
     "paths": {
       "@/*": ["../nikcli/src/*"],
-      "@tui/*": ["../nikcli/src/cli/cmd/tui/*"],
       "#fff": ["../nikcli/src/file/fff.bun.ts"]
     }
   }

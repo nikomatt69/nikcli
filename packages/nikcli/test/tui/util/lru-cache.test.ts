@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { createLru } from "../../../src/cli/cmd/tui/util/lru-cache"
+import { createLru } from "@tui/util/lru-cache"
 
 describe("createLru", () => {
   it("evicts least-recently-used keys beyond maxEntries", () => {

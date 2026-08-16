@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { readFileSync, existsSync, statSync } from "fs"
 import { resolve } from "path"
 import { recordBenchmark } from "./benchmarks/runner"
+import { TUI_SRC } from "./tui/tui-source"
 
 describe("Build Optimizations", () => {
   describe("Build output", () => {
@@ -37,7 +38,7 @@ describe("Build Optimizations", () => {
 describe("Code Quality - No Implicit Dependencies", () => {
   describe("SolidJS Effects Pattern", () => {
     it("dialog-remote uses onMount for async iterator", () => {
-      const filePath = resolve(__dirname, "../src/cli/cmd/tui/component/dialog-remote.tsx")
+      const filePath = TUI_SRC + "component/dialog-remote.tsx"
       const content = readFileSync(filePath, "utf-8")
 
       expect(content).toContain("onMount")
@@ -45,7 +46,7 @@ describe("Code Quality - No Implicit Dependencies", () => {
     })
 
     it("prompt autocomplete uses on() for visibility effect", () => {
-      const filePath = resolve(__dirname, "../src/cli/cmd/tui/component/prompt/autocomplete.tsx")
+      const filePath = TUI_SRC + "component/prompt/autocomplete.tsx"
       const content = readFileSync(filePath, "utf-8")
 
       expect(content).toContain("on(")
@@ -53,7 +54,7 @@ describe("Code Quality - No Implicit Dependencies", () => {
     })
 
     it("app.tsx uses on() for terminal title effect", () => {
-      const filePath = resolve(__dirname, "../src/cli/cmd/tui/app.tsx")
+      const filePath = TUI_SRC + "app.tsx"
       const content = readFileSync(filePath, "utf-8")
 
       expect(content).toContain("on(")
@@ -61,7 +62,7 @@ describe("Code Quality - No Implicit Dependencies", () => {
     })
 
     it("session/index.tsx uses on() for initial prompt", () => {
-      const filePath = resolve(__dirname, "../src/cli/cmd/tui/routes/session/index.tsx")
+      const filePath = TUI_SRC + "routes/session/index.tsx"
       const content = readFileSync(filePath, "utf-8")
 
       expect(content).toContain("on(")
@@ -69,7 +70,7 @@ describe("Code Quality - No Implicit Dependencies", () => {
     })
 
     it("theme.tsx uses on() for theme changes", () => {
-      const filePath = resolve(__dirname, "../src/cli/cmd/tui/context/theme.tsx")
+      const filePath = TUI_SRC + "context/theme.tsx"
       const content = readFileSync(filePath, "utf-8")
 
       expect(content).toContain("on(")
@@ -77,7 +78,7 @@ describe("Code Quality - No Implicit Dependencies", () => {
     })
 
     it("local.tsx uses on() for agent changes", () => {
-      const filePath = resolve(__dirname, "../src/cli/cmd/tui/context/local.tsx")
+      const filePath = TUI_SRC + "context/local.tsx"
       const content = readFileSync(filePath, "utf-8")
 
       expect(content).toContain("on(")
@@ -85,7 +86,7 @@ describe("Code Quality - No Implicit Dependencies", () => {
     })
 
     it("dialog-select.tsx uses on() for filter changes", () => {
-      const filePath = resolve(__dirname, "../src/cli/cmd/tui/ui/dialog-select.tsx")
+      const filePath = TUI_SRC + "ui/dialog-select.tsx"
       const content = readFileSync(filePath, "utf-8")
 
       expect(content).toContain("on(")
@@ -96,18 +97,18 @@ describe("Code Quality - No Implicit Dependencies", () => {
   describe("No createEffect without dependencies", () => {
     it("no bare createEffect with implicit tracking in TUI files", () => {
       const tuiFiles = [
-        "../src/cli/cmd/tui/app.tsx",
-        "../src/cli/cmd/tui/component/prompt/index.tsx",
-        "../src/cli/cmd/tui/component/prompt/autocomplete.tsx",
-        "../src/cli/cmd/tui/routes/session/index.tsx",
-        "../src/cli/cmd/tui/context/theme.tsx",
-        "../src/cli/cmd/tui/context/local.tsx",
-        "../src/cli/cmd/tui/ui/dialog-select.tsx",
-        "../src/cli/cmd/tui/component/dialog-remote.tsx",
+        "app.tsx",
+        "component/prompt/index.tsx",
+        "component/prompt/autocomplete.tsx",
+        "routes/session/index.tsx",
+        "context/theme.tsx",
+        "context/local.tsx",
+        "ui/dialog-select.tsx",
+        "component/dialog-remote.tsx",
       ]
 
       for (const file of tuiFiles) {
-        const filePath = resolve(__dirname, file)
+        const filePath = TUI_SRC + file
         const content = readFileSync(filePath, "utf-8")
 
         const bareEffectMatch = content.match(/createEffect\(\s*\(\s*\)\s*=>\s*\{[^}]*\}/)

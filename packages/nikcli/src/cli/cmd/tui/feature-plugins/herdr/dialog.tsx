@@ -6,15 +6,15 @@
  * the snapshot, or close the dialog from this surface.
  *
  * The dialog talks to the server-side bridge directly through the
- * `@/plugin/herdr/bridge` import — the bridge is the only piece of state
+ * `@nikcli-ai/util/herdr-bridge` import — the bridge is the only piece of state
  * that matters here, and it's safe to read from the TUI worker thread
  * because the bridge is process-local.
  */
 import { createMemo, createResource, For, Show } from "solid-js"
 import { useTheme } from "@tui/context/theme"
 import { useToast } from "@tui/ui/toast"
-import { HerdrBridge } from "@/plugin/herdr/bridge"
-import type { HerdrInstallInfo, HerdrSnapshot } from "@/plugin/herdr/bridge"
+import { HerdrBridge } from "@nikcli-ai/util/herdr-bridge"
+import type { HerdrInstallInfo, HerdrSnapshot } from "@nikcli-ai/util/herdr-bridge"
 
 export function DialogHerdrStatus() {
   const theme = useTheme().theme

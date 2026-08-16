@@ -4,7 +4,7 @@ import {
   indexAtOffset,
   visibleRange,
   spacerHeights,
-} from "../../../src/cli/cmd/tui/routes/session/message-window"
+} from "@tui/routes/session/message-window"
 
 describe("message-window", () => {
   it("cumulativeOffsets builds a running sum with a leading 0", () => {

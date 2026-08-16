@@ -96,8 +96,8 @@ Adding or changing an endpoint:
   grep -cE '^export type [A-Za-z0-9_]+ = (any|Array<any>)$' ../sdk/js/src/httpapi/generated/types.ts
   ```
   Only genuinely open payloads may stay `Unknown` (upstream passthrough,
-  polymorphic event-sourced entries, SSE frames, bodyless redirects), and each
-  one is justified in `specs/effect/http-api.md`.
+  polymorphic event-sourced entries, SSE frames, bodyless redirects). Each
+  one is justified in `specs/README.md` §Open payloads.
 - **Reuse, do not redefine.** Reference the Effect Schema the service already
   owns (`Session.InfoSchema`, `Project.InfoSchema`, `Pty.InfoSchema`,
   `Workspace.InfoSchema`, `ManagedWorktree.InfoSchema`, `MessageV2.PartSchema`

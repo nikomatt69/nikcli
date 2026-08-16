@@ -1,13 +1,16 @@
 import { useKeyboard } from "@opentui/solid"
 import { TextAttributes } from "@opentui/core"
 import { Clipboard } from "@tui/util/clipboard"
-import { createMemo, For, onMount, Show } from "solid-js"
+import { createMemo, createResource, For, onMount, Show } from "solid-js"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { useToast } from "@tui/ui/toast"
 import { DialogProvider } from "./dialog-provider"
-import { UserDB } from "@/user/users"
+import { useSDK } from "@tui/context/sdk"
+import { UserApi } from "@tui/util/user-api"
+import { UserSession } from "@nikcli-ai/util/user-session"
+import type { UserSchema } from "@nikcli-ai/util/user-schema"
 import { useTheme } from "@tui/context/theme"
 
 type ProfileNotice = {
@@ -17,15 +20,20 @@ type ProfileNotice = {
 
 export function DialogAuthManage() {
   const dialog = useDialog()
+  const sdk = useSDK()
 
-  const currentUser = createMemo(() => {
-    const token = UserDB.getActiveSessionSync()
-    if (!token) return null
-    return UserDB.verifySession(token)
-  })
+  // The session used to be verified in-process against the user tables. It is
+  // now `GET /user/me`, which means the answer arrives a frame late — and the
+  // wrong branch rendered meanwhile would offer "Sign in" to someone already
+  // signed in. Hold the menu until it lands; over worker RPC that is one frame.
+  const [account] = createResource(() => UserApi.me(sdk))
 
   const options = createMemo<DialogSelectOption[]>(() => {
-    const user = currentUser()
+    if (account.loading) {
+      return [{ title: "Checking account…", value: "loading", category: "Account", disabled: true }]
+    }
+
+    const user = account()
     const items: DialogSelectOption[] = []
 
     if (user) {
@@ -45,7 +53,7 @@ export function DialogAuthManage() {
           category: "Account",
           description: displayName ? `Current: ${displayName}` : "Set the name shown in chat and account views",
           onSelect: async () => {
-            await updateDisplayName(dialog, user.id, user.display_name)
+            await updateDisplayName(dialog, sdk, user.id, user.display_name)
             dialog.replace(() => <DialogAuthManage />)
           },
         },
@@ -55,7 +63,7 @@ export function DialogAuthManage() {
           category: "Account",
           description: "Update the password stored for this local account",
           onSelect: async () => {
-            await updatePassword(dialog, user.id)
+            await updatePassword(dialog, sdk)
             dialog.replace(() => <DialogAuthManage />)
           },
         },
@@ -65,7 +73,7 @@ export function DialogAuthManage() {
           category: "Account",
           description: `Signed in as ${user.username}`,
           onSelect: async () => {
-            await logout()
+            await logout(sdk)
             dialog.replace(() => <DialogAuthManage />)
           },
         },
@@ -78,7 +86,7 @@ export function DialogAuthManage() {
         description: "Continue with nikcli (browser) or use a local password",
         onSelect: async () => {
           const { DialogLogin } = await import("@tui/component/dialog-login")
-          await DialogLogin.run(dialog)
+          await DialogLogin.run(dialog, sdk)
           dialog.replace(() => <DialogAuthManage />)
         },
       })
@@ -98,13 +106,14 @@ export function DialogAuthManage() {
   return <DialogSelect title="Account" options={options()} />
 }
 
-function showProfile(dialog: DialogContext, user: UserDB.PublicUser, notice?: ProfileNotice) {
+function showProfile(dialog: DialogContext, user: UserSchema.PublicUser, notice?: ProfileNotice) {
   dialog.replace(() => <DialogProfile user={user} notice={notice} />)
 }
 
-function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice }) {
+function DialogProfile(props: { user: UserSchema.PublicUser; notice?: ProfileNotice }) {
   const dialog = useDialog()
   const toast = useToast()
+  const sdk = useSDK()
   const { theme } = useTheme()
 
   onMount(() => dialog.setSize("large"))
@@ -114,14 +123,18 @@ function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice 
     if (props.user.display_name?.trim()) return `@${props.user.username} · local profile`
     return `@${props.user.username} · add a display name for a friendlier handle`
   })
-  const stats = createMemo(() => ({
-    contacts: UserDB.listContacts(props.user.id).length,
-    unread: UserDB.getTotalUnreadCount(props.user.id),
-    memberFor: formatRelativeAge(props.user.created_at),
-  }))
+  // Counters come from the caller's own session (`GET /user/me/stats`), so they
+  // arrive after the first paint. `—` is the honest placeholder: `0` would read
+  // as "no contacts" before anything has been counted.
+  const [counters] = createResource(() => UserApi.stats(sdk))
+  const counter = (pick: (value: UserSchema.Stats) => number) => {
+    const value = counters()
+    return value ? String(pick(value)) : "—"
+  }
+  const memberFor = createMemo(() => formatRelativeAge(props.user.created_at))
 
-  const restoreProfile = (notice?: ProfileNotice, nextUser?: UserDB.PublicUser | null) => {
-    showProfile(dialog, nextUser ?? getCurrentUser(props.user.id) ?? props.user, notice)
+  const restoreProfile = async (notice?: ProfileNotice, nextUser?: UserSchema.PublicUser | null) => {
+    showProfile(dialog, nextUser ?? (await UserApi.me(sdk)) ?? props.user, notice)
   }
 
   const copyValue = async (value: string, label: string) => {
@@ -131,8 +144,8 @@ function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice 
   }
 
   const handleDisplayName = async () => {
-    const updated = await updateDisplayName(dialog, props.user.id, props.user.display_name)
-    restoreProfile(
+    const updated = await updateDisplayName(dialog, sdk, props.user.id, props.user.display_name)
+    await restoreProfile(
       updated
         ? {
             tone: "success",
@@ -144,12 +157,12 @@ function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice 
   }
 
   const handlePassword = async () => {
-    const changed = await updatePassword(dialog, props.user.id)
-    restoreProfile(changed ? { tone: "success", message: "Password updated." } : undefined)
+    const changed = await updatePassword(dialog, sdk)
+    await restoreProfile(changed ? { tone: "success", message: "Password updated." } : undefined)
   }
 
   const handleLogout = async () => {
-    await logout()
+    await logout(sdk)
     dialog.replace(() => <DialogAuthManage />)
   }
 
@@ -264,9 +277,13 @@ function DialogProfile(props: { user: UserDB.PublicUser; notice?: ProfileNotice 
       <Show when={props.notice}>{(notice) => <ProfileNoticeBox notice={notice()} />}</Show>
 
       <box flexDirection="row" gap={1}>
-        <ProfileStat label="Contacts" value={String(stats().contacts)} tone="accent" />
-        <ProfileStat label="Unread" value={String(stats().unread)} tone={stats().unread > 0 ? "warning" : "default"} />
-        <ProfileStat label="Member For" value={stats().memberFor} tone="success" />
+        <ProfileStat label="Contacts" value={counter((value) => value.contacts)} tone="accent" />
+        <ProfileStat
+          label="Unread"
+          value={counter((value) => value.unread)}
+          tone={(counters()?.unread ?? 0) > 0 ? "warning" : "default"}
+        />
+        <ProfileStat label="Member For" value={memberFor()} tone="success" />
       </box>
 
       <box gap={1}>
@@ -405,33 +422,27 @@ function ProfileActionRow(props: {
   )
 }
 
-async function updateDisplayName(dialog: DialogContext, userId: string, currentName: string | null) {
+async function updateDisplayName(
+  dialog: DialogContext,
+  sdk: UserApi.Sdk,
+  userId: string,
+  currentName: string | null,
+) {
   const value = await DialogPrompt.show(dialog, "Change Display Name", {
     placeholder: "Enter display name (leave empty to remove)",
     value: currentName ?? "",
   })
   if (value === null) return
 
-  return UserDB.updateUser(userId, { displayName: value })
+  const updated = await UserApi.update(sdk, userId, { displayName: value })
+  return updated.ok ? updated.data : null
 }
 
-async function updatePassword(dialog: DialogContext, userId: string): Promise<boolean> {
+async function updatePassword(dialog: DialogContext, sdk: UserApi.Sdk): Promise<boolean> {
   const current = await DialogPrompt.show(dialog, "Change Password — Current", {
     placeholder: "Enter current password",
   })
   if (current === null) return false
-
-  const user = UserDB.findById(userId)
-  if (!user) return false
-
-  const valid = await UserDB.verifyPassword(user, current)
-  if (!valid) {
-    const retry = await DialogPrompt.show(dialog, "Incorrect password. Press Enter to retry.", {
-      placeholder: "Press Enter",
-    })
-    if (retry === null) return false
-    return updatePassword(dialog, userId)
-  }
 
   const newPass = await DialogPrompt.show(dialog, "Change Password — New", {
     placeholder: "Enter new password (min 8 chars)",
@@ -443,7 +454,7 @@ async function updatePassword(dialog: DialogContext, userId: string): Promise<bo
       placeholder: "Press Enter",
     })
     if (retry === null) return false
-    return updatePassword(dialog, userId)
+    return updatePassword(dialog, sdk)
   }
 
   const confirm = await DialogPrompt.show(dialog, "Change Password — Confirm", {
@@ -456,27 +467,30 @@ async function updatePassword(dialog: DialogContext, userId: string): Promise<bo
       placeholder: "Press Enter",
     })
     if (retry === null) return false
-    return updatePassword(dialog, userId)
+    return updatePassword(dialog, sdk)
   }
 
-  await UserDB.updateUser(userId, { password: newPass })
+  // The current password is checked where the hash lives, not here: a wrong one
+  // comes back as the route's own message rather than a local guess.
+  const changed = await UserApi.changePassword(sdk, { current, next: newPass })
+  if (!changed.ok) {
+    const retry = await DialogPrompt.show(dialog, `${changed.error}. Press Enter to retry.`, {
+      placeholder: "Press Enter",
+    })
+    if (retry === null) return false
+    return updatePassword(dialog, sdk)
+  }
   return true
 }
 
-async function logout() {
-  const token = UserDB.getActiveSessionSync()
-  if (token) {
-    UserDB.revokeSession(token)
-    await UserDB.clearActiveSession()
-  }
+async function logout(sdk: UserApi.Sdk) {
+  // Revoke server-side first; the local token is dropped either way, so a failed
+  // round trip still signs this machine out rather than leaving it half-signed-in.
+  await UserApi.logout(sdk)
+  await UserSession.clear()
 }
 
-function getCurrentUser(userId: string) {
-  const user = UserDB.findById(userId)
-  return user ? UserDB.toPublic(user) : null
-}
-
-function getRoleLabel(role: UserDB.PublicUser["role"]) {
+function getRoleLabel(role: UserSchema.Role) {
   return role === "admin" ? "Administrator" : "User"
 }
 

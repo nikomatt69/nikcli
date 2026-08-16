@@ -2,38 +2,34 @@ import { TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/solid"
 import { createSignal, onCleanup, onMount, Show } from "solid-js"
 import open from "open"
-import { Effect } from "effect"
-import { Account } from "@/account"
-import type { Info as AccountInfo } from "@/account/schema"
-import { UserDB } from "@/user/users"
-import { runPromiseWithLayer } from "@/effect"
 import { useDialog } from "@tui/ui/dialog"
 import { useTheme } from "@tui/context/theme"
 import { useToast } from "@tui/ui/toast"
+import { useSDK } from "@tui/context/sdk"
 import { Clipboard } from "@tui/util/clipboard"
-
-function runAccount<A, E>(effect: Effect.Effect<A, E, Account.Service>): Promise<A> {
-  return runPromiseWithLayer(Account.defaultLayer, effect)
-}
+import { UserApi } from "@tui/util/user-api"
+import { UserSession } from "@nikcli-ai/util/user-session"
+import type { UserSchema } from "@nikcli-ai/util/user-schema"
 
 /**
  * Device-code sign-in to the nikcli account issuer (auth.nikcli.store).
- * On success the identity is also linked to the local user database
- * (`ensureExternalUser` + local session), so one sign-in covers both the
- * account plane and the local TUI/server session. LLM provider credentials
- * (`/connect`, auth.json) and mobile pairing tokens are separate and
- * unaffected.
+ * On success the issuer JWT is stored locally and `GET /user/me` provisions
+ * the matching local user on the server (`ensureExternalUser` lives there).
+ * One sign-in covers both the account plane and the TUI/server session.
+ * LLM provider credentials (`/connect`, auth.json) and mobile pairing tokens
+ * are separate and unaffected.
  */
 export function DialogAccountLogin(props: {
-  onComplete?: (user: UserDB.PublicUser | null) => void
+  onComplete?: (user: UserSchema.PublicUser | null) => void
   clearOnComplete?: boolean
 }) {
   const { theme } = useTheme()
   const dialog = useDialog()
   const toast = useToast()
+  const sdk = useSDK()
 
-  const [active, setActive] = createSignal<AccountInfo>()
-  const [start, setStart] = createSignal<Account.LoginStartResult>()
+  const [active, setActive] = createSignal<UserApi.AccountInfo>()
+  const [start, setStart] = createSignal<UserApi.LoginStart>()
   const [status, setStatus] = createSignal("Contacting auth.nikcli.store…")
   const [error, setError] = createSignal<string>()
   const [browserOpened, setBrowserOpened] = createSignal(true)
@@ -53,13 +49,8 @@ export function DialogAccountLogin(props: {
   onCleanup(() => clearInterval(ticker))
 
   onMount(() => {
-    void runAccount(
-      Effect.gen(function* () {
-        const account = yield* Account.Service
-        return yield* account.active()
-      }),
-    )
-      .then(setActive)
+    void UserApi.account(sdk)
+      .then((info) => setActive(info ?? undefined))
       .catch(() => undefined)
     void begin()
   })
@@ -79,13 +70,10 @@ export function DialogAccountLogin(props: {
     setBrowserOpened(true)
     setStatus("Contacting auth.nikcli.store…")
     try {
-      const result = await runAccount(
-        Effect.gen(function* () {
-          const account = yield* Account.Service
-          return yield* account.login()
-        }),
-      )
+      const started = await UserApi.accountLogin(sdk)
       if (disposed) return
+      if (!started.ok) throw new Error(started.error)
+      const result = started.data
       setStart(result)
       setStatus("Waiting for approval in the browser…")
       // The complete URL carries the code, so the browser page arrives with
@@ -94,42 +82,32 @@ export function DialogAccountLogin(props: {
       if (disposed) return
       setBrowserOpened(opened)
       if (!opened) setStatus("Could not open a browser — open the link below to approve.")
-      const session = await runAccount(
-        Effect.gen(function* () {
-          const account = yield* Account.Service
-          return yield* account.poll(result.deviceCode, {
-            signal: controller.signal,
-            expiresIn: result.expiresIn,
-            onPending() {
-              if (!disposed && !error()) {
-                setStatus(
-                  opened
-                    ? "Waiting for approval in the browser… (esc to cancel)"
-                    : "Waiting for approval… open the link below (esc to cancel)",
-                )
-              }
-            },
-          })
-        }),
+      // `onPending` had no wire form and needed none: it only rewrote this
+      // status line, and the line is the same for every poll that has not
+      // finished yet. Set it once, before waiting.
+      if (!error()) {
+        setStatus(
+          opened
+            ? "Waiting for approval in the browser… (esc to cancel)"
+            : "Waiting for approval… open the link below (esc to cancel)",
+        )
+      }
+      // One request that blocks until the browser approves. Escape aborts it.
+      const session = await UserApi.accountComplete(
+        sdk,
+        { deviceCode: result.deviceCode, expiresIn: result.expiresIn },
+        controller.signal,
       )
       if (disposed) return
-      const info = await runAccount(
-        Effect.gen(function* () {
-          const account = yield* Account.Service
-          return yield* account.get(session.accountID)
-        }),
-      )
-      let localUser: UserDB.PublicUser | null = null
-      if (info?.email) {
-        localUser = UserDB.ensureExternalUser({
-          sub: session.accountID,
-          email: info.email,
-        })
-        const token = UserDB.createSession(localUser.id, 30)
-        await UserDB.saveActiveSession(token)
-      }
+      if (!session.ok) throw new Error(session.error)
+
+      // The issuer JWT is what `Auth.resolveBearer` already accepts. Saving it
+      // and asking `/user/me` is what provisions the local user — the TUI must
+      // not write `UserDB` itself.
+      await UserSession.save(session.data.accessToken)
+      const localUser = await UserApi.me(sdk)
       toast.show({
-        message: info?.email ? `Signed in as ${info.email}` : "Signed in to your nikcli account",
+        message: session.data.email ? `Signed in as ${session.data.email}` : "Signed in to your nikcli account",
         variant: "success",
       })
       props.onComplete?.(localUser)
@@ -141,7 +119,7 @@ export function DialogAccountLogin(props: {
     }
   }
 
-  async function openVerification(result: Account.LoginStartResult): Promise<boolean> {
+  async function openVerification(result: UserApi.LoginStart): Promise<boolean> {
     return open(result.verificationUrlComplete)
       .then(() => true)
       .catch(() => false)

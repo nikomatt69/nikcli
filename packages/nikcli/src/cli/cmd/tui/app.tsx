@@ -2,6 +2,7 @@ import { render, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { createCliRenderer, type CliRendererConfig } from "@opentui/core"
 import { Clipboard } from "@tui/util/clipboard"
 import * as Sound from "@tui/util/sound"
+import { UserApi } from "@tui/util/user-api"
 import { RouteProvider, useRoute } from "@tui/context/route"
 import {
   Switch,
@@ -76,7 +77,6 @@ import { PromptRefProvider, usePromptRef } from "./context/prompt"
 import { EditorContextProvider } from "./context/editor"
 import type { TuiConfig } from "@nikcli-ai/sdk/httpapi"
 import { TuiConfig as TuiConfigLocal } from "@/config/tui"
-import { withInstanceAsync } from "@/effect"
 import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { dbg as dbgApp } from "./feature-plugins/background/__debug"
 import { BackgroundImage } from "./feature-plugins/background/view"
@@ -382,16 +382,18 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
       // Drive instances use an injected local provider and must not depend on
       // interactive account/onboarding state from the host machine.
       if (!process.env.NIKCLI_DRIVE) {
-        // Lazy: UserDB pulls drizzle and the onboarding dialog pulls the speak/
-        // provider chain; neither may be evaluated during TUI module load.
-        const [{ UserDB }, { DialogOnboarding }] = await Promise.all([
-          import("@/user/users"),
-          import("@tui/component/dialog-onboarding"),
-        ])
-        const isFirstRun = !UserDB.hasUsers()
+        // Lazy: the onboarding dialog pulls the speak/provider chain, which may
+        // not be evaluated during TUI module load. Account state comes from
+        // `/user/*` — the transport is up by now, as the `sdk.client.tui.config`
+        // call a few lines below has always relied on.
+        const { DialogOnboarding } = await import("@tui/component/dialog-onboarding")
 
-        const storedToken = UserDB.getActiveSessionSync()
-        const validUser = storedToken ? UserDB.verifySession(storedToken) : null
+        // `null` means the question could not be asked. Treating that as "no
+        // users" would restart onboarding for someone who already has an
+        // account, so only an explicit `false` counts as first run.
+        const isFirstRun = (await UserApi.hasUsers(sdk)) === false
+
+        const validUser = await UserApi.me(sdk)
 
         if (isFirstRun && !kv.get("onboarding_complete", false)) {
           // First-time user: unified onboarding handles account creation + provider setup
@@ -399,8 +401,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
           let postUser = null
           do {
             await DialogOnboarding.run(dialog)
-            const postToken = UserDB.getActiveSessionSync()
-            postUser = postToken ? UserDB.verifySession(postToken) : null
+            postUser = await UserApi.me(sdk)
           } while (!postUser)
           setOnboardingActive(false)
           // Mark complete only if an account was actually created
@@ -414,7 +415,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         } else if (!validUser) {
           // Returning user with no active session: standard login
           const { DialogLogin } = await import("@tui/component/dialog-login")
-          await DialogLogin.run(dialog)
+          await DialogLogin.run(dialog, sdk)
         }
       }
 

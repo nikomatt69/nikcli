@@ -9,37 +9,26 @@
  * path each platform must be pointed at.
  */
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
-import type { Config } from "@/config/config"
-import { withInstanceAsync } from "@/effect"
 
 const id = "internal:chatbot"
 
+/**
+ * Which bots exist and which are up.
+ *
+ * Both halves come from the server now. The running set was never derivable
+ * from the synced config — only the process that owns the bots knows — so the
+ * join belongs on the side that has both.
+ */
 type BotEntry = {
   name: string
   type: string
-  config: Config.Connector
   running: boolean
   webhookPath: string
 }
 
 async function loadBots(api: TuiPluginApi): Promise<BotEntry[]> {
-  const { ChatBot } = await import("@/chatbot")
-  const configured = (api.state.config.connectors ?? {}) as Record<string, unknown>
-  const running = ChatBot.getAllBots()
-  const entries: BotEntry[] = []
-  for (const [name, raw] of Object.entries(configured)) {
-    if (typeof raw !== "object" || raw === null) continue
-    const config = raw as Config.Connector
-    if (typeof config.type !== "string" || !ChatBot.isChatPlatform(config.type)) continue
-    entries.push({
-      name,
-      type: config.type,
-      config,
-      running: running.has(name),
-      webhookPath: ChatBot.getWebhookPath(config.type, name),
-    })
-  }
-  return entries
+  const result = await api.client.chatbot.bots()
+  return [...(result.data ?? [])]
 }
 
 function openBot(api: TuiPluginApi, entry: BotEntry): void {
@@ -55,8 +44,8 @@ function openBot(api: TuiPluginApi, entry: BotEntry): void {
               description: "Disconnect the bot from its platform",
               onSelect() {
                 void (async () => {
-                  const { ChatBot } = await import("@/chatbot")
-                  const removed = ChatBot.removeBot(entry.name)
+                  const result = await api.client.chatbot.stop({ name: entry.name })
+                  const removed = result.data?.removed === true
                   api.ui.toast({
                     message: removed ? `Stopped bot ${entry.name}` : `Bot ${entry.name} was not running`,
                     variant: removed ? "success" : "warning",
@@ -72,14 +61,13 @@ function openBot(api: TuiPluginApi, entry: BotEntry): void {
               onSelect() {
                 api.ui.toast({ message: `Starting bot ${entry.name}…`, variant: "info" })
                 void (async () => {
-                  const directory = api.state.path.directory || process.cwd()
-                  const { BotHandlers } = await import("@/chatbot/handlers")
-                  const bot = await withInstanceAsync({ directory }, () =>
-                    BotHandlers.ensureAiBot(entry.name, entry.config),
-                  )
-                  if (!bot) {
+                  // The instance the request lands on is the one bound by the
+                  // directory header, so no `withInstanceAsync` here.
+                  const result = await api.client.chatbot.start({ name: entry.name })
+                  if (result.data?.running !== true) {
                     api.ui.toast({
-                      message: `Could not start ${entry.name} — check credentials (nikcli bot auth)`,
+                      message:
+                        result.data?.error ?? `Could not start ${entry.name} — check credentials (nikcli bot auth)`,
                       variant: "error",
                       duration: 5000,
                     })

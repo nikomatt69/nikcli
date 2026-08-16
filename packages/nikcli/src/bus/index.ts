@@ -4,7 +4,28 @@ import { BusEvent } from "./bus-event"
 import { GlobalBus } from "./global"
 import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, runtimeFor, withCurrentInstance } from "@/effect"
-import { IslandBridge } from "@/plugin/island/bridge"
+import { IslandBridge } from "@nikcli-ai/util/island-bridge"
+
+/**
+ * What the island bridge cannot look up for itself.
+ *
+ * The bridge moved to the shared package so the terminal can read the snapshots
+ * it writes; these two answers belong to whoever owns the HTTP server and the
+ * session store, which is this side. Both stay lazily imported — a process that
+ * never publishes an event never loads them.
+ */
+const islandHost = {
+  async port() {
+    const { Server } = await import("@/server/server")
+    const port = Number(Server.url().port)
+    return Number.isFinite(port) ? port : 0
+  },
+  async identity(sessionID: string) {
+    const { SessionRepo } = await import("@/session/repo")
+    const info = SessionRepo.get(sessionID)
+    return { parentID: info?.parentID ?? "", agentTitle: info?.title ?? "" }
+  },
+}
 
 export namespace Bus {
   const log = Log.create({ service: "bus" })
@@ -111,6 +132,7 @@ export namespace Bus {
             // worker thread, `serve`'s main thread, etc — see IslandBridge's
             // own doc for why that realm distinction matters). Idempotent and
             // a no-op off macOS, so calling it on every publish is cheap.
+            IslandBridge.configure(islandHost)
             IslandBridge.start()
             const pending: Array<void | Promise<void>> = []
             for (const key of [def.type, "*"]) {

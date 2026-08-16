@@ -59,7 +59,7 @@ import { MissionCommand } from "./cli/cmd/mission"
 import { SyncCommand } from "./cli/cmd/sync"
 import { ConnectorsCommand } from "./cli/cmd/connectors"
 import { BotCommand } from "./cli/cmd/chatbot"
-import { IslandBridge } from "./plugin/island/bridge"
+import { IslandBridge } from "@nikcli-ai/util/island-bridge"
 
 export async function runCli() {
   process.on("unhandledRejection", (e) => {

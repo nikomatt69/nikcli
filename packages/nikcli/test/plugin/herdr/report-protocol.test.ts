@@ -12,7 +12,7 @@ import { createServer, type Server } from "node:net"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import * as bridge from "@/plugin/herdr/bridge"
+import * as bridge from "@nikcli-ai/util/herdr-bridge"
 
 type Received = { method: string; params: Record<string, any> }
 

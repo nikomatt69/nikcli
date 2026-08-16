@@ -9,9 +9,10 @@ import {
   eagerParsedThemeIds,
   isBuiltInTheme,
   loadBuiltInTheme,
-} from "../../src/cli/cmd/tui/context/theme-catalog"
+} from "@tui/context/theme-catalog"
+import { TUI_SRC } from "./tui-source"
 
-const THEME_DIR = path.join(import.meta.dir, "../../src/cli/cmd/tui/context/theme")
+const THEME_DIR = path.join(TUI_SRC, "context/theme")
 const UNUSED = ["arctic", "muted", "osaka-jade", "oxocarbon", "vivid", "zinc"] as const
 
 describe("built-in theme catalog", () => {

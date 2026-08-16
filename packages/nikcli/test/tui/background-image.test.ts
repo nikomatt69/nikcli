@@ -14,7 +14,7 @@ import {
   OPACITY_MIN,
   sourceLabel,
   stepOpacity,
-} from "../../src/cli/cmd/tui/feature-plugins/background/settings"
+} from "@tui/feature-plugins/background/settings"
 import {
   bufferSize,
   bufferStride,
@@ -22,14 +22,14 @@ import {
   placement,
   prepare,
   resample,
-} from "../../src/cli/cmd/tui/feature-plugins/background/pixels"
+} from "@tui/feature-plugins/background/pixels"
 import {
   listDirectory,
   listImages,
   resolveSource,
   shortenPath,
-} from "../../src/cli/cmd/tui/feature-plugins/background/source"
-import { readSettings, writeSettings } from "../../src/cli/cmd/tui/feature-plugins/background/store"
+} from "@tui/feature-plugins/background/source"
+import { readSettings, writeSettings } from "@tui/feature-plugins/background/store"
 import { shouldUseRendererThread } from "@nikcli-ai/util/win32"
 
 function solid(width: number, height: number, rgba: [number, number, number, number]): PixelImage {

@@ -6,7 +6,7 @@ import {
   type ExplorationGroup,
   type RowPart,
   type SessionRow,
-} from "../../../src/cli/cmd/tui/routes/session/rows"
+} from "@tui/routes/session/rows"
 
 type Part = RowPart & { id: string }
 

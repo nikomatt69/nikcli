@@ -3,10 +3,10 @@ import { RGBA } from "@opentui/core"
 import { testRender } from "@opentui/solid"
 import { createMemo, createSignal, Show, type JSX } from "solid-js"
 import { createPixelImage } from "@nikcli-ai/tui-image"
-import { bufferSize, compose } from "../../src/cli/cmd/tui/feature-plugins/background/pixels"
-import type { BackgroundRenderable } from "../../src/cli/cmd/tui/feature-plugins/background/renderable"
-import "../../src/cli/cmd/tui/feature-plugins/background/renderable"
-import "../../src/cli/cmd/tui/feature-plugins/background/guard"
+import { bufferSize, compose } from "@tui/feature-plugins/background/pixels"
+import type { BackgroundRenderable } from "@tui/feature-plugins/background/renderable"
+import "@tui/feature-plugins/background/renderable"
+import "@tui/feature-plugins/background/guard"
 
 const BLACK = RGBA.fromInts(0, 0, 0, 255)
 const COLUMNS = 4

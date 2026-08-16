@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import { fileURLToPath } from "node:url"
 import { SessionEntry } from "@/session/v2/entry"
+import { tuiSource } from "./tui-source"
 
 /**
  * Every entry type reaches the screen.
@@ -17,23 +17,15 @@ import { SessionEntry } from "@/session/v2/entry"
  * renderer fails here.
  */
 
-// `URL.pathname` is `/C:/…` on Windows — the leading slash makes the path
-// unopenable. `fileURLToPath` yields a native path on every platform.
-const root = fileURLToPath(new URL("../../src/", import.meta.url))
-
-async function source(path: string) {
-  return await Bun.file(root + path).text()
-}
-
 /** Types the turn model absorbs as properties instead of rows. */
 async function absorbed() {
-  const text = await source("cli/cmd/tui/routes/session/view.ts")
+  const text = await tuiSource("routes/session/view.ts")
   return new Set([...text.matchAll(/entry\.type === "([a-z-]+)"/g)].map((match) => match[1]!))
 }
 
 /** Types with a component in `PART_MAPPING`. */
 async function drawn() {
-  const text = await source("cli/cmd/tui/routes/session/index.tsx")
+  const text = await tuiSource("routes/session/index.tsx")
   const table = /const PART_MAPPING = \{([^}]*)\}/.exec(text)
   expect(table).not.toBeNull()
   return new Set([...table![1]!.matchAll(/^\s*([a-z-]+):/gm)].map((match) => match[1]!))
@@ -79,7 +71,7 @@ describe("entry coverage", () => {
   })
 
   it("there is a fallback, so an unmapped type is visible rather than silent", async () => {
-    const text = await source("cli/cmd/tui/routes/session/index.tsx")
+    const text = await tuiSource("routes/session/index.tsx")
     expect(text).toContain("fallback={<UnknownPart")
   })
 })

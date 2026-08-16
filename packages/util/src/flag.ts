@@ -144,7 +144,6 @@ export namespace Flag {
   export const NIKCLI_EXPERIMENTAL_LSP_TY = true
   export const NIKCLI_EXPERIMENTAL_LSP_TOOL = true
   export const NIKCLI_DISABLE_FILETIME_CHECK = truthy("NIKCLI_DISABLE_FILETIME_CHECK")
-  export const NIKCLI_EXPERIMENTAL_PLAN_MODE = true
   export const NIKCLI_EXPERIMENTAL_SCOUT = true
   export const NIKCLI_EXPERIMENTAL_WORKSPACES_TUI = true
   export const NIKCLI_EXPERIMENTAL_SECURITY_TOOL = true

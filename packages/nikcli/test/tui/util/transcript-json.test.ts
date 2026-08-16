@@ -4,7 +4,7 @@ import {
   type MessageWithParts,
   type SessionInfo,
   type TranscriptOptions,
-} from "../../../src/cli/cmd/tui/util/transcript"
+} from "@tui/util/transcript"
 
 const session: SessionInfo = {
   id: "ses_abc",

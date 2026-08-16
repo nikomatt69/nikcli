@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { InputScheduler, type PointerInput } from "../../src/cli/cmd/tui/util/browser-input"
+import { InputScheduler, type PointerInput } from "@tui/util/browser-input"
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 

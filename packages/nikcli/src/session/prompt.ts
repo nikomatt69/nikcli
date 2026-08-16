@@ -12,7 +12,6 @@ import { SessionCompaction } from "./compaction"
 import { Bus } from "../bus"
 import { InstructionSync } from "./instruction-sync"
 import { Plugin } from "../plugin"
-import PROMPT_PLAN from "../session/prompt/plan.txt"
 import BUILD_SWITCH from "../session/prompt/build-switch.txt"
 import MAX_STEPS from "../session/prompt/max-steps.txt"
 import { defer } from "@nikcli-ai/util/defer"
@@ -1760,33 +1759,12 @@ export namespace SessionPrompt {
     const userMessage = input.messages.findLast((msg) => msg.info.role === "user")
     if (!userMessage) return input.messages
 
-    if (!Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE) {
-      if (input.agent.name === "plan") {
-        userMessage.parts.push({
-          id: Identifier.ascending("part"),
-          messageID: userMessage.info.id,
-          sessionID: userMessage.info.sessionID,
-          type: "text",
-          text: PROMPT_PLAN,
-          synthetic: true,
-        })
-      }
-      // Edge-trigger on the immediately preceding assistant turn only. Scanning
-      // full history misfires once a third primary agent sits between plan and build.
-      const lastAssistant = input.messages.findLast((msg) => msg.info.role === "assistant")
-      if (lastAssistant?.info.agent === "plan" && input.agent.name === "build") {
-        userMessage.parts.push({
-          id: Identifier.ascending("part"),
-          messageID: userMessage.info.id,
-          sessionID: userMessage.info.sessionID,
-          type: "text",
-          text: BUILD_SWITCH,
-          synthetic: true,
-        })
-      }
-      return input.messages
-    }
-
+    // The plan-file workflow below is the only plan mode. The older path — a
+    // `plan.txt` preamble pushed onto the last user message, with no plan file
+    // and no `plan_exit` — sat behind `NIKCLI_EXPERIMENTAL_PLAN_MODE`, a
+    // constant that was hardcoded `true`, so it had already been dead in every
+    // build that shipped. Removing it removes a branch nothing could reach.
+    // `prompt/plan.txt` is kept on disk deliberately; nothing imports it now.
     const assistantMessage = input.messages.findLast((msg) => msg.info.role === "assistant")
 
     if (input.agent.name !== "plan" && assistantMessage?.info.agent === "plan") {

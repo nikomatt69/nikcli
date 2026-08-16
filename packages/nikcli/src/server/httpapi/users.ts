@@ -39,6 +39,11 @@ export namespace UsersHttp {
     password: z.string(),
   })
 
+  const PasswordInput = z.object({
+    current: z.string(),
+    next: z.string().min(8, "Password must be at least 8 characters"),
+  })
+
   const UpdateInput = z.object({
     displayName: z.string().max(128).optional(),
     password: z.string().min(8).optional(),
@@ -140,6 +145,51 @@ export namespace UsersHttp {
     return json({ hasUsers: UserDB.hasUsers() })
   }
 
+  /**
+   * The two counters the profile view shows.
+   *
+   * Both are derived from the caller's own session, never from a path
+   * parameter: the terminal used to read them in-process for whichever user id
+   * it happened to hold, and that is not a check a route can skip.
+   */
+  async function meStats(request: Request): Promise<Response> {
+    const session = await sessionFor(request)
+    if (!session) return json({ error: "Unauthorized" }, 401)
+    return json({
+      contacts: UserDB.listContacts(session.user.id).length,
+      unread: UserDB.getTotalUnreadCount(session.user.id),
+    })
+  }
+
+  /**
+   * Rotate the caller's own password, proving the current one first.
+   *
+   * `PATCH /user/:id` can already set a password, but it never asks for the old
+   * one — an admin resetting someone else's account has no old one to give. A
+   * self-service change does, and verifying it here keeps the check on the same
+   * side as the hash: the terminal used to read the user row, call
+   * `verifyPassword`, and then decide for itself whether to proceed.
+   */
+  async function changePassword(request: Request): Promise<Response> {
+    const session = await sessionFor(request)
+    if (!session) return json({ error: "Unauthorized" }, 401)
+
+    const parsed = PasswordInput.safeParse(await readJson(request))
+    if (!parsed.success) {
+      return json({ error: parsed.error.issues[0]?.message ?? "Invalid password payload" }, 400)
+    }
+
+    const user = UserDB.findById(session.user.id)
+    if (!user) return json({ error: "User not found" }, 404)
+    if (!(await UserDB.verifyPassword(user, parsed.data.current))) {
+      return json({ error: "Incorrect password" }, 403)
+    }
+
+    const updated = await UserDB.updateUser(session.user.id, { password: parsed.data.next })
+    if (!updated) return json({ error: "User not found" }, 404)
+    return json(updated)
+  }
+
   async function list(request: Request): Promise<Response> {
     const session = await sessionFor(request)
     if (!session) return json({ error: "Unauthorized" }, 401)
@@ -205,6 +255,8 @@ export namespace UsersHttp {
     if (method === "POST" && pathname === "/user/login") return login(request)
     if (method === "POST" && pathname === "/user/logout") return logout(request)
     if (method === "GET" && pathname === "/user/me") return me(request)
+    if (method === "GET" && pathname === "/user/me/stats") return meStats(request)
+    if (method === "POST" && pathname === "/user/me/password") return changePassword(request)
     if (method === "GET" && pathname === "/user/status") return status()
     if (method === "GET" && pathname === "/user/list") return list(request)
 

@@ -9,19 +9,12 @@
  * resulting Brain session.
  */
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
-import { withInstanceAsync } from "@/effect"
 
 const id = "internal:brain"
 
 const tui: TuiPlugin = async (api) => {
-  const directory = () => api.state.path.directory || process.cwd()
-
-  await withInstanceAsync({ directory: directory() }, async () => {
-    // Lazy: the scheduler pulls the full brain/provider chain, which must not
-    // be evaluated during TUI module load.
-    const { initBrainScheduler } = await import("@/brain/scheduler")
-    initBrainScheduler()
-  })
+  // The hourly scheduler is armed by the server at instance bootstrap. Starting
+  // it here tied a background job to whether a terminal was attached.
 
   api.keymap.registerLayer({
     commands: [

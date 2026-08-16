@@ -10,8 +10,8 @@ import {
   periodDelta,
   sampleForSparkline,
   weightedToolSuccess,
-} from "../../src/cli/cmd/tui/util/analytics-utils"
-import type { AggregatedStats, DayStats } from "../../src/cli/cmd/tui/util/analytics-aggregator"
+} from "@tui/util/analytics-utils"
+import type { AggregatedStats, DayStats } from "@tui/util/analytics-aggregator"
 
 // Minimal DayStats factory — the helpers under test only touch fields
 // referenced by the selector (default `d.tokens`).

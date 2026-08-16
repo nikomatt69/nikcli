@@ -1,22 +1,9 @@
-import { EventEmitter } from "events"
-
-export const GlobalBus = new EventEmitter<{
-  event: [
-    {
-      directory?: string
-      payload: any
-    },
-  ]
-}>()
-
 /**
- * Node's default cap is 10, and several routes attach one listener per
- * connection (`/sync/stream`, the mobile session lifecycle stream, the
- * workspace server). The eleventh concurrent client would emit a
- * `MaxListenersExceededWarning` that reads like a leak and is not one.
+ * Re-export: the bus itself is `@nikcli-ai/util/global-bus`.
  *
- * The cap is raised rather than removed: at 0 the warning is disabled and a
- * real leak becomes invisible. `/global/event` no longer contributes at all —
- * it multiplexes every client through a single listener, see `EventFeed`.
+ * It moved because the herdr and island bridges need it and they are terminal
+ * integrations, not server code — a single `EventEmitter` with no imports of
+ * its own was the only thing keeping them on this side of the boundary. Every
+ * backend caller keeps this path.
  */
-GlobalBus.setMaxListeners(200)
+export { GlobalBus } from "@nikcli-ai/util/global-bus"

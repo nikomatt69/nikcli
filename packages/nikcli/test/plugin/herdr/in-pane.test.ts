@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import * as bridge from "@/plugin/herdr/bridge"
+import * as bridge from "@nikcli-ai/util/herdr-bridge"
 import { GlobalBus } from "@/bus/global"
 
 const socketPath = path.join(os.homedir(), ".config", "herdr", "herdr.sock")

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { fileURLToPath } from "node:url"
+import { stripComments, tuiSource } from "./tui-source"
 
 /**
  * The session view renders tool calls from what the wire carries, not from the server's tool
@@ -13,11 +13,8 @@ import { fileURLToPath } from "node:url"
  * Mounting the view would drag in the whole TUI, so read the source instead (same trade as
  * `analytics-transport.test.ts`).
  */
-const root = fileURLToPath(new URL("../../src/cli/cmd/tui/", import.meta.url))
-
 async function code(file: string) {
-  const text = await Bun.file(root + file).text()
-  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+  return stripComments(await tuiSource(file))
 }
 
 describe("tool rendering seam", () => {

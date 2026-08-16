@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { createLatestOnlyAsync, isAbortError } from "../../../src/cli/cmd/tui/util/signal"
+import { createLatestOnlyAsync, isAbortError } from "@tui/util/signal"
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 

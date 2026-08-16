@@ -4,7 +4,7 @@ import {
   mergeWithHistorical,
   type HistoricalDailyData,
   type HistoricalGlobalData,
-} from "../../src/cli/cmd/tui/util/analytics-aggregator"
+} from "@tui/util/analytics-aggregator"
 
 // The analytics panel merges three payloads into one aggregate: the live sync
 // pass, GET /analytics/global and GET /analytics/daily. `tools` on the daily
