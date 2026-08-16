@@ -37,3 +37,5 @@ packages/bench-tui/bun.lock
 # Local reference checkouts (embedded git repos, used by the effect skill) —
 # must never be committed as gitlinks (breaks CI checkout: no .gitmodules URL).
 .opencode/references/effect-smol/
+.scratch/
+

@@ -55,7 +55,21 @@ export function SortableTab(props: { tab: string; onTabClose: (tab: string) => v
           hideCloseButton
           onMiddleClick={() => props.onTabClose(props.tab)}
         >
-          <Show when={path()}>{(p) => <FileVisual path={p()} />}</Show>
+          <Show
+            when={path()}
+            fallback={
+              <Show
+                when={props.tab === "browser" || props.tab.startsWith("browser://")}
+                fallback={<span class="text-14-medium truncate">{props.tab}</span>}
+              >
+                <div class="flex items-center gap-x-1.5 min-w-0">
+                  <span class="text-13-medium">🌐 Visual Editor</span>
+                </div>
+              </Show>
+            }
+          >
+            {(p) => <FileVisual path={p()} />}
+          </Show>
         </Tabs.Trigger>
       </div>
     </div>
