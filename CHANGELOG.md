@@ -3,6 +3,20 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.286.0 (August 2026)
+
+## Core
+
+- Add TUI package and enhance CLI functionality (@nikomatt69)
+- Add new build and development scripts (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(cli): add new build and development scripts
+  - feat(tui): add TUI package and enhance CLI functionality
+  - feat(tui): integrate TUI package into Docker and deployment scripts
+
 ## v1.285.0 (August 2026)
 
 ## Core

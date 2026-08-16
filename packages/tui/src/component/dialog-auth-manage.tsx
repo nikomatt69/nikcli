@@ -422,12 +422,7 @@ function ProfileActionRow(props: {
   )
 }
 
-async function updateDisplayName(
-  dialog: DialogContext,
-  sdk: UserApi.Sdk,
-  userId: string,
-  currentName: string | null,
-) {
+async function updateDisplayName(dialog: DialogContext, sdk: UserApi.Sdk, userId: string, currentName: string | null) {
   const value = await DialogPrompt.show(dialog, "Change Display Name", {
     placeholder: "Enter display name (leave empty to remove)",
     value: currentName ?? "",

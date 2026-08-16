@@ -1,10 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import {
-  cumulativeOffsets,
-  indexAtOffset,
-  visibleRange,
-  spacerHeights,
-} from "@tui/routes/session/message-window"
+import { cumulativeOffsets, indexAtOffset, visibleRange, spacerHeights } from "@tui/routes/session/message-window"
 
 describe("message-window", () => {
   it("cumulativeOffsets builds a running sum with a leading 0", () => {

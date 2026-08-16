@@ -15,20 +15,8 @@ import {
   sourceLabel,
   stepOpacity,
 } from "@tui/feature-plugins/background/settings"
-import {
-  bufferSize,
-  bufferStride,
-  compose,
-  placement,
-  prepare,
-  resample,
-} from "@tui/feature-plugins/background/pixels"
-import {
-  listDirectory,
-  listImages,
-  resolveSource,
-  shortenPath,
-} from "@tui/feature-plugins/background/source"
+import { bufferSize, bufferStride, compose, placement, prepare, resample } from "@tui/feature-plugins/background/pixels"
+import { listDirectory, listImages, resolveSource, shortenPath } from "@tui/feature-plugins/background/source"
 import { readSettings, writeSettings } from "@tui/feature-plugins/background/store"
 import { shouldUseRendererThread } from "@nikcli-ai/util/win32"
 

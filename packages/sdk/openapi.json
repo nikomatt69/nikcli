@@ -1124,6 +1124,207 @@
         ]
       }
     },
+    "/chatbot/bots": {
+      "get": {
+        "tags": ["chatbot"],
+        "operationId": "chatbot.bots",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatbotBot"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.chatbot.bots({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/chatbot/bots/{name}/start": {
+      "post": {
+        "tags": ["chatbot"],
+        "operationId": "chatbot.start",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "ChatbotStartResult",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatbotStartResult"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.chatbot.start({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/chatbot/bots/{name}/stop": {
+      "post": {
+        "tags": ["chatbot"],
+        "operationId": "chatbot.stop",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "ChatbotStopResult",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatbotStopResult"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.chatbot.stop({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/voice/transcribe": {
+      "post": {
+        "tags": ["voice"],
+        "operationId": "voice.transcribe",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "VoiceTranscribeResult",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceTranscribeResult"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceTranscribeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.voice.transcribe({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/profile": {
       "get": {
         "tags": ["profile"],
@@ -22069,6 +22270,95 @@
           }
         },
         "required": ["success", "sessionsReviewed", "hoursSinceLastBrain"],
+        "additionalProperties": false
+      },
+      "ChatbotBot": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "running": {
+            "type": "boolean"
+          },
+          "webhookPath": {
+            "type": "string"
+          }
+        },
+        "required": ["name", "type", "running", "webhookPath"],
+        "additionalProperties": false
+      },
+      "ChatbotStartResult": {
+        "type": "object",
+        "properties": {
+          "running": {
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["running"],
+        "additionalProperties": false
+      },
+      "ChatbotStopResult": {
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "boolean"
+          }
+        },
+        "required": ["removed"],
+        "additionalProperties": false
+      },
+      "VoiceTranscribeInput": {
+        "type": "object",
+        "properties": {
+          "audio": {
+            "type": "string"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["audio"],
+        "additionalProperties": false
+      },
+      "VoiceTranscribeResult": {
+        "type": "object",
+        "properties": {
+          "transcript": {
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["transcript"],
         "additionalProperties": false
       },
       "ProfileInfo": {
@@ -51586,6 +51876,12 @@
     },
     {
       "name": "brain"
+    },
+    {
+      "name": "chatbot"
+    },
+    {
+      "name": "voice"
     },
     {
       "name": "profile"

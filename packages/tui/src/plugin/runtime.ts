@@ -31,7 +31,11 @@ import {
   type PluginSource,
 } from "@nikcli-ai/util/plugin-shared"
 import { PluginMeta } from "@nikcli-ai/util/plugin-meta"
-import { installPlugin as installModulePlugin, patchPluginConfig, readPluginManifest } from "@nikcli-ai/util/plugin-install"
+import {
+  installPlugin as installModulePlugin,
+  patchPluginConfig,
+  readPluginManifest,
+} from "@nikcli-ai/util/plugin-install"
 import { addTheme, hasTheme } from "../context/theme"
 import { createKeymapApi } from "./keymap"
 import { Global } from "@nikcli-ai/util/global"

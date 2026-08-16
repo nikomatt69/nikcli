@@ -17,8 +17,7 @@ import type { PluginConfigInfo, PluginConfigSources, TuiPluginHost } from "@nikc
 installPluginInstaller()
 
 export const localPluginHost: TuiPluginHost = {
-  sources: (directory) =>
-    withInstanceAsync({ directory }, () => TuiConfig.sources()) as Promise<PluginConfigSources>,
+  sources: (directory) => withInstanceAsync({ directory }, () => TuiConfig.sources()) as Promise<PluginConfigSources>,
   get: (directory) => withInstanceAsync({ directory }, () => TuiConfig.get()) as Promise<PluginConfigInfo>,
   reload: (directory) => withInstanceAsync({ directory }, () => TuiConfig.reload()) as Promise<PluginConfigInfo>,
   waitForDependencies: (directory) => withInstanceAsync({ directory }, () => TuiConfig.waitForDependencies()),

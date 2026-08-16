@@ -1,13 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@nikcli-ai/tui",
-  "version": "1.285.0",
+  "version": "1.286.0",
   "private": true,
   "type": "module",
   "license": "MIT",
   "exports": {
     "./app": "./src/app.tsx",
-    "./*": ["./src/*.ts", "./src/*.tsx"]
+    "./*": [
+      "./src/*.ts",
+      "./src/*.tsx"
+    ]
   },
   "bin": {
     "nikcli-tui": "./bin/nikcli-tui.ts"

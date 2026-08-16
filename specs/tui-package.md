@@ -1,10 +1,10 @@
 # TUI Package Extraction
 
-| Field  | Value                                                                   |
-| ------ | ----------------------------------------------------------------------- |
+| Field  | Value                                                                                            |
+| ------ | ------------------------------------------------------------------------------------------------ |
 | Status | **Complete** 2026-08-14/16. `packages/tui` stands alone and has a second consumer that proves it |
-| Scope  | `packages/nikcli/src/cli/cmd/tui` → `packages/tui` (**done**)           |
-| Buys   | A TUI that builds, tests, and starts without the backend graph          |
+| Scope  | `packages/nikcli/src/cli/cmd/tui` → `packages/tui` (**done**)                                    |
+| Buys   | A TUI that builds, tests, and starts without the backend graph                                   |
 
 ## Goal
 
@@ -31,14 +31,14 @@ The SDK is the TUI's backend boundary. Missing data or operations get added to t
 
 Measured 2026-08-15, after sections 1–3:
 
-| Fact                        | Value                                                                                                                   |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Files                       | 256 `.ts`/`.tsx`                                                                                                        |
-| Lines                       | ~68,000                                                                                                                 |
-| Largest subtrees            | `component/` 75, `feature-plugins/` 47, `routes/` 40, `util/` 33, `context/` 26                                         |
-| Files already using the SDK | 73                                                                                                                      |
+| Fact                        | Value                                                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Files                       | 256 `.ts`/`.tsx`                                                                                       |
+| Lines                       | ~68,000                                                                                                |
+| Largest subtrees            | `component/` 75, `feature-plugins/` 47, `routes/` 40, `util/` 33, `context/` 26                        |
+| Files already using the SDK | 73                                                                                                     |
 | `@/` import statements      | **17 static, 0 dynamic** (was 240 static) — 12 in host files, 4 in `photon`, 1 deliberate in `app.tsx` |
-| Path alias                  | `@tui/*` → `./src/cli/cmd/tui/*` (already package-shaped)                                                               |
+| Path alias                  | `@tui/*` → `./src/cli/cmd/tui/*` (already package-shaped)                                              |
 
 The `@tui/*` alias is the good news: internal imports are already written as if the directory were a package root, so most files move without an edit.
 
@@ -48,11 +48,11 @@ There are **17 static `@/` import statements** left and no dynamic ones, and **n
 
 Section 3 is therefore complete: **the terminal no longer calls a backend service in-process anywhere.**
 
-| Remaining import                                     | Count | Why it stays                                                                                                    |
-| ---------------------------------------------------- | ----: | ----------------------------------------------------------------------------------------------------------------- |
-| `@/{cli,project,server,mobile,installation,bus,config,effect}` |    12 | `thread.ts`, `worker.ts` and `plugin/host-local.ts` — host files that stay in `packages/nikcli` (see the boundary). |
-| `@/image/photon`                                     |     4 | **Deliberate.** It primes the WASM path before the decoder's first `import()`; only a compiled binary can validate it. |
-| `@/config/tui` in `app.tsx`                          |     1 | **Deliberate.** The one config read that happens before any transport exists — see `GET /tui/config` below.         |
+| Remaining import                                               | Count | Why it stays                                                                                                           |
+| -------------------------------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------- |
+| `@/{cli,project,server,mobile,installation,bus,config,effect}` |    12 | `thread.ts`, `worker.ts` and `plugin/host-local.ts` — host files that stay in `packages/nikcli` (see the boundary).    |
+| `@/image/photon`                                               |     4 | **Deliberate.** It primes the WASM path before the decoder's first `import()`; only a compiled binary can validate it. |
+| `@/config/tui` in `app.tsx`                                    |     1 | **Deliberate.** The one config read that happens before any transport exists — see `GET /tui/config` below.            |
 
 **There are no `await import("@/…")` left.** There were four, and they mattered: lazy-loading a subsystem keeps it out of the startup graph, which is why they were written that way, but it decouples nothing and hides the dependency from exactly the measurement this document runs on. Keep counting both forms.
 
@@ -98,7 +98,7 @@ The write half landed the same day, and needed exactly one new route. Registrati
 
 `dialog-login.tsx` and `dialog-auth-manage.tsx` no longer import `@/user/users` at all. Three things fell out of routing them:
 
-- **The dialogs can no longer say *which* credential was wrong.** `/user/login` answers the same `Invalid credentials` for an unknown email and a bad password, so the two retry prompts collapsed into one. That is the route declining to confirm whether an address has an account here.
+- **The dialogs can no longer say _which_ credential was wrong.** `/user/login` answers the same `Invalid credentials` for an unknown email and a bad password, so the two retry prompts collapsed into one. That is the route declining to confirm whether an address has an account here.
 - **Registration now obeys policy it used to bypass.** `UserDB.create` ran whatever the dialog asked; the route refuses when OAuth is required, and once any account exists only an admin may add another.
 - **`useSDK()` is unreadable from `DialogLogin.run`.** It runs from an async continuation, where Solid's owner is gone and `useContext` returns undefined — so the transport is a parameter, passed by the caller that still holds the context. Any dialog entry point reached through `await` has the same constraint.
 
@@ -110,7 +110,7 @@ Landed 2026-08-15. Three raw handlers — `GET /account`, `POST /account/login`,
 
 **The poll became one blocking request.** `complete` waits for the browser approval server-side and hands back the issuer session. Its `onPending` callback had no wire form and needed none: it only rewrote a status line that says the same thing for every unfinished poll, so the dialog sets it once before waiting. Escape aborts the request through the caller's own `AbortSignal` — which is why `send` takes one instead of always imposing its 30s timeout.
 
-**It deliberately does not mint a local session.** The access token *is* the bearer, and `server/identity-auth.ts` provisions the local user from it on the first authenticated request; issuing an `nku_` session here as well would create a second identity for the same person. The terminal stores the token and asks `GET /user/me` — which is also why `ensureExternalUser` never needed a route.
+**It deliberately does not mint a local session.** The access token _is_ the bearer, and `server/identity-auth.ts` provisions the local user from it on the first authenticated request; issuing an `nku_` session here as well would create a second identity for the same person. The terminal stores the token and asks `GET /user/me` — which is also why `ensureExternalUser` never needed a route.
 
 **`GET /account` answers `null`, not 401, without a bearer.** "Who is signed in" and "nobody is" are the same answer to a dialog, and the terminal asks on mount, before any sign-in. The bearer check exists at all because the route carries an email address and the server can be listening on a port — in process there was nothing to ask.
 
@@ -146,7 +146,7 @@ This is the same shape as the TTS split, and the second time it has paid: **a mo
 
 ### Voice: move the call, not the key
 
-The prompt composer resolved the OpenRouter API key from `auth.json` and `nikcli.json` and posted the recorded WAV to OpenRouter itself — about 200 lines, two endpoint shapes and a 402 special case, all of it needing `Auth` and the Effect runtime *in the terminal*.
+The prompt composer resolved the OpenRouter API key from `auth.json` and `nikcli.json` and posted the recorded WAV to OpenRouter itself — about 200 lines, two endpoint shapes and a 402 special case, all of it needing `Auth` and the Effect runtime _in the terminal_.
 
 The obvious translation is a route that hands the key to the client. That is not a translation: it turns a file only the local user can read into something any authenticated caller can fetch. **Recording is a device concern and stays in the terminal; the credential is not, so the call moved instead.** `POST /voice/transcribe` takes base64 audio and returns a transcript, and `src/voice/transcribe.ts` owns both endpoint shapes. The composer is 25 lines: read the file, send bytes, read a string.
 
@@ -154,7 +154,7 @@ The route reports failure in the body rather than as an HTTP error, because ever
 
 ### Plugin lifecycle: three moves and one inversion
 
-The last chunk was `plugin/runtime.ts` — five backend imports for a file whose whole job is loading plugins into the terminal. Splitting it needed both tools, and which one applied was decided by *what the dependency actually was*, not by where the file sat.
+The last chunk was `plugin/runtime.ts` — five backend imports for a file whose whole job is loading plugins into the terminal. Splitting it needed both tools, and which one applied was decided by _what the dependency actually was_, not by where the file sat.
 
 **Three moves.** `plugin/shared.ts`, `plugin/meta.ts` and `plugin/install.ts` are path work, manifest parsing and JSONC patching — 732 lines, and between them exactly two backend touch points: one line calling `BunProc.install`, and `ConfigPaths.fileInDirectory`, which is two `path.join`s. The installer is now a `configurePluginInstaller` hook that `src/plugin/shared.ts` sets on import (so every backend caller keeps both its path and its behaviour), the filename pair became `@nikcli-ai/util/config-file` with `ConfigPaths` delegating to it, and all three modules live in `@nikcli-ai/util`. `packages/util` gained `jsonc-parser` and `semver`.
 
@@ -305,21 +305,21 @@ Still open beyond that: `@/effect` (11) is bound to `Instance` and goes with the
 It was not only a `git mv`. What the move actually cost, in the order it surfaced:
 
 - **`exports` needs both extensions.** `"./*": "./src/*.ts"` cannot reach `context/sdk.tsx`. The fallback-array form works: `"./*": ["./src/*.ts", "./src/*.tsx"]`.
-- **The last five `@/` imports had to go, not be aliased.** Aliasing `packages/tui` back at `packages/nikcli` is the one thing the migration rules forbid, so `app.tsx`'s deliberate local config read became a `tuiConfig` prop that `thread.ts` and `attach.ts` fill — which is *better* placed than before, since the read has to happen before any transport exists and the host is who can do it — and `photon` moved to `@nikcli-ai/util/photon`, where the server's `image.ts` also uses it.
+- **The last five `@/` imports had to go, not be aliased.** Aliasing `packages/tui` back at `packages/nikcli` is the one thing the migration rules forbid, so `app.tsx`'s deliberate local config read became a `tuiConfig` prop that `thread.ts` and `attach.ts` fill — which is _better_ placed than before, since the read has to happen before any transport exists and the host is who can do it — and `photon` moved to `@nikcli-ai/util/photon`, where the server's `image.ts` also uses it.
 - **Ambient declarations do not travel through a package boundary.** `photon` imports a `.wasm` asset, so every program compiling it needs `wasm.d.ts` in its own include set: `packages/tui` and `packages/util` each got a copy.
 - **Two non-source assets moved with it.** `parsers-config.ts` (tree-sitter highlight config, TUI-only) sat at the `packages/nikcli` root behind a six-level relative import.
-- **The test paths were already prepared** — `TUI_SRC` was a one-line edit, exactly as intended — but four tests *outside* `test/tui/` still spelled `packages/nikcli/src/cli/cmd/tui/app.tsx` and failed loudly with ENOENT, which is the good failure. One assertion had to change meaning: `cli-commands-benchmark-suite` checked every module specifier contained `/cli/`, which is no longer what a TUI module looks like.
+- **The test paths were already prepared** — `TUI_SRC` was a one-line edit, exactly as intended — but four tests _outside_ `test/tui/` still spelled `packages/nikcli/src/cli/cmd/tui/app.tsx` and failed loudly with ENOENT, which is the good failure. One assertion had to change meaning: `cli-commands-benchmark-suite` checked every module specifier contained `/cli/`, which is no longer what a TUI module looks like.
 
 **Verified:** `bun run typecheck` (34 packages, 0 errors), `packages/tui` typechecking with no path to `packages/nikcli`, `bun test` at its two-failure baseline, a real `--single` build, and `bun run smoke:tui` — the compiled binary booting the real TUI in a PTY and painting 6,641 characters. `--version` and `--help` prove nothing here; only the smoke does.
 
 **Startup did not regress**, which this section had no way to check until now. `bun run bench:startup <binary>` spawns the real binary in a PTY and stops the clock at the first frame carrying printable text; all runs share one `NIKCLI_TEST_HOME` and the first is discarded, because a fresh home pays for migrations and config bootstrap — real costs, but not ones a packaging change moves.
 
-| Binary                                | Warm, best of 3 |
-| ------------------------------------- | --------------: |
-| Released 1.285.0 (pre-move)           |  6110 / 6099 ms |
-| This build (post-move)                |  6181 / 6068 ms |
+| Binary                      | Warm, best of 3 |
+| --------------------------- | --------------: |
+| Released 1.285.0 (pre-move) |  6110 / 6099 ms |
+| This build (post-move)      |  6181 / 6068 ms |
 
-Two interleaved pairs, because one series each proves nothing about ordering. The spread within a series (6068–6248 ms) is larger than the difference between them. The baseline is the *installed release binary* rather than a rebuild of the old tree — that is what makes the comparison possible without checking out over uncommitted work, and it is the honest label for it.
+Two interleaved pairs, because one series each proves nothing about ordering. The spread within a series (6068–6248 ms) is larger than the difference between them. The baseline is the _installed release binary_ rather than a rebuild of the old tree — that is what makes the comparison possible without checking out over uncommitted work, and it is the honest label for it.
 
 A fresh home costs 7.3–11.0 s to first paint, against 6.1 s warm. Migrations and config bootstrap are most of a first run, and no packaging change will move that number.
 
@@ -331,24 +331,24 @@ One path stays hardcoded on purpose: `./src/cli/cmd/tui/worker.ts` in `script/bu
 
 **5. Delete the compatibility re-exports.** Landed 2026-08-16. `src/bus/global.ts`, `src/plugin/shared.ts` and the four `UserDB.{get,save,clear}ActiveSession*` aliases are gone, along with the three older ones (`FUSION_*` from `provider/transform`, `BRAIN_SESSION_TITLE` from `brain/index`, `HerdrBridge` from `plugin/herdr/index`) and `OPENROUTER_VOICES_LIST` from the speak tool. Callers import the shared package directly.
 
-**One of them was doing real work, not just forwarding.** `src/plugin/shared.ts` also *configured* the installer hook as a side effect of being imported — so whether the terminal could install a plugin depended on some module further down its import graph having pulled that file in first. It happened to work because `thread.ts` reaches `@/config/tui`, which imported it. That is luck, not design. The wiring is now `src/plugin/installer.ts` with one exported function, called explicitly by the two entry points that can install: `cli-main.ts` and `plugin/host-local.ts`.
+**One of them was doing real work, not just forwarding.** `src/plugin/shared.ts` also _configured_ the installer hook as a side effect of being imported — so whether the terminal could install a plugin depended on some module further down its import graph having pulled that file in first. It happened to work because `thread.ts` reaches `@/config/tui`, which imported it. That is luck, not design. The wiring is now `src/plugin/installer.ts` with one exported function, called explicitly by the two entry points that can install: `cli-main.ts` and `plugin/host-local.ts`.
 
-A re-export that has a side effect is not a compatibility shim — deleting it silently removes behaviour. Check what each one *does* before treating it as forwarding.
+A re-export that has a side effect is not a compatibility shim — deleting it silently removes behaviour. Check what each one _does_ before treating it as forwarding.
 
 **6. Add the second consumer.** Landed 2026-08-16 — as an executable check rather than a product surface.
 
-`packages/desktop` was the obvious candidate and is the wrong one: it is a Tauri webview app, and the TUI renders through `@opentui/solid` to a terminal. (`@opentui/webrenderer` does not bridge that gap — it is a *webview inside the TUI*, the opposite direction.) Rendering the terminal in the desktop is a product feature, not a packaging check, and section 6 exists for the packaging check.
+`packages/desktop` was the obvious candidate and is the wrong one: it is a Tauri webview app, and the TUI renders through `@opentui/solid` to a terminal. (`@opentui/webrenderer` does not bridge that gap — it is a _webview inside the TUI_, the opposite direction.) Rendering the terminal in the desktop is a product feature, not a packaging check, and section 6 exists for the packaging check.
 
 So the second consumer is `packages/tui/bin/nikcli-tui.ts` → `src/host/standalone.ts`: the real terminal, attached to a nikcli server it did not start, importing `@nikcli-ai/tui` and the SDK and **nothing** from `packages/nikcli`. That boundary is structural — `packages/tui/package.json` has no dependency on `nikcli-ai` — so if a backend chain creeps back in, this host stops building while the CLI's own entry points keep working, because they carry the backend anyway.
 
 Two things it does without, both honest limits rather than stubs:
 
-- **No external plugins.** The plugin runtime needs the config *surface* — which files to watch, when a dependency install finished — and that is local filesystem work belonging to whoever owns the project. A client attached to someone else's server has no such surface, so `remotePluginHost` reports none and only internal plugins load.
-- **No local config read.** `tui()` takes the renderer config as a prop because it is needed before any transport exists; here the transport is a server that is *already listening*, so the host simply asks it.
+- **No external plugins.** The plugin runtime needs the config _surface_ — which files to watch, when a dependency install finished — and that is local filesystem work belonging to whoever owns the project. A client attached to someone else's server has no such surface, so `remotePluginHost` reports none and only internal plugins load.
+- **No local config read.** `tui()` takes the renderer config as a prop because it is needed before any transport exists; here the transport is a server that is _already listening_, so the host simply asks it.
 
 **Verified** by `bun run smoke:standalone <url>` against a real `nikcli serve`: 580 printable characters painted. Two failures on the way there are worth keeping:
 
-- `bun run <file>` resolves its argument as a *script name* first and prints the script list instead of executing the file. The harness spawns `bun <file>`.
+- `bun run <file>` resolves its argument as a _script name_ first and prints the script list instead of executing the file. The harness spawns `bun <file>`.
 - Bun reads `jsxImportSource` from the nearest tsconfig **to the cwd**, not to the entry file. Started from a scratch directory, JSX fell back to `react/jsx-dev-runtime` and the app could not load — a failure that looks like a missing dependency and is not one. A consumer runs from its own package root; the CLI does the equivalent explicitly, by passing `tsconfig` and the Solid plugin to `Bun.build`.
 
 **Deployment**: `packages/tui` is a build-time dependency of the nikcli binary, so `Dockerfile`, `Dockerfile.serve` and `script/railway-deploy.sh` each copy it twice — once as a manifest for the `bun install` layer, once as source. It cannot be one of the stubbed workspace entries in `Dockerfile.serve`: `thread.ts` imports `@nikcli-ai/tui/app` and the build bundles it.

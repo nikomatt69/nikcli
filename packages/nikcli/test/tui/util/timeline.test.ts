@@ -1,9 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import {
-  formatMessageLineForTimeline,
-  truncateOneLine,
-  lastUserMessageLine,
-} from "@tui/util/timeline-style-text"
+import { formatMessageLineForTimeline, truncateOneLine, lastUserMessageLine } from "@tui/util/timeline-style-text"
 import { recordBenchmark } from "../../benchmarks/runner"
 
 describe("formatMessageLineForTimeline", () => {

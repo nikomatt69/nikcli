@@ -21,7 +21,13 @@ import { CodexAuthPlugin } from "./codex"
 import { CopilotAuthPlugin } from "./github-copilot/copilot"
 import { XAIAuthPlugin } from "./xai"
 import { CursorAuthPlugin } from "./cursor"
-import { readV1Plugin, readPluginId, resolvePluginId, pluginSource, isDeprecatedPlugin } from "@nikcli-ai/util/plugin-shared"
+import {
+  readV1Plugin,
+  readPluginId,
+  resolvePluginId,
+  pluginSource,
+  isDeprecatedPlugin,
+} from "@nikcli-ai/util/plugin-shared"
 import type { PluginModule } from "@nikcli-ai/plugin"
 import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cloudflare"
 import { HerdrPlugin } from "./herdr"
