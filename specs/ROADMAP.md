@@ -2,11 +2,13 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-14**.
+Last reconciled against the source: **2026-08-16**.
 
-This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, …) so a document never has to restate the plan.
+This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
 An item is only here if the evidence for it is in the repository today. Nothing on this list is speculative product work.
+
+The previous plan closed one durability model, one HTTP surface, and one TUI package. Those **seams** now exist. The next plan deepens the HttpApi **module** — it is the **interface** every remaining adapter (TUI, SDK, mobile, standalone host) already crosses. A shallow field on that interface (`Schema.Unknown` → generated `any`, a path spelled in four files, a hand-copied namespaced client) leaks to every caller.
 
 ---
 
@@ -21,6 +23,18 @@ An item is only here if the evidence for it is in the repository today. Nothing 
 
 Horizons are ordering, not dates. An item moves up when its dependency lands, not when someone has time.
 
+| ID | Horizon | Item |
+| -- | ------- | ---- |
+| **H1** | Now | Close unjustified `Schema.Unknown` on the HttpApi contract |
+| **H2** | Now | One instance-less path module (`/user`, `/global`, `/account`) |
+| **E3** | Contract | Public event filter (spec before code) |
+| **H3** | Later | Generate the SDK namespaced view (`compat.ts`) |
+| **I1** | Later | Reconcile Identifier (`util/id` vs `util/identifier`) |
+| **T3** | Later | Output codecs on structured built-ins |
+| **H4** | Later | Close contract-only strangler leftovers |
+| **S4r** | Later | Import / teleport / run write through SessionV2 |
+| **X2** | Later | Delete adapters with no production callers |
+
 ---
 
 ## Review landed work
@@ -28,7 +42,7 @@ Horizons are ordering, not dates. An item moves up when its dependency lands, no
 State the wins, so nobody re-plans them:
 
 - **One database.** `nikcli.db` with a journaled TypeScript migration chain, WAL, `foreign_keys=ON`, `mmap_size=0`. `bun:sqlite` is opened in exactly one place. Sessions, messages, parts, todos, permissions, and sync events are SQL. See [storage/nikcli-sql-drizzle-adoption.md](./storage/nikcli-sql-drizzle-adoption.md).
-- **One HTTP surface.** ~286 Effect `HttpApi` endpoints; Hono and the experimental flag are gone from `src`. Clients are generated from the contract by `packages/httpapi-codegen`.
+- **One HTTP surface.** Effect `HttpApi` endpoints; Hono and the experimental flag are gone from `src`. Clients are generated from the contract by `packages/httpapi-codegen`.
 - **One event log.** `sync_event` carries both session and workspace aggregates, with snapshots for cold start and an outbox for remote push. The parallel `session_v2_event` and `workspace.events` logs were dropped.
 - **Entry read model.** `session_entry` with ids whose lexicographic order _is_ conversation order. See [v2/session.md](./v2/session.md).
 - **Instance hot reload.** Config-surface watching with scoped, announced cache invalidation, and an explicit narrow `Provider.refresh()`. See [v2/catalog-config-plugin-lifecycle.md](./v2/catalog-config-plugin-lifecycle.md).
@@ -62,28 +76,61 @@ State the wins, so nobody re-plans them:
   | `user-profile.md`                          | Live as `src/profile/profile.ts` + Brain habits. Restore only as a rewrite against that module.             |
   | `opentui-0.4-upgrade.md`                   | Finished 2026-08-01. The two-copy `@opentui/core` bug is historical.                                        |
 
-- **One encode per event** (was E1, landed 2026-08-14). `EventFeed` fans both SSE routes out from a single encoded frame, with a per-connection lag budget carried by the stream's own queuing strategy. A stalled reader is evicted with a stated reason instead of growing an unbounded internal queue; `/global/event` went from one `GlobalBus` listener per client to one total. Both wire shapes unchanged. See [v2/event-stream-architecture.md](./v2/event-stream-architecture.md).
+- **One encode per event** (was E1, landed 2026-08-14). `EventFeed` fans both SSE routes out from a single encoded frame, with a per-connection lag budget carried by the stream's own queuing strategy. A stalled reader is evicted with a stated reason instead of growing an unbounded internal queue; `/global/event` went from one `GlobalBus` listener per client to one total. Both wire shapes unchanged. The proposal's "public filter" stage was not built — that is E3 below, and it is a wire change. See [v2/event-stream-architecture.md](./v2/event-stream-architecture.md).
 - **Session-owned errors** (was D1, landed 2026-08-14). `src/session/error.ts` declares `SessionNotFoundError` and `SessionIOError`; `Session.Error` no longer borrows from `Storage`. The HTTP wire is unchanged — boundaries emit the literal `"NotFoundError"` rather than forwarding `_tag`, which also fixes two sites that produced the tag by coincidence. See [storage/remove-json-storage.md](./storage/remove-json-storage.md) step 1.
-- **Tool output schemas** (was T2, landed 2026-08-14). A tool may declare an `output` zod codec; the wrapper parses `result.value` after execute and rejects a malformed success for that call only. Code Mode receives `Tool.encoded(result, codec)` — the validated value when a codec exists, otherwise the model-facing string. Truncation still bounds only `output`. Tools without a codec are unchanged. See [v2/tools.md](./v2/tools.md) §"One Response Value, Not Three".
+- **Tool output schemas** (was T2, landed 2026-08-14). A tool may declare an `output` zod codec; the wrapper parses `result.value` after execute and rejects a malformed success for that call only. Code Mode receives `Tool.encoded(result, codec)` — the validated value when a codec exists, otherwise the model-facing string. Truncation still bounds only `output`. Tools without a codec are unchanged. Built-ins are not required to declare a codec. See [v2/tools.md](./v2/tools.md) §"One Response Value, Not Three".
 - **Provider policy** (was P1, landed 2026-08-14). `Policy` centrally evaluates `experimental.policies` with full or trailing-prefix wildcards and ordered last-match-wins. Legacy enabled/disabled fields translate with their old precedence; the provider catalog, HTTP provider list, CLI auth picker, and session auth picker consume the evaluator, while TUI disconnect writes deny statements. Unit tests cover matching, translation, overrides, filtering, and schema validation; HTTP integration covers legacy allowlist filtering. See [v2/provider-policy.md](./v2/provider-policy.md).
 - **Scoped tool registration** (was T1, landed 2026-08-14). `ToolRegistry.register` returns a handle whose `close` removes exactly that stack entry and reveals the next-latest occupant of the id. Config-dir and plugin tools live in a reloadable derived cache; runtime registrations live in a separate non-reloadable cache, so a hot reload cannot drop sdk-next tools. See [v2/tools.md](./v2/tools.md) §"Registration Is An Overlay Stack".
 - **Durable pending input** (was S1, landed 2026-08-14). Busy input lives in `session_pending` until atomic batched promotion, outside transcript history. The TUI restores queued message cards with `press ctrl-enter to send`: Enter queues, Ctrl/Cmd+Enter with text steers the new input, and the same shortcut with an empty composer changes the oldest queued card to steering until promotion. Canonical retry identity, targeted waiters, safe compaction boundaries, cancellation, and graceful restart remain intact without claiming hard-crash recovery or clustered ownership. See [v2/durable-pending-input.md](./v2/durable-pending-input.md).
 - **Instruction sync** (was S3, landed 2026-08-14). Request assembly admits a `session.instructions.updated` delta of content hashes, stores bodies once in `instruction_blob`, and renders the system prefix from the fold. A failed later read keeps the last stored value. Successful compaction moves the epoch without re-reading sources. TUI and desktop show changed keys from the delta (not prose or hashes). See [v2/instruction-sync-proposal.md](./v2/instruction-sync-proposal.md).
 - **V2 write path** (S4, 2026-08-14). Entries persist first; v1 is `toV1*` of those rows; HTTP create/prompt share `SessionV2`. `prompt_data` stays on `message_info`. `SessionPrompt.loop` still runs the step engine. See [v2/session-v2-write-path.md](./v2/session-v2-write-path.md).
+- **TUI package extracted** (was U1, landed 2026-08-16). `packages/tui` (`@nikcli-ai/tui`) holds the terminal. `packages/nikcli/src/cli/cmd/tui/` keeps four host files — `thread.ts`, `worker.ts`, `attach.ts`, `plugin/host-local.ts` — so the literal `./src/cli/cmd/tui/worker.ts` in the build scripts stays correct. `packages/tui` has no `@/` import and no `nikcli-ai` dependency; its tsconfig does not reference `packages/nikcli`. The second consumer is `packages/tui/bin/nikcli-tui.ts` → `src/host/standalone.ts`, which attaches to a server it did not start. Compatibility re-exports that only forwarded are gone; the installer hook is wired explicitly. See [tui-package.md](./tui-package.md).
 
 ---
 
 ## Finish current work
 
-### Extract the TUI package (U1) — sections 1–3 in progress
+### Close unjustified `Schema.Unknown` (H1)
 
-- **Buys** — A TUI that builds, tests, and starts without the backend module graph, and a second host (desktop) that shares one implementation.
-- **Evidence** — 257 files and ~68k lines under `src/cli/cmd/tui`, with **46 static + 5 dynamic** `@/` imports (down from 240 static) — and 11 of the static ones are in `thread.ts`/`worker.ts`, which are host files, not UI. Nothing in `packages/nikcli` imports back into the TUI except `cli-main.ts` registering its two commands. The `@tui/*` alias already resolves as if it were a package root.
-- **Landed** — Sections 1–3 removed 175 of the original 240. Section 1: `packages/util` took `effect` and `xdg-basedir`, and `@/util/*`, `@/global`, `@/flag` and `@/id` left the TUI entirely. Section 2: tool `input`/`metadata` types come from `@tui/util/tool-shapes` rather than 17 backend tool modules. Section 3: everything that was only ever TUI code or contract data — `lsp/language`, `provider/parse`, `support-docs`, `prompt-blob`, `session/primitives`, `config/features`, `Installation.VERSION`, the viz catalog, the TTS registry, `interaction/spec`, `win32` — plus loop, snapshot and mobile shapes now taken from the generated SDK. **All five backend→TUI cycles are closed**, including an orphaned copy of the toast component in `session/` that nothing imported.
-- **Next** — Section 3's server-start inversion turned out to already exist: `tui()` takes its transport and host operations as props, and `thread.ts`/`worker.ts` stay put and are excluded from the section 4 move. Three services have moved (`/tui/config`, connectors, mobile tokens); the pattern per service is: check whether the route already exists, declare it if not, run `generate:httpapi-clients`, move the call site, then **curl the route against a real server** — the encoder rejects any response it cannot validate, and that failure looks like empty data, not an error. What is left is more of the same: **the terminal calling backend services in-process** — `@/effect` (11) carrying calls into `UserDB`, `Account`, `Profile`, `Skill`, `Connectors`, `Brain`, plugin install and `TuiConfig.get()`, plus twelve lazily-imported subsystems. Each needs an HttpApi endpoint and a call site the SDK can reach, and each changes runtime behavior, so they land one at a time with the matching dialog exercised. `@/image/photon` (4) is deliberately excluded: it resolves a wasm asset path that only the compiled binary can validate.
-- **Done when** — `packages/tui` typechecks with `packages/nikcli` out of its references; no import resolves into `packages/nikcli`; the TUI starts from the installer binary; warm startup does not regress.
-- **Verified at each step** — `bun run typecheck` (33 packages), `bun test`, and for anything the bundler touches, a real `--single` build plus running the binary. The suite's baseline is two failures, `profile command` and `EditTool`; benchmark suites add more under load and pass in isolation.
-- **Spec** — [tui-package.md](./tui-package.md)
+- **Buys** — Generated clients stop seeing `any` on bodies the server already validates. Effect handlers start rejecting a malformed loop/mission/profile write instead of casting it. One definition per object, the rule `packages/nikcli/AGENTS.md` already states.
+- **Evidence** — The contract is now the TUI/SDK/mobile **interface**. `Schema.Unknown` on `success` or a domain object compiles to `any` (`packages/sdk/js/src/httpapi/generated/types.ts`). Measured 2026-08-16:
+
+  ```
+  MobileProject = any
+  SessionV2EntryList = Array<any>
+  SessionV2State = any
+  SessionV2EventList = Array<any>
+  WorkspaceJournalEvent = any
+  MobileGithubReposOutput = Array<any>
+  MobileSessionStreamOutput = any
+  SyncStreamOutput = any
+  ShareShortOutput = any
+  ```
+
+  The last four plus the three SessionV2 names are the open-payload cases listed in [README.md](./README.md) (polymorphic entries, SSE frames, bodyless redirects). The rest already have a source the contract is not using:
+
+  | Contract name                         | Source already in tree                                                                                          | What the handler does today                                      |
+  | ------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+  | `LoopCreateInput` / `LoopUpdateInput` | `Domain.LoopDefinition` in `httpapi/domain.ts`; zod `LoopDefinitionSchema` in `loop/schema.ts`                  | `payload as Omit<LoopDefinition, "id" \| "createdAt">`           |
+  | `MissionCreateInput` / `Update`       | `MissionDefinitionSchema.omit({ id, createdAt, status })` already bound as `CreateInputZod` in `httpapi/mission.ts` | Contract is `Schema.Unknown`; zod parse is a side path           |
+  | `MobileProject`                       | `Project.Info.extend({ current: z.boolean() })` in `server/mobile/helpers.ts`                                   | `httpapi/mobile.ts` annotates `Schema.Unknown`                   |
+  | `ProfilePatchInput`                   | `Profile.InfoSchema` / `Profile.Input` in `profile/profile.ts`                                                  | `Schema.Record(Schema.String, Schema.Unknown)`                   |
+  | Mobile config / parts / loop bodies   | `fromZod(Config.Info)` in `httpapi/config.ts`; `MessageV2.PartSchema`; `Domain.LoopDefinition`                  | Still `Schema.Unknown` / open records in `httpapi/mobile.ts`     |
+
+  Analytics already shows the intended shape: real Effect structs, with a comment that a drift fails the request. Loop/mission create is the opposite: the **interface** is open, so the **implementation** cannot enforce what it already knows.
+
+- **Blocks** — Typed mobile/SDK callers; any new field on those objects; trusting the encoder on write routes.
+- **Done when** — The measure command in [README.md](./README.md) lists only the justified open payloads (SSE, polymorphic `session_entry` / sync frames, bodyless redirects, genuine upstream passthrough). Loop and mission create/update reuse `Domain.*` (create = definition minus server-assigned fields). `MobileProject` is `fromZod` of the helper. Profile patch is the editable half of `Profile.InfoSchema`. Mobile payloads that already have a zod or Effect source reuse it. `bun run generate:httpapi-clients` and `bun run check:routes` pass. Land one group at a time; curl the write route against a real server — the encoder rejects `undefined` as empty data, not as an error.
+- **Keep `Unknown`** — `SessionV2` entry/state/event lists (`SessionEntry.Entry` grows without a contract bump; that is the open-payload exception). SSE (`/event`, `/sync/stream`, mobile session stream). Share short-links. GitHub repo list: type the `imported*` wrapper fields; the upstream repo body may stay open. Do not pin `SessionEntry.Entry` through `fromZod` as part of this item.
+- **Spec** — [README.md](./README.md) §Open payloads; `packages/nikcli/AGENTS.md` §Schema rules.
+
+### One instance-less path module (H2)
+
+- **Buys** — Adding an instance-less route is one edit. A bare path cannot fall into the instance branch and 404 as "no account".
+- **Evidence** — [tui-package.md](./tui-package.md) records the failure: `startsWith("/account/")` sends `GET /account` down the instance branch. `isAccountPath` exists in `httpapi/account-path.ts` and the four sites import it, but `/user/` and `/global/` are still spelled out in all four — `httpapi/bridge.ts`, `server/public.ts`, `server/server-router.ts`, `server/server.ts`. They have to agree; nothing checks that they do.
+- **Blocks** — Any new instance-less group (the next `/account`).
+- **Done when** — One predicate (or a small table) covers `/user`, `/global`, and `/account`, including the bare-path case. The four sites call it and do not mention those prefixes. A test fails if a listed path is served as instance-scoped. No HTTP wire change.
+- **Depends on** — nothing. Can land beside H1.
 
 ---
 
@@ -91,13 +138,60 @@ State the wins, so nobody re-plans them:
 
 Contracts. These change what the system promises, so each needs its spec landed before its code.
 
-Empty. S4's write-path spec is [v2/session-v2-write-path.md](./v2/session-v2-write-path.md). U1 is structural.
+### Public event filter (E3)
+
+- **Buys** — Internal bus events stop crossing the public SSE **seam**. A stalled or curious client cannot observe process-local noise.
+- **Evidence** — [v2/event-stream-architecture.md](./v2/event-stream-architecture.md) §"Not implemented: public filtering": nothing marks a bus event as internal today; every event that reached a client before E1 still does. Adding a filter is a wire change.
+- **Blocks** — Nothing in current work. Do not implement a filter without this spec.
+- **Done when** — A short spec names which event types are internal, what a filtered-out event looks like on the wire (absent vs. typed), and that both `/event` and `/global/event` envelopes stay distinct. Then a code item can move up.
 
 ---
 
 ## Plan later structure
 
-Empty. U1 moved up to current work when its first section landed.
+These are evidenced leftovers, not product ideas. They wait because a smaller item in current work already covers the same **seam**, or because the leftover is one adapter.
+
+### Generate the SDK namespaced view (H3)
+
+- **Buys** — Adding a declared HttpApi group cannot ship a client that typechecks and 404s at `api.client.<group>`.
+- **Evidence** — `packages/sdk/js/src/httpapi/compat.ts` is "maintained by hand" (its own header). [tui-package.md](./tui-package.md) paid an hour for this: codegen produced the raw and Effect clients; `api.client.chatbot` did not exist until the group was added to the namespaced view by hand. The remapping (`app.agents` → `raw["top-level"].agent`) **is** the caller **interface**; deleting `compat.ts` would reappear as edits across the TUI.
+- **Depends on** — H1 (do not generate `any` into the namespaced view).
+- **Done when** — Codegen emits the namespaced view from a declared map next to `PublicApi`. Adding a group without updating that map fails `packages/sdk` typecheck. Existing call sites do not change names.
+
+### Reconcile Identifier (I1)
+
+- **Buys** — One id **module**. A caller cannot import the unprefixed generator and persist a row the prefixed schema will reject.
+- **Evidence** — [tui-package.md](./tui-package.md) §1 left this open: `packages/util/src/identifier.ts` and the nikcli prefixed id were two implementations of the same idea. The prefixed one moved to `@nikcli-ai/util/id` (every `packages/nikcli` and `packages/tui` import). `@nikcli-ai/util/identifier` remains — unprefixed `ascending()` / `descending()`, used only by `packages/enterprise/src/core/share.ts` and its test. **Deletion test:** removing `identifier.ts` concentrates the prefix/schema rules in `id.ts`; the enterprise adapter has to take a prefix.
+- **Depends on** — nothing. Later because the only leftover adapter is enterprise.
+- **Done when** — One export. Enterprise compiles against it. `packages/util/src/identifier.ts` is gone or is a deprecated alias that does not generate unprefixed ids. Same pass may delete the `@deprecated` `@/computer/sandbox` and `sandbox-image` re-exports of `@nikcli-ai/computer-use`.
+
+### Output codecs on structured built-ins (T3)
+
+- **Buys** — Code Mode and any machine consumer get a validated `value` from tools that already return JSON in `output`.
+- **Evidence** — T2 landed the wrapper; built-ins are not required to use it ([v2/tools.md](./v2/tools.md)). No built-in in `src/tool/*.ts` declares an `output` codec. `browser-control` and `todo` already `JSON.stringify` structured results into the model-facing string.
+- **Depends on** — nothing. Later because T2 called this additive; do not add a CI rule that every tool must have a codec.
+- **Done when** — Tools that already emit JSON declare a codec and return `value`. Model-facing `output` stays a string. A malformed `value` fails that call only. Tools that emit prose are unchanged.
+
+### Close the contract-only strangler leftovers (H4)
+
+- **Buys** — One live dispatcher for JSON contract-only routes. `check:routes` cannot miss a served path. `/account` gets the same generation contract `/user` already has.
+- **Evidence** — `PublicApi` adds eight contract-only groups. Live serving is a second pathname stack (`PublicRoutes` / `extra.ts` / `HttpApiPrompt`). `ContractExtraHttpApi.HandlersLive` is an Effect copy of those routes; the only importer of `contract-extra.ts` is `public.ts`, and it adds the groups, not `HandlersLive`. `SessionHttpApi.HandlersLive` is also unreferenced (`public.ts` re-lists the same `.handle` names). `/user/*` is on `UsersGroup`; `/account`, `/account/login`, and `/account/login/complete` are not on `PublicApi`. `GET /config/profiles` is served from `extra.ts` and is absent from `rawRouteImplementations` (the POSTs are listed).
+- **Depends on** — H2 if a new instance-less group is added for `/account`.
+- **Done when** — `HandlersLive` in `contract-extra.ts` is deleted or is the single live adapter. `GET /config/profiles` is in `inventory.ts`. `/account` is on `PublicApi` the way `/user` is. `bun run check:routes --strict` is clean. SSE, prompt streaming, and websocket upgrades stay raw (see non-goals).
+
+### Import / teleport / run write through SessionV2 (S4 remainder)
+
+- **Buys** — One conversation write. A share import or teleport cannot commit v1 rows the entry table cannot represent.
+- **Evidence** — S4 inverted HTTP create/prompt ([v2/session-v2-write-path.md](./v2/session-v2-write-path.md)). Three callers still write `MessageRepo` first and then `SessionEntryProjection.rebuild`: `cli/cmd/run.ts`, `cli/cmd/import.ts`, `server/mobile/teleport.ts`.
+- **Depends on** — nothing. Later because the HTTP path already uses `SessionV2Write.persist`.
+- **Done when** — Those three callers persist through `SessionV2` / `SessionV2Write.persist`. `rebuild` after a direct `MessageRepo` write is gone from production. Token coalescing in `SessionProcessor.updatePartCoalesced` may still publish ahead of the projector — that path is documented and is not this item. Do not delete `SessionV2Write` or `SessionEntryProjection` as part of this; they earn their keep. `SessionV2.prompt` / `admit` / `loop` / `create` remaining as thin wrappers over `SessionPrompt` / `Session.createNext` is a later naming cleanup, not this item.
+
+### Delete adapters with no production callers (X2)
+
+- **Buys** — Locality: a reader cannot pick the unused share, message, runner, or LLM path and think it is live.
+- **Evidence** — Production share/HTTP/bootstrap use `ShareNext`, not `share/share.ts`. `session/message.ts` is only imported from session test suites. `session/runner.ts` / `run-state.ts` are only imported from `test/session/runner.test.ts`; live ownership is `PromptState`. `session/llm/ai-sdk.ts` has no importers. `provider/llm-client.ts` exports an Effect layer with no importers (`LLM.stream` is the live path).
+- **Depends on** — nothing. Later because none of these are on a live call path.
+- **Done when** — Those modules are gone, or each remaining one has a production importer. `specs/v2/session.md` no longer describes `SessionRunner` as if it were a second ownership machine. Tests that only existed to pin the unused module go with it.
 
 ---
 
@@ -110,6 +204,13 @@ Recorded so they are not re-proposed:
 - **Clustered session ownership.** Execution stays process-local until there is an explicit placement and fencing protocol.
 - **A shared PubSub for the event feed.** Considered and rejected in E1's spec; the win it offers is queue-slot references, not frame copies.
 - **Rebuilding TUI features opencode already has.** The jlongster TUI set is already present; "moving sessions" upstream is nikcli's existing warp.
+- **Rewriting `SessionProcessor` or `toModelMessages` to consume entries.** [v2/session.md](./v2/session.md) leaves `MessageV2` as the LLM layer on purpose.
+- **Pinning `SessionEntry.Entry` on the HTTP contract.** The variant set grows without a contract bump; that is why those three SessionV2 types stay `Unknown`.
+- **Promoting raw streaming / prompt / SSE / websocket routes into encoded Effect handlers.** `POST /session/:id/message` and `prompt_async` are raw because they open a chunked 200 or return 204 before the loop finishes (`httpapi/prompt.ts`). SSE and upgrades stay ahead of the router.
+- **Desktop as a second TUI renderer.** [tui-package.md](./tui-package.md) §6: `packages/desktop` is a Tauri webview; the TUI renders through `@opentui/solid`. The packaging check is `nikcli-tui`, and it already exists.
+- **Deleting leftover `storage/*.json` trees.** They stay on disk for downgrade. Runtime does not read them.
+- **Mandatory tool output codecs.** T2 is opt-in. T3 adds codecs only where the tool already returns structured JSON.
+- **Product work without a structural leftover** — single-binary distribution, provider cost envelopes, unifying mobile and voice upload, an active Brain planner, share v2, a workspace trust lattice. None of those have a file-and-fact case in the tree today.
 
 ## Follow working rules
 
@@ -117,3 +218,6 @@ Recorded so they are not re-proposed:
 - Every commit that changes a contract updates its spec in the same commit.
 - Verify with `bun test` unit tests and `bun run typecheck` (never a bare `tsc`; the repo's `.bin/tsc` is the JS 5.x one). Do not verify with the simulation harness.
 - Adding a migration breaks `test/database/database.test.ts`'s journal assertion. That is expected; update it in the same commit.
+- After an HttpApi contract change, run `bun run generate:httpapi-clients` from `packages/nikcli` and commit the generated output.
+- The TUI packaging check is `bun run smoke:tui` / `bun run smoke:standalone`, not `--version` or `--help`.
+- The unit-suite baseline observed 2026-08-16 is one source-reading failure: `test/tui/profile-command.test.ts` still looks for `systemPrompt.profile()` in `session/prompt.ts` after S3 moved that block into `InstructionSync`. `EditTool` passed in isolation. Do not treat that leftover assertion as a missing profile feature.

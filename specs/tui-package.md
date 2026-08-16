@@ -29,7 +29,7 @@ The SDK is the TUI's backend boundary. Missing data or operations get added to t
 
 ## Current State
 
-Measured 2026-08-15, after sections 1–3:
+Measured 2026-08-15, after sections 1–3 (superseded by sections 4–6 on 2026-08-16; the tree now lives in `packages/tui`):
 
 | Fact                        | Value                                                                                                  |
 | --------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -298,7 +298,7 @@ The other two patterns:
 
 What is left pointing into the TUI is `cli-main.ts` registering `AttachCommand` and `TuiThreadCommand` — the host wiring up its own commands, which is the direction the target graph wants.
 
-Still open beyond that: `@/effect` (11) is bound to `Instance` and goes with the service calls; `@/config/*` (8) needs `TuiConfig.get()` and the plugin-spec helpers to arrive over the SDK; `@/plugin/*` (8) are host operations that invert the way `upgradeNow` already does.
+Sections 4–6 closed the leftovers that used to sit here (`@/effect` service calls, `@/config/*`, `@/plugin/*`). What remains under `src/cli/cmd/tui/` is host-only: `thread.ts`, `worker.ts`, `attach.ts`, `plugin/host-local.ts`. Ordered leftover work after this extraction is in [ROADMAP.md](./ROADMAP.md), not another TUI move.
 
 **4. Create the package and move the tree.** Landed 2026-08-16. `packages/tui` holds 264 files; `src/cli/cmd/tui/` keeps four host files — `thread.ts`, `worker.ts`, `attach.ts` and `plugin/host-local.ts` — so the literal `./src/cli/cmd/tui/worker.ts` in the three build scripts is still correct and the compiled binary still emits the worker chunk at the matching bunfs path.
 
