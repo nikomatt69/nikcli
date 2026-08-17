@@ -10,6 +10,7 @@ import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { ScreenBrandHeader } from "@/components/layout/ScreenBrandHeader"
+import { startGithubDeviceAuthWithHostDefault } from "@/lib/github"
 import { useServer } from "@/lib/server-context"
 import { setAppPreferencesWith } from "@/lib/storage"
 import { ensureNotificationPermissions } from "@/lib/notifications"
@@ -635,7 +636,10 @@ export default function SettingsScreen() {
     try {
       setOauthBusy(true)
       setMessage(null)
-      const flow = await client.startGithubDeviceAuth()
+      const flow = await startGithubDeviceAuthWithHostDefault(
+        client,
+        Boolean(bootstrap?.github?.oauthDeviceConfigured),
+      )
       const runID = Date.now()
       authRun.current = runID
       setOauthFlow(flow)
@@ -643,7 +647,12 @@ export default function SettingsScreen() {
       void waitForApproval(flow, runID)
       setMessage("Approve GitHub in your browser. The app is waiting for confirmation.")
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      const text = error instanceof Error ? error.message : String(error)
+      setMessage(
+        /github oauth client id is not configured/i.test(text)
+          ? "Could not save the nikcli GitHub App on this host. Restart nikcli on the computer, then tap Reconnect GitHub."
+          : text,
+      )
     } finally {
       setOauthBusy(false)
     }

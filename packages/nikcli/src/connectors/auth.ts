@@ -106,6 +106,8 @@ export namespace ConnectorAuth {
   async function isTokenExpiredImpl(connectorName: string): Promise<boolean | null> {
     const entry = await getImpl(connectorName)
     if (!entry?.expiresAt) return null
-    return entry.expiresAt < Date.now() / 1000
+    // GitHub mobile grants store epoch ms; some connectors store unix seconds.
+    const expiresMs = entry.expiresAt < 1e12 ? entry.expiresAt * 1000 : entry.expiresAt
+    return expiresMs < Date.now()
   }
 }

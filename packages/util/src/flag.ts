@@ -107,10 +107,11 @@ export namespace Flag {
   export const NIKCLI_GITHUB_TOKEN = process.env["NIKCLI_GITHUB_TOKEN"]
   /** Public OAuth App client ID (not a secret). Users only approve their GitHub account. */
   export const NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT = "Iv23liviwaSQK4HZ0qkl"
+  // `||` so empty-string env vars do not win over the nikcli GitHub App default.
   export const NIKCLI_GITHUB_OAUTH_CLIENT_ID =
-    process.env["NIKCLI_GITHUB_OAUTH_CLIENT_ID"] ??
-    process.env["GITHUB_CLIENT_ID_CONSOLE"] ??
-    process.env["GITHUB_CLIENT_ID"] ??
+    process.env["NIKCLI_GITHUB_OAUTH_CLIENT_ID"]?.trim() ||
+    process.env["GITHUB_CLIENT_ID_CONSOLE"]?.trim() ||
+    process.env["GITHUB_CLIENT_ID"]?.trim() ||
     NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT
   export const NIKCLI_LOVABLE_TOKEN = process.env["NIKCLI_LOVABLE_TOKEN"] ?? process.env["NIKCLI_LOVABLE_API_KEY"]
   export const NIKCLI_LOVABLE_API_KEY = process.env["NIKCLI_LOVABLE_API_KEY"]
@@ -234,9 +235,9 @@ Object.defineProperty(Flag, "NIKCLI_ALLOW_PLUGIN_AUTOLOAD", {
 Object.defineProperty(Flag, "NIKCLI_GITHUB_OAUTH_CLIENT_ID", {
   get() {
     return (
-      process.env["NIKCLI_GITHUB_OAUTH_CLIENT_ID"] ??
-      process.env["GITHUB_CLIENT_ID_CONSOLE"] ??
-      process.env["GITHUB_CLIENT_ID"] ??
+      process.env["NIKCLI_GITHUB_OAUTH_CLIENT_ID"]?.trim() ||
+      process.env["GITHUB_CLIENT_ID_CONSOLE"]?.trim() ||
+      process.env["GITHUB_CLIENT_ID"]?.trim() ||
       Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT
     )
   },

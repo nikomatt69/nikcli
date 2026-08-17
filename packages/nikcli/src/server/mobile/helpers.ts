@@ -858,7 +858,7 @@ async function refreshGithubToken(key: string): Promise<string | null> {
   if (!entry?.refreshToken) return null
   if (entry.refreshTokenExpiresAt && entry.refreshTokenExpiresAt < Date.now()) return null
 
-  const { clientID } = await githubOAuthClientID()
+  const clientID = (await githubOAuthClientID()).clientID || Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT
   if (!clientID) return null
 
   const response = await fetch("https://github.com/login/oauth/access_token", {
@@ -921,13 +921,14 @@ export async function githubToken() {
 }
 
 export async function githubOAuthClientID() {
+  const fallback = Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT
   const config = await configGet().catch(() => undefined)
   const githubConnector = Object.values(config?.connectors ?? {}).find(
     (connector): connector is Config.ConnectorGithub =>
       typeof connector === "object" && connector !== null && "type" in connector && connector.type === "github",
   )
 
-  const flagValue = Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID
+  const flagValue = Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID?.trim()
   if (flagValue) {
     return {
       clientID: flagValue,
@@ -935,7 +936,7 @@ export async function githubOAuthClientID() {
     }
   }
 
-  const configValue = githubConnector?.oauthClientId || githubConnector?.clientId
+  const configValue = (githubConnector?.oauthClientId || githubConnector?.clientId)?.trim()
   if (configValue) {
     return {
       clientID: configValue,
@@ -943,8 +944,11 @@ export async function githubOAuthClientID() {
     }
   }
 
-  const envValue =
-    process.env.NIKCLI_GITHUB_OAUTH_CLIENT_ID || process.env.GITHUB_CLIENT_ID_CONSOLE || process.env.GITHUB_CLIENT_ID
+  const envValue = (
+    process.env.NIKCLI_GITHUB_OAUTH_CLIENT_ID ||
+    process.env.GITHUB_CLIENT_ID_CONSOLE ||
+    process.env.GITHUB_CLIENT_ID
+  )?.trim()
 
   if (envValue) {
     return {
@@ -954,13 +958,13 @@ export async function githubOAuthClientID() {
   }
 
   return {
-    clientID: Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT,
+    clientID: fallback,
     source: "flag" as const,
   }
 }
 
 export async function startGithubDeviceAuth() {
-  const { clientID } = await githubOAuthClientID()
+  const clientID = (await githubOAuthClientID()).clientID || Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT
   if (!clientID) throw new Error("GitHub OAuth client ID is not configured on the host")
   const response = await fetch("https://github.com/login/device/code", {
     method: "POST",
@@ -996,7 +1000,7 @@ export async function startGithubDeviceAuth() {
 }
 
 export async function pollGithubDeviceAuth(deviceCode: string) {
-  const { clientID } = await githubOAuthClientID()
+  const clientID = (await githubOAuthClientID()).clientID || Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT
   if (!clientID) throw new Error("GitHub OAuth client ID is not configured on the host")
   const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
