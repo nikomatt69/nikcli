@@ -73,7 +73,7 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
   const [inputUrl, setInputUrl] = createSignal(url())
   const [devicePreset, setDevicePreset] = createSignal<DevicePreset>("responsive")
   const [isLandscape, setIsLandscape] = createSignal(false)
-  
+
   // Unified modes: 'browse' (normal web browsing) | 'edit' (select & link + drag & drop)
   const [editorMode, setEditorMode] = createSignal<"browse" | "edit">("browse")
   const [selectedElement, setSelectedElement] = createSignal<InspectedElement | null>(null)
@@ -241,7 +241,7 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
       const langUpper = el.detectedLanguage.toUpperCase()
       const classPart = el.className ? ` class="${el.className.split(" ").slice(0, 2).join(" ")}"` : ""
       const idPart = el.id ? ` id="${el.id}"` : ""
-      
+
       const compressedRef = `[Element: <${el.tagName}${idPart}${classPart}> (${langUpper}) | selector: "${el.selector}"]\n`
       appendPromptText(prompt, compressedRef)
 

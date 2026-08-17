@@ -49,11 +49,7 @@ export function SessionInspectorSheet(props: {
   const files = useMemo(() => {
     const git = props.gitState
     if (!git) return []
-    const paths = [
-      ...git.staged.map((file) => file.path),
-      ...git.unstaged.map((file) => file.path),
-      ...git.untracked,
-    ]
+    const paths = [...git.staged.map((file) => file.path), ...git.unstaged.map((file) => file.path), ...git.untracked]
     return [...new Set(paths)]
   }, [props.gitState])
 
@@ -81,10 +77,7 @@ export function SessionInspectorSheet(props: {
               <InfoChip label={`${props.detail.permissions.length} approvals`} tone="warn" />
             ) : null}
             {summary ? (
-              <InfoChip
-                label={`${summary.files} files · +${summary.additions} −${summary.deletions}`}
-                tone="neutral"
-              />
+              <InfoChip label={`${summary.files} files · +${summary.additions} −${summary.deletions}`} tone="neutral" />
             ) : null}
           </View>
           {info?.directory ? (
@@ -121,7 +114,9 @@ export function SessionInspectorSheet(props: {
 
         <View className="gap-2">
           <Text className="text-[13px] font-semibold text-ink">LSP</Text>
-          {!lsp.length ? <Text className="text-[13px] text-soft">LSPs activate as files are read on the host.</Text> : null}
+          {!lsp.length ? (
+            <Text className="text-[13px] text-soft">LSPs activate as files are read on the host.</Text>
+          ) : null}
           {lsp.map((server) => (
             <View key={`${server.id}-${server.root}`} className="flex-row items-center gap-2">
               <InfoChip label={server.status} tone={server.status === "connected" ? "good" : "warn"} />

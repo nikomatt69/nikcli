@@ -27,9 +27,7 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
   }
 }
 
-export function biometricLabel(
-  types: readonly LocalAuthentication.AuthenticationType[] = [],
-): BiometricLabel {
+export function biometricLabel(types: readonly LocalAuthentication.AuthenticationType[] = []): BiometricLabel {
   if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) return "Face ID"
   if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) return "Touch ID"
   return "biometrics"

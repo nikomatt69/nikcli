@@ -27,12 +27,19 @@ export default function HostStatusScreen() {
     detail?: string
   }> | null>(null)
   const [herdr, setHerdr] = useState<HostCapability<{ enabled?: boolean }> | null>(null)
-  const [island, setIsland] = useState<
-    HostCapability<{ supported?: boolean; enabled?: boolean; appRunning?: boolean; sessions?: number }> | null
-  >(null)
-  const [devtools, setDevtools] = useState<
-    HostCapability<{ rss?: number; heapUsed?: number; pid?: number; uptimeSec?: number; platform?: string }> | null
-  >(null)
+  const [island, setIsland] = useState<HostCapability<{
+    supported?: boolean
+    enabled?: boolean
+    appRunning?: boolean
+    sessions?: number
+  }> | null>(null)
+  const [devtools, setDevtools] = useState<HostCapability<{
+    rss?: number
+    heapUsed?: number
+    pid?: number
+    uptimeSec?: number
+    platform?: string
+  }> | null>(null)
 
   const load = useCallback(async () => {
     if (!client) return
@@ -96,7 +103,10 @@ export default function HostStatusScreen() {
         {computer?.available ? (
           <View className="gap-2">
             <InfoChip label={computer.platform ?? "unknown"} />
-            <InfoChip label={computer.screenshot ? "Screenshot" : "No screenshot"} tone={computer.screenshot ? "good" : "warn"} />
+            <InfoChip
+              label={computer.screenshot ? "Screenshot" : "No screenshot"}
+              tone={computer.screenshot ? "good" : "warn"}
+            />
             <InfoChip label={computer.input ? "Input" : "No input"} tone={computer.input ? "good" : "warn"} />
             {computer.detail ? <Text className="text-[12px] leading-[17px] text-soft">{computer.detail}</Text> : null}
           </View>
@@ -106,7 +116,9 @@ export default function HostStatusScreen() {
       </SurfaceCard>
 
       <SurfaceCard eyebrow="Integrations" title="Herdr">
-        <InfoChip label={herdr?.available ? (herdr.enabled ? "Enabled" : "Disabled") : (herdr?.reason ?? "Unavailable")} />
+        <InfoChip
+          label={herdr?.available ? (herdr.enabled ? "Enabled" : "Disabled") : (herdr?.reason ?? "Unavailable")}
+        />
         {herdr?.available ? (
           <View className="mt-4">
             <ActionButton

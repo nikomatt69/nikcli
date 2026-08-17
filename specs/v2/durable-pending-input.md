@@ -44,7 +44,7 @@ The same migration adds nullable `message_info.prompt_data`. Promoted messages r
 ## Choose delivery
 
 | Mode    | While a turn is active                                  | While idle          |
-| ---------| ---------------------------------------------------------| ---------------------|
+| ------- | ------------------------------------------------------- | ------------------- |
 | `queue` | Promote at the next safe step boundary                  | Promote immediately |
 | `steer` | Abort the active turn, then persist and run immediately | Promote immediately |
 | omitted | Behave as `queue` while active                          | Promote immediately |

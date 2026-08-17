@@ -24,11 +24,7 @@ export default function AppearanceScreen() {
   const reducedTransparency = usePrefersReducedTransparency()
   const [error, setError] = useState<string | null>(null)
 
-  async function persist(next: {
-    wallpaper?: typeof wallpaper
-    mathEnabled?: boolean
-    tipsHidden?: boolean
-  }) {
+  async function persist(next: { wallpaper?: typeof wallpaper; mathEnabled?: boolean; tipsHidden?: boolean }) {
     await setAppPreferencesWith((current) => ({
       ...current,
       wallpaper: next.wallpaper ?? current.wallpaper,
@@ -73,7 +69,10 @@ export default function AppearanceScreen() {
         description="Sits behind the transcript. Reduced transparency hides it automatically."
       >
         <View className="flex-row flex-wrap gap-2">
-          <InfoChip label={wallpaper.enabled && wallpaper.uri ? "On" : "Off"} tone={wallpaper.enabled ? "good" : "neutral"} />
+          <InfoChip
+            label={wallpaper.enabled && wallpaper.uri ? "On" : "Off"}
+            tone={wallpaper.enabled ? "good" : "neutral"}
+          />
           {reducedTransparency ? <InfoChip label="Reduced transparency" tone="warn" /> : null}
         </View>
         <View className="mt-4 gap-3">
@@ -109,7 +108,11 @@ export default function AppearanceScreen() {
         </View>
       </SurfaceCard>
 
-      <SurfaceCard eyebrow="Messages" title="Math" description="Render $LaTeX$ in assistant replies as monospace formulas.">
+      <SurfaceCard
+        eyebrow="Messages"
+        title="Math"
+        description="Render $LaTeX$ in assistant replies as monospace formulas."
+      >
         <ActionButton
           label={mathEnabled ? "Math on" : "Math off"}
           variant={mathEnabled ? "secondary" : "ghost"}

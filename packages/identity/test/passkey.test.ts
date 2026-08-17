@@ -104,7 +104,9 @@ async function reachEmailOffer(kit: ReturnType<typeof fixture>, kind: "device" |
     loginState = loginStateOf(await kit.get(authorizePath()).then((r) => r.text()))
   } else {
     const device = await kit.startDevice()
-    const page = await kit.postForm("/device", { user_code: device.user_code, decision: "approve" }).then((r) => r.text())
+    const page = await kit
+      .postForm("/device", { user_code: device.user_code, decision: "approve" })
+      .then((r) => r.text())
     loginState = loginStateOf(page)
   }
   await kit.postForm("/login/email/request", { login_state: loginState, email: "user@example.com" })

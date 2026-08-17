@@ -213,13 +213,14 @@ describe.serial("durable pending input", () => {
 
   it("keeps explicit queue delivery while the session is busy", async () => {
     await withSession(async ({ sessionID, runPrompt }) => {
-      const [{ Identifier }, { MessageRepo }, { SessionPending }, { PromptState }, { SessionPrompt }] = await Promise.all([
-        import("@nikcli-ai/util/id"),
-        import("@/session/message-repo"),
-        import("@/session/pending"),
-        import("@/session/prompt-state"),
-        import("@/session/prompt"),
-      ])
+      const [{ Identifier }, { MessageRepo }, { SessionPending }, { PromptState }, { SessionPrompt }] =
+        await Promise.all([
+          import("@nikcli-ai/util/id"),
+          import("@/session/message-repo"),
+          import("@/session/pending"),
+          import("@/session/prompt-state"),
+          import("@/session/prompt"),
+        ])
       const messageID = Identifier.ascending("message")
       const controller = PromptState.reserve(sessionID)
       expect(controller).toBeDefined()
@@ -256,13 +257,14 @@ describe.serial("durable pending input", () => {
 
   it("steer admission interrupts busy input and persists immediately", async () => {
     await withSession(async ({ sessionID, runPrompt }) => {
-      const [{ Identifier }, { MessageRepo }, { SessionPending }, { PromptState }, { SessionPrompt }] = await Promise.all([
-        import("@nikcli-ai/util/id"),
-        import("@/session/message-repo"),
-        import("@/session/pending"),
-        import("@/session/prompt-state"),
-        import("@/session/prompt"),
-      ])
+      const [{ Identifier }, { MessageRepo }, { SessionPending }, { PromptState }, { SessionPrompt }] =
+        await Promise.all([
+          import("@nikcli-ai/util/id"),
+          import("@/session/message-repo"),
+          import("@/session/pending"),
+          import("@/session/prompt-state"),
+          import("@/session/prompt"),
+        ])
       const queuedID = Identifier.ascending("message")
       const steerID = Identifier.ascending("message")
       const controller = PromptState.reserve(sessionID)

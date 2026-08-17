@@ -63,5 +63,12 @@ export function useHostEvents(input: {
         es.close()
       }
     }
-  }, [input.enabled, input.config?.directory, input.config?.password, input.config?.token, input.config?.url, input.config?.username])
+  }, [
+    input.enabled,
+    input.config?.directory,
+    input.config?.password,
+    input.config?.token,
+    input.config?.url,
+    input.config?.username,
+  ])
 }

@@ -225,8 +225,8 @@ export default function ConnectScreen() {
         <View className="mt-4 gap-2 rounded-[24px] border border-border bg-background/70 p-4">
           <Text className="text-[12px] font-medium text-muted">GitHub workspaces</Text>
           <Text className="text-sm leading-6 text-soft">
-            GitHub workspaces use the nikcli GitHub App by default. You only approve your GitHub account in the
-            browser — no client ID to type or host env var to set.
+            GitHub workspaces use the nikcli GitHub App by default. You only approve your GitHub account in the browser
+            — no client ID to type or host env var to set.
           </Text>
         </View>
       </SurfaceCard>

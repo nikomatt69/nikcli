@@ -67,7 +67,10 @@ export default function BrainScreen() {
       >
         <View className="flex-row flex-wrap gap-2">
           <InfoChip label={status?.enabled ? "Enabled" : "Disabled"} tone={status?.enabled ? "good" : "neutral"} />
-          <InfoChip label={status?.shouldTrigger ? "Due" : "Not due"} tone={status?.shouldTrigger ? "accent" : "neutral"} />
+          <InfoChip
+            label={status?.shouldTrigger ? "Due" : "Not due"}
+            tone={status?.shouldTrigger ? "accent" : "neutral"}
+          />
           {status?.lastBrainAt ? <InfoChip label={`Last ${relativeTime(status.lastBrainAt)}`} /> : null}
         </View>
         {status ? (

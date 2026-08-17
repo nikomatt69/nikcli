@@ -20,7 +20,10 @@ export default function ObservabilityScreen() {
     if (!client) return
     try {
       setError(null)
-      const [next, fusion] = await Promise.all([client.getObservability(), client.listFusionPresets().catch(() => ({ presets: [] }))])
+      const [next, fusion] = await Promise.all([
+        client.getObservability(),
+        client.listFusionPresets().catch(() => ({ presets: [] })),
+      ])
       setStatus(next)
       setPresets(fusion.presets)
     } catch (cause) {

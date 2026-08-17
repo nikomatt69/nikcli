@@ -636,10 +636,7 @@ export default function SettingsScreen() {
     try {
       setOauthBusy(true)
       setMessage(null)
-      const flow = await startGithubDeviceAuthWithHostDefault(
-        client,
-        Boolean(bootstrap?.github?.oauthDeviceConfigured),
-      )
+      const flow = await startGithubDeviceAuthWithHostDefault(client, Boolean(bootstrap?.github?.oauthDeviceConfigured))
       const runID = Date.now()
       authRun.current = runID
       setOauthFlow(flow)
@@ -1041,10 +1038,7 @@ export default function SettingsScreen() {
                       <Text className="mt-1 text-sm text-soft">{bootstrap.github.user.name}</Text>
                     ) : null}
                     <Text className="mt-2 text-xs leading-5 text-soft">
-                      OAuth{" "}
-                      {oauthConfigured
-                        ? "Nikcli GitHub App · approve your account"
-                        : "not configured yet"}
+                      OAuth {oauthConfigured ? "Nikcli GitHub App · approve your account" : "not configured yet"}
                     </Text>
                   </View>
 
