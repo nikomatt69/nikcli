@@ -16,6 +16,7 @@ import {
   useLayout,
   usePlatform,
   useServer,
+  BrowserVisualEditor,
   type AccountUser,
   type LocalProject,
 } from "@nikcli-ai/app"
@@ -1011,15 +1012,22 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
       </Show>
 
       <Show when={!props.part && !liveUrl() && !screenshot()}>
-        <div class="desktop-automation__empty">
-          <Icon name={props.surface === "browser" ? "window-cursor" : "console"} size="large" />
-          <strong>{props.surface === "browser" ? "No browser session yet" : "No computer activity yet"}</strong>
-          <span>
-            {props.surface === "browser"
-              ? "Ask Nikcli to use the browser. It runs headlessly in the background — a snapshot will appear here."
-              : "Ask Nikcli to control a computer. It runs on a background desktop — the live preview will appear here."}
-          </span>
-        </div>
+        <Show
+          when={props.surface === "browser"}
+          fallback={
+            <div class="desktop-automation__empty">
+              <Icon name="console" size="large" />
+              <strong>No computer activity yet</strong>
+              <span>
+                Ask Nikcli to control a computer. It runs on a background desktop — the live preview will appear here.
+              </span>
+            </div>
+          }
+        >
+          <div class="h-full w-full flex-1 min-h-0 overflow-hidden">
+            <BrowserVisualEditor />
+          </div>
+        </Show>
       </Show>
 
       <Show when={props.part && !liveUrl() && !screenshot()}>

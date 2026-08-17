@@ -7,3 +7,4 @@ export { useAccount, type AccountUser, type AccountStatus } from "./context/acco
 export { useLayout, type LocalProject } from "./context/layout"
 export { useServer } from "./context/server"
 export { serverUrlMatchesRequest } from "./utils/server-health"
+export { BrowserVisualEditor } from "./components/browser/visual-editor"
