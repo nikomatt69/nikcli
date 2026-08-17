@@ -91,6 +91,13 @@ function loginStateOf(html: string): string {
   return match[1]!
 }
 
+async function completeEmailSignIn(kit: ReturnType<typeof fixture>, loginState: string, code: string) {
+  const offered = await kit.post("/login/email/verify", { login_state: loginState, code })
+  expect(offered.status).toBe(200)
+  expect(await offered.text()).toContain("Save a passkey")
+  return kit.post("/login/passkey/skip", { login_state: loginState })
+}
+
 /** The emailed code lives in the subject line: "123456 is your NikCLI sign-in code". */
 function codeOf(email: SentEmail): string {
   return email.subject.split(" ", 1)[0]!
@@ -140,7 +147,7 @@ describe("device code entry", () => {
     const page = await kit.post("/device", { user_code, decision: "approve" }).then((r) => r.text())
     const loginState = loginStateOf(page)
     await kit.post("/login/email/request", { login_state: loginState, email: "user@example.com" })
-    await kit.post("/login/email/verify", { login_state: loginState, code: codeOf(kit.sent[0]!) })
+    await completeEmailSignIn(kit, loginState, codeOf(kit.sent[0]!))
 
     const again = await kit.post("/device", { user_code, decision: "approve" })
     expect(again.status).toBe(200)
@@ -180,10 +187,7 @@ describe("emailed verification code", () => {
     const { device, loginState } = await reachCodePage(kit)
     const code = codeOf(kit.sent[0]!)
 
-    const response = await kit.post("/login/email/verify", {
-      login_state: loginState,
-      code: `${code.slice(0, 3)} ${code.slice(3)}\n`,
-    })
+    const response = await completeEmailSignIn(kit, loginState, `${code.slice(0, 3)} ${code.slice(3)}\n`)
     expect(response.status).toBe(200)
     expect(await response.text()).toContain("Device connected")
 
@@ -210,7 +214,7 @@ describe("emailed verification code", () => {
       expect(await partial.text()).toContain("Enter the six digits")
     }
 
-    const response = await kit.post("/login/email/verify", { login_state: loginState, code })
+    const response = await completeEmailSignIn(kit, loginState, code)
     expect(await response.text()).toContain("Device connected")
   })
 
@@ -239,7 +243,7 @@ describe("emailed verification code", () => {
     const { loginState } = await reachCodePage(kit)
     const code = codeOf(kit.sent[0]!)
 
-    const first = await kit.post("/login/email/verify", { login_state: loginState, code })
+    const first = await completeEmailSignIn(kit, loginState, code)
     expect(await first.text()).toContain("Device connected")
 
     // An OTP autofill plus a manual tap sends this twice; the second used to
@@ -265,7 +269,7 @@ describe("emailed verification code", () => {
     expect(body).toContain('name="code"')
 
     const code = codeOf(kit.sent.at(-1)!)
-    const verified = await kit.post("/login/email/verify", { login_state: loginState, code })
+    const verified = await completeEmailSignIn(kit, loginState, code)
     expect(await verified.text()).toContain("Device connected")
   })
 
@@ -317,10 +321,7 @@ describe("PKCE clients (mobile, desktop, web, console)", () => {
     await kit.post("/login/email/request", { login_state: loginState, email: "user@example.com" })
     const code = codeOf(kit.sent[0]!)
 
-    const response = await kit.post("/login/email/verify", {
-      login_state: loginState,
-      code: `${code.slice(0, 3)} ${code.slice(3)}`,
-    })
+    const response = await completeEmailSignIn(kit, loginState, `${code.slice(0, 3)} ${code.slice(3)}`)
     expect(response.status).toBe(302)
     const location = new URL(response.headers.get("Location")!)
     expect(`${location.protocol}//${location.host}${location.pathname}`).toContain(redirectURI.split("?")[0])
@@ -335,7 +336,7 @@ describe("PKCE clients (mobile, desktop, web, console)", () => {
     await kit.post("/login/email/request", { login_state: loginState, email: "user@example.com" })
     const code = codeOf(kit.sent[0]!)
 
-    const first = await kit.post("/login/email/verify", { login_state: loginState, code })
+    const first = await completeEmailSignIn(kit, loginState, code)
     const second = await kit.post("/login/email/verify", { login_state: loginState, code })
     expect(second.status).toBe(302)
     expect(second.headers.get("Location")).toBe(first.headers.get("Location"))

@@ -105,11 +105,13 @@ export namespace Flag {
   export const NIKCLI_FIGMA_TOKEN = process.env["NIKCLI_FIGMA_TOKEN"]
   export const NIKCLI_SLACK_BOT_TOKEN = process.env["NIKCLI_SLACK_BOT_TOKEN"]
   export const NIKCLI_GITHUB_TOKEN = process.env["NIKCLI_GITHUB_TOKEN"]
+  /** Public OAuth App client ID (not a secret). Users only approve their GitHub account. */
+  export const NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT = "Iv23liviwaSQK4HZ0qkl"
   export const NIKCLI_GITHUB_OAUTH_CLIENT_ID =
     process.env["NIKCLI_GITHUB_OAUTH_CLIENT_ID"] ??
     process.env["GITHUB_CLIENT_ID_CONSOLE"] ??
     process.env["GITHUB_CLIENT_ID"] ??
-    undefined
+    NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT
   export const NIKCLI_LOVABLE_TOKEN = process.env["NIKCLI_LOVABLE_TOKEN"] ?? process.env["NIKCLI_LOVABLE_API_KEY"]
   export const NIKCLI_LOVABLE_API_KEY = process.env["NIKCLI_LOVABLE_API_KEY"]
 
@@ -234,7 +236,8 @@ Object.defineProperty(Flag, "NIKCLI_GITHUB_OAUTH_CLIENT_ID", {
     return (
       process.env["NIKCLI_GITHUB_OAUTH_CLIENT_ID"] ??
       process.env["GITHUB_CLIENT_ID_CONSOLE"] ??
-      process.env["GITHUB_CLIENT_ID"]
+      process.env["GITHUB_CLIENT_ID"] ??
+      Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT
     )
   },
   enumerable: true,

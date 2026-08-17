@@ -9,6 +9,7 @@ import { useDialog } from "@nikcli-ai/ui/context/dialog"
 import { Dialog } from "@nikcli-ai/ui/dialog"
 import { Icon } from "@nikcli-ai/ui/icon"
 import { IconButton } from "@nikcli-ai/ui/icon-button"
+import { Mark } from "@nikcli-ai/ui/logo"
 import { TextField } from "@nikcli-ai/ui/text-field"
 import { Tooltip } from "@nikcli-ai/ui/tooltip"
 import { showToast } from "@nikcli-ai/ui/toast"
@@ -646,8 +647,14 @@ function DialogGitHubAccount(props: { onChanged: () => void }) {
     >
       <div class="flex max-h-[72vh] min-h-0 w-full flex-col gap-5 overflow-y-auto">
         <div class="flex items-center gap-3 rounded-md border border-border-base bg-surface-raised-base p-3">
-          <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-base">
-            <Icon name="github" size="medium" />
+          <div class="flex items-center gap-2">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-base">
+              <Mark class="size-5" />
+            </div>
+            <div class="text-text-weak">→</div>
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-base">
+              <Icon name="github" size="medium" />
+            </div>
           </div>
           <div class="min-w-0 flex-1">
             <div class="text-13-medium text-text-base">
@@ -700,7 +707,7 @@ function DialogGitHubAccount(props: { onChanged: () => void }) {
               <Button
                 variant="primary"
                 size="large"
-                disabled={!!busy() || !bootstrap()?.github.oauthDeviceConfigured}
+                disabled={!!busy()}
                 onClick={startDeviceFlow}
               >
                 {language.t("github.oauth.connect")}

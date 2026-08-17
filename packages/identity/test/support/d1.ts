@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite"
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 
 /**
  * A real SQLite database behind the slice of the D1 API this worker uses.
@@ -8,9 +8,12 @@ import { readFileSync } from "node:fs"
  * emailed code, replaying a duplicate submit — are exactly the ones that span
  * several statements and depend on what an UPDATE actually matched. A stub
  * that asserts on SQL strings cannot catch a regression there; running the
- * shipped migration against bun:sqlite can.
+ * shipped migrations against bun:sqlite can.
  */
-const schema = readFileSync(new URL("../../migrations/0001_identity.sql", import.meta.url), "utf8")
+const migrationsDir = new URL("../../migrations/", import.meta.url)
+const migrationFiles = readdirSync(migrationsDir)
+  .filter((name) => name.endsWith(".sql"))
+  .sort()
 
 type Bindable = string | number | bigint | boolean | null
 
@@ -18,7 +21,9 @@ export type MemoryD1 = D1Database & { close(): void }
 
 export function memoryD1(): MemoryD1 {
   const db = new Database(":memory:")
-  db.run(schema)
+  for (const file of migrationFiles) {
+    db.run(readFileSync(new URL(file, migrationsDir), "utf8"))
+  }
 
   function statement(sql: string, params: Bindable[] = []) {
     return {

@@ -12,11 +12,11 @@ import {
   LOGIN_STATE_TTL_SECONDS,
 } from "./constants"
 import { randomDigits, randomToken, secureEqual, sha256 } from "./crypto"
-import { getDeviceByUserCode, linkAccount, setDeviceDecision } from "./database"
+import { countPasskeys, getDeviceByUserCode, linkAccount, setDeviceDecision } from "./database"
 import { HttpError, readForm, requestIP } from "./http"
 import { consumeRateLimit } from "./rate-limit"
-import type { AuthCode, EmailChallenge, LoginIntent } from "./types"
-import { devicePage, emailCodePage, loginPage, resultPage } from "./ui"
+import type { AuthCode, EmailChallenge, LoginIntent, PasskeyOffer } from "./types"
+import { devicePage, emailCodePage, loginPage, passkeyOfferPage, resultPage } from "./ui"
 
 type AppContext = Context<{ Bindings: Env }>
 
@@ -146,19 +146,40 @@ export async function createLoginState(env: Env, intent: LoginIntent): Promise<s
   return state
 }
 
-async function loadIntent(env: Env, state: string): Promise<LoginIntent | null> {
+export async function loadLoginIntent(env: Env, state: string): Promise<LoginIntent | null> {
+  if (!state) return null
   return env.STATE.get<LoginIntent>(loginKey(state), "json")
 }
 
-async function completeLogin(c: AppContext, loginState: string, accountID: string): Promise<Response> {
-  const intent = await loadIntent(c.env, loginState)
+function passkeyOfferKey(state: string): string {
+  return `passkey-offer:${state}`
+}
+
+export type FinalizeLoginResult = { kind: "redirect"; url: string } | { kind: "device" }
+
+/**
+ * Consume the login intent and issue the authorize redirect or device
+ * approval. HTML handlers turn this into a page via `completeLogin`; JSON
+ * passkey verify endpoints return the same side effects as `{ redirect }` or
+ * `{ ok, device }`.
+ */
+export async function finalizeLogin(
+  c: AppContext,
+  loginState: string,
+  accountID: string,
+): Promise<FinalizeLoginResult> {
+  const intent = await loadLoginIntent(c.env, loginState)
   if (!intent) {
-    const replay = await replayCompleted(c, loginState)
-    if (replay) return replay
-    return resultPage(c, "Session expired", "Start the sign-in flow again.", 400)
+    const replay = await c.env.STATE.get(completedKey(loginState))
+    if (replay === DEVICE_COMPLETED_MARKER) return { kind: "device" }
+    if (replay) return { kind: "redirect", url: replay }
+    throw new HttpError(400, "Session expired")
   }
   await c.env.STATE.delete(loginKey(loginState))
   await c.env.STATE.delete(emailKey(loginState))
+  await c.env.STATE.delete(`passkey:auth:${loginState}`)
+  await c.env.STATE.delete(`passkey:reg:${loginState}`)
+  await c.env.STATE.delete(passkeyOfferKey(loginState))
 
   if (intent.kind === "device") {
     const approved = await setDeviceDecision(c.env.DB, intent.userCode, "approved", accountID, Date.now())
@@ -168,14 +189,14 @@ async function completeLogin(c: AppContext, loginState: string, accountID: strin
       // terminal is connected and the user should be told exactly that.
       const row = await getDeviceByUserCode(c.env.DB, intent.userCode)
       if (row?.account_id === accountID && (row.status === "approved" || row.status === "consumed")) {
-        return deviceConnectedPage(c)
+        return { kind: "device" }
       }
-      return resultPage(c, "Device code expired", "Return to the terminal and start sign-in again.", 400)
+      throw new HttpError(400, "Device code expired")
     }
     await c.env.STATE.put(completedKey(loginState), DEVICE_COMPLETED_MARKER, {
       expirationTtl: COMPLETED_REPLAY_TTL_SECONDS,
     })
-    return deviceConnectedPage(c)
+    return { kind: "device" }
   }
 
   const code = randomToken(32)
@@ -195,14 +216,42 @@ async function completeLogin(c: AppContext, loginState: string, accountID: strin
   await c.env.STATE.put(completedKey(loginState), redirect.toString(), {
     expirationTtl: COMPLETED_REPLAY_TTL_SECONDS,
   })
-  return c.redirect(redirect.toString(), 302)
+  return { kind: "redirect", url: redirect.toString() }
+}
+
+export async function completeLogin(c: AppContext, loginState: string, accountID: string): Promise<Response> {
+  try {
+    const result = await finalizeLogin(c, loginState, accountID)
+    return result.kind === "device" ? deviceConnectedPage(c) : c.redirect(result.url, 302)
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 400) {
+      if (error.message === "Device code expired") {
+        return resultPage(c, "Device code expired", "Return to the terminal and start sign-in again.", 400)
+      }
+      return resultPage(c, "Session expired", "Start the sign-in flow again.", 400)
+    }
+    throw error
+  }
+}
+
+/**
+ * First-time accounts get a chance to save a platform passkey before the
+ * login intent is consumed. Accounts that already have one complete as usual.
+ */
+async function completeOrOfferPasskey(c: AppContext, loginState: string, accountID: string): Promise<Response> {
+  if ((await countPasskeys(c.env.DB, accountID)) > 0) return completeLogin(c, loginState, accountID)
+  const offer: PasskeyOffer = { accountID }
+  await c.env.STATE.put(passkeyOfferKey(loginState), JSON.stringify(offer), {
+    expirationTtl: LOGIN_STATE_TTL_SECONDS,
+  })
+  return passkeyOfferPage(c, loginState)
 }
 
 export async function startGitHub(c: AppContext): Promise<Response> {
   const unavailable = requireGitHubCredentials(c)
   if (unavailable) return unavailable
   const loginState = c.req.query("login_state") ?? ""
-  if (!(await loadIntent(c.env, loginState)))
+  if (!(await loadLoginIntent(c.env, loginState)))
     return resultPage(c, "Session expired", "Start the sign-in flow again.", 400)
   const callback = githubRedirectURI(c.env)
   const url = new URL("https://github.com/login/oauth/authorize")
@@ -219,7 +268,7 @@ export async function finishGitHub(c: AppContext): Promise<Response> {
 
   const loginState = c.req.query("state") ?? ""
   const code = c.req.query("code") ?? ""
-  if (!code || !(await loadIntent(c.env, loginState)))
+  if (!code || !(await loadLoginIntent(c.env, loginState)))
     return resultPage(c, "Sign-in failed", "The GitHub sign-in session is invalid or expired.", 400)
 
   const callback = githubRedirectURI(c.env)
@@ -314,14 +363,14 @@ export async function finishGitHub(c: AppContext): Promise<Response> {
     return resultPage(c, "Sign-in failed", "GitHub returned a profile without an id. Try again in a moment.", 502)
   }
   const account = await linkAccount(c.env.DB, "github", String(user.id), primary.email)
-  return completeLogin(c, loginState, account.id)
+  return completeOrOfferPasskey(c, loginState, account.id)
 }
 
 export async function requestEmailCode(c: AppContext): Promise<Response> {
   const form = await readForm(c.req.raw)
   const loginState = form.get("login_state") ?? ""
   const email = (form.get("email") ?? "").trim().toLowerCase()
-  if (!(await loadIntent(c.env, loginState))) {
+  if (!(await loadLoginIntent(c.env, loginState))) {
     const replay = await replayCompleted(c, loginState)
     return replay ?? resultPage(c, "Session expired", "Start the sign-in flow again.", 400)
   }
@@ -398,7 +447,7 @@ export async function verifyEmailCode(c: AppContext): Promise<Response> {
   const loginState = form.get("login_state") ?? ""
   const code = digitsOnly(form.get("code") ?? "")
   const challenge = await c.env.STATE.get<EmailChallenge>(emailKey(loginState), "json")
-  if (!challenge || !(await loadIntent(c.env, loginState))) {
+  if (!challenge || !(await loadLoginIntent(c.env, loginState))) {
     // A prior submit for this same login_state may have already verified the
     // code and consumed both KV entries — replay its outcome instead of
     // telling a merely-late duplicate request its code is expired.
@@ -445,7 +494,7 @@ export async function verifyEmailCode(c: AppContext): Promise<Response> {
   }
 
   const account = await linkAccount(c.env.DB, "email", challenge.email, challenge.email)
-  return completeLogin(c, loginState, account.id)
+  return completeOrOfferPasskey(c, loginState, account.id)
 }
 
 export async function beginDeviceApproval(c: AppContext): Promise<Response> {

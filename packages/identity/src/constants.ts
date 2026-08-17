@@ -25,6 +25,11 @@ export const EMAIL_CODE_MAX_ATTEMPTS = 5
 /** Device approvals attempted per IP per minute (8-digit code brute-force guard). */
 export const DEVICE_APPROVAL_LIMIT = 12
 export const DEVICE_APPROVAL_WINDOW_SECONDS = 60
+
+/** WebAuthn challenge lifetime, and authentication attempts per IP per minute. */
+export const PASSKEY_CHALLENGE_TTL_SECONDS = 5 * 60
+export const PASSKEY_AUTH_LIMIT = 20
+export const PASSKEY_AUTH_WINDOW_SECONDS = 60
 export const SIGNING_KEY_ROTATION_SECONDS = 30 * 24 * 60 * 60
 export const RETIRED_KEY_PUBLICATION_SECONDS = 24 * 60 * 60
 export const MAX_FORM_BYTES = 16 * 1024

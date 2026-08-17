@@ -7,6 +7,7 @@ import type {
   HapticPreferences,
   NotificationPreferences,
   PromptPreset,
+  SecurityPreferences,
   ServerConfig,
   SettingsSectionID,
 } from "./types"
@@ -151,6 +152,12 @@ const DEFAULT_COMPOSER_PREFERENCES: ComposerPreferences = {
   slashSuggestions: true,
 }
 
+export const DEFAULT_SECURITY_PREFERENCES: SecurityPreferences = {
+  biometricsEnabled: false,
+  lockOnBackground: true,
+  confirmSensitiveActions: true,
+}
+
 const DEFAULT_PROMPT_PRESETS: PromptPreset[] = [
   {
     id: "preset-review",
@@ -182,6 +189,7 @@ function defaultPreferences(): AppPreferences {
     composer: DEFAULT_COMPOSER_PREFERENCES,
     promptPresets: DEFAULT_PROMPT_PRESETS,
     wallpaper: DEFAULT_WALLPAPER,
+    security: DEFAULT_SECURITY_PREFERENCES,
     tipsHidden: false,
     mathEnabled: false,
   }
@@ -272,6 +280,10 @@ export async function getAppPreferences(): Promise<AppPreferences> {
           )
         : DEFAULT_PROMPT_PRESETS,
       wallpaper: normalizeWallpaper(parsed.wallpaper),
+      security: {
+        ...DEFAULT_SECURITY_PREFERENCES,
+        ...(parsed.security ?? {}),
+      },
       tipsHidden: parsed.tipsHidden === true,
       mathEnabled: parsed.mathEnabled === true,
     }

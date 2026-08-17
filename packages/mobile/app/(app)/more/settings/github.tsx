@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ScrollView, Text, View } from "react-native"
+import { Pressable, ScrollView, Text, View } from "react-native"
+import { Image } from "expo-image"
 import * as WebBrowser from "expo-web-browser"
 import { Stack, useFocusEffect } from "expo-router"
+import { Github } from "lucide-react-native"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-context"
+import { useAppTheme } from "@/lib/theme"
 import { type GitHubDeviceAuthStart, type HostConfigSnapshot } from "@/lib/types"
 
 function githubConnectorKey(snapshot: HostConfigSnapshot | null) {
@@ -28,11 +31,13 @@ function sleep(ms: number) {
 
 export default function GithubSettingsScreen() {
   const { client, bootstrap, refreshBootstrap } = useServer()
+  const { palette } = useAppTheme()
   const [hostConfig, setHostConfig] = useState<HostConfigSnapshot | null>(null)
   const [githubToken, setGithubToken] = useState("")
   const [githubOauthClientID, setGithubOauthClientID] = useState("")
   const [oauthBusy, setOauthBusy] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [advancedOauthOpen, setAdvancedOauthOpen] = useState(false)
   const [oauthFlow, setOauthFlow] = useState<GitHubDeviceAuthStart | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const authRun = useRef(0)
@@ -75,8 +80,8 @@ export default function GithubSettingsScreen() {
 
   const profileChips = useMemo(
     () => [
-      oauthConfigured ? "OAuth ready" : "OAuth needs client ID",
-      bootstrap?.github?.oauthClientSource ? `Source ${bootstrap.github.oauthClientSource}` : "Source host setup",
+      oauthConfigured ? "OAuth ready" : "Approve account",
+      bootstrap?.github?.oauthClientSource ? `Source ${bootstrap.github.oauthClientSource}` : "Nikcli GitHub App",
       githubTokenAvailable ? "GH token stored" : "GH token missing",
       githubConnected ? "GitHub linked" : reconnectRequired ? "Reconnect needed" : "GitHub offline",
     ],
@@ -163,10 +168,6 @@ export default function GithubSettingsScreen() {
 
   async function startGithubOAuth() {
     if (!client) return
-    if (!oauthConfigured) {
-      const saved = await persistGithubOAuthClientID()
-      if (!saved) return
-    }
 
     try {
       setOauthBusy(true)
@@ -252,9 +253,9 @@ export default function GithubSettingsScreen() {
       <Stack.Screen options={{ title: "GitHub" }} />
 
       <SurfaceCard
-        eyebrow="GitHub enterprise access"
-        title="OAuth and account trust"
-        description="Sign in with GitHub through the device flow, manage the host OAuth client ID, and keep fallback token access available when needed."
+        eyebrow="GitHub account"
+        title="Approve your GitHub account"
+        description="Nikcli already uses the official GitHub App. You only need to approve your GitHub account in the browser."
       >
         <View className="flex-row flex-wrap gap-2">
           {profileChips.map((chip) => (
@@ -264,7 +265,7 @@ export default function GithubSettingsScreen() {
               tone={
                 chip.includes("ready") || chip.includes("linked") || chip.includes("stored")
                   ? "good"
-                  : chip.includes("needs") || chip.includes("offline") || chip.includes("missing")
+                  : chip.includes("offline") || chip.includes("missing") || chip.includes("Reconnect")
                     ? "warn"
                     : "neutral"
               }
@@ -288,43 +289,28 @@ export default function GithubSettingsScreen() {
 
       <SurfaceCard
         eyebrow="OAuth device sign-in"
-        title="Primary GitHub path"
-        description="Keep OAuth always available by saving the client ID on the host and using the browser-based device authorization flow."
+        title="Connect with GitHub"
+        description="Nikcli already uses the official GitHub App. Approve your account in the browser — you do not need to type a client ID."
       >
         <View className="gap-3">
-          <TextField
-            label="GitHub OAuth client ID"
-            value={githubOauthClientID}
-            onChangeText={setGithubOauthClientID}
-            autoCapitalize="none"
-            placeholder="Iv1.1234567890abcdef"
-          />
-          <View className="flex-row gap-2">
-            <View className="flex-1">
-              <ActionButton
-                label={oauthConfigured ? "Update OAuth client ID" : "Save OAuth client ID"}
-                loading={saving}
-                onPress={() => void persistGithubOAuthClientID()}
-              />
-            </View>
-            <View className="flex-1">
-              <ActionButton
-                label={githubConnected ? "Reconnect with GitHub OAuth" : "Connect with GitHub OAuth"}
-                loading={oauthBusy}
-                variant="secondary"
-                onPress={() => void startGithubOAuth()}
-              />
+          <View className="flex-row items-center gap-3">
+            <Image
+              source={require("@/assets/app-icon-mark.png")}
+              style={{ width: 32, height: 32, borderRadius: 8 }}
+              contentFit="cover"
+              accessibilityLabel="nikcli"
+            />
+            <Text className="text-sm text-soft">→</Text>
+            <View className="size-8 items-center justify-center">
+              <Github size={28} color={palette.ink} strokeWidth={1.8} />
             </View>
           </View>
 
-          {!oauthConfigured ? (
-            <View className="rounded-[8px] border border-danger/30 bg-danger/10 p-4">
-              <Text className="text-sm leading-6 text-ink">
-                Save a GitHub OAuth client ID here or configure it on the host with `connectors.github.oauthClientId`,
-                `NIKCLI_GITHUB_OAUTH_CLIENT_ID`, or `GITHUB_CLIENT_ID_CONSOLE`.
-              </Text>
-            </View>
-          ) : null}
+          <ActionButton
+            label={githubConnected ? "Reconnect with GitHub" : "Connect with GitHub"}
+            loading={oauthBusy}
+            onPress={() => void startGithubOAuth()}
+          />
 
           {oauthFlow ? (
             <View className="rounded-[8px] border border-border bg-background/60 p-4">
@@ -355,6 +341,34 @@ export default function GithubSettingsScreen() {
                   />
                 </View>
               </View>
+            </View>
+          ) : null}
+
+          <Pressable onPress={() => setAdvancedOauthOpen((value) => !value)} accessibilityRole="button">
+            <Text className="text-sm font-medium text-soft">
+              {advancedOauthOpen ? "Hide custom OAuth client ID" : "Advanced: custom OAuth client ID"}
+            </Text>
+          </Pressable>
+
+          {advancedOauthOpen ? (
+            <View className="gap-3 rounded-[8px] border border-border bg-background/60 p-4">
+              <Text className="text-sm leading-6 text-soft">
+                Nikcli already ships the official GitHub App client ID. Override it only if this host must use a
+                different OAuth application.
+              </Text>
+              <TextField
+                label="GitHub OAuth client ID"
+                value={githubOauthClientID}
+                onChangeText={setGithubOauthClientID}
+                autoCapitalize="none"
+                placeholder="Iv1.1234567890abcdef"
+              />
+              <ActionButton
+                label={oauthConfigured ? "Update OAuth client ID" : "Save OAuth client ID"}
+                loading={saving}
+                variant="secondary"
+                onPress={() => void persistGithubOAuthClientID()}
+              />
             </View>
           ) : null}
         </View>

@@ -27,6 +27,13 @@ import {
   startGitHub,
   verifyEmailCode,
 } from "./login"
+import {
+  passkeyAuthenticationOptions,
+  passkeyAuthenticationVerify,
+  passkeyRegistrationOptions,
+  passkeyRegistrationVerify,
+  skipPasskey,
+} from "./passkey"
 import { consumeRateLimit } from "./rate-limit"
 import { issueTokenPair, refreshTokenPair, verifyAccessToken } from "./tokens"
 import type { AuthCode, DeviceCodeRow } from "./types"
@@ -120,6 +127,11 @@ app.get("/login/github", startGitHub)
 app.get("/callback/github", finishGitHub)
 app.post("/login/email/request", requestEmailCode)
 app.post("/login/email/verify", verifyEmailCode)
+app.post("/login/passkey/authentication/options", passkeyAuthenticationOptions)
+app.post("/login/passkey/authentication/verify", passkeyAuthenticationVerify)
+app.post("/login/passkey/registration/options", passkeyRegistrationOptions)
+app.post("/login/passkey/registration/verify", passkeyRegistrationVerify)
+app.post("/login/passkey/skip", skipPasskey)
 
 // The CLI hands out `verification_uri_complete`, and users forward that link
 // between machines — normalize whatever shape the code arrives in so the field

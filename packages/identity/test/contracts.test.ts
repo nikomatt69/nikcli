@@ -99,6 +99,7 @@ describe("identity contracts", () => {
     expect(valid.status).toBe(200)
     const login = await valid.text()
     expect(login).toContain("Continue with GitHub")
+    expect(login).toContain("Continue with passkey")
     expect(login).toContain("your account will be created automatically after verification")
   })
 
@@ -698,7 +699,7 @@ describe("GitHub OAuth callback (/callback/github)", () => {
     }
   })
 
-  test("completes the happy path: 302 redirect to the client callback with a fresh auth code", async () => {
+  test("completes the happy path: passkey offer then 302 redirect to the client callback", async () => {
     const target = env({ DB: permissiveDb() })
     const loginState = await bootstrapLoginState(target)
     const stub = stubFetch((call) => {
@@ -724,8 +725,19 @@ describe("GitHub OAuth callback (/callback/github)", () => {
         new Request(`https://auth.nikcli.store/callback/github?code=abc&state=${encodeURIComponent(loginState)}`),
         target,
       )
-      expect(response.status).toBe(302)
-      const location = response.headers.get("location") ?? ""
+      expect(response.status).toBe(200)
+      expect(await response.text()).toContain("Save a passkey")
+
+      const skipped = await app.fetch(
+        new Request("https://auth.nikcli.store/login/passkey/skip", {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ login_state: loginState }).toString(),
+        }),
+        target,
+      )
+      expect(skipped.status).toBe(302)
+      const location = skipped.headers.get("location") ?? ""
       const redirected = new URL(location)
       expect(redirected.origin + redirected.pathname).toBe("https://nikcli.store/dashboard/callback")
       expect(redirected.searchParams.get("state")).toBe("opaque")

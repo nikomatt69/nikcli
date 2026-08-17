@@ -73,3 +73,21 @@ export type SigningKeyRow = {
   created_at: number
   retired_at: number | null
 }
+
+export type PasskeyRow = {
+  id: string
+  account_id: string
+  credential_id: string
+  public_key: string
+  sign_count: number
+  transports: string | null
+  backed_up: number
+  device_type: string | null
+  user_handle: string
+  created_at: number
+  last_used_at: number | null
+}
+
+export type PasskeyOffer = {
+  accountID: string
+}

@@ -337,6 +337,7 @@ export default function SettingsScreen() {
       composer: next.composer ?? current.composer,
       promptPresets: next.promptPresets ?? current.promptPresets,
       wallpaper: current.wallpaper,
+      security: current.security,
       tipsHidden: current.tipsHidden,
       mathEnabled: current.mathEnabled,
     }))
@@ -630,16 +631,8 @@ export default function SettingsScreen() {
 
   async function startGithubOAuth() {
     if (!client) return
-    if (!oauthConfigured && !githubOauthClientID.trim()) {
-      setMessage("Set a GitHub OAuth client ID first, then start device sign-in from this card.")
-      return
-    }
 
     try {
-      if (!oauthConfigured) {
-        const saved = await persistGithubOAuthClientID()
-        if (!saved) return
-      }
       setOauthBusy(true)
       setMessage(null)
       const flow = await client.startGithubDeviceAuth()
@@ -923,7 +916,7 @@ export default function SettingsScreen() {
                       title="OAuth and account trust"
                       description="Manage device sign-in, fallback token access, and the host GitHub identity posture from one enterprise screen."
                       badges={[
-                        githubConnected ? "Connected" : "Offline",
+                        githubConnected ? "Connected" : oauthConfigured ? "Approve account" : "Needs client ID",
                         oauthConfigured ? "OAuth ready" : "Needs client ID",
                         githubTokenAvailable ? "GH token stored" : "No GH token",
                       ]}
@@ -970,6 +963,14 @@ export default function SettingsScreen() {
                     />
                   </Link>
                 ) : null}
+                <Link href={"/more/settings/security" as Href} asChild>
+                  <SettingsNavCard
+                    eyebrow="Security"
+                    title="Security"
+                    description="Unlock the app with Face ID or device biometrics when you return from background."
+                    badges={["Face ID", "Biometrics"]}
+                  />
+                </Link>
                 {visibleSettingsSections.tokens ? (
                   <Link href="/more/settings/tokens" asChild>
                     <SettingsNavCard
@@ -1033,7 +1034,7 @@ export default function SettingsScreen() {
                     <Text className="mt-2 text-xs leading-5 text-soft">
                       OAuth{" "}
                       {oauthConfigured
-                        ? `configured via ${bootstrap?.github?.oauthClientSource ?? "host"}`
+                        ? "Nikcli GitHub App · approve your account"
                         : "not configured yet"}
                     </Text>
                   </View>

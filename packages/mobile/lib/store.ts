@@ -6,6 +6,7 @@ import type {
   HapticPreferences,
   NotificationPreferences,
   PromptPreset,
+  SecurityPreferences,
   SettingsSectionID,
   ThemeMode,
   WallpaperPreferences,
@@ -28,6 +29,7 @@ export interface AppShellState {
   composer: ComposerPreferences
   promptPresets: PromptPreset[]
   wallpaper: WallpaperPreferences
+  security: SecurityPreferences
   tipsHidden: boolean
   mathEnabled: boolean
   preferencesReady: boolean
@@ -43,6 +45,7 @@ export interface AppShellState {
   setComposerPreference<K extends keyof ComposerPreferences>(key: K, value: ComposerPreferences[K]): void
   setPromptPresets(presets: PromptPreset[]): void
   setWallpaper(wallpaper: WallpaperPreferences): void
+  setSecurityPreference<K extends keyof SecurityPreferences>(key: K, value: SecurityPreferences[K]): void
   setTipsHidden(hidden: boolean): void
   setMathEnabled(enabled: boolean): void
   showToast(input: { message: string; kind?: ToastKind }): void
@@ -102,6 +105,12 @@ const defaultWallpaper: WallpaperPreferences = {
   enabled: false,
 }
 
+const defaultSecurity: SecurityPreferences = {
+  biometricsEnabled: false,
+  lockOnBackground: true,
+  confirmSensitiveActions: true,
+}
+
 const defaultPromptPresets: PromptPreset[] = [
   {
     id: "preset-review",
@@ -132,6 +141,7 @@ export const useUIStore = create<AppShellState>((set) => ({
   composer: defaultComposer,
   promptPresets: defaultPromptPresets,
   wallpaper: defaultWallpaper,
+  security: defaultSecurity,
   tipsHidden: false,
   mathEnabled: false,
   preferencesReady: false,
@@ -165,6 +175,10 @@ export const useUIStore = create<AppShellState>((set) => ({
       wallpaper: {
         ...defaultWallpaper,
         ...preferences.wallpaper,
+      },
+      security: {
+        ...defaultSecurity,
+        ...preferences.security,
       },
       tipsHidden: preferences.tipsHidden === true,
       mathEnabled: preferences.mathEnabled === true,
@@ -208,6 +222,13 @@ export const useUIStore = create<AppShellState>((set) => ({
     })),
   setPromptPresets: (presets) => set({ promptPresets: presets }),
   setWallpaper: (wallpaper) => set({ wallpaper }),
+  setSecurityPreference: (key, value) =>
+    set((state) => ({
+      security: {
+        ...state.security,
+        [key]: value,
+      },
+    })),
   setTipsHidden: (hidden) => set({ tipsHidden: hidden }),
   setMathEnabled: (enabled) => set({ mathEnabled: enabled }),
   showToast: (input) => {

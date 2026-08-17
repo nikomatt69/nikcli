@@ -954,8 +954,8 @@ export async function githubOAuthClientID() {
   }
 
   return {
-    clientID: undefined,
-    source: undefined,
+    clientID: Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT,
+    source: "flag" as const,
   }
 }
 

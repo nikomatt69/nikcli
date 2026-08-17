@@ -17,6 +17,7 @@ export default function SettingsLayout() {
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="appearance" options={{ title: "Appearance" }} />
+      <Stack.Screen name="security" options={{ title: "Security" }} />
     </Stack>
   )
 }

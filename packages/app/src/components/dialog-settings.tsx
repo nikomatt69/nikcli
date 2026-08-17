@@ -9,6 +9,11 @@ import { SettingsKeybinds } from "./settings-keybinds"
 import { SettingsProviders } from "./settings-providers"
 import { SettingsModels } from "./settings-models"
 import { SettingsPermissions } from "./settings-permissions"
+import { SettingsFeatures } from "./settings-features"
+import { SettingsWorktrees } from "./settings-worktrees"
+import { SettingsAgents } from "./settings-agents"
+import { SettingsCommands } from "./settings-commands"
+import { SettingsMcp } from "./settings-mcp"
 
 export const DialogSettings: Component<{ defaultValue?: string }> = (props) => {
   const language = useLanguage()
@@ -24,7 +29,7 @@ export const DialogSettings: Component<{ defaultValue?: string }> = (props) => {
       >
         <Tabs.List>
           <div class="flex flex-col justify-between h-full w-full">
-            <div class="flex flex-col gap-3 w-full pt-3">
+            <div class="flex flex-col gap-3 w-full pt-3 overflow-y-auto no-scrollbar">
               <div class="flex flex-col gap-3">
                 <div class="flex flex-col gap-1.5">
                   <Tabs.SectionTitle>{language.t("settings.section.desktop")}</Tabs.SectionTitle>
@@ -55,6 +60,32 @@ export const DialogSettings: Component<{ defaultValue?: string }> = (props) => {
                       <Icon name="checklist" />
                       {language.t("settings.permissions.title")}
                     </Tabs.Trigger>
+                    <Tabs.Trigger value="features">
+                      <Icon name="settings-gear" />
+                      {language.t("settings.features.title")}
+                    </Tabs.Trigger>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <Tabs.SectionTitle>{language.t("settings.section.project")}</Tabs.SectionTitle>
+                  <div class="flex flex-col gap-1.5 w-full">
+                    <Tabs.Trigger value="worktrees">
+                      <Icon name="branch" />
+                      {language.t("settings.worktrees.title")}
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="agents">
+                      <Icon name="glasses" />
+                      {language.t("settings.agents.title")}
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="commands">
+                      <Icon name="code" />
+                      {language.t("settings.commands.title")}
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="mcp">
+                      <Icon name="mcp" />
+                      {language.t("settings.mcp.title")}
+                    </Tabs.Trigger>
                   </div>
                 </div>
               </div>
@@ -80,15 +111,21 @@ export const DialogSettings: Component<{ defaultValue?: string }> = (props) => {
         <Tabs.Content value="permissions" class="no-scrollbar">
           <SettingsPermissions />
         </Tabs.Content>
-        {/* <Tabs.Content value="agents" class="no-scrollbar"> */}
-        {/*   <SettingsAgents /> */}
-        {/* </Tabs.Content> */}
-        {/* <Tabs.Content value="commands" class="no-scrollbar"> */}
-        {/*   <SettingsCommands /> */}
-        {/* </Tabs.Content> */}
-        {/* <Tabs.Content value="mcp" class="no-scrollbar"> */}
-        {/*   <SettingsMcp /> */}
-        {/* </Tabs.Content> */}
+        <Tabs.Content value="features" class="no-scrollbar">
+          <SettingsFeatures />
+        </Tabs.Content>
+        <Tabs.Content value="worktrees" class="no-scrollbar">
+          <SettingsWorktrees />
+        </Tabs.Content>
+        <Tabs.Content value="agents" class="no-scrollbar">
+          <SettingsAgents />
+        </Tabs.Content>
+        <Tabs.Content value="commands" class="no-scrollbar">
+          <SettingsCommands />
+        </Tabs.Content>
+        <Tabs.Content value="mcp" class="no-scrollbar">
+          <SettingsMcp />
+        </Tabs.Content>
       </Tabs>
     </Dialog>
   )

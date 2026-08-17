@@ -30,6 +30,7 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Nikcli uses Face ID to unlock the app and confirm sensitive actions.",
         "NSLocalNetworkUsageDescription": "Nikcli connects to the local CLI server running on your computer.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
@@ -63,6 +64,7 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-local-authentication",
       "expo-font",
       "expo-notifications",
       "expo-asset",

@@ -1,8 +1,18 @@
-import { createSignal, createEffect, createMemo, onCleanup, Show, For, type JSX } from "solid-js"
+import { createSignal, createEffect, createMemo, onCleanup, on, Show, For, type JSX } from "solid-js"
+import { createStore } from "solid-js/store"
+import { useNavigate, useParams } from "@solidjs/router"
 import { Icon } from "@nikcli-ai/ui/icon"
 import { IconButton } from "@nikcli-ai/ui/icon-button"
+import { Select } from "@nikcli-ai/ui/select"
 import { usePrompt } from "@/context/prompt"
+import { useLayout } from "@/context/layout"
+import { useGlobalSync } from "@/context/global-sync"
+import { useLanguage } from "@/context/language"
 import { showToast } from "@nikcli-ai/ui/toast"
+import { getFilename } from "@nikcli-ai/util/path"
+import { base64Encode } from "@nikcli-ai/util/encode"
+import { persisted } from "@/utils/persist"
+import { decode64 } from "@/utils/base64"
 import {
   type InspectedElement,
   type ConsoleEntry,
@@ -48,6 +58,15 @@ type DevicePreset = "responsive" | "desktop" | "tablet" | "mobile"
 
 export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Element {
   const prompt = optionalPrompt()
+  const language = useLanguage()
+  const layout = useLayout()
+  const globalSync = useGlobalSync()
+  const params = useParams()
+  const navigate = useNavigate()
+  const [preview, setPreview] = persisted(
+    "visual-editor.preview.v1",
+    createStore({ urls: {} as Record<string, string> }),
+  )
 
   // Default to localhost:3000 for user's web app
   const [url, setUrl] = createSignal(props.initialUrl || "http://localhost:3000")
@@ -95,6 +114,70 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
     return commonPorts
   })
 
+  const currentDirectory = createMemo(() => decode64(params.dir) ?? "")
+  const project = createMemo(() => {
+    const dir = currentDirectory()
+    if (!dir) return
+    const projects = layout.projects.list()
+    const sandbox = projects.find((item) => item.sandboxes?.includes(dir))
+    if (sandbox) return sandbox
+    return projects.find((item) => item.worktree === dir)
+  })
+  const worktreeOptions = createMemo(() => {
+    const current = project()
+    if (!current) return []
+    const [main] = globalSync.child(current.worktree, { bootstrap: false })
+    const branch = main.vcs?.branch
+    const options = [
+      {
+        value: current.worktree,
+        label: branch
+          ? language.t("session.new.worktree.mainWithBranch", { branch })
+          : language.t("session.new.worktree.main"),
+      },
+    ]
+    for (const sandbox of current.sandboxes ?? []) {
+      options.push({ value: sandbox, label: getFilename(sandbox) })
+    }
+    return options
+  })
+  const currentWorktree = createMemo(() => {
+    const dir = currentDirectory()
+    const options = worktreeOptions()
+    if (options.some((item) => item.value === dir)) return dir
+    return options[0]?.value
+  })
+
+  const rememberUrl = (next: string) => {
+    const dir = currentDirectory()
+    if (!dir) return
+    setPreview("urls", dir, next)
+  }
+
+  createEffect(
+    on(
+      () => currentDirectory(),
+      (dir) => {
+        if (!dir) return
+        const saved = preview.urls[dir]
+        if (!saved) return
+        setUrl(saved)
+        setInputUrl(saved)
+      },
+    ),
+  )
+
+  const switchWorktree = (directory: string) => {
+    if (!directory || directory === currentDirectory()) return
+    rememberUrl(url())
+    const saved = preview.urls[directory]
+    if (saved) {
+      setUrl(saved)
+      setInputUrl(saved)
+    }
+    navigate(`/${base64Encode(directory)}/session`)
+  }
+
   const navigateTo = (newUrl: string) => {
     let formatted = newUrl.trim()
     if (!formatted) return
@@ -103,6 +186,7 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
     }
     setUrl(formatted)
     setInputUrl(formatted)
+    rememberUrl(formatted)
     setSelectedElement(null)
     setIsLoading(true)
   }
@@ -348,6 +432,20 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
               <span>Edit</span>
             </button>
           </div>
+
+          <Show when={worktreeOptions().length > 0}>
+            <Select
+              options={worktreeOptions()}
+              current={worktreeOptions().find((item) => item.value === currentWorktree())}
+              value={(item) => item.value}
+              label={(item) => item.label}
+              onSelect={(item) => item && switchWorktree(item.value)}
+              variant="secondary"
+              size="small"
+              placeholder={language.t("visualEditor.worktree.label")}
+              class="shrink-0 max-w-[11rem]"
+            />
+          </Show>
 
           <div class="@[22rem]:hidden flex-1 min-w-0 overflow-x-auto no-scrollbar">
             <div class="flex items-center gap-0.5 w-max">

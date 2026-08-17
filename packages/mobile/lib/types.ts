@@ -118,6 +118,12 @@ export type WallpaperPreferences = {
   enabled: boolean
 }
 
+export type SecurityPreferences = {
+  biometricsEnabled: boolean
+  lockOnBackground: boolean
+  confirmSensitiveActions: boolean
+}
+
 export type AppPreferences = {
   themeMode: ThemeMode
   visibleSettingsSections: Record<SettingsSectionID, boolean>
@@ -127,6 +133,7 @@ export type AppPreferences = {
   composer: ComposerPreferences
   promptPresets: PromptPreset[]
   wallpaper: WallpaperPreferences
+  security: SecurityPreferences
   tipsHidden: boolean
   mathEnabled: boolean
 }

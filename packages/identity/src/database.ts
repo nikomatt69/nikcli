@@ -1,6 +1,6 @@
 import { createID, createSigningJwks, sha256 } from "./crypto"
 import { RETIRED_KEY_PUBLICATION_SECONDS, SIGNING_KEY_ROTATION_SECONDS } from "./constants"
-import type { Account, DeviceCodeRow, RefreshTokenRow, SigningKeyRow } from "./types"
+import type { Account, DeviceCodeRow, PasskeyRow, RefreshTokenRow, SigningKeyRow } from "./types"
 
 function changes(result: D1Result<unknown>): number {
   return result.meta.changes ?? 0
@@ -221,4 +221,57 @@ export async function listPublicSigningKeys(db: D1Database, now = Date.now()): P
 
 export async function hashDeviceCode(deviceCode: string): Promise<string> {
   return sha256(deviceCode)
+}
+
+export async function listPasskeys(db: D1Database, accountID: string): Promise<PasskeyRow[]> {
+  const result = await db
+    .prepare("SELECT * FROM passkeys WHERE account_id = ? ORDER BY created_at")
+    .bind(accountID)
+    .all<PasskeyRow>()
+  return result.results
+}
+
+export async function getPasskeyByCredentialID(db: D1Database, credentialID: string): Promise<PasskeyRow | null> {
+  return db.prepare("SELECT * FROM passkeys WHERE credential_id = ?").bind(credentialID).first<PasskeyRow>()
+}
+
+export async function insertPasskey(db: D1Database, row: PasskeyRow): Promise<void> {
+  await db
+    .prepare(
+      "INSERT INTO passkeys (id, account_id, credential_id, public_key, sign_count, transports, backed_up, device_type, user_handle, created_at, last_used_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(
+      row.id,
+      row.account_id,
+      row.credential_id,
+      row.public_key,
+      row.sign_count,
+      row.transports,
+      row.backed_up,
+      row.device_type,
+      row.user_handle,
+      row.created_at,
+      row.last_used_at,
+    )
+    .run()
+}
+
+export async function updatePasskeyCounter(
+  db: D1Database,
+  credentialID: string,
+  signCount: number,
+  lastUsedAt: number,
+): Promise<void> {
+  await db
+    .prepare("UPDATE passkeys SET sign_count = ?, last_used_at = ? WHERE credential_id = ?")
+    .bind(signCount, lastUsedAt, credentialID)
+    .run()
+}
+
+export async function countPasskeys(db: D1Database, accountID: string): Promise<number> {
+  const row = await db
+    .prepare("SELECT COUNT(*) AS n FROM passkeys WHERE account_id = ?")
+    .bind(accountID)
+    .first<{ n: number }>()
+  return row?.n ?? 0
 }

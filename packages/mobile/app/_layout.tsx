@@ -1,12 +1,13 @@
 import "react-native-gesture-handler"
 import "@/global.css"
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Stack, router, usePathname, useRootNavigationState } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import { useColorScheme } from "nativewind"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
-import { AppState } from "react-native"
+import { AppState, StyleSheet, View } from "react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import { AppLockOverlay } from "@/components/AppLockOverlay"
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary"
 import { ToastHost } from "@/components/ui/ToastHost"
 import { ServerProvider } from "@/lib/server-provider"
@@ -40,6 +41,55 @@ function AuthGuard() {
   }, [ready, rootNavigationState?.key, userLoading, config, userToken, pathname])
 
   return null
+}
+
+function AppLockCoordinator() {
+  const pathname = usePathname()
+  const security = useUIStore((state) => state.security)
+  const preferencesReady = useUIStore((state) => state.preferencesReady)
+  const [locked, setLocked] = useState(false)
+  const didBackground = useRef(false)
+  const hasBeenActive = useRef(AppState.currentState === "active")
+
+  const skipLock = pathname === "/" || pathname === "/login" || pathname === "" || !pathname
+
+  useEffect(() => {
+    if (!security.biometricsEnabled) setLocked(false)
+  }, [security.biometricsEnabled])
+
+  useEffect(() => {
+    if (!preferencesReady) return
+
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next === "active") {
+        hasBeenActive.current = true
+        return
+      }
+
+      if (next !== "background" && next !== "inactive") return
+      if (!hasBeenActive.current) return
+
+      const latest = useUIStore.getState()
+      if (!latest.preferencesReady) return
+      if (!latest.security.biometricsEnabled || !latest.security.lockOnBackground) return
+      if (skipLock) return
+
+      didBackground.current = true
+      setLocked(true)
+    })
+
+    return () => subscription.remove()
+  }, [preferencesReady, skipLock])
+
+  const onUnlocked = useCallback(() => setLocked(false), [])
+
+  if (!preferencesReady || skipLock || !security.biometricsEnabled || !locked) return null
+
+  return (
+    <View pointerEvents="auto" style={[StyleSheet.absoluteFill, { zIndex: 20000 }]}>
+      <AppLockOverlay onUnlocked={onUnlocked} />
+    </View>
+  )
 }
 
 function LiveActivityCoordinator() {
@@ -199,6 +249,7 @@ function RootLayoutInner() {
               <Stack.Screen name="user" options={{ headerShown: false }} />
               <Stack.Screen name="+not-found" options={{ title: "Not found" }} />
             </Stack>
+            <AppLockCoordinator />
           </ServerProvider>
         </GlobalErrorBoundary>
       </SafeAreaProvider>
