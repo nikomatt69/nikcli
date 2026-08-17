@@ -26,7 +26,7 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
   const [inputUrl, setInputUrl] = createSignal(url())
   const [devicePreset, setDevicePreset] = createSignal<DevicePreset>("responsive")
   const [isLandscape, setIsLandscape] = createSignal(false)
-  
+
   // Unified modes: 'browse' (normal web browsing) | 'edit' (select & link + drag & drop)
   const [editorMode, setEditorMode] = createSignal<"browse" | "edit">("browse")
   const [selectedElement, setSelectedElement] = createSignal<InspectedElement | null>(null)
@@ -100,13 +100,11 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
       const langUpper = el.detectedLanguage.toUpperCase()
       const classPart = el.className ? ` class="${el.className.split(" ").slice(0, 2).join(" ")}"` : ""
       const idPart = el.id ? ` id="${el.id}"` : ""
-      
+
       const compressedRef = `[Element: <${el.tagName}${idPart}${classPart}> (${langUpper}) | selector: "${el.selector}"]\n`
 
       const currentPrompt = prompt.current()
-      const existingText = currentPrompt
-        .map((p) => (p.type === "text" ? p.content : ""))
-        .join("")
+      const existingText = currentPrompt.map((p) => (p.type === "text" ? p.content : "")).join("")
 
       const newContent = existingText.trim() ? `${existingText.trim()}\n${compressedRef}` : compressedRef
 
@@ -129,11 +127,9 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
       })
     } else if (data.type === "visual-editor:element-reordered") {
       const reorderNote = `[DOM Reorder: Moved <${data.selector}> from index ${data.oldIndex} to ${data.newIndex} inside <${data.parentSelector}>]\n`
-      
+
       const currentPrompt = prompt.current()
-      const existingText = currentPrompt
-        .map((p) => (p.type === "text" ? p.content : ""))
-        .join("")
+      const existingText = currentPrompt.map((p) => (p.type === "text" ? p.content : "")).join("")
 
       const newContent = existingText.trim() ? `${existingText.trim()}\n${reorderNote}` : reorderNote
 
@@ -190,11 +186,9 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
 
   const sendErrorToAgent = (log: ConsoleEntry) => {
     const errorNote = `[Browser Console Error]:\n${log.message}\n\nPlease analyze this error and fix the code.\n`
-    
+
     const currentPrompt = prompt.current()
-    const existingText = currentPrompt
-      .map((p) => (p.type === "text" ? p.content : ""))
-      .join("")
+    const existingText = currentPrompt.map((p) => (p.type === "text" ? p.content : "")).join("")
 
     const newContent = existingText.trim() ? `${existingText.trim()}\n${errorNote}` : errorNote
 
@@ -248,13 +242,7 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
             onClick={() => iframeRef?.contentWindow?.history.forward()}
             aria-label="Forward"
           />
-          <IconButton
-            icon="check-small"
-            variant="ghost"
-            class="h-6 w-6"
-            onClick={handleRefresh}
-            aria-label="Reload"
-          />
+          <IconButton icon="check-small" variant="ghost" class="h-6 w-6" onClick={handleRefresh} aria-label="Reload" />
         </div>
 
         {/* URL Bar */}
@@ -360,13 +348,7 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
           </button>
 
           <Show when={props.onClose}>
-            <IconButton
-              icon="close-small"
-              variant="ghost"
-              class="h-6 w-6"
-              onClick={props.onClose}
-              aria-label="Close"
-            />
+            <IconButton icon="close-small" variant="ghost" class="h-6 w-6" onClick={props.onClose} aria-label="Close" />
           </Show>
         </div>
       </div>
@@ -376,7 +358,10 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
         <div class="bg-primary-base/15 text-primary-text border-b border-primary-base/30 px-3 py-1 text-11-medium flex items-center justify-between shrink-0 animate-in fade-in duration-100">
           <div class="flex items-center gap-1.5">
             <span>✏️</span>
-            <span><strong>Edit Mode Active:</strong> Click any element to link it directly to the chat, or drag it to reorder the layout.</span>
+            <span>
+              <strong>Edit Mode Active:</strong> Click any element to link it directly to the chat, or drag it to
+              reorder the layout.
+            </span>
           </div>
           <button
             type="button"

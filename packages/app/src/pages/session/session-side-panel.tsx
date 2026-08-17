@@ -261,7 +261,13 @@ export function SessionSidePanel(props: {
           </div>
         </Show>
 
-        <Show when={props.layout.fileTree.opened() && props.activeTab() !== "browser" && !props.activeTab().startsWith("browser://")}>
+        <Show
+          when={
+            props.layout.fileTree.opened() &&
+            props.activeTab() !== "browser" &&
+            !props.activeTab().startsWith("browser://")
+          }
+        >
           <div
             id="file-tree-panel"
             class="relative shrink-0 h-full"

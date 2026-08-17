@@ -174,10 +174,7 @@ export function Titlebar() {
           </div>
         </Show>
         <Show when={!mac()}>
-          <div
-            data-component="titlebar-mobile-menu"
-            class="w-[48px] shrink-0 flex items-center justify-center"
-          >
+          <div data-component="titlebar-mobile-menu" class="w-[48px] shrink-0 flex items-center justify-center">
             <IconButton
               icon="menu"
               variant="ghost"

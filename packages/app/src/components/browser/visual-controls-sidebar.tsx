@@ -47,7 +47,9 @@ export function VisualControlsSidebar(props: VisualControlsSidebarProps): JSX.El
         when={props.element}
         fallback={
           <div class="flex-1 p-6 flex flex-col items-center justify-center text-center gap-3 text-text-weak">
-            <span class="text-13-regular">Click any element in the browser preview to inspect and edit its visual styles.</span>
+            <span class="text-13-regular">
+              Click any element in the browser preview to inspect and edit its visual styles.
+            </span>
           </div>
         }
       >
@@ -57,7 +59,8 @@ export function VisualControlsSidebar(props: VisualControlsSidebarProps): JSX.El
             type="button"
             class="flex-1 py-2 text-12-medium text-center transition-colors cursor-pointer"
             classList={{
-              "text-primary-text border-b-2 border-primary-base font-semibold bg-surface-base": activeTab() === "styles",
+              "text-primary-text border-b-2 border-primary-base font-semibold bg-surface-base":
+                activeTab() === "styles",
               "text-text-weak hover:text-text-strong": activeTab() !== "styles",
             }}
             onClick={() => setActiveTab("styles")}
@@ -68,7 +71,8 @@ export function VisualControlsSidebar(props: VisualControlsSidebarProps): JSX.El
             type="button"
             class="flex-1 py-2 text-12-medium text-center transition-colors cursor-pointer"
             classList={{
-              "text-primary-text border-b-2 border-primary-base font-semibold bg-surface-base": activeTab() === "layout",
+              "text-primary-text border-b-2 border-primary-base font-semibold bg-surface-base":
+                activeTab() === "layout",
               "text-text-weak hover:text-text-strong": activeTab() !== "layout",
             }}
             onClick={() => setActiveTab("layout")}
@@ -79,7 +83,8 @@ export function VisualControlsSidebar(props: VisualControlsSidebarProps): JSX.El
             type="button"
             class="flex-1 py-2 text-12-medium text-center transition-colors cursor-pointer"
             classList={{
-              "text-primary-text border-b-2 border-primary-base font-semibold bg-surface-base": activeTab() === "typography",
+              "text-primary-text border-b-2 border-primary-base font-semibold bg-surface-base":
+                activeTab() === "typography",
               "text-text-weak hover:text-text-strong": activeTab() !== "typography",
             }}
             onClick={() => setActiveTab("typography")}
@@ -113,9 +118,7 @@ export function VisualControlsSidebar(props: VisualControlsSidebarProps): JSX.El
                 </button>
               </div>
             </div>
-            <div class="font-mono text-11-regular text-text-weak truncate">
-              {props.element?.selector}
-            </div>
+            <div class="font-mono text-11-regular text-text-weak truncate">{props.element?.selector}</div>
           </div>
 
           {/* STYLES TAB */}
@@ -165,7 +168,9 @@ export function VisualControlsSidebar(props: VisualControlsSidebarProps): JSX.El
               <div class="flex flex-col gap-1">
                 <div class="flex justify-between items-center text-11-medium text-text-weak">
                   <label>Corner Radius</label>
-                  <span class="font-mono">{stagedChanges()["borderRadius"] || props.element?.styles.borderRadius || "0px"}</span>
+                  <span class="font-mono">
+                    {stagedChanges()["borderRadius"] || props.element?.styles.borderRadius || "0px"}
+                  </span>
                 </div>
                 <div class="grid grid-cols-4 gap-1">
                   {["0px", "6px", "12px", "9999px"].map((rad) => (
@@ -344,12 +349,7 @@ export function VisualControlsSidebar(props: VisualControlsSidebarProps): JSX.El
 
         {/* Footer with Apply to Code button */}
         <div class="p-3 border-t border-border-weak-base bg-surface-subtle flex flex-col gap-2">
-          <Button
-            variant="primary"
-            class="w-full justify-center"
-            disabled={!hasChanges()}
-            onClick={handleApplyToCode}
-          >
+          <Button variant="primary" class="w-full justify-center" disabled={!hasChanges()} onClick={handleApplyToCode}>
             Apply Changes to Code
           </Button>
           <Show when={hasChanges()}>

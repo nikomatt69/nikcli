@@ -31,7 +31,8 @@ export function PointPromptPopover(props: PointPromptPopoverProps): JSX.Element 
   ]
 
   // Calculate popover positioning near element
-  const posTop = () => Math.max(10, Math.min(window.innerHeight - 300, props.element.rect.top + props.element.rect.height + 8))
+  const posTop = () =>
+    Math.max(10, Math.min(window.innerHeight - 300, props.element.rect.top + props.element.rect.height + 8))
   const posLeft = () => Math.max(10, Math.min(window.innerWidth - 380, props.element.rect.left))
 
   return (

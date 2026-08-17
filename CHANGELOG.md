@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.289.0 (August 2026)
+
+## Desktop
+
+- Browser Visual Editor with Point & Prompt and Drag & Drop (#222) (@SandroHub013)
+
+**Thank you to 1 community contributor:**
+
+- @SandroHub013:
+  - feat(app): Browser Visual Editor with Point & Prompt and Drag & Drop (#222)
+
 ## v1.288.0 (August 2026)
 
 ## Core
