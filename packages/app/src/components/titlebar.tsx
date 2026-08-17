@@ -163,7 +163,7 @@ export function Titlebar() {
       >
         <Show when={mac()}>
           <div class="h-full shrink-0" style={{ width: `${72 / zoom()}px` }} />
-          <div data-component="titlebar-mobile-menu" class="xl:hidden w-10 shrink-0 flex items-center justify-center">
+          <div data-component="titlebar-mobile-menu" class="w-10 shrink-0 flex items-center justify-center">
             <IconButton
               icon="menu"
               variant="ghost"
@@ -176,7 +176,7 @@ export function Titlebar() {
         <Show when={!mac()}>
           <div
             data-component="titlebar-mobile-menu"
-            class="xl:hidden w-[48px] shrink-0 flex items-center justify-center"
+            class="w-[48px] shrink-0 flex items-center justify-center"
           >
             <IconButton
               icon="menu"

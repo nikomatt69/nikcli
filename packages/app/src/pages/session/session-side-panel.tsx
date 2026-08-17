@@ -21,6 +21,7 @@ import { useFile, type SelectedLineRange } from "@/context/file"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useSync } from "@/context/sync"
+import { BrowserVisualEditor } from "@/components/browser/visual-editor"
 
 export function SessionSidePanel(props: {
   open: boolean
@@ -89,7 +90,7 @@ export function SessionSidePanel(props: {
         style={{ width: props.reviewOpen ? undefined : `${props.layout.fileTree.width()}px` }}
       >
         <Show when={props.reviewOpen}>
-          <div class="flex-1 min-w-0 h-full">
+          <div class="flex-1 min-w-0 h-full flex flex-col">
             <Show
               when={props.layout.fileTree.opened() && props.fileTreeTab() === "changes"}
               fallback={
@@ -101,7 +102,7 @@ export function SessionSidePanel(props: {
                 >
                   <DragDropSensors />
                   <ConstrainDragYAxis />
-                  <Tabs value={props.activeTab()} onChange={props.openTab}>
+                  <Tabs value={props.activeTab()} onChange={props.openTab} class="h-full flex flex-col min-h-0">
                     <div class="sticky top-0 shrink-0 flex">
                       <Tabs.List
                         ref={(el: HTMLDivElement) => {
@@ -151,23 +152,34 @@ export function SessionSidePanel(props: {
                         </SortableProvider>
                         <Show when={props.reviewActions}>{props.reviewActions}</Show>
                         <StickyAddButton>
-                          <TooltipKeybind
-                            title={props.language.t("command.file.open")}
-                            keybind={props.command.keybind("file.open")}
-                            class="flex items-center"
-                          >
-                            <IconButton
-                              icon="plus-small"
-                              variant="ghost"
-                              iconSize="large"
-                              onClick={() =>
-                                props.dialog.show(() => (
-                                  <DialogSelectFile mode="files" onOpenFile={props.showAllFiles} />
-                                ))
-                              }
-                              aria-label={props.language.t("command.file.open")}
-                            />
-                          </TooltipKeybind>
+                          <div class="flex items-center gap-0.5">
+                            <Tooltip value="Open Browser Visual Editor (Point & Prompt)" placement="bottom">
+                              <IconButton
+                                icon="window-cursor"
+                                variant="ghost"
+                                iconSize="large"
+                                onClick={() => props.openTab("browser")}
+                                aria-label="Open Browser Visual Editor"
+                              />
+                            </Tooltip>
+                            <TooltipKeybind
+                              title={props.language.t("command.file.open")}
+                              keybind={props.command.keybind("file.open")}
+                              class="flex items-center"
+                            >
+                              <IconButton
+                                icon="plus-small"
+                                variant="ghost"
+                                iconSize="large"
+                                onClick={() =>
+                                  props.dialog.show(() => (
+                                    <DialogSelectFile mode="files" onOpenFile={props.showAllFiles} />
+                                  ))
+                                }
+                                aria-label={props.language.t("command.file.open")}
+                              />
+                            </TooltipKeybind>
+                          </div>
                         </StickyAddButton>
                       </Tabs.List>
                     </div>
@@ -177,6 +189,12 @@ export function SessionSidePanel(props: {
                         <Show when={props.activeTab() === "review"}>{props.reviewPanel()}</Show>
                       </Tabs.Content>
                     </Show>
+
+                    <Tabs.Content value="browser" class="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
+                      <Show when={props.activeTab() === "browser" || props.activeTab().startsWith("browser://")}>
+                        <BrowserVisualEditor onClose={() => props.tabs().close("browser")} />
+                      </Show>
+                    </Tabs.Content>
 
                     <Tabs.Content value="empty" class="flex flex-col h-full overflow-hidden contain-strict">
                       <Show when={props.activeTab() === "empty"}>
@@ -243,7 +261,7 @@ export function SessionSidePanel(props: {
           </div>
         </Show>
 
-        <Show when={props.layout.fileTree.opened()}>
+        <Show when={props.layout.fileTree.opened() && props.activeTab() !== "browser" && !props.activeTab().startsWith("browser://")}>
           <div
             id="file-tree-panel"
             class="relative shrink-0 h-full"

@@ -128,6 +128,17 @@ export const useSessionCommands = (input: {
       onSelect: () => input.view().terminal.toggle(),
     },
     {
+      id: "browser.visualEditor.open",
+      title: "Browser: Open Visual Editor (Point & Prompt)",
+      description: "Inspect elements, visual edit CSS styles, and point & prompt with agent",
+      category: input.language.t("command.category.view"),
+      keybind: "mod+shift+b",
+      slash: "browser",
+      onSelect: () => {
+        input.tabs().open("browser")
+      },
+    },
+    {
       id: "review.toggle",
       title: input.language.t("command.review.toggle"),
       description: "",
