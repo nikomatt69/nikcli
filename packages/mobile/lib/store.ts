@@ -8,6 +8,7 @@ import type {
   PromptPreset,
   SettingsSectionID,
   ThemeMode,
+  WallpaperPreferences,
 } from "@/lib/types"
 
 export type ToastKind = "success" | "error" | "info"
@@ -26,6 +27,9 @@ export interface AppShellState {
   gestures: GesturePreferences
   composer: ComposerPreferences
   promptPresets: PromptPreset[]
+  wallpaper: WallpaperPreferences
+  tipsHidden: boolean
+  mathEnabled: boolean
   preferencesReady: boolean
   toasts: ToastEntry[]
   offlineQueueCount: number
@@ -38,6 +42,9 @@ export interface AppShellState {
   setGesturePreference<K extends keyof GesturePreferences>(key: K, value: GesturePreferences[K]): void
   setComposerPreference<K extends keyof ComposerPreferences>(key: K, value: ComposerPreferences[K]): void
   setPromptPresets(presets: PromptPreset[]): void
+  setWallpaper(wallpaper: WallpaperPreferences): void
+  setTipsHidden(hidden: boolean): void
+  setMathEnabled(enabled: boolean): void
   showToast(input: { message: string; kind?: ToastKind }): void
   dismissToast(id: string): void
   setOfflineQueueCount(count: number): void
@@ -89,6 +96,12 @@ const defaultComposer: ComposerPreferences = {
   slashSuggestions: true,
 }
 
+const defaultWallpaper: WallpaperPreferences = {
+  uri: null,
+  opacity: 0.22,
+  enabled: false,
+}
+
 const defaultPromptPresets: PromptPreset[] = [
   {
     id: "preset-review",
@@ -118,6 +131,9 @@ export const useUIStore = create<AppShellState>((set) => ({
   gestures: defaultGestures,
   composer: defaultComposer,
   promptPresets: defaultPromptPresets,
+  wallpaper: defaultWallpaper,
+  tipsHidden: false,
+  mathEnabled: false,
   preferencesReady: false,
   toasts: [],
   offlineQueueCount: 0,
@@ -146,6 +162,12 @@ export const useUIStore = create<AppShellState>((set) => ({
         ...preferences.composer,
       },
       promptPresets: preferences.promptPresets?.length ? preferences.promptPresets : defaultPromptPresets,
+      wallpaper: {
+        ...defaultWallpaper,
+        ...preferences.wallpaper,
+      },
+      tipsHidden: preferences.tipsHidden === true,
+      mathEnabled: preferences.mathEnabled === true,
       preferencesReady: true,
     }),
   setThemeMode: (mode) => set({ themeMode: mode }),
@@ -185,6 +207,9 @@ export const useUIStore = create<AppShellState>((set) => ({
       },
     })),
   setPromptPresets: (presets) => set({ promptPresets: presets }),
+  setWallpaper: (wallpaper) => set({ wallpaper }),
+  setTipsHidden: (hidden) => set({ tipsHidden: hidden }),
+  setMathEnabled: (enabled) => set({ mathEnabled: enabled }),
   showToast: (input) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const entry: ToastEntry = { id, message: input.message, kind: input.kind ?? "info" }

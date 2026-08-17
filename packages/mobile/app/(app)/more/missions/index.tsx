@@ -11,61 +11,49 @@ import { AppHeader } from "@/components/layout/AppHeader"
 import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { useHostEvents } from "@/hooks/use-host-events"
 import { useServer } from "@/lib/server-context"
+import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
-import type { LoopDefinition, LoopRuntime, LoopRuntimeStatus } from "@/lib/types"
+import type { MissionDefinition, MissionRuntime, MissionRuntimeStatus } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 
-function formatDuration(ms: number): string {
-  if (ms < 60_000) return `${Math.round(ms / 1_000)}s`
-  if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`
-  const hours = Math.floor(ms / 3_600_000)
-  const minutes = Math.round((ms % 3_600_000) / 60_000)
-  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
-}
-
-function scheduleLabel(loop: LoopDefinition): string {
-  return loop.trigger.kind === "interval" ? `Every ${formatDuration(loop.trigger.everyMs)}` : "Manual"
-}
-
-function statusTone(status: LoopRuntimeStatus): "neutral" | "accent" | "good" | "warn" {
+function statusTone(status: MissionRuntimeStatus): "neutral" | "accent" | "good" | "warn" {
   if (status === "running" || status === "cancelling") return "accent"
   if (status === "error" || status === "paused") return "warn"
   return "good"
 }
 
-const LoopRow = memo(function LoopRow({
-  loop,
+const MissionRow = memo(function MissionRow({
+  mission,
   runtime,
-  running,
-  onRun,
+  starting,
+  onStart,
 }: {
-  loop: LoopDefinition
-  runtime: LoopRuntime
-  running: boolean
-  onRun: (id: string) => void
+  mission: MissionDefinition
+  runtime: MissionRuntime
+  starting: boolean
+  onStart(id: string): void
 }) {
-  const description = loop.stages.map((stage) => stage.name).join(" → ")
+  const progress =
+    runtime.totalFeatures > 0 ? `${runtime.doneFeatures}/${runtime.totalFeatures} features` : `${mission.milestones.length} milestones`
 
   return (
     <SurfaceCard
-      eyebrow={runtime.lastRunAt ? `Last run ${relativeTime(runtime.lastRunAt)}` : "Never run"}
-      title={loop.name}
-      description={description}
+      eyebrow={runtime.lastRunAt ? `Last run ${relativeTime(runtime.lastRunAt)}` : mission.status}
+      title={mission.name}
+      description={mission.brief}
     >
       <View className="flex-row flex-wrap gap-2">
         <InfoChip label={runtime.status} tone={statusTone(runtime.status)} />
-        <InfoChip label={loop.enabled ? "Enabled" : "Disabled"} tone={loop.enabled ? "good" : "neutral"} />
-        <InfoChip label={scheduleLabel(loop)} tone="neutral" />
-        <InfoChip label={`${loop.stages.length} stage${loop.stages.length === 1 ? "" : "s"}`} tone="neutral" />
-        {runtime.runs > 0 ? <InfoChip label={`${runtime.runs} runs`} tone="neutral" /> : null}
+        <InfoChip label={progress} tone="neutral" />
+        {runtime.sessionID ? <InfoChip label="Has session" tone="accent" /> : null}
       </View>
       <View className="mt-4 flex-row gap-3">
         <View className="flex-1">
           <ActionButton
-            label={runtime.status === "running" ? "Running" : "Run now"}
-            loading={running || runtime.status === "running"}
-            disabled={!loop.enabled || runtime.status === "paused"}
-            onPress={() => onRun(loop.id)}
+            label={runtime.status === "running" ? "Running" : "Start"}
+            loading={starting || runtime.status === "running"}
+            disabled={runtime.status === "paused"}
+            onPress={() => onStart(mission.id)}
             variant="secondary"
           />
         </View>
@@ -73,7 +61,7 @@ const LoopRow = memo(function LoopRow({
           <ActionButton
             label="Manage"
             variant="secondary"
-            onPress={() => router.push(`/more/loops/${loop.id}` as Href)}
+            onPress={() => router.push(`/more/missions/${mission.id}` as Href)}
           />
         </View>
       </View>
@@ -81,28 +69,28 @@ const LoopRow = memo(function LoopRow({
   )
 })
 
-export default function LoopsScreen() {
+export default function MissionsScreen() {
   const { palette } = useAppTheme()
   const { client, config } = useServer()
-  const [loops, setLoops] = useState<LoopDefinition[]>([])
-  const [runtimes, setRuntimes] = useState<Record<string, LoopRuntime>>({})
+  const [missions, setMissions] = useState<MissionDefinition[]>([])
+  const [runtimes, setRuntimes] = useState<Record<string, MissionRuntime>>({})
   const [refreshing, setRefreshing] = useState(false)
-  const [runningID, setRunningID] = useState<string | null>(null)
+  const [startingID, setStartingID] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(
     async (silent = false) => {
       if (!client) {
-        setLoops([])
+        setMissions([])
         setRuntimes({})
         return
       }
       try {
         if (!silent) setRefreshing(true)
         setError(null)
-        const result = await client.listLoops()
-        setLoops(result.loops)
-        setRuntimes(Object.fromEntries(result.runtimes.map((runtime) => [runtime.loopID, runtime])))
+        const result = await client.listMissions()
+        setMissions(result.missions)
+        setRuntimes(Object.fromEntries(result.runtimes.map((runtime) => [runtime.missionID, runtime])))
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause))
       } finally {
@@ -122,30 +110,33 @@ export default function LoopsScreen() {
     config,
     enabled: Boolean(client),
     onEvent: (event) => {
-      if (event.type.startsWith("loop.")) void load(true)
+      if (event.type.startsWith("mission.")) void load(true)
     },
   })
 
-  async function runLoop(id: string) {
-    if (!client || runningID) return
+  async function startMission(id: string) {
+    if (!client || startingID) return
     try {
-      setRunningID(id)
+      setStartingID(id)
       setError(null)
-      await client.runLoop(id)
+      await client.startMission(id)
+      void triggerHaptic("success")
       await load(true)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
+      void triggerHaptic("error")
     } finally {
-      setRunningID(null)
+      setStartingID(null)
     }
   }
 
   const runtimeFor = useCallback(
-    (id: string): LoopRuntime =>
+    (id: string): MissionRuntime =>
       runtimes[id] ?? {
-        loopID: id,
+        missionID: id,
         status: "idle",
-        runs: 0,
+        doneFeatures: 0,
+        totalFeatures: 0,
       },
     [runtimes],
   )
@@ -161,16 +152,15 @@ export default function LoopsScreen() {
 
   const hero = (
     <View style={{ gap: 12 }}>
-      <ScreenBrandHeader title="Loops" right={<SettingsCircleButton />} />
+      <ScreenBrandHeader title="Missions" right={<SettingsCircleButton />} />
       <AppHeader
         className="gap-3 pb-4"
         chips={[
-          { label: `${loops.length} loops`, tone: "accent" },
-          { label: `${loops.filter((loop) => loop.enabled).length} enabled`, tone: "good" },
+          { label: `${missions.length} missions`, tone: "accent" },
           runningCount > 0 ? { label: `${runningCount} running`, tone: "accent" } : null,
         ]}
       >
-        <ActionButton label="New loop" onPress={() => router.push("/more/loops/new" as Href)} />
+        <ActionButton label="New mission" onPress={() => router.push("/more/missions/new" as Href)} />
         {error ? <ErrorBanner message={error} /> : null}
       </AppHeader>
     </View>
@@ -180,19 +170,24 @@ export default function LoopsScreen() {
     <View className="flex-1 bg-background px-4 pt-4">
       <FlashList
         contentInsetAdjustmentBehavior="automatic"
-        data={loops}
-        keyExtractor={(loop) => loop.id}
+        data={missions}
+        keyExtractor={(mission) => mission.id}
         refreshControl={refreshControl}
         ItemSeparatorComponent={() => <View className="h-3" />}
         renderItem={({ item }) => (
-          <LoopRow loop={item} runtime={runtimeFor(item.id)} running={runningID === item.id} onRun={runLoop} />
+          <MissionRow
+            mission={item}
+            runtime={runtimeFor(item.id)}
+            starting={startingID === item.id}
+            onStart={startMission}
+          />
         )}
         ListHeaderComponent={hero}
         ListEmptyComponent={
           <EmptyState
-            title="No loops yet"
-            description="Create a loop to run one or more goal-driven stages manually or on an interval."
-            action={<ActionButton label="Create loop" onPress={() => router.push("/more/loops/new" as Href)} />}
+            title="No missions yet"
+            description="Create a mission to orchestrate milestones and features on the linked host."
+            action={<ActionButton label="Create mission" onPress={() => router.push("/more/missions/new" as Href)} />}
           />
         }
         contentContainerStyle={{ paddingBottom: 28 }}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Pressable, RefreshControl, SectionList, Text, View } from "react-native"
-import { router, useRootNavigationState } from "expo-router"
+import { router, useRootNavigationState, type Href } from "expo-router"
 import { ChevronDown, Folder } from "lucide-react-native"
 import { type ActionSheetRef } from "@/components/BottomSheet"
 import { WorkspaceSwitcherSheet } from "@/components/session/WorkspaceSwitcherSheet"
@@ -10,6 +10,7 @@ import { ActionButton } from "@/components/ui/ActionButton"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { TextField } from "@/components/ui/TextField"
+import { TipsCard } from "@/components/ui/TipsCard"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { useServer } from "@/lib/server-context"
@@ -208,6 +209,7 @@ export default function SessionsScreen() {
           {busyCount} {busyCount === 1 ? "agent" : "agents"} working
         </Text>
       ) : null}
+      <TipsCard />
       {error ? <ErrorBanner message={error} /> : null}
     </AppHeader>
   )
@@ -277,7 +279,16 @@ export default function SessionsScreen() {
           <EmptyState
             title="No sessions yet"
             description="Start a session to run work, review diffs, and answer permission prompts."
-            action={<ActionButton label="Start a session" loading={creating} onPress={() => void createSession()} />}
+            action={
+              <View className="gap-2">
+                <ActionButton label="Start a session" loading={creating} onPress={() => void createSession()} />
+                <ActionButton
+                  label="New mission"
+                  variant="secondary"
+                  onPress={() => router.push("/more/missions/new" as Href)}
+                />
+              </View>
+            }
           />
         }
         style={{ paddingHorizontal: 16 }}

@@ -990,17 +990,17 @@ button.desktop-sidebar__list-item:hover {
   opacity: 0.52;
 }
 
-@container desktop-tools (max-width: 720px) {
+@container desktop-tools (max-width: 880px) {
   .desktop-workbench__bar {
     gap: 4px;
   }
 
   .desktop-workbench__tab {
-    flex: 1 1 38px;
-    min-width: 38px;
-    max-width: 52px;
+    flex: 1 1 36px;
+    min-width: 36px;
+    max-width: 48px;
     justify-content: center;
-    padding-inline: 6px;
+    padding-inline: 4px;
   }
 
   .desktop-workbench__tab > span:nth-child(2) {
@@ -1353,6 +1353,23 @@ button.desktop-sidebar__list-item:hover {
   background:
     radial-gradient(circle at 50% 0, rgb(255 255 255 / 2%), transparent 42%),
     color-mix(in srgb, var(--background-base) 97%, black 3%);
+}
+
+.desktop-visual-editor {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--background-base);
+  container-type: inline-size;
+}
+
+.desktop-visual-editor > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
 }
 
 .desktop-preview__header {

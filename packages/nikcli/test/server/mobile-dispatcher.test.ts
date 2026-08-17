@@ -40,6 +40,12 @@ describe("mobile framework-neutral dispatcher", () => {
     expect(await response?.json()).toMatchObject({ templates: expect.any(Array) })
   })
 
+  it("dispatches mission templates without Hono", async () => {
+    const response = await dispatchMobileRequest(new Request("http://nikcli.local/mobile/missions/templates"))
+    expect(response?.status).toBe(200)
+    expect(await response?.json()).toMatchObject({ templates: expect.any(Array) })
+  })
+
   it("validates PTY creation without Hono", async () => {
     const response = await dispatchMobileRequest(
       new Request("http://nikcli.local/mobile/pty", { method: "POST", body: "{" }),

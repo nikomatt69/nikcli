@@ -26,6 +26,10 @@ import {
   MobileLoopTemplate,
   MobileLoopWriteInput,
   MobileMemorySearchHit,
+  MobileMissionFeatureMutateInput,
+  MobileMissionGenerateInput,
+  MobileMissionUpdateInput,
+  MobileMissionWriteInput,
   MobilePermissionRespondInput,
   MobilePromptHistoryEntry,
   MobilePromptStashEntry,
@@ -49,6 +53,8 @@ import {
 } from "@/server/mobile/teleport"
 import { MobileAuth } from "@/mobile/auth"
 import { fromZod } from "@/util/zod-effect"
+import { MissionDefinitionSchema, MissionExecSchema } from "@/mission/schema"
+import { Todo } from "@/session/todo"
 
 /**
  * Effect schema for the whole `/mobile/*` surface.
@@ -195,6 +201,22 @@ export namespace MobileHttpApi {
   const MobileWorktreeResetInputEffect = fromZod(MobileWorktreeResetInput).annotate({
     identifier: "MobileWorktreeResetInput",
   })
+  const MobileMissionWriteInputEffect = fromZod(MobileMissionWriteInput).annotate({
+    identifier: "MobileMissionWriteInput",
+  })
+  const MobileMissionUpdateInputEffect = fromZod(MobileMissionUpdateInput).annotate({
+    identifier: "MobileMissionUpdateInput",
+  })
+  const MobileMissionGenerateInputEffect = fromZod(MobileMissionGenerateInput).annotate({
+    identifier: "MobileMissionGenerateInput",
+  })
+  const MobileMissionFeatureMutateInputEffect = fromZod(MobileMissionFeatureMutateInput).annotate({
+    identifier: "MobileMissionFeatureMutateInput",
+  })
+  const MobileMissionDefinitionEffect = fromZod(MissionDefinitionSchema).annotate({
+    identifier: "MobileMissionDefinition",
+  })
+  const MobileMissionExecEffect = fromZod(MissionExecSchema).annotate({ identifier: "MobileMissionExec" })
   const MobileGithubImportRequestEffect = fromZod(MobileGithubImportRequest).annotate({
     identifier: "MobileGithubImportRequest",
   })
@@ -340,6 +362,30 @@ export namespace MobileHttpApi {
   }).annotate({ identifier: "MobileGitBranch" })
 
   const LoopRuntime = MobileLoopRuntimeEffect
+
+  const MobileMissionRuntime = Schema.Struct({
+    missionID: Schema.String,
+    status: Schema.Literals(["idle", "running", "paused", "error", "cancelling"]),
+    sessionID: Schema.optional(Schema.String),
+    currentMilestoneID: Schema.optional(Schema.String),
+    currentFeatureID: Schema.optional(Schema.String),
+    doneFeatures: Schema.Number,
+    totalFeatures: Schema.Number,
+    lastError: Schema.optional(Schema.String),
+    lastRunAt: Schema.optional(Schema.Number),
+  }).annotate({ identifier: "MobileMissionRuntime" })
+
+  const MobileMissionTemplate = Schema.Struct({
+    id: Schema.String,
+    title: Schema.String,
+    description: Schema.String,
+    brief: Schema.String,
+  }).annotate({ identifier: "MobileMissionTemplate" })
+
+  const hostCapabilityFields = {
+    available: Schema.Boolean,
+    reason: Schema.optional(Schema.String),
+  }
 
   export const Group = HttpApiGroup.make("mobile")
     // --- auth tokens ---
@@ -592,6 +638,12 @@ export namespace MobileHttpApi {
         payload: Schema.Struct({ title: Schema.String }),
         success: Success,
       }).annotate(OpenApi.Identifier, "mobile.session.rename"),
+    )
+    .add(
+      HttpApiEndpoint.get("sessionTodo", "/session/:sessionID/todo", {
+        params: SessionIDPath,
+        success: Schema.Struct({ todos: Schema.Array(Todo.InfoSchema) }),
+      }).annotate(OpenApi.Identifier, "mobile.session.todo"),
     )
     // --- teleport ---
     .add(
@@ -916,6 +968,276 @@ export namespace MobileHttpApi {
         params: Schema.Struct({ ptyID: Schema.String }),
         success: Schema.Unknown.annotate({ description: "WebSocket upgrade" }),
       }).annotate(OpenApi.Identifier, "mobile.pty.connect"),
+    )
+    // --- missions ---
+    .add(
+      HttpApiEndpoint.get("missionList", "/missions", {
+        success: Schema.Struct({
+          missions: Schema.Array(MobileMissionDefinitionEffect),
+          runtimes: Schema.Array(MobileMissionRuntime),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.mission.list"),
+    )
+    .add(
+      HttpApiEndpoint.post("missionCreate", "/missions", {
+        payload: MobileMissionWriteInputEffect,
+        success: MobileMissionDefinitionEffect,
+      }).annotate(OpenApi.Identifier, "mobile.mission.create"),
+    )
+    .add(
+      HttpApiEndpoint.get("missionTemplates", "/missions/templates", {
+        success: Schema.Struct({ templates: Schema.Array(MobileMissionTemplate) }),
+      }).annotate(OpenApi.Identifier, "mobile.mission.templates"),
+    )
+    .add(
+      HttpApiEndpoint.post("missionGenerate", "/missions/generate", {
+        payload: MobileMissionGenerateInputEffect,
+        success: MobileMissionDefinitionEffect,
+      }).annotate(OpenApi.Identifier, "mobile.mission.generate"),
+    )
+    .add(
+      HttpApiEndpoint.get("missionExecsRecent", "/missions/execs/recent", {
+        query: Schema.Struct({
+          limit: Schema.optional(Schema.NumberFromString),
+        }),
+        success: Schema.Struct({ execs: Schema.Array(MobileMissionExecEffect) }),
+      }).annotate(OpenApi.Identifier, "mobile.mission.execs.recent"),
+    )
+    .add(
+      HttpApiEndpoint.get("missionGet", "/missions/:id", {
+        params: IDPath,
+        success: Schema.Struct({ mission: MobileMissionDefinitionEffect, runtime: MobileMissionRuntime }),
+      }).annotate(OpenApi.Identifier, "mobile.mission.get"),
+    )
+    .add(
+      HttpApiEndpoint.patch("missionUpdate", "/missions/:id", {
+        params: IDPath,
+        payload: MobileMissionUpdateInputEffect,
+        success: MobileMissionDefinitionEffect,
+      }).annotate(OpenApi.Identifier, "mobile.mission.update"),
+    )
+    .add(
+      HttpApiEndpoint.delete("missionDelete", "/missions/:id", {
+        params: IDPath,
+        success: Success,
+      }).annotate(OpenApi.Identifier, "mobile.mission.delete"),
+    )
+    .add(
+      HttpApiEndpoint.get("missionExecs", "/missions/:id/execs", {
+        params: IDPath,
+        query: Schema.Struct({
+          limit: Schema.optional(Schema.NumberFromString),
+        }),
+        success: Schema.Struct({ execs: Schema.Array(MobileMissionExecEffect) }),
+      }).annotate(OpenApi.Identifier, "mobile.mission.execs"),
+    )
+    .add(
+      HttpApiEndpoint.post("missionStart", "/missions/:id/start", {
+        params: IDPath,
+        success: Success,
+      }).annotate(OpenApi.Identifier, "mobile.mission.start"),
+    )
+    .add(
+      HttpApiEndpoint.post("missionPause", "/missions/:id/pause", {
+        params: IDPath,
+        success: Success,
+      }).annotate(OpenApi.Identifier, "mobile.mission.pause"),
+    )
+    .add(
+      HttpApiEndpoint.post("missionCancel", "/missions/:id/cancel", {
+        params: IDPath,
+        success: Success,
+      }).annotate(OpenApi.Identifier, "mobile.mission.cancel"),
+    )
+    .add(
+      HttpApiEndpoint.post("missionFeatureMutate", "/missions/:id/feature/:featureID", {
+        params: Schema.Struct({ id: Schema.String, featureID: Schema.String }),
+        payload: MobileMissionFeatureMutateInputEffect,
+        success: MobileMissionDefinitionEffect,
+      }).annotate(OpenApi.Identifier, "mobile.mission.feature.mutate"),
+    )
+    // --- live host events ---
+    .add(
+      HttpApiEndpoint.get("events", "/events", {
+        success: HttpApiSchema.StreamSse({ data: Schema.Unknown }),
+      }).annotate(OpenApi.Identifier, "mobile.events"),
+    )
+    // --- operator features ---
+    .add(
+      HttpApiEndpoint.get("brainStatus", "/brain", {
+        success: Schema.Struct({
+          enabled: Schema.Boolean,
+          memoryEnabled: Schema.Boolean,
+          minHours: Schema.Number,
+          minSessions: Schema.Number,
+          lastBrainAt: Schema.Number,
+          hoursSinceLastBrain: Schema.Number,
+          sessionsSinceLastBrain: Schema.Number,
+          shouldTrigger: Schema.Boolean,
+          model: Schema.optional(
+            Schema.Struct({
+              providerID: Schema.String,
+              modelID: Schema.String,
+            }),
+          ),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.brain.get"),
+    )
+    .add(
+      HttpApiEndpoint.post("brainTrigger", "/brain", {
+        payload: Schema.optional(Schema.Struct({ force: Schema.optional(Schema.Boolean) })),
+        success: Schema.Struct({
+          success: Schema.Boolean,
+          sessionsReviewed: Schema.Number,
+          hoursSinceLastBrain: Schema.Number,
+          error: Schema.optional(Schema.String),
+          sessionID: Schema.optional(Schema.String),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.brain.trigger"),
+    )
+    .add(
+      HttpApiEndpoint.get("chatBotList", "/chatbot/bots", {
+        success: Schema.Struct({
+          bots: Schema.Array(
+            Schema.Struct({
+              name: Schema.String,
+              type: Schema.String,
+              running: Schema.Boolean,
+              webhookPath: Schema.String,
+            }),
+          ),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.chatbot.list"),
+    )
+    .add(
+      HttpApiEndpoint.post("chatBotStart", "/chatbot/bots/:name/start", {
+        params: Schema.Struct({ name: Schema.String }),
+        success: Schema.Struct({
+          running: Schema.Boolean,
+          error: Schema.optional(Schema.String),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.chatbot.start"),
+    )
+    .add(
+      HttpApiEndpoint.post("chatBotStop", "/chatbot/bots/:name/stop", {
+        params: Schema.Struct({ name: Schema.String }),
+        success: Schema.Struct({ removed: Schema.Boolean }),
+      }).annotate(OpenApi.Identifier, "mobile.chatbot.stop"),
+    )
+    .add(
+      HttpApiEndpoint.get("observabilityGet", "/observability", {
+        success: Schema.Struct({
+          enabled: Schema.Boolean,
+          otlpEndpoint: Schema.NullOr(Schema.String),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.observability.get"),
+    )
+    .add(
+      HttpApiEndpoint.post("observabilitySet", "/observability", {
+        payload: Schema.Struct({ enabled: Schema.Boolean }),
+        success: Schema.Struct({
+          enabled: Schema.Boolean,
+          otlpEndpoint: Schema.NullOr(Schema.String),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.observability.set"),
+    )
+    .add(
+      HttpApiEndpoint.get("lspStatus", "/lsp", {
+        success: Schema.Struct({
+          servers: Schema.Array(
+            Schema.Struct({
+              id: Schema.String,
+              name: Schema.String,
+              root: Schema.String,
+              status: Schema.Literals(["connected", "error"]),
+            }),
+          ),
+          error: Schema.optional(Schema.String),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.lsp.status"),
+    )
+    .add(
+      HttpApiEndpoint.get("fusionList", "/fusion", {
+        success: Schema.Struct({
+          presets: Schema.Array(
+            Schema.Struct({
+              name: Schema.String,
+              builtin: Schema.Boolean,
+              enabled: Schema.Boolean,
+            }),
+          ),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.fusion.list"),
+    )
+    .add(
+      HttpApiEndpoint.post("fusionSet", "/fusion", {
+        payload: Schema.Struct({ name: Schema.String, enabled: Schema.Boolean }),
+        success: Schema.Struct({ name: Schema.String, enabled: Schema.Boolean }),
+      }).annotate(OpenApi.Identifier, "mobile.fusion.set"),
+    )
+    // --- host status ---
+    .add(
+      HttpApiEndpoint.get("hostBrowser", "/host/browser", {
+        success: Schema.Struct({
+          ...hostCapabilityFields,
+          sessions: Schema.optional(Schema.Array(Schema.Unknown)),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.host.browser"),
+    )
+    .add(
+      HttpApiEndpoint.get("hostComputer", "/host/computer", {
+        success: Schema.Struct({
+          ...hostCapabilityFields,
+          platform: Schema.optional(Schema.String),
+          screenshot: Schema.optional(Schema.Boolean),
+          input: Schema.optional(Schema.Boolean),
+          detail: Schema.optional(Schema.String),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.host.computer"),
+    )
+    .add(
+      HttpApiEndpoint.get("hostHerdrGet", "/host/herdr", {
+        success: Schema.Struct({
+          ...hostCapabilityFields,
+          enabled: Schema.optional(Schema.Boolean),
+          installed: Schema.optional(Schema.Boolean),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.host.herdr.get"),
+    )
+    .add(
+      HttpApiEndpoint.post("hostHerdrSet", "/host/herdr", {
+        payload: Schema.Struct({ enabled: Schema.Boolean }),
+        success: Schema.Struct({
+          ...hostCapabilityFields,
+          enabled: Schema.optional(Schema.Boolean),
+          installed: Schema.optional(Schema.Boolean),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.host.herdr.set"),
+    )
+    .add(
+      HttpApiEndpoint.get("hostIsland", "/host/island", {
+        success: Schema.Struct({
+          ...hostCapabilityFields,
+          supported: Schema.optional(Schema.Boolean),
+          enabled: Schema.optional(Schema.Boolean),
+          appRunning: Schema.optional(Schema.Boolean),
+          sessions: Schema.optional(Schema.Number),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.host.island"),
+    )
+    .add(
+      HttpApiEndpoint.get("hostDevtools", "/host/devtools", {
+        success: Schema.Struct({
+          ...hostCapabilityFields,
+          rss: Schema.optional(Schema.Number),
+          heapUsed: Schema.optional(Schema.Number),
+          heapTotal: Schema.optional(Schema.Number),
+          external: Schema.optional(Schema.Number),
+          pid: Schema.optional(Schema.Number),
+          uptimeSec: Schema.optional(Schema.Number),
+          platform: Schema.optional(Schema.String),
+        }),
+      }).annotate(OpenApi.Identifier, "mobile.host.devtools"),
     )
     .prefix("/mobile")
 

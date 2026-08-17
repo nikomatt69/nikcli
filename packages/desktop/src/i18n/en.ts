@@ -72,6 +72,7 @@ export const dict = {
   "desktop.workbench.previewOpen": "Open in browser",
   "desktop.workbench.previewItems": "Session previews",
   "desktop.workbench.files": "Files",
+  "desktop.workbench.visualEditor": "Visual Editor",
   "desktop.workbench.expand": "Maximize workbench",
   "desktop.workbench.restore": "Restore workbench",
   "desktop.workbench.collapse": "Collapse workbench",

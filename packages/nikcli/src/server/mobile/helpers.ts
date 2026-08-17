@@ -23,6 +23,7 @@ import { MobileAuth } from "@/mobile/auth"
 import { MobileGithubRepo } from "@/mobile/github-repo"
 import { Routine } from "@/mobile/routine"
 import { LoopDefinitionSchema, LoopRunSchema } from "@/loop/schema"
+import { FeatureStatusSchema, MissionDefinitionSchema } from "@/mission/schema"
 import { Flag } from "@nikcli-ai/util/flag"
 import { Config } from "@/config/config"
 import { Command } from "@/command"
@@ -501,6 +502,24 @@ export const MobileLoopGenerateInput = z
     agent: z.string().trim().min(1).optional(),
   })
   .meta({ ref: "MobileLoopGenerateInput" })
+export const MobileMissionWriteInput = MissionDefinitionSchema.omit({
+  id: true,
+  createdAt: true,
+  status: true,
+}).meta({
+  ref: "MobileMissionWriteInput",
+})
+export const MobileMissionUpdateInput = MissionDefinitionSchema.omit({ id: true }).meta({
+  ref: "MobileMissionUpdateInput",
+})
+export const MobileMissionGenerateInput = MobileLoopGenerateInput.meta({ ref: "MobileMissionGenerateInput" })
+export const MobileMissionFeatureMutateInput = z
+  .object({
+    status: FeatureStatusSchema.optional(),
+    error: z.string().optional(),
+    appendDependsOn: z.array(z.string()).optional(),
+  })
+  .meta({ ref: "MobileMissionFeatureMutateInput" })
 export const MobileLoopTemplate = z
   .object({
     id: z.string(),

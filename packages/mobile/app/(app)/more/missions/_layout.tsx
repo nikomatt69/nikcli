@@ -1,7 +1,7 @@
 import { Stack } from "expo-router"
 import { useAppTheme } from "@/lib/theme"
 
-export default function SettingsLayout() {
+export default function MissionsLayout() {
   const { palette } = useAppTheme()
 
   return (
@@ -16,7 +16,7 @@ export default function SettingsLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="appearance" options={{ title: "Appearance" }} />
+      <Stack.Screen name="[missionId]" options={{ title: "Mission" }} />
     </Stack>
   )
 }

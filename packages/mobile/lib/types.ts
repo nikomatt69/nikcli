@@ -112,6 +112,12 @@ export type ComposerPreferences = {
   slashSuggestions: boolean
 }
 
+export type WallpaperPreferences = {
+  uri: string | null
+  opacity: number
+  enabled: boolean
+}
+
 export type AppPreferences = {
   themeMode: ThemeMode
   visibleSettingsSections: Record<SettingsSectionID, boolean>
@@ -120,6 +126,9 @@ export type AppPreferences = {
   gestures: GesturePreferences
   composer: ComposerPreferences
   promptPresets: PromptPreset[]
+  wallpaper: WallpaperPreferences
+  tipsHidden: boolean
+  mathEnabled: boolean
 }
 
 export type SessionStatus =
@@ -979,6 +988,151 @@ export type LoopListResult = {
 export type LoopDetailResult = {
   loop: LoopDefinition
   runtime: LoopRuntime
+}
+
+export type MissionFeatureStatus = "pending" | "running" | "done" | "blocked" | "skipped" | "error"
+export type MissionMilestoneStatus = "pending" | "running" | "validating" | "done" | "blocked"
+export type MissionStatus = "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error"
+export type MissionRuntimeStatus = "idle" | "running" | "paused" | "error" | "cancelling"
+export type MissionValidation = "scrutiny" | "user-test" | "none"
+
+export type MissionFeature = {
+  id: string
+  name: string
+  objective: string
+  agent: string
+  model?: string
+  tokenBudget?: number
+  dependsOn: string[]
+  status: MissionFeatureStatus
+  error?: string
+}
+
+export type MissionMilestone = {
+  id: string
+  name: string
+  features: MissionFeature[]
+  validation: MissionValidation
+  status: MissionMilestoneStatus
+}
+
+export type MissionDefinition = {
+  id: string
+  name: string
+  brief: string
+  milestones: MissionMilestone[]
+  models: { worker?: string; validation?: string; orchestrator?: string }
+  timeoutMs?: number
+  sandbox?: boolean
+  status: MissionStatus
+  createdAt: number
+}
+
+export type MissionWriteInput = Omit<MissionDefinition, "id" | "createdAt" | "status">
+
+export type MissionRuntime = {
+  missionID: string
+  status: MissionRuntimeStatus
+  sessionID?: string
+  currentMilestoneID?: string
+  currentFeatureID?: string
+  doneFeatures: number
+  totalFeatures: number
+  lastError?: string
+  lastRunAt?: number
+}
+
+export type MissionExec = {
+  id: string
+  missionID: string
+  kind: "feature" | "validation"
+  targetID: string
+  targetName: string
+  startedAt: number
+  endedAt?: number
+  status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+  sessionID?: string
+  error?: string
+  ok: boolean
+}
+
+export type MissionTemplate = {
+  id: string
+  title: string
+  description: string
+  brief: string
+}
+
+export type MissionListResult = {
+  missions: MissionDefinition[]
+  runtimes: MissionRuntime[]
+}
+
+export type MissionDetailResult = {
+  mission: MissionDefinition
+  runtime: MissionRuntime
+}
+
+export type SessionTodo = {
+  id: string
+  content: string
+  status: string
+  priority: string
+}
+
+export type LspServerStatus = {
+  id: string
+  name: string
+  root: string
+  status: "connected" | "error"
+}
+
+export type ChatBotInfo = {
+  name: string
+  type: string
+  running: boolean
+  webhookPath: string
+}
+
+export type BrainStatus = {
+  enabled: boolean
+  memoryEnabled: boolean
+  minHours: number
+  minSessions: number
+  lastBrainAt: number
+  hoursSinceLastBrain: number
+  sessionsSinceLastBrain: number
+  shouldTrigger: boolean
+  model?: { providerID: string; modelID: string }
+}
+
+export type BrainTriggerResult = {
+  success: boolean
+  sessionsReviewed: number
+  hoursSinceLastBrain: number
+  error?: string
+  sessionID?: string
+}
+
+export type ObservabilityStatus = {
+  enabled: boolean
+  otlpEndpoint: string | null
+}
+
+export type FusionPreset = {
+  name: string
+  builtin: boolean
+  enabled: boolean
+}
+
+export type HostCapability<T extends Record<string, unknown> = Record<string, unknown>> = {
+  available: boolean
+  reason?: string
+} & T
+
+export type HostEvent = {
+  type: string
+  properties?: Record<string, unknown>
 }
 
 // ── PTY (Terminal) ────────────────────────────────────────────────────────────

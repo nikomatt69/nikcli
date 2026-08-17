@@ -16,6 +16,7 @@ import { Worktree } from "@/worktree"
 import { Workspace } from "@/workspace"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 import { proxyWorkspaceRequest } from "@/workspace/session-proxy-middleware"
+import { TodoRepo } from "@/session/todo-repo"
 import { body, isResponse, json, proxyResponse, query } from "./request"
 import {
   MobileSessionCommandInput,
@@ -157,6 +158,11 @@ export async function handleSessionRequest(request: Request): Promise<Response |
     )
   }
   const command = match(path, /^\/mobile\/session\/([^/]+)\/command$/)
+  const todo = match(path, /^\/mobile\/session\/([^/]+)\/todo$/)
+  if (todo && request.method === "GET") {
+    await getSession(todo[0])
+    return json({ todos: TodoRepo.get(todo[0]) })
+  }
   if (command && request.method === "GET") {
     const info = await getSession(command[0])
     if (info.workspaceID) {

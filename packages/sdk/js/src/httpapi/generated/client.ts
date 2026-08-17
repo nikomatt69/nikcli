@@ -200,6 +200,8 @@ import type {
   MobileSessionStreamOutput,
   MobileSessionRenameInput,
   MobileSessionRenameOutput,
+  MobileSessionTodoInput,
+  MobileSessionTodoOutput,
   MobileTeleportUploadBeginOutput,
   MobileTeleportUploadChunkInput,
   MobileTeleportUploadChunkOutput,
@@ -284,6 +286,53 @@ import type {
   MobilePtyUpdateOutput,
   MobilePtyRemoveInput,
   MobilePtyRemoveOutput,
+  MobileMissionListOutput,
+  MobileMissionCreateInput,
+  MobileMissionCreateOutput,
+  MobileMissionTemplatesOutput,
+  MobileMissionGenerateInput,
+  MobileMissionGenerateOutput,
+  MobileMissionExecsRecentInput,
+  MobileMissionExecsRecentOutput,
+  MobileMissionGetInput,
+  MobileMissionGetOutput,
+  MobileMissionUpdateInput,
+  MobileMissionUpdateOutput,
+  MobileMissionDeleteInput,
+  MobileMissionDeleteOutput,
+  MobileMissionExecsInput,
+  MobileMissionExecsOutput,
+  MobileMissionStartInput,
+  MobileMissionStartOutput,
+  MobileMissionPauseInput,
+  MobileMissionPauseOutput,
+  MobileMissionCancelInput,
+  MobileMissionCancelOutput,
+  MobileMissionFeatureMutateInput,
+  MobileMissionFeatureMutateOutput,
+  MobileEventsOutput,
+  MobileBrainStatusOutput,
+  MobileBrainTriggerInput,
+  MobileBrainTriggerOutput,
+  MobileChatBotListOutput,
+  MobileChatBotStartInput,
+  MobileChatBotStartOutput,
+  MobileChatBotStopInput,
+  MobileChatBotStopOutput,
+  MobileObservabilityGetOutput,
+  MobileObservabilitySetInput,
+  MobileObservabilitySetOutput,
+  MobileLspStatusOutput,
+  MobileFusionListOutput,
+  MobileFusionSetInput,
+  MobileFusionSetOutput,
+  MobileHostBrowserOutput,
+  MobileHostComputerOutput,
+  MobileHostHerdrGetOutput,
+  MobileHostHerdrSetInput,
+  MobileHostHerdrSetOutput,
+  MobileHostIslandOutput,
+  MobileHostDevtoolsOutput,
   ProjectListOutput,
   ProjectCurrentOutput,
   ProjectUpdateInput,
@@ -1929,6 +1978,17 @@ export function make(options: ClientOptions) {
           },
           requestOptions,
         ),
+      sessionTodo: (input: MobileSessionTodoInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionTodoOutput>(
+          {
+            method: "GET",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/todo`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
       teleportUploadBegin: (requestOptions?: RequestOptions) =>
         request<MobileTeleportUploadBeginOutput>(
           { method: "POST", path: `/mobile/teleport/upload`, successStatus: 200, declaredStatuses: [], empty: false },
@@ -2471,6 +2531,286 @@ export function make(options: ClientOptions) {
             declaredStatuses: [],
             empty: false,
           },
+          requestOptions,
+        ),
+      missionList: (requestOptions?: RequestOptions) =>
+        request<MobileMissionListOutput>(
+          { method: "GET", path: `/mobile/missions`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      missionCreate: (input: MobileMissionCreateInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionCreateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/missions`,
+            body: {
+              name: input["name"],
+              brief: input["brief"],
+              milestones: input["milestones"],
+              models: input["models"],
+              timeoutMs: input["timeoutMs"],
+              sandbox: input["sandbox"],
+              worktree: input["worktree"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      missionTemplates: (requestOptions?: RequestOptions) =>
+        request<MobileMissionTemplatesOutput>(
+          { method: "GET", path: `/mobile/missions/templates`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      missionGenerate: (input: MobileMissionGenerateInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionGenerateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/missions/generate`,
+            body: { description: input["description"], model: input["model"], agent: input["agent"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      missionExecsRecent: (input?: MobileMissionExecsRecentInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionExecsRecentOutput>(
+          {
+            method: "GET",
+            path: `/mobile/missions/execs/recent`,
+            query: { limit: input?.["limit"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      missionGet: (input: MobileMissionGetInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionGetOutput>(
+          {
+            method: "GET",
+            path: `/mobile/missions/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      missionUpdate: (input: MobileMissionUpdateInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionUpdateOutput>(
+          {
+            method: "PATCH",
+            path: `/mobile/missions/${encodeURIComponent(input.id)}`,
+            body: {
+              name: input["name"],
+              brief: input["brief"],
+              milestones: input["milestones"],
+              models: input["models"],
+              timeoutMs: input["timeoutMs"],
+              sandbox: input["sandbox"],
+              worktree: input["worktree"],
+              status: input["status"],
+              createdAt: input["createdAt"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      missionDelete: (input: MobileMissionDeleteInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionDeleteOutput>(
+          {
+            method: "DELETE",
+            path: `/mobile/missions/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      missionExecs: (input: MobileMissionExecsInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionExecsOutput>(
+          {
+            method: "GET",
+            path: `/mobile/missions/${encodeURIComponent(input.id)}/execs`,
+            query: { limit: input["limit"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      missionStart: (input: MobileMissionStartInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionStartOutput>(
+          {
+            method: "POST",
+            path: `/mobile/missions/${encodeURIComponent(input.id)}/start`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      missionPause: (input: MobileMissionPauseInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionPauseOutput>(
+          {
+            method: "POST",
+            path: `/mobile/missions/${encodeURIComponent(input.id)}/pause`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      missionCancel: (input: MobileMissionCancelInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionCancelOutput>(
+          {
+            method: "POST",
+            path: `/mobile/missions/${encodeURIComponent(input.id)}/cancel`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      missionFeatureMutate: (input: MobileMissionFeatureMutateInput, requestOptions?: RequestOptions) =>
+        request<MobileMissionFeatureMutateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/missions/${encodeURIComponent(input.id)}/feature/${encodeURIComponent(input.featureID)}`,
+            body: { status: input["status"], error: input["error"], appendDependsOn: input["appendDependsOn"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      events: (requestOptions?: RequestOptions): AsyncIterable<MobileEventsOutput> =>
+        sse<MobileEventsOutput>(
+          { method: "GET", path: `/mobile/events`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      brainStatus: (requestOptions?: RequestOptions) =>
+        request<MobileBrainStatusOutput>(
+          { method: "GET", path: `/mobile/brain`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      brainTrigger: (input: MobileBrainTriggerInput, requestOptions?: RequestOptions) =>
+        request<MobileBrainTriggerOutput>(
+          {
+            method: "POST",
+            path: `/mobile/brain`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      chatBotList: (requestOptions?: RequestOptions) =>
+        request<MobileChatBotListOutput>(
+          { method: "GET", path: `/mobile/chatbot/bots`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      chatBotStart: (input: MobileChatBotStartInput, requestOptions?: RequestOptions) =>
+        request<MobileChatBotStartOutput>(
+          {
+            method: "POST",
+            path: `/mobile/chatbot/bots/${encodeURIComponent(input.name)}/start`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      chatBotStop: (input: MobileChatBotStopInput, requestOptions?: RequestOptions) =>
+        request<MobileChatBotStopOutput>(
+          {
+            method: "POST",
+            path: `/mobile/chatbot/bots/${encodeURIComponent(input.name)}/stop`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      observabilityGet: (requestOptions?: RequestOptions) =>
+        request<MobileObservabilityGetOutput>(
+          { method: "GET", path: `/mobile/observability`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      observabilitySet: (input: MobileObservabilitySetInput, requestOptions?: RequestOptions) =>
+        request<MobileObservabilitySetOutput>(
+          {
+            method: "POST",
+            path: `/mobile/observability`,
+            body: { enabled: input["enabled"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      lspStatus: (requestOptions?: RequestOptions) =>
+        request<MobileLspStatusOutput>(
+          { method: "GET", path: `/mobile/lsp`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      fusionList: (requestOptions?: RequestOptions) =>
+        request<MobileFusionListOutput>(
+          { method: "GET", path: `/mobile/fusion`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      fusionSet: (input: MobileFusionSetInput, requestOptions?: RequestOptions) =>
+        request<MobileFusionSetOutput>(
+          {
+            method: "POST",
+            path: `/mobile/fusion`,
+            body: { name: input["name"], enabled: input["enabled"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      hostBrowser: (requestOptions?: RequestOptions) =>
+        request<MobileHostBrowserOutput>(
+          { method: "GET", path: `/mobile/host/browser`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      hostComputer: (requestOptions?: RequestOptions) =>
+        request<MobileHostComputerOutput>(
+          { method: "GET", path: `/mobile/host/computer`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      hostHerdrGet: (requestOptions?: RequestOptions) =>
+        request<MobileHostHerdrGetOutput>(
+          { method: "GET", path: `/mobile/host/herdr`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      hostHerdrSet: (input: MobileHostHerdrSetInput, requestOptions?: RequestOptions) =>
+        request<MobileHostHerdrSetOutput>(
+          {
+            method: "POST",
+            path: `/mobile/host/herdr`,
+            body: { enabled: input["enabled"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      hostIsland: (requestOptions?: RequestOptions) =>
+        request<MobileHostIslandOutput>(
+          { method: "GET", path: `/mobile/host/island`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      hostDevtools: (requestOptions?: RequestOptions) =>
+        request<MobileHostDevtoolsOutput>(
+          { method: "GET", path: `/mobile/host/devtools`, successStatus: 200, declaredStatuses: [], empty: false },
           requestOptions,
         ),
     },

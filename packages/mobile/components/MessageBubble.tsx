@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useEffect, useMemo, useRef, useState, type ComponentProps } from "react"
 import {
   Animated,
   InteractionManager,
@@ -36,6 +36,7 @@ import { ArtifactMicroThumb, InlineArtifactCard } from "@/components/session/Ses
 import { useCopiedFeedback } from "@/hooks/use-copied-feedback"
 import { triggerHaptic } from "@/lib/haptics"
 import { extractMessageArtifacts, kindLabel, type SessionPreview } from "@/lib/session-artifacts"
+import { hasMathDelimiters, splitMathBlocks } from "@/lib/math-blocks"
 import { useUIStore } from "@/lib/store"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 
@@ -764,8 +765,11 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
           {text || assistantError ? (
             <View className="min-w-0 border-t border-border/80 px-3.5 pt-3 pb-2">
               {text ? (
-                <Markdown
+                <MessageBodyMarkdown
+                  text={text}
                   rules={markdownRules}
+                  ink={palette.ink}
+                  codeBackground={palette.codeBackground}
                   style={{
                     body: {
                       color: palette.ink,
@@ -916,9 +920,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                       textDecorationLine: "underline",
                     },
                   }}
-                >
-                  {text}
-                </Markdown>
+                />
               ) : null}
 
               {assistantError ? (
@@ -1095,3 +1097,50 @@ function messageBubblePropsEqual(prev: MessageBubbleProps, next: MessageBubblePr
 }
 
 export const MessageBubble = memo(MessageBubbleImpl, messageBubblePropsEqual)
+
+function MessageBodyMarkdown(props: {
+  text: string
+  rules: RenderRules
+  style: ComponentProps<typeof Markdown>["style"]
+  ink: string
+  codeBackground: string
+}) {
+  const mathEnabled = useUIStore((state) => state.mathEnabled)
+  if (!mathEnabled || !hasMathDelimiters(props.text)) {
+    return (
+      <Markdown rules={props.rules} style={props.style}>
+        {props.text}
+      </Markdown>
+    )
+  }
+
+  return (
+    <View>
+      {splitMathBlocks(props.text).map((block, index) =>
+        block.type === "math" ? (
+          <Text
+            key={`math-${index}`}
+            selectable
+            style={{
+              fontFamily: "Menlo",
+              fontSize: block.display ? 13 : 12,
+              lineHeight: block.display ? 20 : 18,
+              color: props.ink,
+              backgroundColor: block.display ? props.codeBackground : undefined,
+              borderRadius: block.display ? 8 : 0,
+              paddingHorizontal: block.display ? 10 : 0,
+              paddingVertical: block.display ? 8 : 0,
+              marginVertical: block.display ? 8 : 2,
+            }}
+          >
+            {block.content}
+          </Text>
+        ) : (
+          <Markdown key={`md-${index}`} rules={props.rules} style={props.style}>
+            {block.content}
+          </Markdown>
+        ),
+      )}
+    </View>
+  )
+}

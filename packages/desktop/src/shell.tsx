@@ -16,6 +16,7 @@ import {
   useLayout,
   usePlatform,
   useServer,
+  BrowserVisualEditor,
   type AccountUser,
   type LocalProject,
 } from "@nikcli-ai/app"
@@ -926,7 +927,7 @@ type AutomationPart = {
 type AutomationSurface = "browser" | "computer"
 type AutomationTool = "browser_control" | "computer"
 type SessionPanelSurface = "review" | "terminal" | "files"
-type WorkbenchSurface = SessionPanelSurface | AutomationSurface | "preview"
+type WorkbenchSurface = SessionPanelSurface | AutomationSurface | "preview" | "visualEditor"
 
 // The workbench tab keeps the short "browser" id (it names a panel, and is
 // baked into i18n/icon keys); the tool it renders is `browser_control`.
@@ -944,6 +945,9 @@ const isAutomationSurface = (surface: WorkbenchSurface): surface is AutomationSu
 
 const isSessionPanelSurface = (surface: WorkbenchSurface): surface is SessionPanelSurface =>
   surface === "review" || surface === "terminal" || surface === "files"
+
+const isWorkbenchOverlaySurface = (surface: WorkbenchSurface) =>
+  surface === "preview" || surface === "visualEditor" || isAutomationSurface(surface)
 
 function automationMetadata(part: AutomationPart | undefined) {
   if (!part) return {}
@@ -1213,11 +1217,11 @@ function DesktopTools() {
   }
 
   const openSurface = (surface: WorkbenchSurface) => {
-    if ((isSessionPanelSurface(surface) || surface === "preview") && !available()) return
+    if ((isSessionPanelSurface(surface) || surface === "preview" || surface === "visualEditor") && !available()) return
 
     batch(() => {
       setWorkbench("collapsed", false)
-      if (isAutomationSurface(surface) || surface === "preview") {
+      if (isWorkbenchOverlaySurface(surface)) {
         closeSessionPanels()
         setWorkbench("active", surface)
         if (isAutomationSurface(surface)) setWorkbench("automation", surface)
@@ -1281,6 +1285,13 @@ function DesktopTools() {
       category: t("desktop.workbench.title"),
       disabled: !available(),
       onSelect: () => openSurface("preview"),
+    },
+    {
+      id: "desktop.workbench.visualEditor",
+      title: t("desktop.workbench.visualEditor"),
+      category: t("desktop.workbench.title"),
+      disabled: !available(),
+      onSelect: () => openSurface("visualEditor"),
     },
   ])
 
@@ -1431,6 +1442,12 @@ function DesktopTools() {
       icon: "folder",
       disabled: !available(),
     },
+    {
+      surface: "visualEditor",
+      label: t("desktop.workbench.visualEditor"),
+      icon: "edit",
+      disabled: !available(),
+    },
   ])
 
   return (
@@ -1439,6 +1456,7 @@ function DesktopTools() {
       classList={{
         "desktop-tools--automation": isAutomationSurface(workbench.active),
         "desktop-tools--preview": workbench.active === "preview",
+        "desktop-tools--visual-editor": workbench.active === "visualEditor",
         "desktop-tools--review": reviewTabOpen(),
         "desktop-tools--terminal": terminalTabOpen(),
         "desktop-tools--files": fileTabOpen(),
@@ -1517,6 +1535,11 @@ function DesktopTools() {
         </Show>
         <Show when={workbench.active === "preview"}>
           <PreviewPanel items={previewItems()} />
+        </Show>
+        <Show when={workbench.active === "visualEditor"}>
+          <section id="desktop-workbench-panel-visualEditor" class="desktop-visual-editor">
+            <BrowserVisualEditor />
+          </section>
         </Show>
       </Show>
     </aside>

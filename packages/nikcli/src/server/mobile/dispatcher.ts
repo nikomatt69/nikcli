@@ -8,6 +8,10 @@ import { handleMemoryRequest } from "./memory"
 import { handleGithubRequest } from "./github"
 import { handleSessionLifecycleRequest } from "./session-lifecycle"
 import { handleLoopsRequest } from "./loops"
+import { handleMissionsRequest } from "./missions"
+import { handleEventsRequest } from "./events"
+import { handleFeaturesRequest } from "./features"
+import { handleHostStatusRequest } from "./host-status"
 import { handlePtyRequest } from "./pty"
 
 export async function dispatchMobileRequest(request: Request): Promise<Response | undefined> {
@@ -24,6 +28,10 @@ export async function dispatchMobileRequest(request: Request): Promise<Response 
     (await handleWorktreeRequest(request)) ??
     (await handleGitRequest(request)) ??
     (await handleLoopsRequest(request)) ??
+    (await handleMissionsRequest(request)) ??
+    (await handleEventsRequest(request)) ??
+    (await handleFeaturesRequest(request)) ??
+    (await handleHostStatusRequest(request)) ??
     (await handlePtyRequest(request))
   )
 }

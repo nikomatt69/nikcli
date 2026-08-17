@@ -336,6 +336,9 @@ export default function SettingsScreen() {
       gestures: next.gestures ?? current.gestures,
       composer: next.composer ?? current.composer,
       promptPresets: next.promptPresets ?? current.promptPresets,
+      wallpaper: current.wallpaper,
+      tipsHidden: current.tipsHidden,
+      mathEnabled: current.mathEnabled,
     }))
   }
 
@@ -1114,6 +1117,16 @@ export default function SettingsScreen() {
                     </Pressable>
                   )
                 })}
+              </View>
+
+              <View className="mt-4">
+                <Link href={"/more/settings/appearance" as Href} asChild>
+                  <SettingsNavCard
+                    eyebrow="Session"
+                    title="Wallpaper, math, and tips"
+                    description="Chat backdrop, LaTeX in bubbles, and rotating home tips."
+                  />
+                </Link>
               </View>
 
               <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">

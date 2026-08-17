@@ -4,6 +4,7 @@ import {
   Braces,
   Copy,
   FileText,
+  ListChecks,
   MonitorPlay,
   PencilLine,
   Rocket,
@@ -30,6 +31,7 @@ type Props = {
   onOpenTerminal?(): void
   onOpenPreview?(): void
   previewCount?: number
+  onInspect?(): void
 }
 
 type RowProps = {
@@ -166,6 +168,7 @@ export function SessionActionsSheet({
   onOpenTerminal,
   onOpenPreview,
   previewCount = 0,
+  onInspect,
 }: Props) {
   const { palette, isDark } = useAppTheme()
 
@@ -200,6 +203,15 @@ export function SessionActionsSheet({
         accessibilityLabel="Session actions"
       >
         <SectionLabel label="Session" />
+        {onInspect ? (
+          <SheetRow
+            Icon={ListChecks}
+            label="Inspect session"
+            description="Todos, MCP, LSP, context, and modified files"
+            onPress={onInspect}
+            tone="accent"
+          />
+        ) : null}
         <SheetRow
           Icon={PencilLine}
           label="Rename session"

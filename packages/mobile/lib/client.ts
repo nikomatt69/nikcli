@@ -27,6 +27,20 @@ import type {
   LoopWriteInput,
   ManagedGithubImport,
   MemorySearchHit,
+  MissionDefinition,
+  MissionDetailResult,
+  MissionExec,
+  MissionListResult,
+  MissionTemplate,
+  MissionWriteInput,
+  ChatBotInfo,
+  BrainStatus,
+  BrainTriggerResult,
+  ObservabilityStatus,
+  FusionPreset,
+  HostCapability,
+  LspServerStatus,
+  SessionTodo,
   MobileAuthToken,
   MobileExecutionTarget,
   ModelRef,
@@ -884,6 +898,176 @@ export class MobileClient {
     return this.request<{ success: true }>(`/mobile/loops/${encodeURIComponent(id)}/resume`, {
       method: "POST",
     })
+  }
+
+  // ── Missions ────────────────────────────────────────────────────────────────
+
+  async listMissions() {
+    const result = await this.request<unknown>("/mobile/missions")
+    if (
+      !result ||
+      typeof result !== "object" ||
+      !Array.isArray((result as JsonObject).missions) ||
+      !Array.isArray((result as JsonObject).runtimes)
+    ) {
+      throw new Error(
+        "The server returned an incompatible mission list. Update the connected Nikcli server and try again.",
+      )
+    }
+    return result as MissionListResult
+  }
+
+  listMissionTemplates() {
+    return this.request<{ templates: MissionTemplate[] }>("/mobile/missions/templates")
+  }
+
+  generateMission(description: string, options?: { model?: string; agent?: string }) {
+    return this.request<MissionDefinition>("/mobile/missions/generate", {
+      method: "POST",
+      body: JSON.stringify({ description, ...options }),
+    })
+  }
+
+  createMission(input: MissionWriteInput) {
+    return this.request<MissionDefinition>("/mobile/missions", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+  }
+
+  getMission(id: string) {
+    return this.request<MissionDetailResult>(`/mobile/missions/${encodeURIComponent(id)}`)
+  }
+
+  updateMission(id: string, input: MissionDefinition) {
+    return this.request<MissionDefinition>(`/mobile/missions/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    })
+  }
+
+  deleteMission(id: string) {
+    return this.request<{ success: true }>(`/mobile/missions/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    })
+  }
+
+  listMissionExecs(id: string, limit = 50) {
+    return this.request<{ execs: MissionExec[] }>(`/mobile/missions/${encodeURIComponent(id)}/execs?limit=${limit}`)
+  }
+
+  startMission(id: string) {
+    return this.request<{ success: true }>(`/mobile/missions/${encodeURIComponent(id)}/start`, { method: "POST" })
+  }
+
+  pauseMission(id: string) {
+    return this.request<{ success: true }>(`/mobile/missions/${encodeURIComponent(id)}/pause`, { method: "POST" })
+  }
+
+  cancelMission(id: string) {
+    return this.request<{ success: true }>(`/mobile/missions/${encodeURIComponent(id)}/cancel`, { method: "POST" })
+  }
+
+  mutateMissionFeature(
+    id: string,
+    featureID: string,
+    input: { status?: MissionDefinition["milestones"][number]["features"][number]["status"]; error?: string },
+  ) {
+    return this.request<MissionDefinition>(
+      `/mobile/missions/${encodeURIComponent(id)}/feature/${encodeURIComponent(featureID)}`,
+      { method: "POST", body: JSON.stringify(input) },
+    )
+  }
+
+  getSessionTodos(sessionID: string) {
+    return this.request<{ todos: SessionTodo[] }>(`/mobile/session/${encodeURIComponent(sessionID)}/todo`)
+  }
+
+  getBrainStatus() {
+    return this.request<BrainStatus>("/mobile/brain")
+  }
+
+  triggerBrain(force = true) {
+    return this.request<BrainTriggerResult>("/mobile/brain", {
+      method: "POST",
+      body: JSON.stringify({ force }),
+    })
+  }
+
+  listChatBots() {
+    return this.request<{ bots: ChatBotInfo[] }>("/mobile/chatbot/bots")
+  }
+
+  startChatBot(name: string) {
+    return this.request<{ running: boolean; error?: string }>(
+      `/mobile/chatbot/bots/${encodeURIComponent(name)}/start`,
+      { method: "POST" },
+    )
+  }
+
+  stopChatBot(name: string) {
+    return this.request<{ removed: boolean }>(`/mobile/chatbot/bots/${encodeURIComponent(name)}/stop`, {
+      method: "POST",
+    })
+  }
+
+  getObservability() {
+    return this.request<ObservabilityStatus>("/mobile/observability")
+  }
+
+  setObservability(enabled: boolean) {
+    return this.request<ObservabilityStatus>("/mobile/observability", {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    })
+  }
+
+  listLspStatus() {
+    return this.request<{ servers: LspServerStatus[]; error?: string }>("/mobile/lsp")
+  }
+
+  listFusionPresets() {
+    return this.request<{ presets: FusionPreset[] }>("/mobile/fusion")
+  }
+
+  setFusionPreset(name: string, enabled: boolean) {
+    return this.request<{ name: string; enabled: boolean }>("/mobile/fusion", {
+      method: "POST",
+      body: JSON.stringify({ name, enabled }),
+    })
+  }
+
+  getHostBrowser() {
+    return this.request<HostCapability<{ sessions?: unknown[] }>>("/mobile/host/browser")
+  }
+
+  getHostComputer() {
+    return this.request<HostCapability<{ platform?: string; screenshot?: boolean; input?: boolean; detail?: string }>>(
+      "/mobile/host/computer",
+    )
+  }
+
+  getHostHerdr() {
+    return this.request<HostCapability<{ enabled?: boolean; installed?: boolean }>>("/mobile/host/herdr")
+  }
+
+  setHostHerdr(enabled: boolean) {
+    return this.request<HostCapability<{ enabled?: boolean }>>("/mobile/host/herdr", {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    })
+  }
+
+  getHostIsland() {
+    return this.request<
+      HostCapability<{ supported?: boolean; enabled?: boolean; appRunning?: boolean; sessions?: number }>
+    >("/mobile/host/island")
+  }
+
+  getHostDevtools() {
+    return this.request<
+      HostCapability<{ rss?: number; heapUsed?: number; pid?: number; uptimeSec?: number; platform?: string }>
+    >("/mobile/host/devtools")
   }
 
   // ── PTY (Terminal) ──────────────────────────────────────────────────────────

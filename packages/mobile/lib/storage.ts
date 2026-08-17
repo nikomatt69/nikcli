@@ -10,6 +10,9 @@ import type {
   ServerConfig,
   SettingsSectionID,
 } from "./types"
+import { DEFAULT_WALLPAPER, normalizeWallpaper } from "./wallpaper"
+
+export { normalizeWallpaper }
 
 const SERVER_CONFIG_KEY = "nikcli_server_config"
 const APP_PREFERENCES_KEY = "nikcli_app_preferences"
@@ -178,6 +181,9 @@ function defaultPreferences(): AppPreferences {
     gestures: DEFAULT_GESTURE_PREFERENCES,
     composer: DEFAULT_COMPOSER_PREFERENCES,
     promptPresets: DEFAULT_PROMPT_PRESETS,
+    wallpaper: DEFAULT_WALLPAPER,
+    tipsHidden: false,
+    mathEnabled: false,
   }
 }
 
@@ -265,6 +271,9 @@ export async function getAppPreferences(): Promise<AppPreferences> {
               (item.mode === "plan" || item.mode === "code"),
           )
         : DEFAULT_PROMPT_PRESETS,
+      wallpaper: normalizeWallpaper(parsed.wallpaper),
+      tipsHidden: parsed.tipsHidden === true,
+      mathEnabled: parsed.mathEnabled === true,
     }
   } catch {
     return defaultPreferences()

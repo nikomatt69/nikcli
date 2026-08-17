@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native"
 import { FlashList, type FlashListRef } from "@shopify/flash-list"
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router"
+import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { AdaptiveBlur } from "@/components/GlassView"
 import { MessageBubble } from "@/components/MessageBubble"
@@ -24,6 +24,8 @@ import { useActionSheetRef } from "@/components/BottomSheet"
 import { CommandPaletteSheet, type CommandPaletteItem } from "@/components/session/CommandPaletteSheet"
 import { ComposerApprovalBar } from "@/components/session/ComposerApprovalBar"
 import { SessionActionsSheet } from "@/components/session/SessionActionsSheet"
+import { SessionInspectorSheet } from "@/components/session/SessionInspectorSheet"
+import { SessionWallpaper } from "@/components/session/SessionWallpaper"
 import { AttachmentPickerSheet } from "@/components/session/AttachmentPickerSheet"
 import { ModelPickerSheet } from "@/components/session/ModelPickerSheet"
 import { SessionComposer } from "@/components/session/SessionComposer"
@@ -247,6 +249,7 @@ export default function SessionScreen() {
   const [gitState, setGitState] = useState<GitState | null>(null)
   const [gitLoading, setGitLoading] = useState(false)
   const [gitReviewOpen, setGitReviewOpen] = useState(false)
+  const [inspectorOpen, setInspectorOpen] = useState(false)
   const [availableModels, setAvailableModels] = useState<MobileModelOption[]>([])
   const [activeModelKey, setActiveModelKey] = useState("")
   const [activeVariant, setActiveVariant] = useState<string | undefined>()
@@ -1293,6 +1296,58 @@ export default function SessionScreen() {
         },
       },
       {
+        id: "local.inspector",
+        title: "Open session inspector",
+        description: "Todos, MCP, LSP, context, and modified files for this session.",
+        section: "View",
+        badge: "Local",
+        keywords: ["inspector", "todo", "mcp", "lsp", "files", "context"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          void triggerHaptic("selection")
+          setInspectorOpen(true)
+        },
+      },
+      {
+        id: "local.missions",
+        title: "Open missions",
+        description: "Jump to multi-milestone automation on this host.",
+        section: "Tools",
+        badge: "Local",
+        keywords: ["missions", "automation", "plan"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          void triggerHaptic("selection")
+          router.push("/more/missions" as Href)
+        },
+      },
+      {
+        id: "local.brain",
+        title: "Open brain",
+        description: "Consolidate recent sessions into long-term host memory.",
+        section: "Tools",
+        badge: "Local",
+        keywords: ["brain", "memory", "consolidate"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          void triggerHaptic("selection")
+          router.push("/more/brain" as Href)
+        },
+      },
+      {
+        id: "local.appearance",
+        title: "Session wallpaper",
+        description: "Set a chat backdrop, math rendering, and rotating tips.",
+        section: "Tools",
+        badge: "Local",
+        keywords: ["wallpaper", "appearance", "math", "tips", "backdrop"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          void triggerHaptic("selection")
+          router.push("/more/settings/appearance" as Href)
+        },
+      },
+      {
         id: "local.publish",
         title: "Open publish workflow",
         description: "Prepare commit, PR title, and publish notes for the current GitHub session.",
@@ -1490,14 +1545,23 @@ export default function SessionScreen() {
             <View style={[StyleSheet.absoluteFill, { backgroundColor: chromeButtonOverlay }]} pointerEvents="none" />
             <ArrowLeft size={18} color={palette.ink} strokeWidth={2.2} />
           </Pressable>
-          <View className="flex-1">
+          <Pressable
+            className="flex-1"
+            onPress={() => {
+              void triggerHaptic("selection")
+              setInspectorOpen(true)
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open session inspector"
+            accessibilityHint="Shows todos, MCP, LSP, context, and files"
+          >
             <Text className="text-base font-semibold text-ink" numberOfLines={1}>
               {detail?.info.title || "Session"}
             </Text>
             <Text className="mt-1 text-sm text-soft" numberOfLines={1}>
               {sessionLocation}
             </Text>
-          </View>
+          </Pressable>
           {/* File Explorer */}
           <Pressable
             onPress={openSessionExplorer}
@@ -1545,6 +1609,7 @@ export default function SessionScreen() {
         here to keep the existing manual scroll-to-latest logic authoritative.
       */}
       <View style={{ flex: 1 }}>
+        <SessionWallpaper />
         <FlashList
           ref={listRef}
           style={{ flex: 1 }}
@@ -1776,9 +1841,20 @@ export default function SessionScreen() {
         onPublish={() => void publish()}
       />
 
+      <SessionInspectorSheet
+        visible={inspectorOpen}
+        sessionID={sessionId ?? ""}
+        detail={detail}
+        gitState={gitState}
+        onClose={() => setInspectorOpen(false)}
+      />
+
       <SessionActionsSheet
         sheetRef={actionsSheetRef}
         title={detail?.info.title ?? ""}
+        onInspect={() => {
+          actionsSheetRef.current?.dismiss(() => setInspectorOpen(true))
+        }}
         onRename={() => {
           actionsSheetRef.current?.dismiss(() => setRenameOpen(true))
         }}

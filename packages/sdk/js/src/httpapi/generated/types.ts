@@ -1026,6 +1026,8 @@ export type MobileGithubPublishResult = {
   pullRequest: { number: number; url: string; title: string }
 }
 
+export type Todo = { content: string; status: string; priority: string; id: string }
+
 export type MobileTeleportResult = {
   sessionID: string
   title?: string | undefined
@@ -1152,6 +1154,66 @@ export type Pty = {
   pid: number
 }
 
+export type MobileMissionDefinition = {
+  id: string
+  name: string
+  brief: string
+  milestones: Array<{
+    id: string
+    name: string
+    features: Array<{
+      id: string
+      name: string
+      objective: string
+      agent: string
+      model?: string | undefined
+      tokenBudget?: number | undefined
+      dependsOn?: Array<string> | undefined
+      status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+      error?: string | undefined
+    }>
+    validation?: "scrutiny" | "user-test" | "none" | undefined
+    status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+  }>
+  models?:
+    | { worker?: string | undefined; validation?: string | undefined; orchestrator?: string | undefined }
+    | undefined
+  timeoutMs?: number | undefined
+  sandbox?: boolean | undefined
+  worktree?: { name: string; branch?: string | undefined; directory: string } | undefined
+  status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+  createdAt: number
+}
+
+export type MobileMissionRuntime = {
+  missionID: string
+  status: "idle" | "running" | "paused" | "error" | "cancelling"
+  sessionID?: string | undefined
+  currentMilestoneID?: string | undefined
+  currentFeatureID?: string | undefined
+  doneFeatures: number
+  totalFeatures: number
+  lastError?: string | undefined
+  lastRunAt?: number | undefined
+}
+
+export type MobileMissionTemplate = { id: string; title: string; description: string; brief: string }
+
+export type MobileMissionExec = {
+  id: string
+  missionID: string
+  kind: "feature" | "validation"
+  targetID: string
+  targetName: string
+  startedAt: number
+  endedAt?: number | undefined
+  status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+  heartbeatAt?: number | undefined
+  sessionID?: string | undefined
+  error?: string | undefined
+  ok: boolean
+}
+
 export type ProjectDirectory = { directory: string; strategy?: string | undefined }
 
 export type ProjectCopy = { directory: string }
@@ -1213,8 +1275,6 @@ export type LoopPullRequestRef = {
 export type LoopBooleanResult = boolean
 
 export type BooleanResult = boolean
-
-export type Todo = { content: string; status: string; priority: string; id: string }
 
 export type TextPartInput = {
   type: "text"
@@ -2182,6 +2242,13 @@ export type SymbolSource3 = {
   kind: number
 }
 
+export type TodoList = Array<Todo>
+
+export type EventTodoUpdated = {
+  type: "todo.updated"
+  properties: { sessionID: string; todos: Array<Todo>; diff: { added: Array<Todo>; completed: Array<Todo> } }
+}
+
 export type MobileGitStatus = {
   branch: string
   staged: Array<MobileGitChange>
@@ -2230,13 +2297,6 @@ export type LoopRun = {
   error?: string | undefined
   ok: boolean
   pullRequest?: LoopPullRequestRef | undefined
-}
-
-export type TodoList = Array<Todo>
-
-export type EventTodoUpdated = {
-  type: "todo.updated"
-  properties: { sessionID: string; todos: Array<Todo>; diff: { added: Array<Todo>; completed: Array<Todo> } }
 }
 
 export type SessionContextBreakdown = {
@@ -8482,6 +8542,10 @@ export type MobileSessionRenameInput = {
 
 export type MobileSessionRenameOutput = MobileSuccess
 
+export type MobileSessionTodoInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type MobileSessionTodoOutput = { todos: Array<Todo> }
+
 export type MobileTeleportUploadBeginOutput = { uploadID: string }
 
 export type MobileTeleportUploadChunkInput = { readonly uploadID: { readonly uploadID: string }["uploadID"] }
@@ -11482,6 +11546,751 @@ export type MobilePtyUpdateOutput = Pty
 export type MobilePtyRemoveInput = { readonly ptyID: { readonly ptyID: string }["ptyID"] }
 
 export type MobilePtyRemoveOutput = boolean
+
+export type MobileMissionListOutput = {
+  missions: Array<MobileMissionDefinition>
+  runtimes: Array<MobileMissionRuntime>
+}
+
+export type MobileMissionCreateInput = {
+  readonly name: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["name"]
+  readonly brief: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["brief"]
+  readonly milestones: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["milestones"]
+  readonly models?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["models"]
+  readonly timeoutMs?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["timeoutMs"]
+  readonly sandbox?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["sandbox"]
+  readonly worktree?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+  }["worktree"]
+}
+
+export type MobileMissionCreateOutput = MobileMissionDefinition
+
+export type MobileMissionTemplatesOutput = { templates: Array<MobileMissionTemplate> }
+
+export type MobileMissionGenerateInput = {
+  readonly description: {
+    readonly description: string
+    readonly model?: string | undefined
+    readonly agent?: string | undefined
+  }["description"]
+  readonly model?: {
+    readonly description: string
+    readonly model?: string | undefined
+    readonly agent?: string | undefined
+  }["model"]
+  readonly agent?: {
+    readonly description: string
+    readonly model?: string | undefined
+    readonly agent?: string | undefined
+  }["agent"]
+}
+
+export type MobileMissionGenerateOutput = MobileMissionDefinition
+
+export type MobileMissionExecsRecentInput = { readonly limit?: { readonly limit?: number | undefined }["limit"] }
+
+export type MobileMissionExecsRecentOutput = { execs: Array<MobileMissionExec> }
+
+export type MobileMissionGetInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileMissionGetOutput = { mission: MobileMissionDefinition; runtime: MobileMissionRuntime }
+
+export type MobileMissionUpdateInput = {
+  readonly id: { readonly id: string }["id"]
+  readonly name: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["name"]
+  readonly brief: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["brief"]
+  readonly milestones: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["milestones"]
+  readonly models?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["models"]
+  readonly timeoutMs?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["timeoutMs"]
+  readonly sandbox?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["sandbox"]
+  readonly worktree?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["worktree"]
+  readonly status?: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["status"]
+  readonly createdAt: {
+    readonly name: string
+    readonly brief: string
+    readonly milestones: ReadonlyArray<{
+      readonly id: string
+      readonly name: string
+      readonly features: ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly objective: string
+        readonly agent: string
+        readonly model?: string | undefined
+        readonly tokenBudget?: number | undefined
+        readonly dependsOn?: ReadonlyArray<string> | undefined
+        readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+        readonly error?: string | undefined
+      }>
+      readonly validation?: "scrutiny" | "user-test" | "none" | undefined
+      readonly status?: "pending" | "running" | "validating" | "done" | "blocked" | undefined
+    }>
+    readonly models?:
+      | {
+          readonly worker?: string | undefined
+          readonly validation?: string | undefined
+          readonly orchestrator?: string | undefined
+        }
+      | undefined
+    readonly timeoutMs?: number | undefined
+    readonly sandbox?: boolean | undefined
+    readonly worktree?:
+      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
+      | undefined
+    readonly status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error" | undefined
+    readonly createdAt: number
+  }["createdAt"]
+}
+
+export type MobileMissionUpdateOutput = MobileMissionDefinition
+
+export type MobileMissionDeleteInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileMissionDeleteOutput = MobileSuccess
+
+export type MobileMissionExecsInput = {
+  readonly id: { readonly id: string }["id"]
+  readonly limit?: { readonly limit?: number | undefined }["limit"]
+}
+
+export type MobileMissionExecsOutput = { execs: Array<MobileMissionExec> }
+
+export type MobileMissionStartInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileMissionStartOutput = MobileSuccess
+
+export type MobileMissionPauseInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileMissionPauseOutput = MobileSuccess
+
+export type MobileMissionCancelInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileMissionCancelOutput = MobileSuccess
+
+export type MobileMissionFeatureMutateInput = {
+  readonly id: { readonly id: string; readonly featureID: string }["id"]
+  readonly featureID: { readonly id: string; readonly featureID: string }["featureID"]
+  readonly status?: {
+    readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+    readonly error?: string | undefined
+    readonly appendDependsOn?: ReadonlyArray<string> | undefined
+  }["status"]
+  readonly error?: {
+    readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+    readonly error?: string | undefined
+    readonly appendDependsOn?: ReadonlyArray<string> | undefined
+  }["error"]
+  readonly appendDependsOn?: {
+    readonly status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error" | undefined
+    readonly error?: string | undefined
+    readonly appendDependsOn?: ReadonlyArray<string> | undefined
+  }["appendDependsOn"]
+}
+
+export type MobileMissionFeatureMutateOutput = MobileMissionDefinition
+
+export type MobileEventsOutput = any
+
+export type MobileBrainStatusOutput = {
+  enabled: boolean
+  memoryEnabled: boolean
+  minHours: number
+  minSessions: number
+  lastBrainAt: number
+  hoursSinceLastBrain: number
+  sessionsSinceLastBrain: number
+  shouldTrigger: boolean
+  model?: { providerID: string; modelID: string } | undefined
+}
+
+export type MobileBrainTriggerInput = { readonly payload: { readonly force?: boolean | undefined } | undefined }
+
+export type MobileBrainTriggerOutput = {
+  success: boolean
+  sessionsReviewed: number
+  hoursSinceLastBrain: number
+  error?: string | undefined
+  sessionID?: string | undefined
+}
+
+export type MobileChatBotListOutput = {
+  bots: Array<{ name: string; type: string; running: boolean; webhookPath: string }>
+}
+
+export type MobileChatBotStartInput = { readonly name: { readonly name: string }["name"] }
+
+export type MobileChatBotStartOutput = { running: boolean; error?: string | undefined }
+
+export type MobileChatBotStopInput = { readonly name: { readonly name: string }["name"] }
+
+export type MobileChatBotStopOutput = { removed: boolean }
+
+export type MobileObservabilityGetOutput = { enabled: boolean; otlpEndpoint: string | null }
+
+export type MobileObservabilitySetInput = { readonly enabled: { readonly enabled: boolean }["enabled"] }
+
+export type MobileObservabilitySetOutput = { enabled: boolean; otlpEndpoint: string | null }
+
+export type MobileLspStatusOutput = {
+  servers: Array<{ id: string; name: string; root: string; status: "connected" | "error" }>
+  error?: string | undefined
+}
+
+export type MobileFusionListOutput = { presets: Array<{ name: string; builtin: boolean; enabled: boolean }> }
+
+export type MobileFusionSetInput = {
+  readonly name: { readonly name: string; readonly enabled: boolean }["name"]
+  readonly enabled: { readonly name: string; readonly enabled: boolean }["enabled"]
+}
+
+export type MobileFusionSetOutput = { name: string; enabled: boolean }
+
+export type MobileHostBrowserOutput = {
+  available: boolean
+  reason?: string | undefined
+  sessions?: Array<any> | undefined
+}
+
+export type MobileHostComputerOutput = {
+  available: boolean
+  reason?: string | undefined
+  platform?: string | undefined
+  screenshot?: boolean | undefined
+  input?: boolean | undefined
+  detail?: string | undefined
+}
+
+export type MobileHostHerdrGetOutput = {
+  available: boolean
+  reason?: string | undefined
+  enabled?: boolean | undefined
+  installed?: boolean | undefined
+}
+
+export type MobileHostHerdrSetInput = { readonly enabled: { readonly enabled: boolean }["enabled"] }
+
+export type MobileHostHerdrSetOutput = {
+  available: boolean
+  reason?: string | undefined
+  enabled?: boolean | undefined
+  installed?: boolean | undefined
+}
+
+export type MobileHostIslandOutput = {
+  available: boolean
+  reason?: string | undefined
+  supported?: boolean | undefined
+  enabled?: boolean | undefined
+  appRunning?: boolean | undefined
+  sessions?: number | undefined
+}
+
+export type MobileHostDevtoolsOutput = {
+  available: boolean
+  reason?: string | undefined
+  rss?: number | undefined
+  heapUsed?: number | undefined
+  heapTotal?: number | undefined
+  external?: number | undefined
+  pid?: number | undefined
+  uptimeSec?: number | undefined
+  platform?: string | undefined
+}
 
 export type ProjectListOutput = Array<Project>
 
