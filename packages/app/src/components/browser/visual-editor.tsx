@@ -24,6 +24,7 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
   // Default to localhost:3000 for user's web app
   const [url, setUrl] = createSignal(props.initialUrl || "http://localhost:3000")
   const [inputUrl, setInputUrl] = createSignal(url())
+  const [srcdocContent, setSrcdocContent] = createSignal<string | null>(null)
   const [devicePreset, setDevicePreset] = createSignal<DevicePreset>("responsive")
   const [isLandscape, setIsLandscape] = createSignal(false)
   
@@ -31,6 +32,7 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
   const [editorMode, setEditorMode] = createSignal<"browse" | "edit">("browse")
   const [selectedElement, setSelectedElement] = createSignal<InspectedElement | null>(null)
   const [isLoading, setIsLoading] = createSignal(false)
+  const [bridgeConnected, setBridgeConnected] = createSignal(false)
 
   // Console drawer state
   const [consoleLogs, setConsoleLogs] = createSignal<ConsoleEntry[]>([])
@@ -48,6 +50,42 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
 
   const commonPorts = ["3000", "5173", "8080", "3001"]
 
+  const loadUrlWithBridge = async (targetUrl: string) => {
+    setIsLoading(true)
+    setSelectedElement(null)
+    setBridgeConnected(false)
+
+    try {
+      const res = await fetch(targetUrl, { mode: "cors" })
+      if (res.ok) {
+        const text = await res.text()
+        const normalized = targetUrl.endsWith("/") ? targetUrl : `${targetUrl}/`
+        const baseTag = `<base href="${normalized}">`
+        const bridgeTag = `<script>${INSPECTOR_BRIDGE_SCRIPT}<\/script>`
+
+        let injected = text
+        if (injected.includes("<head>")) {
+          injected = injected.replace("<head>", `<head>\n${baseTag}\n${bridgeTag}\n`)
+        } else if (injected.includes("<html>")) {
+          injected = injected.replace("<html>", `<html>\n<head>\n${baseTag}\n${bridgeTag}\n</head>\n`)
+        } else {
+          injected = `${baseTag}\n${bridgeTag}\n${injected}`
+        }
+
+        setSrcdocContent(injected)
+        setIsLoading(false)
+        return
+      }
+    } catch {
+      // Cross-origin / network fallback
+    }
+
+    setSrcdocContent(null)
+    if (iframeRef) {
+      iframeRef.src = targetUrl
+    }
+  }
+
   const navigateTo = (newUrl: string) => {
     let formatted = newUrl.trim()
     if (!formatted) return
@@ -56,31 +94,37 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
     }
     setUrl(formatted)
     setInputUrl(formatted)
-    setSelectedElement(null)
-    setIsLoading(true)
+    void loadUrlWithBridge(formatted)
   }
 
   const handleRefresh = () => {
-    if (iframeRef) {
-      setIsLoading(true)
-      iframeRef.src = url()
-    }
+    void loadUrlWithBridge(url())
   }
+
+  onMount(() => {
+    void loadUrlWithBridge(url())
+  })
 
   const injectBridge = () => {
     setIsLoading(false)
     try {
       if (iframeRef && iframeRef.contentWindow) {
         const doc = iframeRef.contentDocument || iframeRef.contentWindow.document
-        if (doc) {
+        if (doc && !doc.getElementById("__nikcli_hover_outline")) {
           const script = doc.createElement("script")
           script.textContent = INSPECTOR_BRIDGE_SCRIPT
           doc.head?.appendChild(script) || doc.body?.appendChild(script)
         }
       }
     } catch {
-      // Cross-origin fallback
+      // Handled via postMessage or srcdoc
     }
+    syncModeToIframe()
+  }
+
+  const syncModeToIframe = () => {
+    const mode = editorMode()
+    iframeRef?.contentWindow?.postMessage({ type: "visual-editor:set-mode", mode }, "*")
   }
 
   const handleMessage = (event: MessageEvent) => {
@@ -89,7 +133,8 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
 
     if (data.type === "visual-editor:ready") {
       setIsLoading(false)
-      iframeRef?.contentWindow?.postMessage({ type: "visual-editor:set-mode", mode: editorMode() }, "*")
+      setBridgeConnected(true)
+      syncModeToIframe()
     } else if (data.type === "visual-editor:console-log") {
       setConsoleLogs((prev) => [...prev.slice(-100), data.log])
     } else if (data.type === "visual-editor:element-selected") {
@@ -159,10 +204,9 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
     onCleanup(() => window.removeEventListener("message", handleMessage))
   })
 
-  // Synchronize editor mode to iframe bridge
+  // Synchronize editor mode to iframe bridge whenever mode changes
   createEffect(() => {
-    const mode = editorMode()
-    iframeRef?.contentWindow?.postMessage({ type: "visual-editor:set-mode", mode }, "*")
+    syncModeToIframe()
   })
 
   // Keyboard shortcuts
@@ -405,7 +449,8 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
               >
                 <iframe
                   ref={iframeRef}
-                  src={url()}
+                  src={srcdocContent() ? undefined : url()}
+                  srcdoc={srcdocContent() ?? undefined}
                   class="w-full h-full flex-1 min-h-0 border-0 block bg-white"
                   onLoad={injectBridge}
                   sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
@@ -416,7 +461,8 @@ export function BrowserVisualEditor(props: BrowserVisualEditorProps): JSX.Elemen
         >
           <iframe
             ref={iframeRef}
-            src={url()}
+            src={srcdocContent() ? undefined : url()}
+            srcdoc={srcdocContent() ?? undefined}
             class="w-full h-full flex-1 min-h-0 border-0 block bg-white"
             style={{ width: "100%", height: "100%", "min-height": "100%", flex: "1 1 0%" }}
             onLoad={injectBridge}
