@@ -1,4 +1,4 @@
-import { eq, asc } from "drizzle-orm"
+import { eq, asc, count } from "drizzle-orm"
 import { Database } from "@/database/database"
 import { messageInfo, messagePart } from "./message.sql"
 import type { MessageV2 } from "./message-v2"
@@ -45,10 +45,12 @@ export namespace MessageRepo {
    * Used to check that the v2 entry projection still covers every message
    * (session/v2/index.ts) — a count is enough because every message projects
    * to at least one entry.
+   *
+   * `SELECT COUNT(*)` instead of `SELECT id … array.length` so the database
+   * never streams full row data for a query whose only product is a number.
    */
   export function countMessages(sessionId: string): number {
-    return db().select({ id: messageInfo.id }).from(messageInfo).where(eq(messageInfo.sessionId, sessionId)).all()
-      .length
+    return db().select({ c: count() }).from(messageInfo).where(eq(messageInfo.sessionId, sessionId)).get()?.c ?? 0
   }
 
   export function upsertMessage(msg: MessageV2.Info, tx: Executor = db()): void {

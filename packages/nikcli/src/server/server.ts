@@ -42,8 +42,8 @@ export namespace Server {
   async function fallback(request: Request) {
     const pathname = new URL(request.url).pathname
     const response = isInstanceLessPath(pathname)
-      ? await HttpApiBridge.handleGlobal(request, { upstreamAuthVerified: true })
-      : await HttpApiBridge.handle(request, { upstreamAuthVerified: true })
+      ? await HttpApiBridge.handleGlobal(request, { upstreamAuthVerified: true, pathname })
+      : await HttpApiBridge.handle(request, { upstreamAuthVerified: true, pathname })
     if (response.status !== 404) return response
     if (pathname.startsWith("/mobile/") || pathname === "/mobile") return response
     return PublicRoutes.proxy(request)

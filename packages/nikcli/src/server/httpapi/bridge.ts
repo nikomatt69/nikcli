@@ -1,4 +1,5 @@
 import { HttpRouter } from "effect/unstable/http"
+import { OpenApi } from "effect/unstable/httpapi"
 import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
 import { Context, Layer } from "effect"
 import { InstanceRef, LogRedirect, sharedMemoMap } from "@/effect"
@@ -6,7 +7,7 @@ import { Instance } from "@/project/instance"
 import { ChatbotHttp } from "./chatbot"
 import { HttpApiEvent } from "./event"
 import { HttpApiPrompt } from "./prompt"
-import { PublicHttpApi } from "./public"
+import { PublicApi, PublicHttpApi } from "./public"
 import { rawGlobalHandlers } from "./global-handlers"
 import { instanceLessRoot } from "./instance-less"
 import { Auth } from "./auth"
@@ -40,233 +41,108 @@ export namespace HttpApiBridge {
     readonly scope: "main" | "global"
   }
 
-  const implementedRoutes = [
-    ["PUT", /^\/auth\/[^/]+$/],
-    ["DELETE", /^\/auth\/[^/]+$/],
-    ["DELETE", /^\/provider\/[^/]+\/auth$/],
-    ["DELETE", /^\/config\/mcp\/[^/]+$/],
-    ["DELETE", /^\/session\/[^/]+$/],
-    ["DELETE", /^\/session\/[^/]+\/message\/[^/]+$/],
-    ["DELETE", /^\/session\/[^/]+\/message\/[^/]+\/part\/[^/]+$/],
-    ["DELETE", /^\/experimental\/workspace\/[^/]+$/],
-    ["DELETE", /^\/project\/[^/]+\/copy$/],
-    ["GET", /^\/agent$/],
-    ["GET", /^\/brain\/?$/],
-    ["POST", /^\/brain\/trigger$/],
-    ["GET", /^\/connectors\/?$/],
-    ["POST", /^\/connectors\/[^/]+\/auth$/],
-    ["DELETE", /^\/connectors\/[^/]+\/auth$/],
-    ["POST", /^\/connectors\/invalidate$/],
-    ["POST", /^\/chatbot\/(discord|slack|teams|gchat|linear|github)\/[^/]+$/],
-    ["GET", /^\/analytics\/global$/],
-    ["GET", /^\/analytics\/daily$/],
-    ["GET", /^\/analytics\/session\/[^/]+$/],
-    ["GET", /^\/analytics\/sessions$/],
-    ["GET", /^\/analytics\/leaderboard$/],
-    ["GET", /^\/analytics\/data$/],
-    ["GET", /^\/command$/],
-    ["GET", /^\/config$/],
-    ["GET", /^\/config\/providers$/],
-    ["GET", /^\/doctor\/?$/],
-    ["GET", /^\/config\/profiles$/],
-    ["GET", /^\/experimental\/resource$/],
-    ["GET", /^\/experimental\/tool$/],
-    ["GET", /^\/experimental\/tool\/ids$/],
-    ["GET", /^\/experimental\/worktree$/],
-    ["GET", /^\/experimental\/workspace\/?$/],
-    ["GET", /^\/experimental\/workspace\/adaptor$/],
-    ["GET", /^\/experimental\/workspace\/status$/],
-    ["GET", /^\/file$/],
-    ["GET", /^\/file\/content$/],
-    ["GET", /^\/file\/status$/],
-    ["GET", /^\/event$/],
-    ["GET", /^\/find$/],
-    ["GET", /^\/find\/file$/],
-    ["GET", /^\/find\/symbol$/],
-    ["GET", /^\/formatter$/],
-    ["GET", /^\/loop\/?$/],
-    ["GET", /^\/loop\/templates$/],
-    ["GET", /^\/loop\/runs\/recent$/],
-    ["GET", /^\/loop\/[^/]+$/],
-    ["GET", /^\/loop\/[^/]+\/runs$/],
-    ["GET", /^\/lsp$/],
-    ["GET", /^\/mcp$/],
-    ["GET", /^\/mission\/?$/],
-    ["GET", /^\/mission\/templates$/],
-    ["GET", /^\/mission\/execs\/recent$/],
-    ["GET", /^\/mission\/[^/]+$/],
-    ["GET", /^\/mission\/[^/]+\/execs$/],
-    ["POST", /^\/mission\/generate$/],
-    ["POST", /^\/mission\/[^/]+$/],
-    ["POST", /^\/mission\/[^/]+\/start$/],
-    ["POST", /^\/mission\/[^/]+\/pause$/],
-    ["POST", /^\/mission\/[^/]+\/cancel$/],
-    ["POST", /^\/mission\/[^/]+\/feature\/[^/]+$/],
-    ["PUT", /^\/mission\/?$/],
-    ["DELETE", /^\/mission\/[^/]+$/],
-    ["GET", /^\/path$/],
-    ["GET", /^\/permission$/],
-    ["GET", /^\/project$/],
-    ["GET", /^\/project\/current$/],
-    ["GET", /^\/project\/[^/]+\/directory$/],
-    ["GET", /^\/provider$/],
-    ["GET", /^\/provider\/auth$/],
-    ["GET", /^\/question$/],
-    ["GET", /^\/session\/?$/],
-    ["GET", /^\/session\/status$/],
-    ["GET", /^\/session\/[^/]+$/],
-    ["GET", /^\/session\/[^/]+\/children$/],
-    ["GET", /^\/session\/[^/]+\/diff$/],
-    ["GET", /^\/session\/[^/]+\/message$/],
-    ["GET", /^\/session\/[^/]+\/message\/[^/]+$/],
-    ["GET", /^\/session\/[^/]+\/todo$/],
-    ["GET", /^\/session\/[^/]+\/instructions$/],
-    ["GET", /^\/session\/[^/]+\/context$/],
-    ["POST", /^\/session\/[^/]+\/context\/toggle$/],
-    ["GET", /^\/session\/[^/]+\/goal$/],
-    ["GET", /^\/session\/[^/]+\/background$/],
-    ["GET", /^\/session\/[^/]+\/background\/[^/]+$/],
-    ["GET", /^\/session\/[^/]+\/background\/[^/]+\/read$/],
-    ["POST", /^\/session\/[^/]+\/background\/[^/]+\/cancel$/],
-    ["GET", /^\/session\/[^/]+\/monitor\/[^/]+$/],
-    ["GET", /^\/session\/[^/]+\/monitor\/[^/]+\/log$/],
-    ["POST", /^\/session\/[^/]+\/monitor\/[^/]+\/cancel$/],
-    ["GET", /^\/session\/[^/]+\/v2\/entries$/],
-    ["GET", /^\/session\/[^/]+\/v2\/state$/],
-    ["GET", /^\/session\/[^/]+\/v2\/events$/],
-    ["POST", /^\/log$/],
-    ["GET", /^\/skill$/],
-    ["POST", /^\/skill$/],
-    ["DELETE", /^\/skill\/[^/]+$/],
-    ["GET", /^\/vcs$/],
-    ["GET", /^\/vcs\/status$/],
-    ["GET", /^\/vcs\/diff\/raw$/],
-    ["POST", /^\/vcs\/apply$/],
-    ["PATCH", /^\/config$/],
-    ["PATCH", /^\/config\/mcp\/[^/]+$/],
-    ["PATCH", /^\/project\/[^/]+$/],
-    ["PATCH", /^\/session\/[^/]+$/],
-    ["PATCH", /^\/session\/[^/]+\/message\/[^/]+\/part\/[^/]+$/],
-    ["POST", /^\/mcp$/],
-    ["POST", /^\/config\/mcp$/],
-    ["POST", /^\/config\/profiles$/],
-    ["POST", /^\/config\/profiles\/activate\/[^/]+$/],
-    ["POST", /^\/mcp\/[^/]+\/connect$/],
-    ["POST", /^\/mcp\/[^/]+\/disconnect$/],
-    ["POST", /^\/mcp\/[^/]+\/toggle$/],
-    ["POST", /^\/loop\/generate$/],
-    ["POST", /^\/loop\/[^/]+$/],
-    ["POST", /^\/loop\/[^/]+\/toggle$/],
-    ["POST", /^\/loop\/[^/]+\/run$/],
-    ["POST", /^\/loop\/[^/]+\/abort$/],
-    ["POST", /^\/loop\/[^/]+\/pause$/],
-    ["POST", /^\/loop\/[^/]+\/resume$/],
-    ["POST", /^\/instance\/dispose$/],
-    ["POST", /^\/experimental\/worktree$/],
-    ["POST", /^\/experimental\/worktree\/reset$/],
-    ["POST", /^\/project\/[^/]+\/copy$/],
-    ["POST", /^\/project\/[^/]+\/copy\/refresh$/],
-    ["POST", /^\/experimental\/workspace\/[^/]+$/],
-    ["POST", /^\/experimental\/workspace\/sync-list$/],
-    ["POST", /^\/experimental\/workspace\/[^/]+\/restore$/],
-    ["POST", /^\/experimental\/workspace\/[^/]+\/session\/[^/]+\/restore$/],
-    ["POST", /^\/experimental\/workspace\/warp$/],
-    ["POST", /^\/experimental\/workspace\/session\/[^/]+\/warp$/],
-    ["POST", /^\/config\/reload$/],
-    ["POST", /^\/permission\/[^/]+\/reply$/],
-    ["POST", /^\/provider\/[^/]+\/api$/],
-    ["POST", /^\/provider\/[^/]+\/oauth\/authorize$/],
-    ["POST", /^\/provider\/[^/]+\/oauth\/callback$/],
-    ["GET", /^\/pty\/?$/],
-    ["POST", /^\/pty\/?$/],
-    ["GET", /^\/pty\/[^/]+\/?$/],
-    ["PUT", /^\/pty\/[^/]+\/?$/],
-    ["DELETE", /^\/pty\/[^/]+\/?$/],
-    ["POST", /^\/question\/[^/]+\/reject$/],
-    ["POST", /^\/question\/[^/]+\/reply$/],
-    ["POST", /^\/session\/?$/],
-    ["POST", /^\/session\/[^/]+\/abort$/],
-    ["POST", /^\/session\/[^/]+\/fork$/],
-    ["POST", /^\/session\/[^/]+\/revert$/],
-    ["POST", /^\/session\/[^/]+\/unrevert$/],
-    ["POST", /^\/session\/[^/]+\/share$/],
-    ["DELETE", /^\/session\/[^/]+\/share$/],
-    ["POST", /^\/session\/[^/]+\/summarize$/],
-    ["POST", /^\/session\/[^/]+\/command$/],
-    ["POST", /^\/session\/[^/]+\/shell$/],
-    ["POST", /^\/session\/[^/]+\/permissions\/[^/]+$/],
-    ["POST", /^\/session\/[^/]+\/message$/],
-    ["POST", /^\/session\/[^/]+\/prompt_async$/],
-    ["PUT", /^\/file\/content$/],
-    ["PUT", /^\/loop\/?$/],
-    ["DELETE", /^\/loop\/[^/]+$/],
-    ["DELETE", /^\/mcp\/[^/]+\/auth$/],
-    ["POST", /^\/mcp\/[^/]+\/auth$/],
-    ["POST", /^\/mcp\/[^/]+\/auth\/callback$/],
-    ["POST", /^\/mcp\/[^/]+\/auth\/authenticate$/],
-    ["DELETE", /^\/experimental\/worktree$/],
-    ["POST", /^\/experimental\/managed-worktree$/],
-    ["DELETE", /^\/experimental\/managed-worktree$/],
-    ["POST", /^\/experimental\/managed-worktree\/link$/],
-    ["GET", /^\/experimental\/managed-worktree\/children$/],
-    ["GET", /^\/experimental\/managed-worktree\/ancestors$/],
-    ["GET", /^\/experimental\/managed-worktree$/],
-    ["GET", /^\/profile$/],
-    ["PATCH", /^\/profile$/],
-    ["DELETE", /^\/profile$/],
-    ["GET", /^\/profile\/habits$/],
-    ["GET", /^\/profile\/preview$/],
-    ["DELETE", /^\/profile\/habits$/],
-    ["GET", /^\/tui\/config$/],
-    ["GET", /^\/tui\/control\/next$/],
-    ["POST", /^\/tui\/append-prompt$/],
-    ["POST", /^\/tui\/open-help$/],
-    ["POST", /^\/tui\/open-sessions$/],
-    ["POST", /^\/tui\/open-themes$/],
-    ["POST", /^\/tui\/open-models$/],
-    ["POST", /^\/tui\/submit-prompt$/],
-    ["POST", /^\/tui\/clear-prompt$/],
-    ["POST", /^\/tui\/execute-command$/],
-    ["POST", /^\/tui\/show-toast$/],
-    ["POST", /^\/tui\/publish$/],
-    ["POST", /^\/tui\/select-session$/],
-    ["POST", /^\/tui\/control\/response$/],
-    ["POST", /^\/sync\/event$/],
-    ["GET", /^\/sync\/outbox$/],
-    ["GET", /^\/sync\/snapshot\/[^/]+$/],
-    ["GET", /^\/sync\/stream$/],
-    ["GET", /^\/sync\/stats$/],
-    ["POST", /^\/sync\/config$/],
-    ["POST", /^\/sync\/connect$/],
-    ["POST", /^\/sync\/disconnect$/],
-    ["POST", /^\/sync\/drain$/],
-    // Prefix match: a handler 404 under `/mobile/*` must not fall through to
-    // the website proxy (that was returning 200 HTML for deleted loops).
+  /**
+   * Convert an OpenAPI path template (`/session/{sessionID}/message`) into a
+   * matchable RegExp (`/^\/session\/[^/]+\/message$/`). The template uses
+   * `{name}` for path params; everything else is literal. `/` is matched
+   * literally — name segments are `[^/]+` so a deep path stays that way.
+   *
+   * Special cases: a trailing `/?` mirrors the Hono-era routes that accept
+   * the path with or without a trailing slash (still rare in the served
+   * surface, kept only where the contract already allowed it).
+   */
+  function pathToRegex(template: string): RegExp {
+    const escaped = template.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const substituted = escaped.replace(/\\\{[^/]+?\\\}/g, "[^/]+")
+    return new RegExp(`^${substituted}$`)
+  }
+
+  /**
+   * Walks the OpenAPI spec produced by `OpenApi.fromApi(PublicApi)` once at
+   * module load. The pre-router allowlist cannot drift from the contract: a
+   * new endpoint without a regex here fails at module load (because the
+   * returned `Map` covers it), and the spec covers every route the bridge
+   * serves. The traversal mirrors `inventory.ts:routes` so the two stay
+   * aligned. Manual entries for non-OpenAPI surface (SSE / mobile prefix
+   * match / `/sync/stream`) are appended afterwards.
+   */
+  function routesFromPublicApi(api: typeof PublicApi): ReadonlyArray<readonly [string, RegExp]> {
+    const spec = OpenApi.fromApi(api) as Record<string, any>
+    const verbMethods = ["get", "post", "put", "delete", "patch"] as const
+    const result: Array<readonly [string, RegExp]> = []
+    const paths = (spec.paths ?? {}) as Record<string, any>
+    for (const [path, item] of Object.entries(paths)) {
+      const re = pathToRegex(path)
+      for (const method of verbMethods) {
+        if (item?.[method]) result.push([method.toUpperCase(), re])
+      }
+    }
+    return result
+  }
+
+  /**
+   * Routes served by the bridge that are not in `PublicApi`:
+   *
+   * - `/event` and `/global/event` — SSE streams, kept as raw handlers
+   *   because the contract declares them as `StreamSse` (a different
+   *   response shape from a normal handler).
+   * - `/sync/stream` — single SSE, served by `PublicRoutes.globalRequest`.
+   * - `/sync/stats` and `/sync/{connect,disconnect,drain}` — served raw,
+   *   declared in `ContractExtra`. Covered by the OpenAPI walk, but the
+   *   generator catches them too.
+   * - `/mobile/*` — a 404 under `/mobile/*` must not fall through to the
+   *   website proxy (that was returning 200 HTML for deleted loops). The
+   *   OpenAPI generator emits per-method regexes; the prefix match catches
+   *   the methods it does not. Kept as a manual entry.
+   * - `/sync/stats` — covered above; the regex + verb walk produces it.
+   */
+  const extraImplementedRoutes: ReadonlyArray<readonly [string, RegExp]> = [
+    // Prefix match for any `/mobile/*` path that the OpenAPI walk missed.
     ["GET", /^\/mobile\//],
     ["POST", /^\/mobile\//],
     ["PUT", /^\/mobile\//],
     ["PATCH", /^\/mobile\//],
     ["DELETE", /^\/mobile\//],
-  ] as const
+  ]
+
+  const generatedRoutes = routesFromPublicApi(PublicApi)
+  const implementedRoutes = [...generatedRoutes, ...extraImplementedRoutes] as const
 
   /**
    * Instance-less routes served before instance context is bound. These must
    * never require `InstanceRef` — they run outside the instance/workspace
    * middleware, so `handleGlobal` provides no instance context.
+   *
+   * `/account` is not on `PublicApi` yet (it lives on the raw
+   * `AccountHttp.handle` dispatcher ahead of the router), so it is the only
+   * hand-rolled entry here. After H4 lands, this becomes a second call to
+   * `routesFromPublicApi` against the account group.
    */
   const globalRoutes = [
-    ["GET", /^\/global\/health$/],
-    ["GET", /^\/global\/event$/],
-    ["POST", /^\/global\/dispose$/],
-    ["POST", /^\/user\/register$/],
-    ["POST", /^\/user\/login$/],
-    ["POST", /^\/user\/logout$/],
-    ["GET", /^\/user\/me$/],
-    ["GET", /^\/user\/status$/],
-    ["GET", /^\/user\/list$/],
-    ["PATCH", /^\/user\/[^/]+$/],
-    ["DELETE", /^\/user\/[^/]+$/],
+    ...routesFromPublicApi(PublicApi).filter(([_, pattern]) => /^\/(global|user)\//.test(pattern.source)),
+    ["GET", /^\/account$/],
+    ["POST", /^\/account\/login$/],
+    ["POST", /^\/account\/login\/complete$/],
   ] as const
+
+  /**
+   * Method-grouped lookup derived from the flat route lists above, built once
+   * at module load. `supports` runs on every request before the fallback
+   * decision (see `ServerRouter.dispatch`), so the flat `.some()` over ~215
+   * entries is avoided: only the bucket for the request method is scanned.
+   */
+  function groupByMethod(routes: ReadonlyArray<readonly [string, RegExp]>) {
+    const byMethod = new Map<string, RegExp[]>()
+    for (const [method, pattern] of routes) {
+      const list = byMethod.get(method)
+      if (list) list.push(pattern)
+      else byMethod.set(method, [pattern])
+    }
+    return byMethod
+  }
+
+  const implementedByMethod = groupByMethod(implementedRoutes)
+  const globalByMethod = groupByMethod(globalRoutes)
 
   /** Snapshot of bridge route patterns for coverage scripts/tests. */
   export function listImplemented(): RoutePattern[] {
@@ -321,26 +197,37 @@ export namespace HttpApiBridge {
     LogRedirect,
   )
 
-  /** Web-standard request handler for the schema-encoded HttpApi routes. */
+  /**
+   * Web-standard request handler for the schema-encoded HttpApi routes.
+   *
+   * `disableLogger: true` skips Effect's built-in `HttpMiddleware.logger`:
+   * `ServerRouter.dispatch` already logs start + duration for every request
+   * except `POST /log`, so adding Effect's logger logs each encoded request
+   * twice with the same span. Disable here and keep nikcli's own log.
+   */
   export const webHandler = HttpRouter.toWebHandler(layer, {
     memoMap: sharedMemoMap,
+    disableLogger: true,
   }).handler
 
   export function supports(pathname: string, method = "GET") {
-    const normalizedMethod = method.toUpperCase()
-    return implementedRoutes.some(
-      ([routeMethod, pattern]) => routeMethod === normalizedMethod && pattern.test(pathname),
-    )
+    const bucket = implementedByMethod.get(method.toUpperCase())
+    if (!bucket) return false
+    return bucket.some((pattern) => pattern.test(pathname))
   }
 
   export function supportsGlobal(pathname: string, method = "GET") {
-    const normalizedMethod = method.toUpperCase()
-    return globalRoutes.some(([routeMethod, pattern]) => routeMethod === normalizedMethod && pattern.test(pathname))
+    const bucket = globalByMethod.get(method.toUpperCase())
+    if (!bucket) return false
+    return bucket.some((pattern) => pattern.test(pathname))
   }
 
   /** Serve an instance-less `/global/*` or `/user/*` request. Reads no Instance ALS. */
-  export async function handleGlobal(request: Request, options?: { upstreamAuthVerified?: boolean }) {
-    const pathname = new URL(request.url).pathname
+  export async function handleGlobal(
+    request: Request,
+    options?: { upstreamAuthVerified?: boolean; pathname?: string },
+  ) {
+    const pathname = options?.pathname ?? new URL(request.url).pathname
     if (!options?.upstreamAuthVerified && !Auth.isPublicPath(request.method, pathname)) {
       const result = await Auth.authenticate(request, { credentials: testAuthOverride ?? undefined })
       if (!result.ok) return result.response
@@ -356,10 +243,13 @@ export namespace HttpApiBridge {
     return webHandler(request, Context.empty() as Context.Context<any>)
   }
 
-  export async function handle(request: Request, options?: { upstreamAuthVerified?: boolean }) {
+  export async function handle(
+    request: Request,
+    options?: { upstreamAuthVerified?: boolean; pathname?: string },
+  ) {
     // Raw streaming responses (SSE, chunked prompt bodies) are served ahead
     // of the router — they are not schema-encoded HttpApi bodies.
-    const pathname = new URL(request.url).pathname
+    const pathname = options?.pathname ?? new URL(request.url).pathname
     if (request.method === "GET" && pathname === "/event") {
       // Instance-scoped SSE — plain {type, properties} from the instance Bus.
       // handle() (the /global/event shape) wraps events in {payload}, which

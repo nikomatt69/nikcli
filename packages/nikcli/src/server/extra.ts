@@ -77,6 +77,9 @@ export async function extraRequest(request: Request): Promise<Response | undefin
   const url = new URL(request.url)
   const pathname = url.pathname
   const method = request.method.toUpperCase()
+  // `url` is reused below for decodeURIComponent on path segments — keep it
+  // single-source so `ServerRouter.dispatch` / `HttpApiBridge.handle` and
+  // this raw route share one parse.
 
   const auth = pathname.match(/^\/auth\/([^/]+)\/?$/)
   if (auth) {

@@ -57,16 +57,22 @@ export namespace ServerRouter {
     ).catch(() => undefined)
   }
 
-  export async function context(request: Request) {
-    const url = new URL(request.url)
+  export async function context(request: Request, parsed?: URL) {
+    const url = parsed ?? new URL(request.url)
     let directory = url.searchParams.get("directory") || request.headers.get("x-nikcli-directory") || process.cwd()
     try {
       directory = decodeURIComponent(directory)
     } catch {}
     const sessionID = sessionIDFromPath(url.pathname)
-    const routeSession = sessionID ? await sessionForRequest(sessionID, directory) : undefined
-    const workspaceID =
-      url.searchParams.get("workspace") || request.headers.get("x-nikcli-workspace") || routeSession?.workspaceID
+    // The session lookup also derives the workspace; if the caller already
+    // pinned one via `?workspace=` or `x-nikcli-workspace`, skip it. Routes
+    // that *require* the session lookup still fall through to
+    // `sessionForRequest` below (`getAnyProject` is its own short-circuit).
+    const explicitWorkspace = url.searchParams.get("workspace") || request.headers.get("x-nikcli-workspace")
+    const routeSession = sessionID && !explicitWorkspace
+      ? await sessionForRequest(sessionID, directory)
+      : undefined
+    const workspaceID = explicitWorkspace || routeSession?.workspaceID
     const workspace = workspaceID ? await Workspace.get(workspaceID).catch(() => undefined) : undefined
     if (workspace) {
       const target = await Workspace.target(workspace.id)
@@ -192,21 +198,26 @@ export namespace ServerRouter {
     return request.headers.get("upgrade")?.toLowerCase() === "websocket"
   }
 
-  async function dispatch(request: Request, options: Options, server?: Bun.Server<WebSocketData>): Promise<Response> {
-    const url = new URL(request.url)
+  async function dispatch(
+    request: Request,
+    options: Options,
+    server: Bun.Server<WebSocketData> | undefined,
+    url: URL,
+  ): Promise<Response> {
+    const pathname = url.pathname
     // `/sync/stream` is not a root of its own: one SSE path, served instance-less
     // by `PublicRoutes.globalRequest`, with no sibling under `/sync/`.
-    const global = isInstanceLessPath(url.pathname) || (request.method === "GET" && url.pathname === "/sync/stream")
+    const global = isInstanceLessPath(pathname) || (request.method === "GET" && pathname === "/sync/stream")
     if (global) {
       const raw = await PublicRoutes.globalRequest(request)
       if (raw) return raw
-      if (HttpApiBridge.supportsGlobal(url.pathname, request.method)) {
-        return HttpApiBridge.handleGlobal(request, { upstreamAuthVerified: true })
+      if (HttpApiBridge.supportsGlobal(pathname, request.method)) {
+        return HttpApiBridge.handleGlobal(request, { upstreamAuthVerified: true, pathname })
       }
       return options.fallback(request)
     }
 
-    const resolved = await context(request)
+    const resolved = await context(request, url)
     const { workspaceID } = resolved
     let { directory } = resolved
     if (workspaceID) {
@@ -227,7 +238,7 @@ export namespace ServerRouter {
       fn: () =>
         withInstanceAsync({ directory, workspaceID: workspaceID ?? undefined, init: InstanceBootstrap }, async () => {
           if (isWebSocketUpgrade(request) && server) {
-            const match = ServerWebSocket.match(url.pathname)
+            const match = ServerWebSocket.match(pathname)
             if (match) {
               const failed = ServerWebSocket.upgrade(server, request, {
                 type: "pty",
@@ -241,8 +252,8 @@ export namespace ServerRouter {
           }
           const raw = await PublicRoutes.instanceRequest(request)
           if (raw) return raw
-          if (HttpApiBridge.supports(url.pathname, request.method)) {
-            return HttpApiBridge.handle(request, { upstreamAuthVerified: true })
+          if (HttpApiBridge.supports(pathname, request.method)) {
+            return HttpApiBridge.handle(request, { upstreamAuthVerified: true, pathname })
           }
           return options.fallback(request)
         }),
@@ -255,7 +266,8 @@ export namespace ServerRouter {
       if (limited) return withCors(limited, request, options)
       if (request.method === "OPTIONS") return preflight(request, options)
       const started = performance.now()
-      const pathname = new URL(request.url).pathname
+      const url = new URL(request.url)
+      const pathname = url.pathname
       if (pathname !== "/log") log.info("request", { method: request.method, path: pathname })
       try {
         const publicResponse = await PublicRoutes.publicRequest(request)
@@ -266,7 +278,7 @@ export namespace ServerRouter {
         })
         if (!auth.ok && !Auth.isPublicPath(request.method, pathname)) return withCors(auth.response, request, options)
         if (auth.ok) Auth.remember(request, auth.principal)
-        return withCors(await dispatch(request, options, server), request, options)
+        return withCors(await dispatch(request, options, server, url), request, options)
       } catch (error) {
         return withCors(mapError(error), request, options)
       } finally {
