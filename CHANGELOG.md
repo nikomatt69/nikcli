@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.291.0 (August 2026)
+
+## Core
+
+- Enhance GitHub OAuth integration and error handling (@nikomatt69)
+- Enhance settings dialog with new features and commands sections (@nikomatt69)
+- Integrate Browser Visual Editor into the application (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(app): integrate Browser Visual Editor into the application
+  - feat(app): enhance settings dialog with new features and commands sections
+  - feat(github): enhance GitHub OAuth integration and error handling
+
 ## v1.288.0 (August 2026)
 
 ## Core

@@ -34,7 +34,9 @@ const MissionRow = memo(function MissionRow({
   onStart(id: string): void
 }) {
   const progress =
-    runtime.totalFeatures > 0 ? `${runtime.doneFeatures}/${runtime.totalFeatures} features` : `${mission.milestones.length} milestones`
+    runtime.totalFeatures > 0
+      ? `${runtime.doneFeatures}/${runtime.totalFeatures} features`
+      : `${mission.milestones.length} milestones`
 
   return (
     <SurfaceCard

@@ -704,12 +704,7 @@ function DialogGitHubAccount(props: { onChanged: () => void }) {
           <Show
             when={flow()}
             fallback={
-              <Button
-                variant="primary"
-                size="large"
-                disabled={!!busy()}
-                onClick={startDeviceFlow}
-              >
+              <Button variant="primary" size="large" disabled={!!busy()} onClick={startDeviceFlow}>
                 {language.t("github.oauth.connect")}
               </Button>
             }

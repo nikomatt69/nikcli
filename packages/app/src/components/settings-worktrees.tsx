@@ -161,9 +161,7 @@ export const SettingsWorktrees: Component = () => {
       <div class="flex flex-col gap-8 w-full max-w-[720px]">
         <Show
           when={project()}
-          fallback={
-            <p class="text-14-regular text-text-weak">{language.t("settings.worktrees.empty.project")}</p>
-          }
+          fallback={<p class="text-14-regular text-text-weak">{language.t("settings.worktrees.empty.project")}</p>}
         >
           {(current) => (
             <>
@@ -189,9 +187,7 @@ export const SettingsWorktrees: Component = () => {
                     disabled={current().vcs !== "git" || store.creating}
                     onClick={() => void createWorktree()}
                   >
-                    {store.creating
-                      ? language.t("common.loading.ellipsis")
-                      : language.t("session.new.worktree.create")}
+                    {store.creating ? language.t("common.loading.ellipsis") : language.t("session.new.worktree.create")}
                   </Button>
                 </div>
                 <div class="bg-surface-raised-base px-4 rounded-lg">

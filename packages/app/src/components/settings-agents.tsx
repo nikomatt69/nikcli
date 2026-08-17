@@ -90,11 +90,13 @@ export const SettingsAgents: Component = () => {
                 {(agent) => (
                   <SettingsRow
                     title={agent.name}
-                    description={
-                      [modeLabel(agent.mode), agent.description, agent.model && `${agent.model.providerID}/${agent.model.modelID}`]
-                        .filter(Boolean)
-                        .join(" · ")
-                    }
+                    description={[
+                      modeLabel(agent.mode),
+                      agent.description,
+                      agent.model && `${agent.model.providerID}/${agent.model.modelID}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   >
                     <Switch
                       checked={!disabledNames().has(agent.name) && !agent.disabled}

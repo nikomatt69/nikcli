@@ -218,7 +218,7 @@ export default function MissionDetailScreen() {
     >
       {error ? <ErrorBanner message={error} /> : null}
 
-      <SurfaceCard eyebrow={isNew ? "Create" : "Plan"} title={isNew ? "New mission" : definition?.name ?? "Mission"}>
+      <SurfaceCard eyebrow={isNew ? "Create" : "Plan"} title={isNew ? "New mission" : (definition?.name ?? "Mission")}>
         <View className="gap-3">
           <TextField label="Name" value={name} onChangeText={setName} placeholder="Ship the checkout flow" />
           <TextField
@@ -233,7 +233,11 @@ export default function MissionDetailScreen() {
       </SurfaceCard>
 
       {isNew ? (
-        <SurfaceCard eyebrow="Generate" title="From a description" description="The host plans milestones and features.">
+        <SurfaceCard
+          eyebrow="Generate"
+          title="From a description"
+          description="The host plans milestones and features."
+        >
           <View className="gap-3">
             <TextField
               label="Description"
@@ -269,8 +273,18 @@ export default function MissionDetailScreen() {
           </View>
           <View className="mt-4 flex-row flex-wrap gap-2">
             <ActionButton label="Start" loading={action === "start"} onPress={() => void run("start")} />
-            <ActionButton label="Pause" variant="secondary" loading={action === "pause"} onPress={() => void run("pause")} />
-            <ActionButton label="Cancel" variant="danger" loading={action === "cancel"} onPress={() => void run("cancel")} />
+            <ActionButton
+              label="Pause"
+              variant="secondary"
+              loading={action === "pause"}
+              onPress={() => void run("pause")}
+            />
+            <ActionButton
+              label="Cancel"
+              variant="danger"
+              loading={action === "cancel"}
+              onPress={() => void run("cancel")}
+            />
           </View>
           {runtime.sessionID ? (
             <View className="mt-3">

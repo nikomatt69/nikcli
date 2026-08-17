@@ -13,13 +13,7 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers"
 import type { Context } from "hono"
 import { PASSKEY_AUTH_LIMIT, PASSKEY_AUTH_WINDOW_SECONDS, PASSKEY_CHALLENGE_TTL_SECONDS } from "./constants"
 import { createID } from "./crypto"
-import {
-  getAccount,
-  getPasskeyByCredentialID,
-  insertPasskey,
-  listPasskeys,
-  updatePasskeyCounter,
-} from "./database"
+import { getAccount, getPasskeyByCredentialID, insertPasskey, listPasskeys, updatePasskeyCounter } from "./database"
 import { HttpError, readForm, readJson, requestIP } from "./http"
 import { completeLogin, finalizeLogin, loadLoginIntent } from "./login"
 import { consumeRateLimit } from "./rate-limit"
