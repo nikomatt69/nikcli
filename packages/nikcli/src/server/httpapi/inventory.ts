@@ -16,6 +16,7 @@ export const rawRouteImplementations = new Set<string>([
   "DELETE /config/mcp/{name}",
   "GET /api/share/{shareID}",
   "GET /api/share/{shareID}/data",
+  "GET /config/profiles",
   "GET /event",
   "GET /experimental/workspace/{id}/events",
   "GET /global/event",

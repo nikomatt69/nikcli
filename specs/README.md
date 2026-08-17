@@ -45,15 +45,17 @@ Everything else gets a real schema. Measure top-level leftovers with:
 grep -cE '^export type [A-Za-z0-9_]+ = (any|Array<any>)$' packages/sdk/js/src/httpapi/generated/types.ts
 ```
 
-That command only sees an alias whose **whole** right-hand side is open. It is the headline number, not the whole count, and an item is not done because it reached zero. An open payload nested inside a struct is invisible to it — measured 2026-08-16, 9 top-level aliases against 189 lines containing `any`. Three shapes hide there and each is a different verdict:
+That command only sees an alias whose **whole** right-hand side is open. It is the headline number, not the whole count, and an item is not done because it reached zero. An open payload nested inside a struct is invisible to it.
+
+Measured **2026-08-17**: 9 top-level aliases (all justified — SessionV2, SSE, share redirects, GitHub repo list, `MobileEventsOutput`) against 125 lines containing `any` (was 189 on 2026-08-16). Loop/mission create-update, `MobileProject`, and `ProfilePatchInput` are real structs. Three nested shapes remain, and each is a different verdict:
 
 ```sh
 grep -nE '(\[x: string\]: any|Array<any>|: unknown\b)' packages/sdk/js/src/httpapi/generated/types.ts
 ```
 
-- **`{ [x: string]: any }` as a whole body** — `MobileConfigInfo` is the config document, which has `fromZod(Config.Info)` available. Not justified.
+- **`{ [x: string]: any }` as a whole body** — `MobileConfigInfo` is the config document (`fromZod(Config.Info)`). The catchall is the zod document’s open tail. Pin it or name it here as the one config exception (roadmap H1).
 - **`{ [x: string]: any }` as one field** — `metadata`, tool `input`, `JSONSchema`. Justified: the value is caller-defined or already a JSON Schema.
-- **`payload: unknown` on a write input** — `MobileLoopCreateInput`, `MissionUpdateInput`. Never justified; the definition schema exists in the tree.
+- **`payload: unknown` on a write input** — six TUI payloads (`TuiAppendPromptInput`, `TuiExecuteCommandInput`, `TuiShowToastInput`, `TuiPublishInput`, `TuiSelectSessionInput`, `TuiControlResponseInput`) and `ConnectorsAuthSetInput.payload`. Never justified; the codecs exist in `httpapi/tui.ts` / connector auth. `MobileLoopCreateInput` and `MissionUpdateInput` are typed as of 2026-08-17.
 
 ## Rules
 

@@ -121,6 +121,10 @@ export namespace Auth {
       return true
     }
     if (normalizedMethod === "GET" && pathname === "/global/health") return true
+    // /account/(login|login/complete) is the browser sign-in flow; it is
+    // public because the caller is unauthenticated by definition. The
+    // `GET /account` (active session) call rejects on its own.
+    if (pathname === "/account" || pathname === "/account/login" || pathname === "/account/login/complete") return true
     return false
   }
 

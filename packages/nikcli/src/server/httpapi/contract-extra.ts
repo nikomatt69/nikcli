@@ -78,6 +78,17 @@ export namespace ContractExtraHttpApi {
     directory: Schema.String,
   }).annotate({ identifier: "ConfigReloadResponse" })
 
+  const ProfileInfo = Schema.Struct({
+    mcpCount: Schema.Number,
+    plugins: Schema.Array(Schema.String),
+    providerCount: Schema.Number,
+  }).annotate({ identifier: "ConfigProfileInfo" })
+
+  const ProfilesList = Schema.Struct({
+    profiles: Schema.Record(Schema.String, ProfileInfo),
+    activeProfile: Schema.String,
+  }).annotate({ identifier: "ConfigProfilesList" })
+
   export const ConfigManagementGroup = HttpApiGroup.make("config-management")
     .add(
       HttpApiEndpoint.post("reload", "/reload", {
@@ -102,6 +113,11 @@ export namespace ContractExtraHttpApi {
         params: NamePath,
         success: SuccessFlag,
       }).annotate(OpenApi.Identifier, "deleteConfigMcp:name"),
+    )
+    .add(
+      HttpApiEndpoint.get("profilesList", "/profiles", {
+        success: ProfilesList,
+      }).annotate(OpenApi.Identifier, "getConfigProfiles"),
     )
     .add(
       HttpApiEndpoint.post("profileCreate", "/profiles", {
@@ -339,6 +355,43 @@ export namespace ContractExtraHttpApi {
     }).annotate(OpenApi.Identifier, "pty.connect"),
   )
 
+  // --- /account/* — instance-less browser sign-in flow, served raw via
+  // `AccountHttp` ahead of the router because the eight `{ error }` bodies
+  // cannot round-trip the HttpApi error encoder. Described here so the SDK
+  // contract carries the paths and operationIds. ---
+  const AccountSuccess = Schema.Unknown.annotate({
+    description: "Account / null / session payload, shape depends on the call.",
+    identifier: "AccountResponse",
+  })
+  const AccountError = Schema.Struct({
+    error: Schema.String,
+  }).annotate({ identifier: "AccountError", httpApiStatus: 502 })
+
+  export const AccountGroup = HttpApiGroup.make("account")
+    .add(
+      HttpApiEndpoint.get("active", "/", {
+        success: AccountSuccess,
+        error: AccountError,
+      }).annotate(OpenApi.Identifier, "getAccount"),
+    )
+    .add(
+      HttpApiEndpoint.post("login", "/login", {
+        success: AccountSuccess,
+        error: AccountError,
+      }).annotate(OpenApi.Identifier, "postAccountLogin"),
+    )
+    .add(
+      HttpApiEndpoint.post("complete", "/login/complete", {
+        payload: Schema.Struct({
+          deviceCode: Schema.String,
+          expiresIn: Schema.optionalKey(Schema.Number),
+        }),
+        success: AccountSuccess,
+        error: AccountError,
+      }).annotate(OpenApi.Identifier, "postAccountLoginComplete"),
+    )
+    .prefix("/account")
+
   export const Api = HttpApi.make("nikcli-contract-extra")
     .add(AuthGroup)
     .add(ConfigManagementGroup)
@@ -347,6 +400,7 @@ export namespace ContractExtraHttpApi {
     .add(EventsGroup)
     .add(WorkspaceExtraGroup)
     .add(UsersGroup)
+    .add(AccountGroup)
 
   function raw(handler: (request: Request) => Promise<Response> | Response) {
     return ({ request }: { readonly request: HttpServerRequest.HttpServerRequest }) =>

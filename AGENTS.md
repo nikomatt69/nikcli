@@ -27,7 +27,7 @@ This is a Bun monorepo. Key packages:
 - **Type checking**: `bun run typecheck`
 - **Testing**: `bun test` (single file: `bun test test/path/file.test.ts`)
 - **Build**: `bun run build`
-- **HttpApi route coverage** (nikcli): `bun run check:routes` in `packages/nikcli`
+- **HttpApi route coverage** (nikcli): `bun run check:routes` in `packages/nikcli`. `--strict` is honored as of 2026-08-17 (H4 landed `AccountGroup` + `ConfigManagementGroup.profilesList`; the script reads `process.argv`). Today `--strict` is the same rules as default; future strict-only checks land in `script/check-route-coverage.ts`.
 
 ## HTTP integration
 

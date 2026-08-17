@@ -35,7 +35,7 @@ This file contains guidelines for AI agents operating in the nikcli repository.
 
 - **Regenerate HTTP clients**: `bun run generate:httpapi-clients`
 - **Regenerate the OpenAPI document**: `bun dev generate`
-- **HttpApi route coverage**: `bun run check:routes` (pass `--strict` to fail on contract/handler/raw inventory gaps)
+- **HttpApi route coverage**: `bun run check:routes` (inventoryFailures today). `--strict` is honored as of 2026-08-17 (H4 landed `AccountGroup` + `ConfigManagementGroup.profilesList`; the script reads `process.argv`). Today `--strict` is the same rules as default; future strict-only checks land in `script/check-route-coverage.ts`.
 
 - **Build the publishable SDK**: `bun run --cwd ../sdk/js build` — regenerates
   the client from the contract, then emits `dist`. hey-api is gone; there is no

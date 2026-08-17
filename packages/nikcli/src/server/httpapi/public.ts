@@ -31,6 +31,9 @@ import { SyncHttpApi } from "./sync"
 import { TopLevelHttpApi } from "./top-level"
 import { TuiHttpApi } from "./tui"
 import { WorkspaceHttpApi } from "./workspace"
+import { AccountHttp } from "./account"
+import { HttpServerResponse } from "effect/unstable/http"
+import { Effect } from "effect"
 
 export namespace PublicHttpApi {
   /**
@@ -62,6 +65,7 @@ export namespace PublicHttpApi {
     .add(PtyHttpApi.Group)
     .add(LoopHttpApi.Group)
     .add(SessionHttpApi.Group)
+    .add(ContractExtraHttpApi.AccountGroup)
     .add(SyncHttpApi.Group)
     .add(TuiHttpApi.Group)
     .add(WorkspaceHttpApi.Group)
@@ -346,6 +350,36 @@ export namespace PublicHttpApi {
       .handle("monitorCancel", (request) => SessionHttpApi.handlers.monitorCancel(request)),
   )
 
+  // /account/* — raw `Response` handlers because the eight `{ error }` bodies
+  // cannot round-trip the HttpApi error encoder. The `AccountHttp.handle`
+  // dispatcher still answers; this just registers the dispatch path on the
+  // encoded router so the contract describes it and a 404 falls through to
+  // the website proxy instead of an opaque Response.
+  const AccountHandlersLive = HttpApiBuilder.group(Api, "account", (handlers) =>
+    handlers
+      .handleRaw("active", ({ request }) =>
+        Effect.promise(async () =>
+          HttpServerResponse.fromWeb(
+            (await AccountHttp.handle(request.source as Request)) ?? new Response("Not Found", { status: 404 }),
+          ),
+        ),
+      )
+      .handleRaw("login", ({ request }) =>
+        Effect.promise(async () =>
+          HttpServerResponse.fromWeb(
+            (await AccountHttp.handle(request.source as Request)) ?? new Response("Not Found", { status: 404 }),
+          ),
+        ),
+      )
+      .handleRaw("complete", ({ request }) =>
+        Effect.promise(async () =>
+          HttpServerResponse.fromWeb(
+            (await AccountHttp.handle(request.source as Request)) ?? new Response("Not Found", { status: 404 }),
+          ),
+        ),
+      ),
+  )
+
   export const layer = ApiLive.pipe(
     Layer.provide(
       Layer.mergeAll(
@@ -375,6 +409,7 @@ export namespace PublicHttpApi {
         SyncHttpApi.HandlersLive,
         TuiHandlersLive.pipe(Layer.provide(TuiHttpApi.DependenciesLive)),
         WorkspaceHandlersLive,
+        AccountHandlersLive,
       ),
     ),
   )
@@ -394,3 +429,4 @@ export const PublicApi = PublicHttpApi.Api.add(ContractExtraHttpApi.AuthGroup)
   .add(ContractExtraHttpApi.WorkspaceExtraGroup)
   .add(ContractExtraHttpApi.UsersGroup)
   .add(ContractExtraHttpApi.PtyConnectGroup)
+  .add(ContractExtraHttpApi.AccountGroup)

@@ -477,6 +477,10 @@ import type {
   SessionMonitorLogOutput,
   SessionMonitorCancelInput,
   SessionMonitorCancelOutput,
+  AccountActiveOutput,
+  AccountLoginOutput,
+  AccountCompleteInput,
+  AccountCompleteOutput,
   SyncEventInput,
   SyncEventOutput,
   SyncOutboxInput,
@@ -537,6 +541,7 @@ import type {
   ConfigManagementMcpUpdateOutput,
   ConfigManagementMcpRemoveInput,
   ConfigManagementMcpRemoveOutput,
+  ConfigManagementProfilesListOutput,
   ConfigManagementProfileCreateInput,
   ConfigManagementProfileCreateOutput,
   ConfigManagementProfileActivateInput,
@@ -1039,7 +1044,15 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/connectors/${encodeURIComponent(input.name)}/auth`,
-            body: input["payload"],
+            body: {
+              token: input["token"],
+              botToken: input["botToken"],
+              apiKey: input["apiKey"],
+              teamId: input["teamId"],
+              expiresAt: input["expiresAt"],
+              refreshToken: input["refreshToken"],
+              refreshTokenExpiresAt: input["refreshTokenExpiresAt"],
+            },
             successStatus: 200,
             declaredStatuses: [400],
             empty: false,
@@ -3697,6 +3710,30 @@ export function make(options: ClientOptions) {
           requestOptions,
         ),
     },
+    account: {
+      active: (requestOptions?: RequestOptions) =>
+        request<AccountActiveOutput>(
+          { method: "GET", path: `/account`, successStatus: 200, declaredStatuses: [502], empty: false },
+          requestOptions,
+        ),
+      login: (requestOptions?: RequestOptions) =>
+        request<AccountLoginOutput>(
+          { method: "POST", path: `/account/login`, successStatus: 200, declaredStatuses: [502], empty: false },
+          requestOptions,
+        ),
+      complete: (input: AccountCompleteInput, requestOptions?: RequestOptions) =>
+        request<AccountCompleteOutput>(
+          {
+            method: "POST",
+            path: `/account/login/complete`,
+            body: { deviceCode: input["deviceCode"], expiresIn: input["expiresIn"] },
+            successStatus: 200,
+            declaredStatuses: [502],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
     sync: {
       event: (input: SyncEventInput, requestOptions?: RequestOptions) =>
         request<SyncEventOutput>(
@@ -3792,7 +3829,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/tui/append-prompt`,
-            body: input["payload"],
+            body: { text: input["text"] },
             successStatus: 200,
             declaredStatuses: [400],
             empty: false,
@@ -3834,7 +3871,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/tui/execute-command`,
-            body: input["payload"],
+            body: { command: input["command"] },
             successStatus: 200,
             declaredStatuses: [400],
             empty: false,
@@ -3846,7 +3883,12 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/tui/show-toast`,
-            body: input["payload"],
+            body: {
+              title: input["title"],
+              message: input["message"],
+              variant: input["variant"],
+              duration: input["duration"],
+            },
             successStatus: 200,
             declaredStatuses: [400],
             empty: false,
@@ -3858,7 +3900,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/tui/publish`,
-            body: input["payload"],
+            body: { type: input["type"], properties: input["properties"] },
             successStatus: 200,
             declaredStatuses: [400],
             empty: false,
@@ -3870,7 +3912,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/tui/select-session`,
-            body: input["payload"],
+            body: { sessionID: input["sessionID"] },
             successStatus: 200,
             declaredStatuses: [400, 404],
             empty: false,
@@ -3892,7 +3934,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/tui/control/response`,
-            body: input["payload"],
+            body: { path: input["path"], body: input["body"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -4068,6 +4110,11 @@ export function make(options: ClientOptions) {
             declaredStatuses: [],
             empty: false,
           },
+          requestOptions,
+        ),
+      profilesList: (requestOptions?: RequestOptions) =>
+        request<ConfigManagementProfilesListOutput>(
+          { method: "GET", path: `/config/profiles`, successStatus: 200, declaredStatuses: [], empty: false },
           requestOptions,
         ),
       profileCreate: (input: ConfigManagementProfileCreateInput, requestOptions?: RequestOptions) =>

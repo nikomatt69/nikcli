@@ -588,31 +588,27 @@ export type MissionFeature = {
   name: string
   objective: string
   agent: string
-  model?: string | undefined
-  tokenBudget?: number | undefined
+  model?: string
+  tokenBudget?: number
   dependsOn: Array<string>
   status: "pending" | "running" | "done" | "blocked" | "skipped" | "error"
-  error?: string | undefined
+  error?: string
 }
 
-export type MissionModels = {
-  worker?: string | undefined
-  validation?: string | undefined
-  orchestrator?: string | undefined
-}
+export type MissionModels = { worker?: string; validation?: string; orchestrator?: string }
 
-export type MissionWorktree = { name: string; branch?: string | undefined; directory: string }
+export type MissionWorktree = { name: string; branch?: string; directory: string }
 
 export type MissionRuntime = {
   missionID: string
   status: "idle" | "running" | "paused" | "error" | "cancelling"
-  sessionID?: string | undefined
-  currentMilestoneID?: string | undefined
-  currentFeatureID?: string | undefined
+  sessionID?: string
+  currentMilestoneID?: string
+  currentFeatureID?: string
   doneFeatures: number
   totalFeatures: number
-  lastError?: string | undefined
-  lastRunAt?: number | undefined
+  lastError?: string
+  lastRunAt?: number
 }
 
 export type MissionTemplate = { id: string; title: string; description: string; brief: string }
@@ -624,11 +620,11 @@ export type MissionExec = {
   targetID: string
   targetName: string
   startedAt: number
-  endedAt?: number | undefined
+  endedAt?: number
   status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
-  heartbeatAt?: number | undefined
-  sessionID?: string | undefined
-  error?: string | undefined
+  heartbeatAt?: number
+  sessionID?: string
+  error?: string
   ok: boolean
 }
 
@@ -1079,17 +1075,11 @@ export type MobileGitBranch = {
   behindBy: number
 }
 
-export type LoopStage = {
-  name: string
-  agent: string
-  model?: string | undefined
-  objective: string
-  tokenBudget?: number | undefined
-}
+export type LoopStage = { name: string; agent: string; model?: string; objective: string; tokenBudget?: number }
 
 export type LoopTrigger = { kind: "manual" } | { kind: "interval"; everyMs: number }
 
-export type LoopWorktree = { name: string; branch?: string | undefined; directory: string }
+export type LoopWorktree = { name: string; branch?: string; directory: string }
 
 export type MobileLoopRuntime = {
   loopID: string
@@ -1240,9 +1230,9 @@ export type LoopRuntime = {
   loopID: string
   status: "idle" | "running" | "paused" | "error" | "cancelling"
   runs: number
-  lastRunAt?: number | undefined
-  lastError?: string | undefined
-  sessionID?: string | undefined
+  lastRunAt?: number
+  lastError?: string
+  sessionID?: string
 }
 
 export type LoopTemplate = {
@@ -1250,16 +1240,10 @@ export type LoopTemplate = {
   title: string
   description: string
   draft: {
-    name?: string | undefined
-    stages: Array<{
-      name?: string | undefined
-      agent?: string | undefined
-      model?: string | undefined
-      objective: string
-      tokenBudget?: number | undefined
-    }>
-    intervalMs?: number | undefined
-    maxRuns?: number | undefined
+    name?: string
+    stages: Array<{ name?: string; agent?: string; model?: string; objective: string; tokenBudget?: number }>
+    intervalMs?: number
+    maxRuns?: number
   }
 }
 
@@ -1268,7 +1252,7 @@ export type LoopPullRequestRef = {
   url: string
   branch: string
   base: string
-  title?: string | undefined
+  title?: string
   action: "created" | "updated"
 }
 
@@ -1316,12 +1300,12 @@ export type SessionContextSource = {
   id: string
   category: "system" | "instructions" | "skills" | "mcp" | "tools" | "agents" | "messages"
   label: string
-  detail?: string | undefined
+  detail?: string
   tokens: number
   enabled: boolean
   togglable: boolean
-  toggleKind?: "mcp" | "skill" | "instruction" | "tool" | undefined
-  toggleKey?: string | undefined
+  toggleKind?: "mcp" | "skill" | "instruction" | "tool"
+  toggleKey?: string
 }
 
 export type SessionGoalState = {
@@ -1343,7 +1327,7 @@ export type DelegationJob = {
   parentSessionID: string
   title: string
   agent: string
-  parentAgent?: string | undefined
+  parentAgent?: string
   status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned" | "synthesizing"
   source?:
     | "task"
@@ -1355,17 +1339,16 @@ export type DelegationJob = {
     | "delegator-followup"
     | "loop"
     | "other"
-    | undefined
-  workerSessionID?: string | undefined
-  delegatorID?: string | undefined
-  delegatorSessionID?: string | undefined
+  workerSessionID?: string
+  delegatorID?: string
+  delegatorSessionID?: string
   createdAt: number
   updatedAt: number
-  completedAt?: number | undefined
-  lastActivityAt?: number | undefined
-  progressSummary?: string | undefined
-  resultSummary?: string | undefined
-  error?: string | undefined
+  completedAt?: number
+  lastActivityAt?: number
+  progressSummary?: string
+  resultSummary?: string
+  error?: string
 }
 
 export type SessionMonitorOutput2 = {
@@ -1430,6 +1413,8 @@ export type SessionMonitorLogOutput2 = {
   truncated: boolean
 } | null
 
+export type AccountResponse = any
+
 export type SyncOutboxResponse = { events: Array<any>; hasMore: boolean }
 
 export type SyncSnapshotResponse = { lastSeq: number; state: any }
@@ -1493,6 +1478,8 @@ export type WorkspaceSessionRestore = {
 export type ConfigReloadResponse = { reloaded: boolean; directory: string }
 
 export type SuccessFlag = { success: boolean }
+
+export type ConfigProfileInfo = { mcpCount: number; plugins: Array<string>; providerCount: number }
 
 export type EventTelemetryRecord = {
   type: "telemetry.record"
@@ -1646,12 +1633,7 @@ export type EventTuiCommandExecute = {
 
 export type EventTuiToastShow = {
   type: "tui.toast.show"
-  properties: {
-    title?: string | undefined
-    message: string
-    variant: "info" | "success" | "warning" | "error"
-    duration: number
-  }
+  properties: { title?: string; message: string; variant: "info" | "success" | "warning" | "error"; duration: number }
 }
 
 export type EventTuiSessionSelect = { type: "tui.session.select"; properties: { sessionID: string } }
@@ -2264,12 +2246,12 @@ export type LoopDefinition = {
   name: string
   stages: Array<LoopStage>
   trigger: LoopTrigger
-  maxRuns?: number | undefined
-  timeoutMs?: number | undefined
-  createPR?: boolean | undefined
-  sandbox?: boolean | undefined
-  worktree?: LoopWorktree | undefined
-  paused?: boolean | undefined
+  maxRuns?: number
+  timeoutMs?: number
+  createPR?: boolean
+  sandbox?: boolean
+  worktree?: LoopWorktree
+  paused?: boolean
   enabled: boolean
   createdAt: number
 }
@@ -2290,17 +2272,17 @@ export type LoopRun = {
   id: string
   loopID: string
   startedAt: number
-  endedAt?: number | undefined
+  endedAt?: number
   status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
-  heartbeatAt?: number | undefined
-  sessionID?: string | undefined
-  error?: string | undefined
+  heartbeatAt?: number
+  sessionID?: string
+  error?: string
   ok: boolean
-  pullRequest?: LoopPullRequestRef | undefined
+  pullRequest?: LoopPullRequestRef
 }
 
 export type SessionContextBreakdown = {
-  model?: { providerID: string; modelID: string; name: string; contextLimit: number } | undefined
+  model?: { providerID: string; modelID: string; name: string; contextLimit: number }
   reported: { input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number; total: number }
   sources: Array<SessionContextSource>
   estimatedTotal: number
@@ -2342,6 +2324,8 @@ export type Workspace1 = {
   config: WorkspaceConfig
 }
 
+export type ConfigProfilesList = { profiles: { [x: string]: ConfigProfileInfo }; activeProfile: string }
+
 export type EventPermissionAsked = { type: "permission.asked"; properties: PermissionRequest2 }
 
 export type QuestionInfo2 = {
@@ -2380,9 +2364,9 @@ export type MissionDefinition = {
   brief: string
   milestones: Array<MissionMilestone>
   models: MissionModels
-  timeoutMs?: number | undefined
-  sandbox?: boolean | undefined
-  worktree?: MissionWorktree | undefined
+  timeoutMs?: number
+  sandbox?: boolean
+  worktree?: MissionWorktree
   status: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error"
   createdAt: number
 }
@@ -2557,7 +2541,7 @@ export type TuiConfig = {
   sound?: boolean | undefined
   bg_pulse?: boolean | undefined
   turn_tokens?: boolean | undefined
-  plugin_meta?: { [x: string]: { scope: "global" | "local"; source: string } } | undefined
+  plugin_meta?: { [x: string]: { scope: "global" | "local"; source: string } }
   [x: string]: any
 }
 
@@ -3555,6 +3539,8 @@ export type SessionBusyErrorBody = {
 }
 
 export type SessionBackgroundNotFound = { readonly error: "Session not found" }
+
+export type AccountError = { readonly error: string }
 
 export type TuiValidationError = { readonly data: unknown; readonly error: unknown; readonly success: false }
 
@@ -4989,7 +4975,72 @@ export type ConfigProvidersOutput = ConfigProviders
 
 export type ConnectorsStatusOutput = ConnectorsStatusOutput2
 
-export type ConnectorsAuthSetInput = { readonly name: { readonly name: string }["name"]; readonly payload: unknown }
+export type ConnectorsAuthSetInput = {
+  readonly name: { readonly name: string }["name"]
+  readonly token?: {
+    readonly token?: string
+    readonly botToken?: string
+    readonly apiKey?: string
+    readonly teamId?: string
+    readonly expiresAt?: number
+    readonly refreshToken?: string
+    readonly refreshTokenExpiresAt?: number
+  }["token"]
+  readonly botToken?: {
+    readonly token?: string
+    readonly botToken?: string
+    readonly apiKey?: string
+    readonly teamId?: string
+    readonly expiresAt?: number
+    readonly refreshToken?: string
+    readonly refreshTokenExpiresAt?: number
+  }["botToken"]
+  readonly apiKey?: {
+    readonly token?: string
+    readonly botToken?: string
+    readonly apiKey?: string
+    readonly teamId?: string
+    readonly expiresAt?: number
+    readonly refreshToken?: string
+    readonly refreshTokenExpiresAt?: number
+  }["apiKey"]
+  readonly teamId?: {
+    readonly token?: string
+    readonly botToken?: string
+    readonly apiKey?: string
+    readonly teamId?: string
+    readonly expiresAt?: number
+    readonly refreshToken?: string
+    readonly refreshTokenExpiresAt?: number
+  }["teamId"]
+  readonly expiresAt?: {
+    readonly token?: string
+    readonly botToken?: string
+    readonly apiKey?: string
+    readonly teamId?: string
+    readonly expiresAt?: number
+    readonly refreshToken?: string
+    readonly refreshTokenExpiresAt?: number
+  }["expiresAt"]
+  readonly refreshToken?: {
+    readonly token?: string
+    readonly botToken?: string
+    readonly apiKey?: string
+    readonly teamId?: string
+    readonly expiresAt?: number
+    readonly refreshToken?: string
+    readonly refreshTokenExpiresAt?: number
+  }["refreshToken"]
+  readonly refreshTokenExpiresAt?: {
+    readonly token?: string
+    readonly botToken?: string
+    readonly apiKey?: string
+    readonly teamId?: string
+    readonly expiresAt?: number
+    readonly refreshToken?: string
+    readonly refreshTokenExpiresAt?: number
+  }["refreshTokenExpiresAt"]
+}
 
 export type ConnectorsAuthSetOutput = ConnectorsSuccess
 
@@ -4997,7 +5048,7 @@ export type ConnectorsAuthRemoveInput = { readonly name: { readonly name: string
 
 export type ConnectorsAuthRemoveOutput = ConnectorsSuccess
 
-export type ConnectorsInvalidateInput = { readonly name?: { readonly name?: string | undefined }["name"] }
+export type ConnectorsInvalidateInput = { readonly name?: { readonly name?: string }["name"] }
 
 export type ConnectorsInvalidateOutput = ConnectorsSuccess
 
@@ -5276,24 +5327,16 @@ export type MissionTemplatesOutput = MissionTemplatesOutput2
 export type MissionGenerateInput = {
   readonly description: {
     readonly description: string
-    readonly model?: string | undefined
-    readonly agent?: string | undefined
+    readonly model?: string
+    readonly agent?: string
   }["description"]
-  readonly model?: {
-    readonly description: string
-    readonly model?: string | undefined
-    readonly agent?: string | undefined
-  }["model"]
-  readonly agent?: {
-    readonly description: string
-    readonly model?: string | undefined
-    readonly agent?: string | undefined
-  }["agent"]
+  readonly model?: { readonly description: string; readonly model?: string; readonly agent?: string }["model"]
+  readonly agent?: { readonly description: string; readonly model?: string; readonly agent?: string }["agent"]
 }
 
 export type MissionGenerateOutput = MissionDefinition
 
-export type MissionRecentExecsInput = { readonly limit?: { readonly limit?: number | undefined }["limit"] }
+export type MissionRecentExecsInput = { readonly limit?: { readonly limit?: number }["limit"] }
 
 export type MissionRecentExecsOutput = MissionExecsOutput2
 
@@ -5901,7 +5944,7 @@ export type MissionFeatureMutateOutput = MissionDefinition
 
 export type MissionExecsInput = {
   readonly id: { readonly id: string }["id"]
-  readonly limit?: { readonly limit?: number | undefined }["limit"]
+  readonly limit?: { readonly limit?: number }["limit"]
 }
 
 export type MissionExecsOutput = MissionExecsOutput2
@@ -12383,8 +12426,8 @@ export type ProviderOauthAuthorizeOutput = ProviderOAuthAuthorization | null
 
 export type ProviderOauthCallbackInput = {
   readonly providerID: { readonly providerID: string }["providerID"]
-  readonly method: { readonly method: number; readonly code?: string | undefined }["method"]
-  readonly code?: { readonly method: number; readonly code?: string | undefined }["code"]
+  readonly method: { readonly method: number; readonly code?: string }["method"]
+  readonly code?: { readonly method: number; readonly code?: string }["code"]
 }
 
 export type ProviderOauthCallbackOutput = boolean
@@ -12483,24 +12526,16 @@ export type LoopTemplatesOutput = LoopTemplatesOutput2
 export type LoopGenerateInput = {
   readonly description: {
     readonly description: string
-    readonly model?: string | undefined
-    readonly agent?: string | undefined
+    readonly model?: string
+    readonly agent?: string
   }["description"]
-  readonly model?: {
-    readonly description: string
-    readonly model?: string | undefined
-    readonly agent?: string | undefined
-  }["model"]
-  readonly agent?: {
-    readonly description: string
-    readonly model?: string | undefined
-    readonly agent?: string | undefined
-  }["agent"]
+  readonly model?: { readonly description: string; readonly model?: string; readonly agent?: string }["model"]
+  readonly agent?: { readonly description: string; readonly model?: string; readonly agent?: string }["agent"]
 }
 
 export type LoopGenerateOutput = LoopDefinition
 
-export type LoopRecentRunsInput = { readonly limit?: { readonly limit?: number | undefined }["limit"] }
+export type LoopRecentRunsInput = { readonly limit?: { readonly limit?: number }["limit"] }
 
 export type LoopRecentRunsOutput = LoopRunsOutput2
 
@@ -12514,200 +12549,180 @@ export type LoopUpsertInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
-    readonly enabled?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
+    readonly enabled?: boolean
   }["name"]
   readonly stages: {
     readonly name: string
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
-    readonly enabled?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
+    readonly enabled?: boolean
   }["stages"]
   readonly trigger: {
     readonly name: string
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
-    readonly enabled?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
+    readonly enabled?: boolean
   }["trigger"]
   readonly maxRuns?: {
     readonly name: string
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
-    readonly enabled?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
+    readonly enabled?: boolean
   }["maxRuns"]
   readonly timeoutMs?: {
     readonly name: string
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
-    readonly enabled?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
+    readonly enabled?: boolean
   }["timeoutMs"]
   readonly createPR?: {
     readonly name: string
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
-    readonly enabled?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
+    readonly enabled?: boolean
   }["createPR"]
   readonly sandbox?: {
     readonly name: string
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
-    readonly enabled?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
+    readonly enabled?: boolean
   }["sandbox"]
   readonly worktree?: {
     readonly name: string
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
-    readonly enabled?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
+    readonly enabled?: boolean
   }["worktree"]
   readonly paused?: {
     readonly name: string
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
-    readonly enabled?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
+    readonly enabled?: boolean
   }["paused"]
   readonly enabled?: {
     readonly name: string
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
-    readonly enabled?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
+    readonly enabled?: boolean
   }["enabled"]
 }
 
@@ -12720,19 +12735,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["name"]
@@ -12741,19 +12754,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["stages"]
@@ -12762,19 +12773,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["trigger"]
@@ -12783,19 +12792,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["maxRuns"]
@@ -12804,19 +12811,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["timeoutMs"]
@@ -12825,19 +12830,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["createPR"]
@@ -12846,19 +12849,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["sandbox"]
@@ -12867,19 +12868,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["worktree"]
@@ -12888,19 +12887,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["paused"]
@@ -12909,19 +12906,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["enabled"]
@@ -12930,19 +12925,17 @@ export type LoopUpdateInput = {
     readonly stages: ReadonlyArray<{
       readonly name: string
       readonly agent: string
-      readonly model?: string | undefined
+      readonly model?: string
       readonly objective: string
-      readonly tokenBudget?: number | undefined
+      readonly tokenBudget?: number
     }>
     readonly trigger: { readonly kind: "manual" } | { readonly kind: "interval"; readonly everyMs: number }
-    readonly maxRuns?: number | undefined
-    readonly timeoutMs?: number | undefined
-    readonly createPR?: boolean | undefined
-    readonly sandbox?: boolean | undefined
-    readonly worktree?:
-      | { readonly name: string; readonly branch?: string | undefined; readonly directory: string }
-      | undefined
-    readonly paused?: boolean | undefined
+    readonly maxRuns?: number
+    readonly timeoutMs?: number
+    readonly createPR?: boolean
+    readonly sandbox?: boolean
+    readonly worktree?: { readonly name: string; readonly branch?: string; readonly directory: string }
+    readonly paused?: boolean
     readonly enabled: boolean
     readonly createdAt: number
   }["createdAt"]
@@ -12963,7 +12956,7 @@ export type LoopToggleOutput = LoopDefinition
 
 export type LoopRunInput = {
   readonly id: { readonly id: string }["id"]
-  readonly sessionID?: { readonly sessionID?: string | undefined }["sessionID"]
+  readonly sessionID?: { readonly sessionID?: string }["sessionID"]
 }
 
 export type LoopRunOutput = LoopBooleanResult
@@ -12982,46 +12975,46 @@ export type LoopResumeOutput = LoopBooleanResult
 
 export type LoopRunsInput = {
   readonly id: { readonly id: string }["id"]
-  readonly limit?: { readonly limit?: number | undefined }["limit"]
+  readonly limit?: { readonly limit?: number }["limit"]
 }
 
 export type LoopRunsOutput = LoopRunsOutput2
 
 export type SessionListInput = {
   readonly directory?: {
-    readonly directory?: string | undefined
-    readonly roots?: boolean | undefined
-    readonly start?: number | undefined
-    readonly search?: string | undefined
-    readonly limit?: number | undefined
+    readonly directory?: string
+    readonly roots?: boolean
+    readonly start?: number
+    readonly search?: string
+    readonly limit?: number
   }["directory"]
   readonly roots?: {
-    readonly directory?: string | undefined
-    readonly roots?: boolean | undefined
-    readonly start?: number | undefined
-    readonly search?: string | undefined
-    readonly limit?: number | undefined
+    readonly directory?: string
+    readonly roots?: boolean
+    readonly start?: number
+    readonly search?: string
+    readonly limit?: number
   }["roots"]
   readonly start?: {
-    readonly directory?: string | undefined
-    readonly roots?: boolean | undefined
-    readonly start?: number | undefined
-    readonly search?: string | undefined
-    readonly limit?: number | undefined
+    readonly directory?: string
+    readonly roots?: boolean
+    readonly start?: number
+    readonly search?: string
+    readonly limit?: number
   }["start"]
   readonly search?: {
-    readonly directory?: string | undefined
-    readonly roots?: boolean | undefined
-    readonly start?: number | undefined
-    readonly search?: string | undefined
-    readonly limit?: number | undefined
+    readonly directory?: string
+    readonly roots?: boolean
+    readonly start?: number
+    readonly search?: string
+    readonly limit?: number
   }["search"]
   readonly limit?: {
-    readonly directory?: string | undefined
-    readonly roots?: boolean | undefined
-    readonly start?: number | undefined
-    readonly search?: string | undefined
-    readonly limit?: number | undefined
+    readonly directory?: string
+    readonly roots?: boolean
+    readonly start?: number
+    readonly search?: string
+    readonly limit?: number
   }["limit"]
 }
 
@@ -13029,52 +13022,52 @@ export type SessionListOutput = SessionList
 
 export type SessionCreateInput = {
   readonly parentID?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: ReadonlyArray<unknown> | undefined
-    readonly skills?: ReadonlyArray<string> | undefined
-    readonly github?: unknown | undefined
-    readonly workspaceID?: string | undefined
+    readonly parentID?: string
+    readonly title?: string
+    readonly permission?: ReadonlyArray<unknown>
+    readonly skills?: ReadonlyArray<string>
+    readonly github?: unknown
+    readonly workspaceID?: string
   }["parentID"]
   readonly title?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: ReadonlyArray<unknown> | undefined
-    readonly skills?: ReadonlyArray<string> | undefined
-    readonly github?: unknown | undefined
-    readonly workspaceID?: string | undefined
+    readonly parentID?: string
+    readonly title?: string
+    readonly permission?: ReadonlyArray<unknown>
+    readonly skills?: ReadonlyArray<string>
+    readonly github?: unknown
+    readonly workspaceID?: string
   }["title"]
   readonly permission?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: ReadonlyArray<unknown> | undefined
-    readonly skills?: ReadonlyArray<string> | undefined
-    readonly github?: unknown | undefined
-    readonly workspaceID?: string | undefined
+    readonly parentID?: string
+    readonly title?: string
+    readonly permission?: ReadonlyArray<unknown>
+    readonly skills?: ReadonlyArray<string>
+    readonly github?: unknown
+    readonly workspaceID?: string
   }["permission"]
   readonly skills?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: ReadonlyArray<unknown> | undefined
-    readonly skills?: ReadonlyArray<string> | undefined
-    readonly github?: unknown | undefined
-    readonly workspaceID?: string | undefined
+    readonly parentID?: string
+    readonly title?: string
+    readonly permission?: ReadonlyArray<unknown>
+    readonly skills?: ReadonlyArray<string>
+    readonly github?: unknown
+    readonly workspaceID?: string
   }["skills"]
   readonly github?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: ReadonlyArray<unknown> | undefined
-    readonly skills?: ReadonlyArray<string> | undefined
-    readonly github?: unknown | undefined
-    readonly workspaceID?: string | undefined
+    readonly parentID?: string
+    readonly title?: string
+    readonly permission?: ReadonlyArray<unknown>
+    readonly skills?: ReadonlyArray<string>
+    readonly github?: unknown
+    readonly workspaceID?: string
   }["github"]
   readonly workspaceID?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: ReadonlyArray<unknown> | undefined
-    readonly skills?: ReadonlyArray<string> | undefined
-    readonly github?: unknown | undefined
-    readonly workspaceID?: string | undefined
+    readonly parentID?: string
+    readonly title?: string
+    readonly permission?: ReadonlyArray<unknown>
+    readonly skills?: ReadonlyArray<string>
+    readonly github?: unknown
+    readonly workspaceID?: string
   }["workspaceID"]
 }
 
@@ -13092,21 +13085,15 @@ export type SessionRemoveOutput = BooleanResult
 
 export type SessionUpdateInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly title?: {
-    readonly title?: string | undefined
-    readonly time?: { readonly archived?: number | undefined } | undefined
-  }["title"]
-  readonly time?: {
-    readonly title?: string | undefined
-    readonly time?: { readonly archived?: number | undefined } | undefined
-  }["time"]
+  readonly title?: { readonly title?: string; readonly time?: { readonly archived?: number } }["title"]
+  readonly time?: { readonly title?: string; readonly time?: { readonly archived?: number } }["time"]
 }
 
 export type SessionUpdateOutput = Session2
 
 export type SessionForkInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly messageID?: { readonly messageID?: string | undefined }["messageID"]
+  readonly messageID?: { readonly messageID?: string }["messageID"]
 }
 
 export type SessionForkOutput = Session2
@@ -13117,8 +13104,8 @@ export type SessionAbortOutput = BooleanResult
 
 export type SessionRevertInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly messageID: { readonly messageID: string; readonly partID?: string | undefined }["messageID"]
-  readonly partID?: { readonly messageID: string; readonly partID?: string | undefined }["partID"]
+  readonly messageID: { readonly messageID: string; readonly partID?: string }["messageID"]
+  readonly partID?: { readonly messageID: string; readonly partID?: string }["partID"]
 }
 
 export type SessionRevertOutput = Session2
@@ -13137,17 +13124,9 @@ export type SessionUnshareOutput = Session2
 
 export type SessionSummarizeInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly providerID: {
-    readonly providerID: string
-    readonly modelID: string
-    readonly auto?: boolean | undefined
-  }["providerID"]
-  readonly modelID: {
-    readonly providerID: string
-    readonly modelID: string
-    readonly auto?: boolean | undefined
-  }["modelID"]
-  readonly auto?: { readonly providerID: string; readonly modelID: string; readonly auto?: boolean | undefined }["auto"]
+  readonly providerID: { readonly providerID: string; readonly modelID: string; readonly auto?: boolean }["providerID"]
+  readonly modelID: { readonly providerID: string; readonly modelID: string; readonly auto?: boolean }["modelID"]
+  readonly auto?: { readonly providerID: string; readonly modelID: string; readonly auto?: boolean }["auto"]
 }
 
 export type SessionSummarizeOutput = BooleanResult
@@ -13155,84 +13134,84 @@ export type SessionSummarizeOutput = BooleanResult
 export type SessionCommandInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
   readonly messageID?: {
-    readonly messageID?: string | undefined
-    readonly delivery?: "steer" | "queue" | undefined
-    readonly agent?: string | undefined
-    readonly model?: string | undefined
+    readonly messageID?: string
+    readonly delivery?: "steer" | "queue"
+    readonly agent?: string
+    readonly model?: string
     readonly arguments: string
     readonly command: string
-    readonly variant?: string | undefined
-    readonly parts?: ReadonlyArray<unknown> | undefined
+    readonly variant?: string
+    readonly parts?: ReadonlyArray<unknown>
   }["messageID"]
   readonly delivery?: {
-    readonly messageID?: string | undefined
-    readonly delivery?: "steer" | "queue" | undefined
-    readonly agent?: string | undefined
-    readonly model?: string | undefined
+    readonly messageID?: string
+    readonly delivery?: "steer" | "queue"
+    readonly agent?: string
+    readonly model?: string
     readonly arguments: string
     readonly command: string
-    readonly variant?: string | undefined
-    readonly parts?: ReadonlyArray<unknown> | undefined
+    readonly variant?: string
+    readonly parts?: ReadonlyArray<unknown>
   }["delivery"]
   readonly agent?: {
-    readonly messageID?: string | undefined
-    readonly delivery?: "steer" | "queue" | undefined
-    readonly agent?: string | undefined
-    readonly model?: string | undefined
+    readonly messageID?: string
+    readonly delivery?: "steer" | "queue"
+    readonly agent?: string
+    readonly model?: string
     readonly arguments: string
     readonly command: string
-    readonly variant?: string | undefined
-    readonly parts?: ReadonlyArray<unknown> | undefined
+    readonly variant?: string
+    readonly parts?: ReadonlyArray<unknown>
   }["agent"]
   readonly model?: {
-    readonly messageID?: string | undefined
-    readonly delivery?: "steer" | "queue" | undefined
-    readonly agent?: string | undefined
-    readonly model?: string | undefined
+    readonly messageID?: string
+    readonly delivery?: "steer" | "queue"
+    readonly agent?: string
+    readonly model?: string
     readonly arguments: string
     readonly command: string
-    readonly variant?: string | undefined
-    readonly parts?: ReadonlyArray<unknown> | undefined
+    readonly variant?: string
+    readonly parts?: ReadonlyArray<unknown>
   }["model"]
   readonly arguments: {
-    readonly messageID?: string | undefined
-    readonly delivery?: "steer" | "queue" | undefined
-    readonly agent?: string | undefined
-    readonly model?: string | undefined
+    readonly messageID?: string
+    readonly delivery?: "steer" | "queue"
+    readonly agent?: string
+    readonly model?: string
     readonly arguments: string
     readonly command: string
-    readonly variant?: string | undefined
-    readonly parts?: ReadonlyArray<unknown> | undefined
+    readonly variant?: string
+    readonly parts?: ReadonlyArray<unknown>
   }["arguments"]
   readonly command: {
-    readonly messageID?: string | undefined
-    readonly delivery?: "steer" | "queue" | undefined
-    readonly agent?: string | undefined
-    readonly model?: string | undefined
+    readonly messageID?: string
+    readonly delivery?: "steer" | "queue"
+    readonly agent?: string
+    readonly model?: string
     readonly arguments: string
     readonly command: string
-    readonly variant?: string | undefined
-    readonly parts?: ReadonlyArray<unknown> | undefined
+    readonly variant?: string
+    readonly parts?: ReadonlyArray<unknown>
   }["command"]
   readonly variant?: {
-    readonly messageID?: string | undefined
-    readonly delivery?: "steer" | "queue" | undefined
-    readonly agent?: string | undefined
-    readonly model?: string | undefined
+    readonly messageID?: string
+    readonly delivery?: "steer" | "queue"
+    readonly agent?: string
+    readonly model?: string
     readonly arguments: string
     readonly command: string
-    readonly variant?: string | undefined
-    readonly parts?: ReadonlyArray<unknown> | undefined
+    readonly variant?: string
+    readonly parts?: ReadonlyArray<unknown>
   }["variant"]
   readonly parts?: {
-    readonly messageID?: string | undefined
-    readonly delivery?: "steer" | "queue" | undefined
-    readonly agent?: string | undefined
-    readonly model?: string | undefined
+    readonly messageID?: string
+    readonly delivery?: "steer" | "queue"
+    readonly agent?: string
+    readonly model?: string
     readonly arguments: string
     readonly command: string
-    readonly variant?: string | undefined
-    readonly parts?: ReadonlyArray<unknown> | undefined
+    readonly variant?: string
+    readonly parts?: ReadonlyArray<unknown>
   }["parts"]
 }
 
@@ -13242,17 +13221,17 @@ export type SessionShellInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
   readonly agent: {
     readonly agent: string
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string }
     readonly command: string
   }["agent"]
   readonly model?: {
     readonly agent: string
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string }
     readonly command: string
   }["model"]
   readonly command: {
     readonly agent: string
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string }
     readonly command: string
   }["command"]
 }
@@ -13277,14 +13256,14 @@ export type SessionTodoOutput = TodoList
 
 export type SessionDiffInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly messageID?: { readonly messageID?: string | undefined }["messageID"]
+  readonly messageID?: { readonly messageID?: string }["messageID"]
 }
 
 export type SessionDiffOutput = FileDiffList
 
 export type SessionMessagesInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly limit?: { readonly limit?: number | undefined }["limit"]
+  readonly limit?: { readonly limit?: number }["limit"]
 }
 
 export type SessionMessagesOutput = MessageList
@@ -13633,7 +13612,7 @@ export type SessionMonitorOutput = SessionMonitorOutput2
 export type SessionMonitorLogInput = {
   readonly sessionID: { readonly sessionID: string; readonly monitorID: string }["sessionID"]
   readonly monitorID: { readonly sessionID: string; readonly monitorID: string }["monitorID"]
-  readonly lines?: { readonly lines?: number | undefined }["lines"]
+  readonly lines?: { readonly lines?: number }["lines"]
 }
 
 export type SessionMonitorLogOutput = SessionMonitorLogOutput2
@@ -13644,6 +13623,17 @@ export type SessionMonitorCancelInput = {
 }
 
 export type SessionMonitorCancelOutput = SessionMonitorOutput2
+
+export type AccountActiveOutput = AccountResponse
+
+export type AccountLoginOutput = AccountResponse
+
+export type AccountCompleteInput = {
+  readonly deviceCode: { readonly deviceCode: string; readonly expiresIn?: number }["deviceCode"]
+  readonly expiresIn?: { readonly deviceCode: string; readonly expiresIn?: number }["expiresIn"]
+}
+
+export type AccountCompleteOutput = AccountResponse
 
 export type SyncEventInput = {
   readonly event: {
@@ -13731,7 +13721,7 @@ export type SyncDisconnectOutput = void
 
 export type SyncDrainOutput = void
 
-export type TuiAppendPromptInput = { readonly payload: unknown }
+export type TuiAppendPromptInput = { readonly text: { readonly text: string }["text"] }
 
 export type TuiAppendPromptOutput = TuiBooleanResult
 
@@ -13747,19 +13737,47 @@ export type TuiSubmitPromptOutput = TuiBooleanResult
 
 export type TuiClearPromptOutput = TuiBooleanResult
 
-export type TuiExecuteCommandInput = { readonly payload: unknown }
+export type TuiExecuteCommandInput = { readonly command: { readonly command: string }["command"] }
 
 export type TuiExecuteCommandOutput = TuiBooleanResult
 
-export type TuiShowToastInput = { readonly payload: unknown }
+export type TuiShowToastInput = {
+  readonly title?: {
+    readonly title?: string
+    readonly message: string
+    readonly variant: "info" | "success" | "warning" | "error"
+    readonly duration: number
+  }["title"]
+  readonly message: {
+    readonly title?: string
+    readonly message: string
+    readonly variant: "info" | "success" | "warning" | "error"
+    readonly duration: number
+  }["message"]
+  readonly variant: {
+    readonly title?: string
+    readonly message: string
+    readonly variant: "info" | "success" | "warning" | "error"
+    readonly duration: number
+  }["variant"]
+  readonly duration: {
+    readonly title?: string
+    readonly message: string
+    readonly variant: "info" | "success" | "warning" | "error"
+    readonly duration: number
+  }["duration"]
+}
 
 export type TuiShowToastOutput = TuiBooleanResult
 
-export type TuiPublishInput = { readonly payload: unknown }
+export type TuiPublishInput = {
+  readonly type: { readonly type: string; readonly properties: unknown }["type"]
+  readonly properties: { readonly type: string; readonly properties: unknown }["properties"]
+}
 
 export type TuiPublishOutput = TuiBooleanResult
 
-export type TuiSelectSessionInput = { readonly payload: unknown }
+export type TuiSelectSessionInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
 
 export type TuiSelectSessionOutput = TuiBooleanResult
 
@@ -13767,7 +13785,10 @@ export type TuiConfigOutput = TuiConfig
 
 export type TuiControlNextOutput = TuiControlRequest
 
-export type TuiControlResponseInput = { readonly payload: unknown }
+export type TuiControlResponseInput = {
+  readonly path: { readonly path: string; readonly body: unknown }["path"]
+  readonly body: { readonly path: string; readonly body: unknown }["body"]
+}
 
 export type TuiControlResponseOutput = TuiBooleanResult
 
@@ -13925,6 +13946,8 @@ export type ConfigManagementMcpUpdateOutput = SuccessFlag
 export type ConfigManagementMcpRemoveInput = { readonly name: { readonly name: string }["name"] }
 
 export type ConfigManagementMcpRemoveOutput = SuccessFlag
+
+export type ConfigManagementProfilesListOutput = ConfigProfilesList
 
 export type ConfigManagementProfileCreateInput = { readonly name: { readonly name: string }["name"] }
 
