@@ -53,16 +53,14 @@ export namespace LoopHttpApi {
 
   const fromPromise = <A>(fn: () => Promise<A>) => Effect.promise(fn).pipe(Effect.orDie)
 
-  const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
-
   const LoopIDPath = Schema.Struct({ id: Schema.String })
 
   const RunsQuery = Schema.Struct({
-    limit: Schema.optional(Schema.NumberFromString),
+    limit: Schema.optionalKey(Schema.NumberFromString),
   })
 
   const RecentRunsQuery = Schema.Struct({
-    limit: Schema.optional(Schema.NumberFromString),
+    limit: Schema.optionalKey(Schema.NumberFromString),
   })
 
   const TogglePayload = Schema.Struct({
@@ -75,13 +73,13 @@ export namespace LoopHttpApi {
    * last-used model instead of falling back to the global provider default.
    */
   const RunPayload = Schema.Struct({
-    sessionID: Schema.optional(Schema.String),
+    sessionID: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "LoopRunInput" })
 
   const GeneratePayload = Schema.Struct({
     description: Schema.String,
-    model: Schema.optional(Schema.String),
-    agent: Schema.optional(Schema.String),
+    model: Schema.optionalKey(Schema.String),
+    agent: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "LoopGenerateInput" })
 
   /**
@@ -194,17 +192,17 @@ export namespace LoopHttpApi {
           loopID: loop.id,
           ...Engine.getRuntime(loop.id),
         }))
-        return jsonSafe({ loops, runtimes })
+        return { loops, runtimes }
       }),
 
-    templates: () => Effect.succeed(jsonSafe({ templates: LOOP_TEMPLATES })),
+    templates: () => Effect.succeed({ templates: LOOP_TEMPLATES }),
 
     generate: ({ payload }: { payload: typeof GeneratePayload.Type }) =>
       fromPromise(() =>
         generateFromDescription(payload.description, {
           model: payload.model,
           agent: payload.agent,
-        }).then(jsonSafe),
+        }),
       ).pipe(
         Effect.catch((cause: unknown) => {
           const message = cause instanceof Error ? cause.message : String(cause)
@@ -216,7 +214,7 @@ export namespace LoopHttpApi {
       fromPromise(async () => {
         const limit = query.limit ?? 100
         const runs = await Manager.listAllRunsAcrossLoops(limit)
-        return jsonSafe({ runs })
+        return { runs }
       }),
 
     get: ({ params }: { params: { id: string } }) =>
@@ -225,10 +223,10 @@ export namespace LoopHttpApi {
         if (!loop) return { notFound: true as const, id: params.id }
         return {
           notFound: false as const,
-          body: jsonSafe({
+          body: {
             loop,
             runtime: { loopID: params.id, ...Engine.getRuntime(params.id) },
-          }),
+          },
         }
       }).pipe(
         Effect.flatMap((result) =>
@@ -251,7 +249,7 @@ export namespace LoopHttpApi {
         const saved = yield* fromPromise(() => Manager.upsert(def))
         yield* fromPromise(() => Engine.sync(saved.id))
         yield* Effect.promise(() => Bus.publish(Engine.LoopEvent.Upserted, { loopID: saved.id }))
-        return jsonSafe(saved)
+        return saved
       }),
 
     update: ({
@@ -276,7 +274,7 @@ export namespace LoopHttpApi {
         }
         yield* fromPromise(() => Engine.sync(saved.id))
         yield* Effect.promise(() => Bus.publish(Engine.LoopEvent.Upserted, { loopID: saved.id }))
-        return jsonSafe(saved)
+        return saved
       }),
 
     remove: ({ params }: { params: { id: string } }) =>
@@ -297,7 +295,7 @@ export namespace LoopHttpApi {
         if (!next) return yield* failNotFound(`Loop "${params.id}" not found`)
         yield* fromPromise(() => Engine.sync(params.id))
         yield* Effect.promise(() => Bus.publish(Engine.LoopEvent.Upserted, { loopID: params.id }))
-        return jsonSafe(next)
+        return next
       }),
 
     run: ({ params, payload }: { params: { id: string }; payload?: { sessionID?: string } }) =>
@@ -337,7 +335,7 @@ export namespace LoopHttpApi {
     runs: ({ params, query }: { params: { id: string }; query: typeof RunsQuery.Type }) =>
       fromPromise(async () => {
         const runs = await Manager.listRuns(params.id, query.limit ?? 50)
-        return jsonSafe({ runs })
+        return { runs }
       }),
   }
 

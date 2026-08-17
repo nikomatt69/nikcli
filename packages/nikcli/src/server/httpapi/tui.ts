@@ -5,6 +5,7 @@ import { Bus } from "@/bus"
 import { Session } from "@/session"
 import { SessionError } from "@/session/error"
 import { TuiEvent } from "@/bus/tui-event"
+import { TuiEventPayload, TuiEventZod } from "@nikcli-ai/util/tui-event-schema"
 import { TuiConfig } from "@/config/tui"
 import { fromZod } from "@/util/zod-effect"
 import { TuiControlQueues } from "../tui-control"
@@ -13,7 +14,6 @@ export namespace TuiHttpApi {
   const BooleanResult = Schema.Boolean.annotate({
     identifier: "TuiBooleanResult",
   })
-  const AnyPayload = Schema.Unknown
   const TuiRequest = Schema.Struct({
     path: Schema.String,
     body: Schema.Unknown,
@@ -32,6 +32,38 @@ export namespace TuiHttpApi {
     data: Schema.Record(Schema.String, Schema.Unknown),
   }).annotate({ identifier: "TuiNotFoundError", httpApiStatus: 404 })
 
+  // Typed payload schemas for the six endpoints that previously declared
+  // `payload: Schema.Unknown`. Each one is the same shape the handler would
+  // have parsed through zod — lifted to Effect so the encoder rejects a
+  // malformed write before the handler runs, and the generated SDK can
+  // describe the body instead of publishing `any`.
+  const AppendPromptPayload = TuiEventPayload.promptAppend.annotate({
+    identifier: "TuiAppendPromptInput",
+  })
+  const ExecuteCommandPayload = Schema.Struct({
+    command: Schema.String,
+  }).annotate({ identifier: "TuiExecuteCommandInput" })
+  const ShowToastPayload = TuiEventPayload.toastShow.annotate({
+    identifier: "TuiShowToastInput",
+  })
+  // Publish is a discriminated envelope: the event type is the discriminator
+  // and the properties shape is event-specific. The terminal is the authority
+  // on the per-event shape, so the wire contract here is the resolved payload
+  // the handler will pass to `Bus.publish`. Use `Schema.Unknown` for `properties`
+  // because the runtime check on `type` decides which `TuiEventPayload` to
+  // parse against.
+  const PublishPayload = Schema.Struct({
+    type: Schema.String,
+    properties: Schema.Unknown,
+  }).annotate({ identifier: "TuiPublishInput" })
+  const SelectSessionPayload = TuiEventPayload.sessionSelect.annotate({
+    identifier: "TuiSelectSessionInput",
+  })
+  const ControlResponsePayload = Schema.Struct({
+    path: Schema.String,
+    body: Schema.Unknown,
+  }).annotate({ identifier: "TuiControlResponseInput" })
+
   /**
    * The merged `tui.json` document, derived from the zod schema that validates the file rather
    * than hand-copied — same treatment as `Config` in `config.ts`, including the open tail.
@@ -42,7 +74,7 @@ export namespace TuiHttpApi {
   const TuiConfigInfo = Schema.StructWithRest(
     Schema.Struct({
       ...(fromZod(TuiConfig.Info) as unknown as Schema.Struct<Schema.Struct.Fields>).fields,
-      plugin_meta: Schema.optional(
+      plugin_meta: Schema.optionalKey(
         Schema.Record(
           Schema.String,
           Schema.Struct({
@@ -54,16 +86,6 @@ export namespace TuiHttpApi {
     }),
     [Schema.Record(Schema.String, Schema.Unknown)],
   ).annotate({ identifier: "TuiConfig" })
-
-  function parseWith<T>(schema: z.ZodType<T>, payload: unknown) {
-    const parsed = schema.safeParse(payload)
-    if (parsed.success) return Effect.succeed(parsed.data)
-    return Effect.fail({
-      data: payload,
-      error: parsed.error.issues as unknown,
-      success: false as const,
-    })
-  }
 
   /** The execute-command alias table from the Hono route, kept verbatim. */
   const commandAliases: Record<string, string> = {
@@ -88,7 +110,7 @@ export namespace TuiHttpApi {
   export const Group = HttpApiGroup.make("tui")
     .add(
       HttpApiEndpoint.post("appendPrompt", "/append-prompt", {
-        payload: AnyPayload,
+        payload: AppendPromptPayload,
         success: BooleanResult,
         error: ValidationError,
       }),
@@ -125,28 +147,28 @@ export namespace TuiHttpApi {
     )
     .add(
       HttpApiEndpoint.post("executeCommand", "/execute-command", {
-        payload: AnyPayload,
+        payload: ExecuteCommandPayload,
         success: BooleanResult,
         error: ValidationError,
       }),
     )
     .add(
       HttpApiEndpoint.post("showToast", "/show-toast", {
-        payload: AnyPayload,
+        payload: ShowToastPayload,
         success: BooleanResult,
         error: ValidationError,
       }),
     )
     .add(
       HttpApiEndpoint.post("publish", "/publish", {
-        payload: AnyPayload,
+        payload: PublishPayload,
         success: BooleanResult,
         error: ValidationError,
       }),
     )
     .add(
       HttpApiEndpoint.post("selectSession", "/select-session", {
-        payload: AnyPayload,
+        payload: SelectSessionPayload,
         success: BooleanResult,
         error: [ValidationError, NotFound],
       }),
@@ -163,7 +185,7 @@ export namespace TuiHttpApi {
     )
     .add(
       HttpApiEndpoint.post("controlResponse", "/control/response", {
-        payload: AnyPayload,
+        payload: ControlResponsePayload,
         success: BooleanResult,
       }).annotate(OpenApi.Identifier, "tui.control.response"),
     )
@@ -174,37 +196,30 @@ export namespace TuiHttpApi {
   export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
-    appendPrompt: ({ payload }: { payload: unknown }) =>
-      Effect.gen(function* () {
-        const body = yield* parseWith(TuiEvent.PromptAppend.properties, payload)
-        yield* Effect.promise(() => Bus.publish(TuiEvent.PromptAppend, body))
-        return true
-      }),
+    appendPrompt: ({ payload }: { payload: typeof AppendPromptPayload.Type }) =>
+      Effect.promise(() => Bus.publish(TuiEvent.PromptAppend, payload as never)).pipe(Effect.as(true)),
     openHelp: () => publishCommand("help.show").pipe(Effect.as(true), Effect.orDie),
     openSessions: () => publishCommand("session.list").pipe(Effect.as(true), Effect.orDie),
     openThemes: () => publishCommand("theme.switch").pipe(Effect.as(true), Effect.orDie),
     openModels: () => publishCommand("model.list").pipe(Effect.as(true), Effect.orDie),
     submitPrompt: () => publishCommand("prompt.submit").pipe(Effect.as(true), Effect.orDie),
     clearPrompt: () => publishCommand("prompt.clear").pipe(Effect.as(true), Effect.orDie),
-    executeCommand: ({ payload }: { payload: unknown }) =>
-      Effect.gen(function* () {
-        const body = yield* parseWith(z.object({ command: z.string() }), payload)
-        yield* publishCommand(commandAliases[body.command] as string)
-        return true
+    executeCommand: ({ payload }: { payload: typeof ExecuteCommandPayload.Type }) => {
+      const cmd = commandAliases[payload.command] ?? payload.command
+      return publishCommand(cmd).pipe(Effect.as(true), Effect.orDie)
+    },
+    showToast: ({ payload }: { payload: typeof ShowToastPayload.Type }) =>
+      // The zod side `default(5000)` for `duration` lives on `TuiEventZod`;
+      // apply it here so the wire contract still matches the legacy body the
+      // terminal sends (no `duration` field → 5000ms).
+      Effect.promise(async () => {
+        const parsed = TuiEventZod.toastShow.parse(payload)
+        await Bus.publish(TuiEvent.ToastShow, parsed as never)
+        return true as const
       }),
-    showToast: ({ payload }: { payload: unknown }) =>
+    publish: ({ payload }: { payload: typeof PublishPayload.Type }) =>
       Effect.gen(function* () {
-        const body = yield* parseWith(TuiEvent.ToastShow.properties, payload)
-        yield* Effect.promise(() => Bus.publish(TuiEvent.ToastShow, body))
-        return true
-      }),
-    publish: ({ payload }: { payload: unknown }) =>
-      Effect.gen(function* () {
-        const record = payload as {
-          type?: unknown
-          properties?: unknown
-        } | null
-        const def = Object.values(TuiEvent).find((item) => item.type === record?.type)
+        const def = Object.values(TuiEvent).find((item) => item.type === payload.type)
         if (!def) {
           return yield* Effect.fail({
             data: payload,
@@ -212,15 +227,24 @@ export namespace TuiHttpApi {
             success: false as const,
           })
         }
-        const body = yield* parseWith(def.properties as z.ZodType<any>, record?.properties)
+        // `properties` is event-specific; the per-event zod schema is the
+        // authority (the terminal uses it too). The schema lives on the
+        // bus event itself, so we run it through that.
+        const body = yield* Effect.try({
+          try: () => (def.properties as z.ZodType<unknown>).parse(payload.properties),
+          catch: (error) => ({
+            data: payload,
+            error: (error as Error).message as unknown,
+            success: false as const,
+          }),
+        })
         yield* Effect.promise(() => Bus.publish(def, body as never))
         return true
       }),
-    selectSession: ({ payload }: { payload: unknown }) =>
+    selectSession: ({ payload }: { payload: typeof SelectSessionPayload.Type }) =>
       Effect.gen(function* () {
-        const body = yield* parseWith(TuiEvent.SessionSelect.properties, payload)
         const session = yield* Session.Service
-        yield* session.get(body.sessionID).pipe(
+        yield* session.get(payload.sessionID).pipe(
           Effect.catch((error) =>
             SessionError.isNotFound(error)
               ? Effect.fail({
@@ -238,20 +262,20 @@ export namespace TuiHttpApi {
               : Effect.die(defect),
           ),
         )
-        yield* Effect.promise(() => Bus.publish(TuiEvent.SessionSelect, { sessionID: body.sessionID }))
+        yield* Effect.promise(() => Bus.publish(TuiEvent.SessionSelect, { sessionID: payload.sessionID }))
         return true
       }),
     // Reading it here rather than in the terminal is the point: `TuiConfig.get()` walks the
     // config search path and merges what it finds, which is instance-scoped work.
     //
-    // The round-trip through JSON is not decoration. Merging leaves explicitly-`undefined` keys
-    // behind, and the response encoder rejects those with "Expected JSON value, got undefined" —
-    // a 400 with an empty body, which from the terminal looks exactly like the config being
-    // empty. Same treatment as `jsonSafe` in `loop.ts`.
-    config: () =>
-      Effect.promise(async () => JSON.parse(JSON.stringify((await TuiConfig.get()) ?? null)) as TuiConfig.Info),
+    // The bound `TuiConfigInfo` schema uses `Schema.optionalKey` everywhere a
+    // merged-in key can be absent, so the encoder accepts the result and does
+    // not need a `JSON.parse(JSON.stringify(...))` round-trip — the same
+    // treatment that landed across `loop.ts`, `mission.ts`, `provider.ts`,
+    // and `session.ts`.
+    config: () => Effect.promise(() => TuiConfig.get()),
     controlNext: () => Effect.promise(() => TuiControlQueues.request.next()),
-    controlResponse: ({ payload }: { payload: unknown }) =>
+    controlResponse: ({ payload }: { payload: typeof ControlResponsePayload.Type }) =>
       Effect.sync(() => {
         TuiControlQueues.response.push(payload)
         return true

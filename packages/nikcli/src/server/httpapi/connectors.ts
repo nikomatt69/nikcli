@@ -30,10 +30,10 @@ export namespace ConnectorsHttpApi {
 
   const NamePath = Schema.Struct({ name: Schema.String })
 
-  const AuthPayload = Schema.Unknown.annotate({ identifier: "ConnectorsAuthInput" })
+  const AuthPayload = ConnectorAuth.EntrySchema.annotate({ identifier: "ConnectorsAuthInput" })
 
   const InvalidatePayload = Schema.Struct({
-    name: Schema.optional(Schema.String),
+    name: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "ConnectorsInvalidateInput" })
 
   const fromPromise = <A>(fn: () => Promise<A>) => Effect.promise(fn).pipe(Effect.orDie)
@@ -74,7 +74,7 @@ export namespace ConnectorsHttpApi {
   export const handlers = {
     status: () => fromPromise(() => Connectors.status()),
 
-    authSet: ({ params, payload }: { params: { name: string }; payload: unknown }) =>
+    authSet: ({ params, payload }: { params: { name: string }; payload: typeof AuthPayload.Type }) =>
       Effect.gen(function* () {
         const parsed = AuthInputZod.safeParse(payload)
         if (!parsed.success) {

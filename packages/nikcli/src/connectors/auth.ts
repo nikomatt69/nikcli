@@ -5,14 +5,22 @@ import { type DeepMutable, zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace ConnectorAuth {
-  const EntrySchema = Schema.Struct({
-    token: Schema.optional(Schema.String),
-    botToken: Schema.optional(Schema.String),
-    apiKey: Schema.optional(Schema.String),
-    teamId: Schema.optional(Schema.String),
-    expiresAt: Schema.optional(Schema.Number),
-    refreshToken: Schema.optional(Schema.String),
-    refreshTokenExpiresAt: Schema.optional(Schema.Number),
+  /**
+   * `Schema.optionalKey` here so the connector auth payload can be lifted
+   * from `Schema.Unknown` on `POST /connectors/:name/auth` without a
+   * `JSON.parse(JSON.stringify(...))` round-trip at the service boundary.
+   * Every field is genuinely optional; the legacy `AuthInputZod.refine`
+   * at the call site still enforces "at least one credential", so the
+   * decoder rejects an empty body before the handler runs.
+   */
+  export const EntrySchema = Schema.Struct({
+    token: Schema.optionalKey(Schema.String),
+    botToken: Schema.optionalKey(Schema.String),
+    apiKey: Schema.optionalKey(Schema.String),
+    teamId: Schema.optionalKey(Schema.String),
+    expiresAt: Schema.optionalKey(Schema.Number),
+    refreshToken: Schema.optionalKey(Schema.String),
+    refreshTokenExpiresAt: Schema.optionalKey(Schema.Number),
   })
   export const Entry = zodObject(EntrySchema)
   export type Entry = DeepMutable<Schema.Schema.Type<typeof EntrySchema>>

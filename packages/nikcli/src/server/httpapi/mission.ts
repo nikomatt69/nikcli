@@ -23,20 +23,21 @@ export namespace MissionHttpApi {
   /**
    * Mirrors the zod schemas in `@/mission/schema` and the runtime shape in
    * `@/mission/orchestrator`. Declared as Effect Schemas so the generated
-   * clients carry real types instead of `any`. Handlers push every body
-   * through `jsonSafe`, which drops `undefined` properties, so optional
-   * fields are genuinely absent rather than explicitly undefined.
+   * clients carry real types instead of `any`. Optional fields use
+   * `Schema.optionalKey` so a present `undefined` is encoded as an absent
+   * key — same JSON wire as before, no `JSON.parse(JSON.stringify(...))`
+   * round-trip.
    */
   const MissionFeature = Schema.Struct({
     id: Schema.String,
     name: Schema.String,
     objective: Schema.String,
     agent: Schema.String,
-    model: Schema.optional(Schema.String),
-    tokenBudget: Schema.optional(Schema.Number),
+    model: Schema.optionalKey(Schema.String),
+    tokenBudget: Schema.optionalKey(Schema.Number),
     dependsOn: Schema.Array(Schema.String),
     status: Schema.Literals(["pending", "running", "done", "blocked", "skipped", "error"]),
-    error: Schema.optional(Schema.String),
+    error: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "MissionFeature" })
 
   const MissionMilestone = Schema.Struct({
@@ -48,14 +49,14 @@ export namespace MissionHttpApi {
   }).annotate({ identifier: "MissionMilestone" })
 
   const MissionModels = Schema.Struct({
-    worker: Schema.optional(Schema.String),
-    validation: Schema.optional(Schema.String),
-    orchestrator: Schema.optional(Schema.String),
+    worker: Schema.optionalKey(Schema.String),
+    validation: Schema.optionalKey(Schema.String),
+    orchestrator: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "MissionModels" })
 
   const MissionWorktree = Schema.Struct({
     name: Schema.String,
-    branch: Schema.optional(Schema.String),
+    branch: Schema.optionalKey(Schema.String),
     directory: Schema.String,
   }).annotate({ identifier: "MissionWorktree" })
 
@@ -65,9 +66,9 @@ export namespace MissionHttpApi {
     brief: Schema.String,
     milestones: Schema.Array(MissionMilestone),
     models: MissionModels,
-    timeoutMs: Schema.optional(Schema.Number),
-    sandbox: Schema.optional(Schema.Boolean),
-    worktree: Schema.optional(MissionWorktree),
+    timeoutMs: Schema.optionalKey(Schema.Number),
+    sandbox: Schema.optionalKey(Schema.Boolean),
+    worktree: Schema.optionalKey(MissionWorktree),
     status: Schema.Literals(["planning", "ready", "running", "paused", "frozen", "complete", "error"]),
     createdAt: Schema.Number,
   }).annotate({ identifier: "MissionDefinition" })
@@ -79,11 +80,11 @@ export namespace MissionHttpApi {
     targetID: Schema.String,
     targetName: Schema.String,
     startedAt: Schema.Number,
-    endedAt: Schema.optional(Schema.Number),
+    endedAt: Schema.optionalKey(Schema.Number),
     status: Schema.Literals(["running", "complete", "error", "timeout", "cancelled", "orphaned"]),
-    heartbeatAt: Schema.optional(Schema.Number),
-    sessionID: Schema.optional(Schema.String),
-    error: Schema.optional(Schema.String),
+    heartbeatAt: Schema.optionalKey(Schema.Number),
+    sessionID: Schema.optionalKey(Schema.String),
+    error: Schema.optionalKey(Schema.String),
     ok: Schema.Boolean,
   }).annotate({ identifier: "MissionExec" })
 
@@ -91,13 +92,13 @@ export namespace MissionHttpApi {
   const MissionRuntime = Schema.Struct({
     missionID: Schema.String,
     status: Schema.Literals(["idle", "running", "paused", "error", "cancelling"]),
-    sessionID: Schema.optional(Schema.String),
-    currentMilestoneID: Schema.optional(Schema.String),
-    currentFeatureID: Schema.optional(Schema.String),
+    sessionID: Schema.optionalKey(Schema.String),
+    currentMilestoneID: Schema.optionalKey(Schema.String),
+    currentFeatureID: Schema.optionalKey(Schema.String),
     doneFeatures: Schema.Number,
     totalFeatures: Schema.Number,
-    lastError: Schema.optional(Schema.String),
-    lastRunAt: Schema.optional(Schema.Number),
+    lastError: Schema.optionalKey(Schema.String),
+    lastRunAt: Schema.optionalKey(Schema.Number),
   }).annotate({ identifier: "MissionRuntime" })
 
   const MissionTemplateSchema = Schema.Struct({
@@ -146,8 +147,6 @@ export namespace MissionHttpApi {
 
   const fromPromise = <A>(fn: () => Promise<A>) => Effect.promise(fn).pipe(Effect.orDie)
 
-  const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
-
   const MissionIDPath = Schema.Struct({ id: Schema.String })
 
   const FeaturePath = Schema.Struct({
@@ -156,13 +155,13 @@ export namespace MissionHttpApi {
   })
 
   const ExecsQuery = Schema.Struct({
-    limit: Schema.optional(Schema.NumberFromString),
+    limit: Schema.optionalKey(Schema.NumberFromString),
   })
 
   const GeneratePayload = Schema.Struct({
     description: Schema.String,
-    model: Schema.optional(Schema.String),
-    agent: Schema.optional(Schema.String),
+    model: Schema.optionalKey(Schema.String),
+    agent: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "MissionGenerateInput" })
 
   // These zod schemas validate bodies and apply schema defaults (feature
@@ -319,17 +318,17 @@ export namespace MissionHttpApi {
           missionID: m.id,
           ...Engine.getRuntime(m.id),
         }))
-        return jsonSafe({ missions, runtimes })
+        return { missions, runtimes }
       }),
 
-    templates: () => Effect.succeed(jsonSafe({ templates: MISSION_TEMPLATES })),
+    templates: () => Effect.succeed({ templates: MISSION_TEMPLATES }),
 
     generate: ({ payload }: { payload: typeof GeneratePayload.Type }) =>
       fromPromise(() =>
         generateFromDescription(payload.description, {
           model: payload.model,
           agent: payload.agent,
-        }).then(jsonSafe),
+        }),
       ).pipe(
         Effect.catch((cause: unknown) => {
           const message = cause instanceof Error ? cause.message : String(cause)
@@ -343,10 +342,10 @@ export namespace MissionHttpApi {
         if (!mission) return { notFound: true as const, id: params.id }
         return {
           notFound: false as const,
-          body: jsonSafe({
+          body: {
             mission,
             runtime: { missionID: params.id, ...Engine.getRuntime(params.id) },
-          }),
+          },
         }
       }).pipe(
         Effect.flatMap((result) =>
@@ -372,7 +371,7 @@ export namespace MissionHttpApi {
         if (err) return yield* failValidation(err)
         const saved = yield* fromPromise(() => Manager.upsert(def))
         yield* publishUpserted(saved.id)
-        return jsonSafe(saved)
+        return saved
       }),
 
     update: ({ params, payload }: { params: { id: string }; payload: unknown }) =>
@@ -392,7 +391,7 @@ export namespace MissionHttpApi {
         if (!existing) return yield* failNotFound(`Mission "${params.id}" not found`)
         const saved = yield* fromPromise(() => Manager.upsert(body))
         yield* publishUpserted(saved.id)
-        return jsonSafe(saved)
+        return saved
       }),
 
     remove: ({ params }: { params: { id: string } }) =>
@@ -475,19 +474,19 @@ export namespace MissionHttpApi {
         if (err) return yield* failValidation(err)
         const saved = yield* fromPromise(() => Manager.upsert(updated))
         yield* publishUpserted(saved.id)
-        return jsonSafe(saved)
+        return saved
       }),
 
     execs: ({ params, query }: { params: { id: string }; query: typeof ExecsQuery.Type }) =>
       fromPromise(async () => {
         const execs = await Manager.listExecs(params.id, query.limit ?? 100)
-        return jsonSafe({ execs })
+        return { execs }
       }),
 
     recentExecs: ({ query }: { query: typeof ExecsQuery.Type }) =>
       fromPromise(async () => {
         const records = await Manager.listRunningExecs()
-        return jsonSafe({ execs: records.slice(0, query.limit ?? 100) })
+        return { execs: records.slice(0, query.limit ?? 100) }
       }),
   }
 

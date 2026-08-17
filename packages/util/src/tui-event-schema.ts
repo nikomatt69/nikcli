@@ -43,7 +43,7 @@ export const TuiEventPayload = {
     ]),
   }),
   toastShow: Schema.Struct({
-    title: Schema.optional(Schema.String),
+    title: Schema.optionalKey(Schema.String),
     message: Schema.String,
     variant: Schema.Literals(["info", "success", "warning", "error"]),
     // zodOverride keeps the legacy `.default(5000)` parse semantics and its
@@ -62,7 +62,12 @@ export const TuiEventPayload = {
   }),
 }
 
-/** The same payloads as zod, which is what a caller needs to parse one — `duration` defaults here. */
+/**
+ * The same payloads as zod, which is what a caller needs to parse one. Built
+ * lazily so the server-side definition can use `Schema.optionalKey` for
+ * encoding while the terminal still parses with zod — the wire is identical
+ * (absent keys vs explicit `undefined` round-tripped through JSON).
+ */
 export const TuiEventZod = {
   toastShow: zod(TuiEventPayload.toastShow),
 }

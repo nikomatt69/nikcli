@@ -50,13 +50,8 @@ export namespace ProviderHttpApi {
   }).annotate({ identifier: "ProviderOAuthAuthorizeInput" })
   const CallbackPayload = Schema.Struct({
     method: Schema.Number,
-    code: Schema.optional(Schema.String),
+    code: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "ProviderOAuthCallbackInput" })
-
-  // Provider payloads contain model metadata (e.g. cost.experimentalOver200K) that may
-  // be `undefined`. Effect HttpApi rejects `undefined` JSON values, so we normalize via
-  // JSON.stringify (which strips those keys) before returning.
-  const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
 
   export const Group = HttpApiGroup.make("provider")
     .add(HttpApiEndpoint.get("list", "/", { success: ListResponse }))
@@ -109,17 +104,17 @@ export namespace ProviderHttpApi {
           connected,
         )
 
-        return jsonSafe({
+        return {
           all: Object.values(providers),
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
           connected: Object.keys(connected),
-        })
+        }
       }).pipe(Effect.orDie),
     auth: () =>
       Effect.gen(function* () {
         const providerAuth = yield* ProviderAuth.Service
         const methods = yield* providerAuth.methods()
-        return jsonSafe(methods)
+        return methods
       }).pipe(Effect.orDie),
     api: ({ params, payload }: { params: { providerID: string }; payload: typeof ApiPayload.Type }) =>
       Effect.gen(function* () {
@@ -149,7 +144,7 @@ export namespace ProviderHttpApi {
           providerID: params.providerID,
           method: payload.method,
         })
-        return jsonSafe(result ?? null)
+        return result ?? null
       }).pipe(Effect.orDie),
     oauthCallback: ({
       params,

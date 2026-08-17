@@ -23,16 +23,16 @@ export const LoopTrigger = Schema.Union([
 
 export const LoopWorktree = Schema.Struct({
   name: Schema.String,
-  branch: Schema.optional(Schema.String),
+  branch: Schema.optionalKey(Schema.String),
   directory: Schema.String,
 }).annotate({ identifier: "LoopWorktree" })
 
 export const LoopStage = Schema.Struct({
   name: Schema.String,
   agent: Schema.String,
-  model: Schema.optional(Schema.String),
+  model: Schema.optionalKey(Schema.String),
   objective: Schema.String,
-  tokenBudget: Schema.optional(Schema.Number),
+  tokenBudget: Schema.optionalKey(Schema.Number),
 }).annotate({ identifier: "LoopStage" })
 
 /**
@@ -49,12 +49,12 @@ const LoopAuthoredFields = {
   name: Schema.String,
   stages: Schema.Array(LoopStage),
   trigger: LoopTrigger,
-  maxRuns: Schema.optional(Schema.Number),
-  timeoutMs: Schema.optional(Schema.Number),
-  createPR: Schema.optional(Schema.Boolean),
-  sandbox: Schema.optional(Schema.Boolean),
-  worktree: Schema.optional(LoopWorktree),
-  paused: Schema.optional(Schema.Boolean),
+  maxRuns: Schema.optionalKey(Schema.Number),
+  timeoutMs: Schema.optionalKey(Schema.Number),
+  createPR: Schema.optionalKey(Schema.Boolean),
+  sandbox: Schema.optionalKey(Schema.Boolean),
+  worktree: Schema.optionalKey(LoopWorktree),
+  paused: Schema.optionalKey(Schema.Boolean),
 }
 
 export const LoopDefinition = Schema.Struct({
@@ -67,7 +67,7 @@ export const LoopDefinition = Schema.Struct({
 /** Create body: the authored fields, with `enabled` optional (handler defaults it to `true`). */
 export const LoopCreateInput = Schema.Struct({
   ...LoopAuthoredFields,
-  enabled: Schema.optional(Schema.Boolean),
+  enabled: Schema.optionalKey(Schema.Boolean),
 }).annotate({ identifier: "LoopCreateInput" })
 
 /**
@@ -90,7 +90,7 @@ export const LoopPullRequestRef = Schema.Struct({
   url: Schema.String,
   branch: Schema.String,
   base: Schema.String,
-  title: Schema.optional(Schema.String),
+  title: Schema.optionalKey(Schema.String),
   action: Schema.Literals(["created", "updated"]),
 }).annotate({ identifier: "LoopPullRequestRef" })
 
@@ -98,13 +98,13 @@ export const LoopRun = Schema.Struct({
   id: Schema.String,
   loopID: Schema.String,
   startedAt: Schema.Number,
-  endedAt: Schema.optional(Schema.Number),
+  endedAt: Schema.optionalKey(Schema.Number),
   status: Schema.Literals(["running", "complete", "error", "timeout", "cancelled", "orphaned"]),
-  heartbeatAt: Schema.optional(Schema.Number),
-  sessionID: Schema.optional(Schema.String),
-  error: Schema.optional(Schema.String),
+  heartbeatAt: Schema.optionalKey(Schema.Number),
+  sessionID: Schema.optionalKey(Schema.String),
+  error: Schema.optionalKey(Schema.String),
   ok: Schema.Boolean,
-  pullRequest: Schema.optional(LoopPullRequestRef),
+  pullRequest: Schema.optionalKey(LoopPullRequestRef),
 }).annotate({ identifier: "LoopRun" })
 
 /** `Engine.getRuntime()` merged with the loop id the handlers attach. */
@@ -112,9 +112,9 @@ export const LoopRuntime = Schema.Struct({
   loopID: Schema.String,
   status: Schema.Literals(["idle", "running", "paused", "error", "cancelling"]),
   runs: Schema.Number,
-  lastRunAt: Schema.optional(Schema.Number),
-  lastError: Schema.optional(Schema.String),
-  sessionID: Schema.optional(Schema.String),
+  lastRunAt: Schema.optionalKey(Schema.Number),
+  lastError: Schema.optionalKey(Schema.String),
+  sessionID: Schema.optionalKey(Schema.String),
 }).annotate({ identifier: "LoopRuntime" })
 
 export const LoopTemplate = Schema.Struct({
@@ -122,18 +122,18 @@ export const LoopTemplate = Schema.Struct({
   title: Schema.String,
   description: Schema.String,
   draft: Schema.Struct({
-    name: Schema.optional(Schema.String),
+    name: Schema.optionalKey(Schema.String),
     stages: Schema.Array(
       Schema.Struct({
-        name: Schema.optional(Schema.String),
-        agent: Schema.optional(Schema.String),
-        model: Schema.optional(Schema.String),
+        name: Schema.optionalKey(Schema.String),
+        agent: Schema.optionalKey(Schema.String),
+        model: Schema.optionalKey(Schema.String),
         objective: Schema.String,
-        tokenBudget: Schema.optional(Schema.Number),
+        tokenBudget: Schema.optionalKey(Schema.Number),
       }),
     ),
-    intervalMs: Schema.optional(Schema.Number),
-    maxRuns: Schema.optional(Schema.Number),
+    intervalMs: Schema.optionalKey(Schema.Number),
+    maxRuns: Schema.optionalKey(Schema.Number),
   }),
 }).annotate({ identifier: "LoopTemplate" })
 
@@ -160,7 +160,7 @@ export const Routine = Schema.Struct({
   name: Schema.String,
   prompt: Schema.String,
   triggers: Schema.Array(RoutineTrigger),
-  model: Schema.optional(
+  model: Schema.optionalKey(
     Schema.Struct({
       providerID: Schema.String,
       modelID: Schema.String,
@@ -171,6 +171,6 @@ export const Routine = Schema.Struct({
   directory: Schema.String,
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
-  lastRunAt: Schema.optional(Schema.Number),
-  lastSessionID: Schema.optional(Schema.String),
+  lastRunAt: Schema.optionalKey(Schema.Number),
+  lastSessionID: Schema.optionalKey(Schema.String),
 }).annotate({ identifier: "Routine" })

@@ -37,59 +37,59 @@ export namespace SessionHttpApi {
   )
 
   const ListQuery = Schema.Struct({
-    directory: Schema.optional(Schema.String),
-    roots: Schema.optional(BooleanFromString),
-    start: Schema.optional(Schema.NumberFromString),
-    search: Schema.optional(Schema.String),
-    limit: Schema.optional(Schema.NumberFromString),
+    directory: Schema.optionalKey(Schema.String),
+    roots: Schema.optionalKey(BooleanFromString),
+    start: Schema.optionalKey(Schema.NumberFromString),
+    search: Schema.optionalKey(Schema.String),
+    limit: Schema.optionalKey(Schema.NumberFromString),
   })
   const MessagesQuery = Schema.Struct({
-    limit: Schema.optional(Schema.NumberFromString),
+    limit: Schema.optionalKey(Schema.NumberFromString),
   })
   const DiffQuery = Schema.Struct({
-    messageID: Schema.optional(Schema.String),
+    messageID: Schema.optionalKey(Schema.String),
   })
   const CreatePayload = Schema.Struct({
-    parentID: Schema.optional(Schema.String),
-    title: Schema.optional(Schema.String),
-    permission: Schema.optional(Schema.Array(Schema.Unknown)),
-    skills: Schema.optional(Schema.Array(Schema.String)),
-    github: Schema.optional(Schema.Unknown),
-    workspaceID: Schema.optional(Schema.String),
+    parentID: Schema.optionalKey(Schema.String),
+    title: Schema.optionalKey(Schema.String),
+    permission: Schema.optionalKey(Schema.Array(Schema.Unknown)),
+    skills: Schema.optionalKey(Schema.Array(Schema.String)),
+    github: Schema.optionalKey(Schema.Unknown),
+    workspaceID: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "SessionCreateInput" })
   const UpdatePayload = Schema.Struct({
-    title: Schema.optional(Schema.String),
-    time: Schema.optional(
+    title: Schema.optionalKey(Schema.String),
+    time: Schema.optionalKey(
       Schema.Struct({
-        archived: Schema.optional(Schema.Number),
+        archived: Schema.optionalKey(Schema.Number),
       }),
     ),
   }).annotate({ identifier: "SessionUpdateInput" })
   const ForkPayload = Schema.Struct({
-    messageID: Schema.optional(Schema.String),
+    messageID: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "SessionForkInput" })
   const RevertPayload = Schema.Struct({
     messageID: Schema.String,
-    partID: Schema.optional(Schema.String),
+    partID: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "SessionRevertInput" })
   const SummarizePayload = Schema.Struct({
     providerID: Schema.String,
     modelID: Schema.String,
-    auto: Schema.optional(Schema.Boolean),
+    auto: Schema.optionalKey(Schema.Boolean),
   }).annotate({ identifier: "SessionSummarizeInput" })
   const CommandPayload = Schema.Struct({
-    messageID: Schema.optional(Schema.String),
-    delivery: Schema.optional(Schema.Literals(["steer", "queue"])),
-    agent: Schema.optional(Schema.String),
-    model: Schema.optional(Schema.String),
+    messageID: Schema.optionalKey(Schema.String),
+    delivery: Schema.optionalKey(Schema.Literals(["steer", "queue"])),
+    agent: Schema.optionalKey(Schema.String),
+    model: Schema.optionalKey(Schema.String),
     arguments: Schema.String,
     command: Schema.String,
-    variant: Schema.optional(Schema.String),
-    parts: Schema.optional(Schema.Array(Schema.Unknown)),
+    variant: Schema.optionalKey(Schema.String),
+    parts: Schema.optionalKey(Schema.Array(Schema.Unknown)),
   }).annotate({ identifier: "SessionCommandInput" })
   const ShellPayload = Schema.Struct({
     agent: Schema.String,
-    model: Schema.optional(
+    model: Schema.optionalKey(
       Schema.Struct({
         providerID: Schema.String,
         modelID: Schema.String,
@@ -160,16 +160,16 @@ export namespace SessionHttpApi {
     id: Schema.String,
     category: Schema.Literals(["system", "instructions", "skills", "mcp", "tools", "agents", "messages"]),
     label: Schema.String,
-    detail: Schema.optional(Schema.String),
+    detail: Schema.optionalKey(Schema.String),
     tokens: Schema.Number,
     enabled: Schema.Boolean,
     togglable: Schema.Boolean,
-    toggleKind: Schema.optional(Schema.Literals(["mcp", "skill", "instruction", "tool"])),
-    toggleKey: Schema.optional(Schema.String),
+    toggleKind: Schema.optionalKey(Schema.Literals(["mcp", "skill", "instruction", "tool"])),
+    toggleKey: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "SessionContextSource" })
 
   const ContextBreakdown = Schema.Struct({
-    model: Schema.optional(
+    model: Schema.optionalKey(
       Schema.Struct({
         providerID: Schema.String,
         modelID: Schema.String,
@@ -200,9 +200,9 @@ export namespace SessionHttpApi {
     parentSessionID: Schema.String,
     title: Schema.String,
     agent: Schema.String,
-    parentAgent: Schema.optional(Schema.String),
+    parentAgent: Schema.optionalKey(Schema.String),
     status: Schema.Literals(["running", "complete", "error", "timeout", "cancelled", "orphaned", "synthesizing"]),
-    source: Schema.optional(
+    source: Schema.optionalKey(
       Schema.Literals([
         "task",
         "model-subtask",
@@ -215,16 +215,16 @@ export namespace SessionHttpApi {
         "other",
       ]),
     ),
-    workerSessionID: Schema.optional(Schema.String),
-    delegatorID: Schema.optional(Schema.String),
-    delegatorSessionID: Schema.optional(Schema.String),
+    workerSessionID: Schema.optionalKey(Schema.String),
+    delegatorID: Schema.optionalKey(Schema.String),
+    delegatorSessionID: Schema.optionalKey(Schema.String),
     createdAt: Schema.Number,
     updatedAt: Schema.Number,
-    completedAt: Schema.optional(Schema.Number),
-    lastActivityAt: Schema.optional(Schema.Number),
-    progressSummary: Schema.optional(Schema.String),
-    resultSummary: Schema.optional(Schema.String),
-    error: Schema.optional(Schema.String),
+    completedAt: Schema.optionalKey(Schema.Number),
+    lastActivityAt: Schema.optionalKey(Schema.Number),
+    progressSummary: Schema.optionalKey(Schema.String),
+    resultSummary: Schema.optionalKey(Schema.String),
+    error: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "DelegationJob" })
 
   const BackgroundOutput = Schema.Array(DelegationJob).annotate({
@@ -302,6 +302,13 @@ export namespace SessionHttpApi {
   // valid JSON value. Round-tripping through JSON.stringify normalizes the payload by
   // dropping undefined keys without changing the schema contract for callers.
   // Returning `T` keeps handler signatures inferable for HttpApi.
+  //
+  // Local input schemas use `Schema.optionalKey` so the route-level encoders
+  // do not need this round-trip. The remaining callers are response handlers
+  // returning `Session.Info` / `MessageV2.Info` from the services — those
+  // services still hand back objects with explicit `undefined` keys, so the
+  // service's own schemas are the next stop on the E4 path. Keep the helper
+  // here until that lands.
   const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
 
   const InstructionList = Schema.Array(Schema.Struct({ path: Schema.String, name: Schema.String })).annotate({
@@ -325,7 +332,7 @@ export namespace SessionHttpApi {
   })
 
   const MonitorLogQuery = Schema.Struct({
-    lines: Schema.optional(Schema.NumberFromString),
+    lines: Schema.optionalKey(Schema.NumberFromString),
   })
 
   export const Group = HttpApiGroup.make("session")
@@ -879,11 +886,15 @@ export namespace SessionHttpApi {
         yield* session.removePart(params)
         return true
       }).pipe(declaredErrors),
-    partUpdate: ({ params, payload }: { params: typeof PartPath.Type; payload: unknown }) =>
+    partUpdate: ({ params, payload }: { params: typeof PartPath.Type; payload: typeof MessagePart.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
-        const part = MessageV2.Part.parse(payload)
+        // The contract is `MessagePart` (Effect Schema, deep-readonly on the
+        // wire type). The service's `updatePart` takes the mutable `Part`
+        // (the first arm of `UpdatePartInput`'s zod union). The schema is
+        // the same shape; only the readonly modifier differs.
+        const part = MessageV2.Part.parse(payload) as MessageV2.Part
         if (part.id !== params.partID || part.messageID !== params.messageID || part.sessionID !== params.sessionID) {
           throw new Error(
             `Part mismatch: body.id='${part.id}' vs partID='${params.partID}', body.messageID='${part.messageID}' vs messageID='${params.messageID}', body.sessionID='${part.sessionID}' vs sessionID='${params.sessionID}'`,
@@ -895,7 +906,11 @@ export namespace SessionHttpApi {
             messageID: params.messageID,
           }),
         )
-        return yield* session.updatePart(part)
+        // The zod union's input is `MessageV2.Part | { part, delta }`. The
+        // schema member matches what the wire sends (a full Part); the cast
+        // is the boundary between the zod-style union and an Effect-side
+        // readonly input.
+        return yield* session.updatePart(part as unknown as Parameters<typeof session.updatePart>[0])
       }).pipe(declaredErrors),
     v2Entries: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
