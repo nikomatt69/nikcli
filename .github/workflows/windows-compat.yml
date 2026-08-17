@@ -38,6 +38,7 @@ permissions:
 
 jobs:
   smoke:
+    if: github.repository == 'nikomatt69/nikcli'
     strategy:
       fail-fast: false
       matrix:

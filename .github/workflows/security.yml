@@ -12,7 +12,7 @@ jobs:
   # Block PRs that introduce high/critical vulnerable dependencies.
   # CodeQL is handled by the repo's default setup (Settings → Code security).
   dependency-review:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.repository == 'nikomatt69/nikcli'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,3 +27,18 @@ jobs:
           fail-on-severity: high
           comment-summary-in-pr: always
           allow-licenses: MIT, Apache-2.0, ISC, BSD-2-Clause, BSD-3-Clause, CC0-1.0, Unlicense, 0BSD
+
+  # Origin / Depot CI cannot run GitHub's dependency-review-action. Audit
+  # lockfile vulnerabilities on Cursor Codebase PRs.
+  audit:
+    if: github.event_name == 'pull_request' && github.repository == 'nikoemme/nikcli'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Audit dependencies
+        run: bun audit --audit-level=high

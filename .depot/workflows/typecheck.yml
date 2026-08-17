@@ -1,0 +1,22 @@
+name: typecheck
+
+on:
+  push:
+    branches:
+      - live-main
+  pull_request:
+    branches: [live-main]
+  workflow_dispatch:
+
+jobs:
+  typecheck:
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: ./.depot/actions/setup-bun
+
+      - name: Run typecheck
+        run: bun typecheck

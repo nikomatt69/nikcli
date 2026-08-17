@@ -1,8 +1,7 @@
 name: ci-pipeline
 
-# Quality-gate jobs (validate, autofix, report-failure) run on both GitHub
-# (nikomatt69/nikcli) and Cursor Origin Codebase (nikoemme/nikcli).
-# Publish / desktop / Railway stay GitHub-only so releases are not double-fired.
+# Cursor Origin / Depot CI copy of the quality-gate pipeline.
+# Publish, desktop, and Railway stay in .github/workflows (GitHub-only).
 
 on:
   push:
@@ -20,7 +19,7 @@ permissions:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     # Backstop for anything the per-step timeouts in ci-validate.ts cannot kill;
     # the run itself should finish well inside this.
     timeout-minutes: 40
@@ -29,7 +28,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup Bun
-        uses: ./.github/actions/setup-bun
+        uses: ./.depot/actions/setup-bun
 
       - name: Run validation
         id: validate
@@ -47,83 +46,6 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  publish:
-    needs: validate
-    permissions:
-      contents: write
-      id-token: write
-      packages: write
-      actions: write
-    if: >-
-      needs.validate.result == 'success' &&
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/live-main' &&
-      github.repository == 'nikomatt69/nikcli' &&
-      !startsWith(github.event.head_commit.message, 'release: v') &&
-      !startsWith(github.event.head_commit.message, 'chore: generate') &&
-      !startsWith(github.event.head_commit.message, 'chore: update') &&
-      !contains(github.event.head_commit.message, '[nikcli autofix]')
-    uses: ./.github/workflows/publish.yml
-    with:
-      bump: minor
-      channel: latest
-    secrets: inherit
-
-  desktop:
-    needs: publish
-    if: >-
-      needs.publish.result == 'success' &&
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/live-main' &&
-      github.repository == 'nikomatt69/nikcli' &&
-      needs.publish.outputs.tag != ''
-    permissions:
-      contents: write
-    uses: ./.github/workflows/desktop-release.yml
-    with:
-      tag: ${{ needs.publish.outputs.tag }}
-      cli_run_id: ${{ needs.publish.outputs.run_id }}
-    secrets: inherit
-
-  railway-deploy:
-    needs: publish
-    if: >-
-      needs.publish.result == 'success' &&
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/live-main' &&
-      github.repository == 'nikomatt69/nikcli'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install Railway CLI
-        shell: bash
-        run: |
-          curl -fsSL https://railway.com/install.sh | bash -s -- --yes
-          echo "$HOME/.railway/bin" >> "$GITHUB_PATH"
-
-      - name: Deploy to Railway (silent)
-        shell: bash
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE || 'nikcli-mobile' }}
-        run: |
-          if [ -z "${RAILWAY_TOKEN:-}" ]; then
-            echo "✗ RAILWAY_TOKEN not configured — skipping deploy"
-            exit 0
-          fi
-          echo "→ Deploying to Railway service: ${RAILWAY_SERVICE:-nikcli-mobile}"
-          mkdir -p tmp
-          if ./script/railway-deploy.sh --detach >tmp/railway.log 2>&1; then
-            echo "✓ Railway deploy triggered (service=${RAILWAY_SERVICE:-nikcli-mobile})"
-          else
-            echo "✗ Railway deploy failed (last 30 lines):"
-            tail -n 30 tmp/railway.log || true
-            exit 1
-          fi
-
   autofix:
     needs: validate
     if: >-
@@ -134,7 +56,7 @@ jobs:
         (github.event_name == 'pull_request' &&
          github.event.pull_request.head.repo.full_name == github.repository)
       )
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     permissions:
       contents: write
       pull-requests: read
@@ -167,7 +89,7 @@ jobs:
 
       - name: Setup Bun
         if: steps.skip-check.outputs.skip != 'true'
-        uses: ./.github/actions/setup-bun
+        uses: ./.depot/actions/setup-bun
 
       - name: Setup Git identity
         if: steps.skip-check.outputs.skip != 'true'
@@ -215,7 +137,7 @@ jobs:
       always() &&
       needs.validate.result == 'failure' &&
       contains(fromJSON('["nikomatt69/nikcli","nikoemme/nikcli"]'), github.repository)
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     permissions:
       contents: read
       issues: write
@@ -225,7 +147,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup Bun
-        uses: ./.github/actions/setup-bun
+        uses: ./.depot/actions/setup-bun
 
       - name: Report failure
         run: bun run script/ci-report-failure.ts

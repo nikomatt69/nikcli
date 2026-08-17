@@ -29,6 +29,18 @@ This is a Bun monorepo. Key packages:
 - **Build**: `bun run build`
 - **HttpApi route coverage** (nikcli): `bun run check:routes` in `packages/nikcli`
 
+## CI
+
+Quality-gate CI (validate, typecheck, test, generate, nix-eval, storybook, security)
+runs on **Cursor Origin Codebase** (`nikoemme/nikcli`) through Depot, and on GitHub
+(`nikomatt69/nikcli`) through Actions.
+
+- Origin/Depot workflows live in `.depot/workflows/` (local actions in `.depot/actions/`)
+- GitHub Actions workflows stay in `.github/workflows/`
+- Connect **Depot** from the repo Apps tab at [cursor.com/codebase](https://cursor.com/codebase) so Origin PRs get checks
+- Publish, desktop release, and Railway deploy stay GitHub-only so releases are not double-fired
+- Windows jobs (`test` Windows matrix, `windows-compat`) stay GitHub-only — Depot CI has no Windows sandboxes
+
 ## HTTP integration
 
 The nikcli server is Effect `HttpApi` on `Bun.serve`. There is no Hono app.

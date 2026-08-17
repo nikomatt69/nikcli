@@ -453,10 +453,19 @@ describe("workflow YAML integration", () => {
     expect(content).toContain("minimax-coding-plan/MiniMax-M3")
   })
 
-  it("autofix uses SST_GITHUB_TOKEN for push (not GITHUB_TOKEN)", async () => {
+  it("autofix and report-failure also run on Cursor Origin Codebase", async () => {
     const content = await readRoot(".github/workflows/ci-pipeline.yml")
-    expect(content).toContain("secrets.SST_GITHUB_TOKEN")
+    expect(content).toContain("nikoemme/nikcli")
+    expect(content).toContain("secrets.SST_GITHUB_TOKEN || github.token")
     expect(content).toContain("secrets.MINIMAX_API_KEY")
+  })
+
+  it("Depot CI copies quality-gate workflows without GitHub-only publish", async () => {
+    const depot = await readRoot(".depot/workflows/ci-pipeline.yml")
+    expect(depot).toContain("name: ci-pipeline")
+    expect(depot).toContain("validate:")
+    expect(depot).not.toContain("uses: ./.depot/workflows/publish.yml")
+    expect(depot).toContain("./.depot/actions/setup-bun")
   })
 
   it("publish uses workflow_call to publish.yml with secrets: inherit", async () => {

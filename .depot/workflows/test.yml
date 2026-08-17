@@ -14,7 +14,7 @@ jobs:
       matrix:
         settings:
           - name: linux
-            host: blacksmith-4vcpu-ubuntu-2404
+            host: depot-ubuntu-24.04-8
             playwright: bunx playwright install --with-deps
             workdir: .
             command: |
@@ -22,15 +22,7 @@ jobs:
               git config --global user.name "nikcli"
               bun turbo typecheck
               bun turbo test
-          - name: windows
-            host: windows-latest
-            playwright: bunx playwright install
-            workdir: packages/app
-            command: bun test:e2e:local
     runs-on: ${{ matrix.settings.host }}
-    # Windows runners are GitHub-only. Depot CI on Cursor Origin remaps
-    # non-Depot labels to Linux, so skip the Windows matrix there.
-    if: matrix.settings.name != 'windows' || github.repository == 'nikomatt69/nikcli'
     defaults:
       run:
         shell: bash
@@ -41,7 +33,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Bun
-        uses: ./.github/actions/setup-bun
+        uses: ./.depot/actions/setup-bun
 
       - name: Install Playwright browsers
         working-directory: packages/app

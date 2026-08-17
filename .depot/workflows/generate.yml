@@ -1,0 +1,52 @@
+name: generate
+
+on:
+  push:
+    branches:
+      - live-main
+  workflow_dispatch:
+
+concurrency:
+  group: generate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: depot-ubuntu-24.04-4
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
+      - name: Setup Bun
+        uses: ./.depot/actions/setup-bun
+
+      - name: Generate
+        run: ./script/generate.ts
+
+      - name: Verify live-main generated output
+        if: github.ref_name == 'live-main'
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            echo "Generated SDK output differs on live-main; publish workflow will include it in the release commit."
+          fi
+
+      - name: Commit and push
+        if: github.ref_name != 'live-main'
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config --local user.email "nikcli-ci@users.noreply.github.com"
+          git config --local user.name "nikcli-ci[bot]"
+          git add -A
+          git commit -m "chore: generate"
+          git push origin HEAD:${{ github.ref_name }} --no-verify

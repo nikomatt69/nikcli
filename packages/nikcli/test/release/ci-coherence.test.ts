@@ -344,3 +344,59 @@ describe("injection-safety coherence", () => {
     expect(yml).toMatch(/REF_NAME["']?\s*=~\s*\^?\[A-Za-z0-9/)
   })
 })
+
+// ─── 12. Cursor Origin / Depot CI coherence ─────────────────────────────────
+
+describe("Cursor Origin Codebase CI", () => {
+  it("quality-gate jobs also run on the Origin repo nikoemme/nikcli", async () => {
+    const yml = await read(PIPELINE_YML)
+    const autofix = yml.slice(yml.indexOf("\n  autofix:"), yml.indexOf("\n  report-failure:"))
+    const report = yml.slice(yml.indexOf("\n  report-failure:"))
+    expect(autofix).toContain("nikoemme/nikcli")
+    expect(report).toContain("nikoemme/nikcli")
+    expect(autofix).toContain("nikomatt69/nikcli")
+    expect(report).toContain("nikomatt69/nikcli")
+  })
+
+  it("publish / desktop / railway stay GitHub-only", async () => {
+    const yml = await read(PIPELINE_YML)
+    for (const job of ["\n  publish:", "\n  desktop:", "\n  railway-deploy:"]) {
+      const idx = yml.indexOf(job)
+      expect(idx).toBeGreaterThan(-1)
+      const after = yml.slice(idx, idx + 700)
+      expect(after).toContain("github.repository == 'nikomatt69/nikcli'")
+      expect(after).not.toContain("nikoemme/nikcli")
+    }
+  })
+
+  it("Depot CI quality-gate workflows exist and do not invoke GitHub-only publish", async () => {
+    const files = [
+      ".depot/workflows/ci-pipeline.yml",
+      ".depot/workflows/test.yml",
+      ".depot/workflows/typecheck.yml",
+      ".depot/workflows/generate.yml",
+      ".depot/workflows/nix-eval.yml",
+      ".depot/workflows/storybook.yml",
+      ".depot/workflows/security.yml",
+      ".depot/actions/setup-bun/action.yml",
+    ]
+    for (const rel of files) {
+      const stat = await fs.stat(path.join(root, rel))
+      expect(stat.isFile()).toBe(true)
+    }
+    const depotPipeline = await read(".depot/workflows/ci-pipeline.yml")
+    expect(depotPipeline).toContain("validate:")
+    expect(depotPipeline).toContain("autofix:")
+    expect(depotPipeline).toContain("report-failure:")
+    expect(depotPipeline).not.toContain("publish.yml")
+    expect(depotPipeline).not.toContain("desktop-release.yml")
+    expect(depotPipeline).toContain("./.depot/actions/setup-bun")
+  })
+
+  it("Depot test workflow is Linux-only", async () => {
+    const yml = await read(".depot/workflows/test.yml")
+    expect(yml).toContain("depot-ubuntu-24.04-8")
+    expect(yml).not.toContain("windows-latest")
+    expect(yml).toContain("./.depot/actions/setup-bun")
+  })
+})
