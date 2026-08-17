@@ -22,11 +22,11 @@ Status: **Current semantic overview** (verified 2026-08-14 against `packages/nik
 
 `POST /session/:id/prompt_async` calls `admit` and returns `204` before scheduling `loop`. Idle input is already in history at that point; busy input may remain in `session_pending` according to its delivery mode.
 
-Both `steer` and `queue`/default promote immediately while the session is idle. During an active turn, `steer` waits for the next safe step boundary and `queue` waits for the turn to finish.
+Both `queue` and omitted delivery promote immediately while the session is idle, and at the next safe step boundary while a turn is active. `steer` aborts the active turn, then persists and runs the new message immediately.
 
-The TUI renders busy input as queued message cards after the transcript, not as transcript history. Queued cards show `press ctrl-enter to send`.
+The TUI renders busy input as pending message cards after the transcript, not as transcript history. Queue cards show `sends at the next safe step`. Steer cards show `interrupts and sends now`.
 
-Enter queues new composer text. Ctrl+Enter, or Cmd+Enter where supported, submits new text as steer; with an empty composer it steers the oldest queued card, which stays marked `STEERING` until promotion.
+Enter submits composer text as queue. Ctrl+Enter, or Cmd+Enter where supported, submits new text as steer (interrupt and send now); with an empty composer it interrupts and sends the oldest queued card.
 
 Busy input is stored outside history in `session_pending`. Promotion batches ordered rows into messages and parts in one transaction, removes the pending rows, and resets the loop's step allowance once for the batch.
 

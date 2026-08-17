@@ -81,6 +81,7 @@ describe.serial("durable pending input", () => {
         }),
       )
       expect(first.pending?.messageID).toBe(messageID)
+      expect(first.pending?.delivery).toBe("queue")
       expect(MessageRepo.getMessageWithParts(sessionID, messageID)).toBeUndefined()
       expect(SessionPending.list(sessionID)).toHaveLength(1)
 
@@ -207,6 +208,87 @@ describe.serial("durable pending input", () => {
       )
       expect(retry.retry).toBe(true)
       expect(MessageRepo.listMessages(sessionID).filter((message) => message.id === messageID)).toHaveLength(1)
+    })
+  }, 20_000)
+
+  it("keeps explicit queue delivery while the session is busy", async () => {
+    await withSession(async ({ sessionID, runPrompt }) => {
+      const [{ Identifier }, { MessageRepo }, { SessionPending }, { PromptState }, { SessionPrompt }] = await Promise.all([
+        import("@nikcli-ai/util/id"),
+        import("@/session/message-repo"),
+        import("@/session/pending"),
+        import("@/session/prompt-state"),
+        import("@/session/prompt"),
+      ])
+      const messageID = Identifier.ascending("message")
+      const controller = PromptState.reserve(sessionID)
+      expect(controller).toBeDefined()
+
+      const queued = await runPrompt(
+        Effect.gen(function* () {
+          const prompt = yield* SessionPrompt.Service
+          return yield* prompt.admit({
+            ...promptInput(sessionID, messageID, "later"),
+            delivery: "queue",
+          })
+        }),
+      )
+      expect(queued.pending?.delivery).toBe("queue")
+      expect(MessageRepo.getMessageWithParts(sessionID, messageID)).toBeUndefined()
+      expect(SessionPending.list(sessionID, "queue")).toHaveLength(1)
+      expect(SessionPending.list(sessionID, "steer")).toHaveLength(0)
+
+      await PromptState.finish(sessionID, controller!)
+    })
+  }, 20_000)
+
+  it("waitUntilIdle resolves once the prompt owner finishes", async () => {
+    await withSession(async ({ sessionID }) => {
+      const { PromptState } = await import("@/session/prompt-state")
+      const controller = PromptState.reserve(sessionID)
+      expect(controller).toBeDefined()
+      const idle = PromptState.waitUntilIdle(sessionID)
+      await PromptState.finish(sessionID, controller!)
+      await idle
+      expect(PromptState.owned(sessionID)).toBe(false)
+    })
+  }, 20_000)
+
+  it("steer admission interrupts busy input and persists immediately", async () => {
+    await withSession(async ({ sessionID, runPrompt }) => {
+      const [{ Identifier }, { MessageRepo }, { SessionPending }, { PromptState }, { SessionPrompt }] = await Promise.all([
+        import("@nikcli-ai/util/id"),
+        import("@/session/message-repo"),
+        import("@/session/pending"),
+        import("@/session/prompt-state"),
+        import("@/session/prompt"),
+      ])
+      const queuedID = Identifier.ascending("message")
+      const steerID = Identifier.ascending("message")
+      const controller = PromptState.reserve(sessionID)
+      expect(controller).toBeDefined()
+
+      const queued = await runPrompt(
+        Effect.gen(function* () {
+          const prompt = yield* SessionPrompt.Service
+          return yield* prompt.admit(promptInput(sessionID, queuedID, "later"))
+        }),
+      )
+      expect(queued.pending?.delivery).toBe("queue")
+
+      const steered = await runPrompt(
+        Effect.gen(function* () {
+          const prompt = yield* SessionPrompt.Service
+          return yield* prompt.admit({
+            ...promptInput(sessionID, steerID, "now"),
+            delivery: "steer",
+          })
+        }),
+      )
+      expect(steered.message?.info.id).toBe(steerID)
+      expect(MessageRepo.getMessageWithParts(sessionID, steerID)).toBeDefined()
+      expect(SessionPending.list(sessionID, "queue")).toHaveLength(1)
+      expect(PromptState.owned(sessionID)).toBe(false)
     })
   }, 20_000)
 })

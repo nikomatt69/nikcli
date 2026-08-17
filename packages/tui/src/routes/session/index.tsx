@@ -1586,12 +1586,12 @@ function PendingUserMessage(props: { pending: SessionPendingInput2 }) {
             fallback={
               <>
                 <span style={{ bg: color(), fg: badgeFg(), bold: true }}> STEERING </span>
-                <span> sends at the next safe step</span>
+                <span> interrupts and sends now</span>
               </>
             }
           >
             <span style={{ bg: color(), fg: badgeFg(), bold: true }}> QUEUED </span>
-            <span> press ctrl-enter to send</span>
+            <span> sends at the next safe step</span>
           </Show>
         </text>
       </box>

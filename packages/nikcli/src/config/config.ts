@@ -1710,9 +1710,9 @@ export namespace Config {
                 .optional(),
             })
             .optional(),
-          // Opencode #21535: deterministic wrap for queued user messages. The
-          // default template matches the opencode upstream so prompt-cache
-          // prefixes stay stable across turns.
+          // Opencode #21535: wrap template for queued user messages. Off unless
+          // set — wrapping mid-turn text in "continue with your tasks" made
+          // steer/wake absorption weaker than the pre-queue path.
           queued_message_wrap: z
             .union([
               z

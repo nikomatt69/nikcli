@@ -142,6 +142,31 @@ export namespace PromptState {
     return !!state()[sessionID]
   }
 
+  /** True when a prompt loop has started (not merely reserved). */
+  export function running(sessionID: string): boolean {
+    const entry = state()[sessionID]
+    return !!entry && !entry.reserved
+  }
+
+  const idleWaiters = new Map<string, Array<() => void>>()
+
+  function notifyIdle(sessionID: string) {
+    const waiters = idleWaiters.get(sessionID)
+    if (!waiters) return
+    idleWaiters.delete(sessionID)
+    for (const resolve of waiters) resolve()
+  }
+
+  /** Resolves when the session has no prompt owner. */
+  export function waitUntilIdle(sessionID: string): Promise<void> {
+    if (!owned(sessionID)) return Promise.resolve()
+    return new Promise((resolve) => {
+      const waiters = idleWaiters.get(sessionID) ?? []
+      waiters.push(resolve)
+      idleWaiters.set(sessionID, waiters)
+    })
+  }
+
   export function wait(sessionID: string, messageID?: string, waitFor: "reply" | "promotion" = "reply") {
     return new Promise<MessageV2.WithParts>((resolve, reject) => {
       const entry = state()[sessionID]
@@ -201,6 +226,7 @@ export namespace PromptState {
       delete s[sessionID]
     }
     active.delete(sessionID)
+    notifyIdle(sessionID)
   }
 
   /** Abort an active session (or clear a stale "busy" status if none is recorded). */
@@ -211,6 +237,7 @@ export namespace PromptState {
       const match = s[sessionID]
       if (!match) {
         await setStatus(sessionID, { type: "idle" })
+        notifyIdle(sessionID)
         return
       }
       if (!match.abort.signal.aborted) {
@@ -227,6 +254,12 @@ export namespace PromptState {
       // also deletes; Set.delete is idempotent, so both paths are safe.
       active.delete(sessionID)
       await setStatus(sessionID, { type: "idle" })
+      // A reservation never started a loop, so nothing will call `finish`.
+      // Drop it now so waitUntilIdle can resolve.
+      if (match.reserved && s[sessionID] === match) {
+        delete s[sessionID]
+        notifyIdle(sessionID)
+      }
     }
   })()
 }

@@ -441,6 +441,7 @@ export namespace Monitor {
           const sessionPrompt = yield* SessionPrompt.Service
           return yield* sessionPrompt.prompt({
             sessionID: record.sessionID,
+            delivery: "queue",
             // Preserve the agent that started the monitor so a completion wake
             // doesn't silently switch the session to the default agent.
             ...(record.agent ? { agent: record.agent } : {}),

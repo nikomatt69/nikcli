@@ -610,6 +610,7 @@ async function wakeParentSession(
           const sessionPrompt = yield* SessionPrompt.Service
           return yield* sessionPrompt.prompt({
             sessionID: parentSessionID,
+            delivery: "queue",
             agent: result.parentAgent,
             parts: [
               {

@@ -43,23 +43,23 @@ The same migration adds nullable `message_info.prompt_data`. Promoted messages r
 
 ## Choose delivery
 
-| Mode    | While a turn is active                           | While idle          |
-| ------- | ------------------------------------------------ | ------------------- |
-| `steer` | Promote at the next safe step boundary           | Promote immediately |
-| `queue` | Wait for the active turn to finish, then promote | Promote immediately |
-| omitted | Behave as `queue` while active                   | Promote immediately |
+| Mode    | While a turn is active                                  | While idle          |
+| ---------| ---------------------------------------------------------| ---------------------|
+| `queue` | Promote at the next safe step boundary                  | Promote immediately |
+| `steer` | Abort the active turn, then persist and run immediately | Promote immediately |
+| omitted | Behave as `queue` while active                          | Promote immediately |
 
-`prompt` and `prompt_async` therefore keep their immediate idle behavior. An explicit `steer` changes only active-turn delivery.
+`prompt` and `prompt_async` keep their immediate idle behavior. Queue is the absorb-at-next-step path (monitor wakes, background-task parent wakes, and TUI Enter). Steer is the interrupt path: it cancels the running loop, waits until the session is idle, then launches the new message.
 
-The main TUI prompt path uses `delivery: "queue"` for Enter. Ctrl+Enter, or Cmd+Enter where supported, submits composer text with `delivery: "steer"`; slash commands preserve the selected delivery.
+The main TUI prompt path uses `delivery: "queue"` for Enter. Ctrl+Enter, or Cmd+Enter where supported, submits composer text with `delivery: "steer"` (interrupt and send now); slash commands preserve the selected delivery.
 
 ---
 
 ## Follow the cards
 
-The TUI renders durable pending input after the transcript as queued message cards, without adding it to transcript history. Each queued card shows `press ctrl-enter to send`.
+The TUI renders durable pending input after the transcript as pending message cards, without adding it to transcript history. Queue cards show `sends at the next safe step`. Steer cards show `interrupts and sends now`.
 
-With an empty composer, Ctrl+Enter or Cmd+Enter steers the oldest queued card. Its badge changes from `QUEUED` to `STEERING` until promotion; Enter continues to queue new input.
+Enter submits composer text as queue. Ctrl/Cmd+Enter submits as steer (abort the current turn and launch immediately). With an empty composer, Ctrl+Enter or Cmd+Enter interrupts and sends the oldest queued card.
 
 ---
 
@@ -77,7 +77,7 @@ If the session no longer exists, promotion deletes the selected pending rows wit
 
 A safe boundary is after the current logical provider step and its tool results are durable, before the next request is assembled. Promotion never occurs mid-stream, mid-tool, or mid-retry.
 
-When a compaction part is active, steer promotion is skipped. Input stays pending until `SessionCompaction.process` finishes and the compaction result is durable; queue/default still waits for idle.
+When a compaction part is active, queue and steer promotion at the step boundary are skipped. Queue input stays pending until `SessionCompaction.process` finishes; steer still aborts the turn, then persists after the session is idle.
 
 ---
 

@@ -411,6 +411,10 @@ export namespace SessionPrompt {
 
   /** Durably admit input without starting a model request. */
   const admit = fn(PromptInput, async (input) => {
+    if (input.delivery === "steer" && PromptState.owned(input.sessionID)) {
+      await PromptState.cancel(input.sessionID)
+      await PromptState.waitUntilIdle(input.sessionID)
+    }
     const controller = input.noReply === true ? undefined : PromptState.reserve(input.sessionID)
     try {
       const session = await sessionGet(input.sessionID)
@@ -474,6 +478,8 @@ export namespace SessionPrompt {
             {
               sessionID: admitted.sessionID,
               messageID,
+              // Omit delivery → queue. Queue absorbs at the next safe step
+              // (the old steer path). Explicit steer aborts the turn first.
               delivery: admitted.delivery ?? "queue",
               data: promptData,
             },
@@ -547,11 +553,19 @@ export namespace SessionPrompt {
 
   const steerPending = fn(SteerPendingInput, async (input) => {
     await sessionGet(input.sessionID)
+    const running = PromptState.running(input.sessionID)
+    if (running) {
+      await PromptState.cancel(input.sessionID)
+      await PromptState.waitUntilIdle(input.sessionID)
+    }
     const pending = Database.transaction((tx) => SessionPending.steer(input.sessionID, input.pendingID, tx))
     if (!pending) {
       throw new Session.NotFoundError({
         message: `Pending input not found: ${input.pendingID}`,
       })
+    }
+    if (running || !PromptState.owned(input.sessionID)) {
+      await promote(input.sessionID, "steer")
     }
     void loop(input.sessionID, undefined, pending.messageID).catch((error) => {
       if (MessageV2.AbortedError.isInstance(error)) return
@@ -744,7 +758,8 @@ export namespace SessionPrompt {
       }
       if (boundaryTask?.type !== "compaction") {
         const steered = await promote(sessionID, "steer")
-        if (steered.length > 0) {
+        const queued = await promote(sessionID, "queue")
+        if (steered.length > 0 || queued.length > 0) {
           step = 0
           continue
         }
@@ -1105,14 +1120,15 @@ export namespace SessionPrompt {
       // therefore prompt-cache prefixes) stay stable across turns.
       const sessionMessages = clone(msgs)
       const remindAfter = step > 1 && lastFinished ? lastFinished.id : undefined
-      // Opencode #21535: respect config-defined wrap template (or opt-out).
+      // Default off: wrapping mid-turn user text in "continue with your tasks"
+      // made steer/wake absorption weaker than the pre-queue path. Opt in via
+      // experimental.queued_message_wrap.
       const config = await configGet()
-      const wrap = config.experimental?.queued_message_wrap as
+      const wrap = (config.experimental?.queued_message_wrap ?? false) as
         | { header: string; footer: string }
         | "default"
         | boolean
         | null
-        | undefined
 
       await runPlugin(
         Effect.gen(function* () {

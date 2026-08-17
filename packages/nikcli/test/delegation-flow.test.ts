@@ -303,6 +303,7 @@ describe("delegation flow", () => {
       parentAgent: "plan",
     })
     expect(planWake.agent).toBe("plan")
+    expect(planWake.delivery).toBe("queue")
     expect(planWake.model).toEqual(base.parentModel)
     expect(planWake.parts[0]?.type).toBe("text")
     if (planWake.parts[0]?.type !== "text") throw new Error("Expected text wake prompt part")

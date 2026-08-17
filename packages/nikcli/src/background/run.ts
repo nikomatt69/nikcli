@@ -227,6 +227,7 @@ export namespace BackgroundRun {
 
     return {
       sessionID: parentSessionID,
+      delivery: "queue" as const,
       model: result.parentModel,
       ...(result.parentAgent ? { agent: result.parentAgent } : {}),
       parts: [

@@ -154,7 +154,7 @@ export default function MissionDetailScreen() {
     }
   }
 
-  async function useTemplate(template: MissionTemplate) {
+  function applyTemplate(template: MissionTemplate) {
     setName(template.title)
     setBrief(template.brief)
   }
@@ -218,7 +218,7 @@ export default function MissionDetailScreen() {
     >
       {error ? <ErrorBanner message={error} /> : null}
 
-      <SurfaceCard eyebrow={isNew ? "Create" : "Plan"} title={isNew ? "New mission" : definition?.name ?? "Mission"}>
+      <SurfaceCard eyebrow={isNew ? "Create" : "Plan"} title={isNew ? "New mission" : (definition?.name ?? "Mission")}>
         <View className="gap-3">
           <TextField label="Name" value={name} onChangeText={setName} placeholder="Ship the checkout flow" />
           <TextField
@@ -233,7 +233,11 @@ export default function MissionDetailScreen() {
       </SurfaceCard>
 
       {isNew ? (
-        <SurfaceCard eyebrow="Generate" title="From a description" description="The host plans milestones and features.">
+        <SurfaceCard
+          eyebrow="Generate"
+          title="From a description"
+          description="The host plans milestones and features."
+        >
           <View className="gap-3">
             <TextField
               label="Description"
@@ -249,7 +253,7 @@ export default function MissionDetailScreen() {
               onPress={() => void generate()}
             />
             {templates.map((template) => (
-              <Pressable key={template.id} onPress={() => void useTemplate(template)}>
+              <Pressable key={template.id} onPress={() => applyTemplate(template)}>
                 <Text className="text-[13px] font-semibold text-ink">{template.title}</Text>
                 <Text className="mt-1 text-[12px] leading-[17px] text-soft">{template.description}</Text>
               </Pressable>
@@ -269,8 +273,18 @@ export default function MissionDetailScreen() {
           </View>
           <View className="mt-4 flex-row flex-wrap gap-2">
             <ActionButton label="Start" loading={action === "start"} onPress={() => void run("start")} />
-            <ActionButton label="Pause" variant="secondary" loading={action === "pause"} onPress={() => void run("pause")} />
-            <ActionButton label="Cancel" variant="danger" loading={action === "cancel"} onPress={() => void run("cancel")} />
+            <ActionButton
+              label="Pause"
+              variant="secondary"
+              loading={action === "pause"}
+              onPress={() => void run("pause")}
+            />
+            <ActionButton
+              label="Cancel"
+              variant="danger"
+              loading={action === "cancel"}
+              onPress={() => void run("cancel")}
+            />
           </View>
           {runtime.sessionID ? (
             <View className="mt-3">
