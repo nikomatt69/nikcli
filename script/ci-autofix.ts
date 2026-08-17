@@ -66,8 +66,9 @@ function shouldSkip(): { skip: boolean; reason: string } {
     return { skip: true, reason: "Missing MINIMAX_API_KEY secret" }
   }
 
-  // Only run on nikomatt69/nikcli
-  if (REPO !== "nikomatt69/nikcli") {
+  // Only run on the GitHub canonical repo or Cursor Origin Codebase
+  const allowedRepos = new Set(["nikomatt69/nikcli", "nikoemme/nikcli"])
+  if (!allowedRepos.has(REPO)) {
     return { skip: true, reason: `Wrong repository: ${REPO}` }
   }
 

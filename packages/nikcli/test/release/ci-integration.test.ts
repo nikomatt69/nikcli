@@ -318,6 +318,12 @@ describe("ci-autofix.ts", () => {
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain("Autofix skipped")
     })
+
+    it("does not skip the Origin Codebase repository nikoemme/nikcli at the repo-trust guard", async () => {
+      const src = await fs.readFile(path.join(scriptsDir, "ci-autofix.ts"), "utf8")
+      expect(src).toContain("nikoemme/nikcli")
+      expect(src).toContain("nikomatt69/nikcli")
+    })
   })
 })
 
