@@ -43,7 +43,9 @@ beforeAll(async () => {
       }
     })
   })
-  await new Promise<void>((resolve) => server.listen(socketPath, resolve))
+  // Listen on the same endpoint the bridge dials — a named pipe on Windows,
+  // the plain path elsewhere.
+  await new Promise<void>((resolve) => server.listen(bridge.socketEndpoint(socketPath), resolve))
 
   process.env.HERDR_ENV = "1"
   process.env.HERDR_SOCKET_PATH = socketPath
