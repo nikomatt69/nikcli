@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { Identifier } from "@nikcli-ai/util/identifier"
+import { Identifier } from "@nikcli-ai/util/id"
 import { Share } from "../../src/core/share"
 import { Storage } from "../../src/core/storage"
 
 describe.concurrent("core.share", () => {
   test("should create a share", async () => {
-    const sessionID = Identifier.descending()
+    const sessionID = Identifier.descending("session")
     const share = await Share.create({ sessionID })
 
     expect(share.sessionID).toBe(sessionID)
@@ -15,7 +15,7 @@ describe.concurrent("core.share", () => {
   })
 
   test("should sync data to a share", async () => {
-    const sessionID = Identifier.descending()
+    const sessionID = Identifier.descending("session")
     const share = await Share.create({ sessionID })
 
     const data: Share.Data[] = [
@@ -37,7 +37,7 @@ describe.concurrent("core.share", () => {
   })
 
   test("should sync multiple batches of data", async () => {
-    const sessionID = Identifier.descending()
+    const sessionID = Identifier.descending("session")
     const share = await Share.create({ sessionID })
 
     const data1: Share.Data[] = [
@@ -71,7 +71,7 @@ describe.concurrent("core.share", () => {
   })
 
   test("should retrieve synced data", async () => {
-    const sessionID = Identifier.descending()
+    const sessionID = Identifier.descending("session")
     const share = await Share.create({ sessionID })
 
     const data: Share.Data[] = [
@@ -100,7 +100,7 @@ describe.concurrent("core.share", () => {
   })
 
   test("should retrieve data from multiple syncs", async () => {
-    const sessionID = Identifier.descending()
+    const sessionID = Identifier.descending("session")
     const share = await Share.create({ sessionID })
 
     const data1: Share.Data[] = [
@@ -146,7 +146,7 @@ describe.concurrent("core.share", () => {
   })
 
   test("should return latest data when syncing duplicate parts", async () => {
-    const sessionID = Identifier.descending()
+    const sessionID = Identifier.descending("session")
     const share = await Share.create({ sessionID })
 
     const data1: Share.Data[] = [
@@ -184,7 +184,7 @@ describe.concurrent("core.share", () => {
   })
 
   test("should return empty array for share with no data", async () => {
-    const sessionID = Identifier.descending()
+    const sessionID = Identifier.descending("session")
     const share = await Share.create({ sessionID })
 
     const result = await Share.data(share.id)
@@ -195,7 +195,7 @@ describe.concurrent("core.share", () => {
   })
 
   test("should throw error for invalid secret", async () => {
-    const sessionID = Identifier.descending()
+    const sessionID = Identifier.descending("session")
     const share = await Share.create({ sessionID })
 
     const data: Share.Data[] = [
@@ -216,7 +216,7 @@ describe.concurrent("core.share", () => {
   })
 
   test("should throw error for non-existent share", async () => {
-    const sessionID = Identifier.descending()
+    const sessionID = Identifier.descending("session")
     const data: Share.Data[] = [
       {
         type: "part",
@@ -233,7 +233,7 @@ describe.concurrent("core.share", () => {
   })
 
   test("should handle different data types", async () => {
-    const sessionID = Identifier.descending()
+    const sessionID = Identifier.descending("session")
     const share = await Share.create({ sessionID })
 
     const data: Share.Data[] = [

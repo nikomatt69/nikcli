@@ -1,7 +1,7 @@
 import { FileDiff, Message, Model, Part, Session } from "@nikcli-ai/sdk/httpapi"
 import { fn } from "@nikcli-ai/util/fn"
 import { iife } from "@nikcli-ai/util/iife"
-import { Identifier } from "@nikcli-ai/util/identifier"
+import { Identifier } from "@nikcli-ai/util/id"
 import { Binary } from "@nikcli-ai/util/binary"
 import z from "zod"
 import { Storage } from "./storage"
@@ -75,7 +75,7 @@ export namespace Share {
       const share = await get(input.share.id)
       if (!share) throw new Errors.NotFound(input.share.id)
       if (share.secret !== input.share.secret) throw new Errors.InvalidSecret(input.share.id)
-      await Storage.write(["share_event", input.share.id, Identifier.descending()], input.data)
+      await Storage.write(["share_event", input.share.id, Identifier.descending("event")], input.data)
     },
   )
 
