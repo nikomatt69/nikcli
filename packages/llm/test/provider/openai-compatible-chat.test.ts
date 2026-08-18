@@ -6,6 +6,7 @@ import { LLMClient } from "../../src/route"
 import * as NikcliInference from "../../src/providers/nikcli-inference"
 import * as OpenAICompatible from "../../src/providers/openai-compatible"
 import * as OpenAICompatibleChat from "../../src/protocols/openai-compatible-chat"
+import { ModelCompatibility } from "../../src/schema/options"
 import { it } from "../lib/effect"
 import { dynamicResponse } from "../lib/http"
 import { sseEvents } from "../lib/sse"
@@ -158,7 +159,9 @@ describe("OpenAI-compatible Chat route", () => {
         id: "custom-model",
         provider: "custom",
         baseURL: "https://api.custom.test/v1",
-        compatibility: { maxTokensField: "max_completion_tokens" },
+        // ModelCompatibility is a Schema.Class, so the field wants an instance:
+        // a plain object literal fails to decode.
+        compatibility: new ModelCompatibility({ maxTokensField: "max_completion_tokens" }),
       })
       const prepared = yield* LLMClient.prepare(
         LLM.request({ model: compatible, prompt: "Say hello.", generation: { maxTokens: 20 } }),

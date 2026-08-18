@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { existsSync } from "node:fs"
+import { fileURLToPath } from "node:url"
 import { findPlaywrightEntry, PlaywrightUnavailableError, resolveChromium } from "../src/playwright-runtime"
 
 /**
@@ -43,7 +44,8 @@ describe("playwright runtime resolution", () => {
   test("no source file imports playwright as a value", async () => {
     const offenders: string[] = []
     for await (const file of new Bun.Glob("**/*.ts").scan({
-      cwd: new URL("../src", import.meta.url).pathname,
+      // `.pathname` yields "/C:/…" on Windows, which no filesystem call accepts.
+      cwd: fileURLToPath(new URL("../src", import.meta.url)),
       absolute: true,
     })) {
       const source = await Bun.file(file).text()

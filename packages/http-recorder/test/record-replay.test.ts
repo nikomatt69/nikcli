@@ -107,6 +107,10 @@ describe("http-recorder", () => {
   })
 
   test("detects secret-looking values without returning the secret", () => {
+    // Assembled at runtime so no Google-key-shaped literal sits in this file.
+    // 77c77931 scrubbed the original literal out of the fixture but left the
+    // assertion below, so this case asserted a detection that could not happen.
+    const googleKeyShaped = "AIza" + "S".repeat(35)
     expect(
       HttpRecorder.cassetteSecretFindings({
         version: 1,
@@ -117,7 +121,7 @@ describe("http-recorder", () => {
               method: "POST",
               url: "https://example.test/path?key=sk-123456789012345678901234",
               headers: {},
-              body: JSON.stringify({ nested: "" }),
+              body: JSON.stringify({ nested: googleKeyShaped }),
             },
             response: {
               status: 200,

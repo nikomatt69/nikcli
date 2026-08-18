@@ -84,7 +84,11 @@ describe("OpenRouter", () => {
       const body = prepared.body as { messages: Array<{ role?: string; content: unknown }> }
       const system = body.messages[0]?.content
       expect(Array.isArray(system) ? system.filter((part) => part.cache_control).length : 0).toBe(4)
-      expect(system).toMatchObject([{ cache_control: { type: "ephemeral", ttl: "1h" } }])
+      // toMatchObject compares arrays element-wise and requires equal length, so
+      // the shape assertion has to target the entry rather than the whole array.
+      expect(Array.isArray(system) ? system[0] : undefined).toMatchObject({
+        cache_control: { type: "ephemeral", ttl: "1h" },
+      })
       expect(body.messages[1]).toEqual({ role: "user", content: "Hello" })
     }),
   )

@@ -9,15 +9,7 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
-    "nikcli#test": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    },
-    "@nikcli-ai/app#test": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    },
-    "@nikcli-ai/simulation#test": {
+    "test": {
       "dependsOn": ["^build"],
       "outputs": []
     }

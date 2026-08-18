@@ -76,10 +76,13 @@ export namespace Locale {
     if (s.length <= maxLength) return s
 
     const ellipsis = "…"
-    const keepStart = Math.ceil((maxLength - ellipsis.length) / 2)
-    const keepEnd = Math.floor((maxLength - ellipsis.length) / 2)
+    const budget = Math.max(0, maxLength - ellipsis.length)
+    const keepStart = Math.ceil(budget / 2)
+    const keepEnd = budget - keepStart
 
-    return s.slice(0, keepStart) + ellipsis + s.slice(-keepEnd)
+    // `slice(-0)` is `slice(0)` and returns the whole string, so a zero-length
+    // tail has to short-circuit or the result grows past maxLength.
+    return s.slice(0, keepStart) + ellipsis + (keepEnd > 0 ? s.slice(-keepEnd) : "")
   }
 
   export function pluralize(count: number, singular: string, plural: string): string {
