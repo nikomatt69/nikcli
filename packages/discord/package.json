@@ -11,17 +11,22 @@
     "dev": "bun run src/index.ts",
     "start": "./start.sh",
     "setup": "bun run src/setup.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "register": "bun run src/register-commands.ts",
+    "dev:worker": "wrangler dev src/worker.ts",
+    "deploy:worker": "wrangler deploy src/worker.ts"
   },
   "dependencies": {
     "@nikcli-ai/sdk": "workspace:*",
     "discord.js": "14.22.1"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260621.1",
     "@tsconfig/bun": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
+    "@typescript/native": "catalog:",
     "typescript": "catalog:",
-    "@typescript/native": "catalog:"
+    "wrangler": "^4.103.0"
   }
 }

@@ -1,5 +1,8 @@
 node_modules
 .git
+# .agents/skills/native-ui is a symlink to packages/native-control, which is
+# not in the repo; the uploader fails on the dangling link.
+.agents
 .worktrees
 .nikcli
 .expo
@@ -45,6 +48,30 @@ packages/*
 !packages/companion/**
 !packages/slack
 !packages/slack/**
+!packages/discord
+!packages/discord/**
+!packages/identity
+!packages/identity/**
+!packages/auth
+!packages/auth/**
+!packages/llm
+!packages/llm/**
+!packages/http-recorder
+!packages/http-recorder/**
+!packages/httpapi-codegen
+!packages/httpapi-codegen/**
+!packages/simulation
+!packages/simulation/**
+!packages/tui
+!packages/tui/**
+!packages/tui-math
+!packages/tui-math/**
+!packages/terminal-control
+!packages/terminal-control/**
+!packages/browser-control
+!packages/browser-control/**
+!packages/computer-use
+!packages/computer-use/**
 !packages/sdk
 packages/sdk/*
 !packages/sdk/js

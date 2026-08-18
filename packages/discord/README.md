@@ -94,6 +94,63 @@ Library mode does not bind `HEALTH_PORT` and does not register `SIGTERM`.
 
 ## Deploy
 
+Two deployables live in this package, and they are not interchangeable:
+
+| Surface                | Runs on             | Entry                | Reaches Discord via     |
+| ---------------------- | ------------------- | -------------------- | ----------------------- |
+| Gateway bot            | Railway / Fly / Docker | `src/index.ts`    | websocket (discord.js)  |
+| Interactions Worker    | Cloudflare          | `src/worker.ts`      | HTTP webhook            |
+
+The Gateway bot is the full experience — mentions, threads, channel memory,
+follow-ups, voice transcription. It needs a persistent websocket, a git working
+copy and (in standalone mode) a child `nikcli serve`, so it cannot run on
+Cloudflare Workers. The Worker is the slash-command surface only.
+
+### Railway (Gateway bot)
+
+The `discord-bot` service builds `packages/discord/Dockerfile` with the repo
+root as build context. Because the repo root already has its own
+`railway.toml` for the nikcli server, the service's **Config File Path** must
+point at `packages/discord/railway.toml` — otherwise Railway builds
+`Dockerfile.serve` instead.
+
+```bash
+railway up --service discord-bot --ci
+```
+
+Required variable: `DISCORD_BOT_TOKEN`. Leave `NIKCLI_URL` unset to run a local
+nikcli server inside the container against the repo cloned by
+`docker-entrypoint.sh`, or set it to reach an existing server.
+
+### Cloudflare (Interactions Worker)
+
+```bash
+bun run deploy:worker
+bun run register                # registers the global /nikcli command
+```
+
+Then set the **Interactions Endpoint URL** in the Developer Portal to
+`https://discord.nikcli.store/discord/interactions`. Discord verifies the
+endpoint by sending a deliberately invalid signature, so it must be reachable
+before you save.
+
+Per-channel state is a Durable Object (`ChannelSession`), one instance per
+Discord channel: it holds that channel's nikcli session id and serializes
+prompts so two racing interactions cannot fork two sessions.
+
+Worker secrets (`wrangler secret put <NAME>`):
+
+| Secret                     | Required | Description                                   |
+| -------------------------- | -------- | --------------------------------------------- |
+| `DISCORD_PUBLIC_KEY`       | Yes      | Developer Portal → General Information        |
+| `DISCORD_APPLICATION_ID`   | Yes      | Developer Portal → General Information        |
+| `NIKCLI_URL`               | Yes      | The Worker has no local agent to fall back on |
+| `NIKCLI_USERNAME`          | No       | Basic Auth username (default `nikcli`)        |
+| `NIKCLI_PASSWORD`          | No       | Basic Auth password                           |
+| `DISCORD_ALLOWED_CHANNELS` | No       | Comma-separated channel IDs                   |
+
+### Other targets
+
 ```bash
 # Docker (build context = repo root)
 docker compose -f packages/discord/docker-compose.yml up --build
@@ -137,10 +194,13 @@ Discord voice messages.
 ```
 packages/discord/
 ├── src/
-│   ├── index.ts          # CLI entry (health + signals)
-│   ├── bot.ts            # Library: start/stop Discord Gateway bot
-│   ├── invite.ts         # Invite URL + token lookup
-│   └── setup.ts          # CLI setup wizard
-├── Dockerfile
-└── README.md             # This file
+│   ├── index.ts             # CLI entry (health + signals)
+│   ├── bot.ts               # Library: start/stop Discord Gateway bot
+│   ├── worker.ts            # Cloudflare Worker: interactions + ChannelSession DO
+│   ├── register-commands.ts # Registers /nikcli for the Worker
+│   ├── invite.ts            # Invite URL + token lookup
+│   └── setup.ts             # CLI setup wizard
+├── Dockerfile               # Gateway bot image (Railway / Fly)
+├── wrangler.toml            # Cloudflare Worker config
+└── README.md                # This file
 ```
