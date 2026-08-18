@@ -146,6 +146,16 @@ export function FormatUnknownError(input: unknown): string {
     // inside the error message are masked before they reach the user.
     // Return the message (or `name: message`) rather than the stack by
     // default. Set NIKCLI_DEBUG=1 to include the stack for diagnosis.
+    if (input.name === "ClientError") {
+      const status =
+        typeof input.cause === "object" &&
+        input.cause !== null &&
+        "status" in input.cause &&
+        typeof input.cause.status === "number"
+          ? ` (HTTP ${input.cause.status})`
+          : ""
+      return `ClientError: ${input.message}${status}`
+    }
     const redact = process.env.NIKCLI_LOG_REDACT !== "0"
     const safeMessage = redact ? safeStringify(input.message) : input.message
     log.debug("Formatting unknown error", {

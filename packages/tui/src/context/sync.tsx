@@ -743,25 +743,51 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         if (current()) setStore("session", reconcile((x.data ?? []).toSorted((a, b) => a.id.localeCompare(b.id))))
       })
 
-      // blocking - include session.list when continuing a session
+      const fail = (label: string) => (error: unknown) => {
+        const status =
+          error instanceof Error &&
+          typeof error.cause === "object" &&
+          error.cause !== null &&
+          "status" in error.cause &&
+          typeof error.cause.status === "number"
+            ? ` (HTTP ${error.cause.status})`
+            : ""
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(`${label} failed: ${message}${status}`, { cause: error })
+      }
+
+      // blocking - include session.list when continuing a session.
+      // GET /provider is the full models.dev catalog (~5MB) and is loaded
+      // below without throwOnError so a 400/OOM there cannot kill the TUI.
       const blockingRequests: Promise<unknown>[] = [
-        client.config.providers({}, { throwOnError: true }).then((x) => {
-          if (!current()) return
-          batch(() => {
-            setStore("provider", reconcile(x.data!.providers))
-            setStore("provider_default", reconcile(x.data!.default))
+        client.config
+          .providers({}, { throwOnError: true })
+          .then((x) => {
+            if (!current()) return
+            const providers = x.data!.providers
+            const defaults = x.data!.default
+            batch(() => {
+              setStore("provider", reconcile(providers))
+              setStore("provider_default", reconcile(defaults))
+              setStore(
+                "provider_next",
+                reconcile({
+                  all: providers,
+                  default: defaults,
+                  connected: providers.map((item) => item.id),
+                }),
+              )
+            })
           })
-        }),
-        client.provider.list({}, { throwOnError: true }).then((x) => {
-          if (!current()) return
-          batch(() => {
-            setStore("provider_next", reconcile(x.data!))
-          })
-        }),
+          .catch(fail("GET /config/providers")),
         client.app
           .agents({}, { throwOnError: true })
-          .then((x) => current() && setStore("agent", reconcile(x.data ?? []))),
-        client.config.get({}, { throwOnError: true }).then((x) => current() && setStore("config", reconcile(x.data!))),
+          .then((x) => current() && setStore("agent", reconcile(x.data ?? [])))
+          .catch(fail("GET /agent")),
+        client.config
+          .get({}, { throwOnError: true })
+          .then((x) => current() && setStore("config", reconcile(x.data!)))
+          .catch(fail("GET /config")),
         ...(args.continue ? [sessionListPromise] : []),
       ]
 
@@ -772,6 +798,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           // non-blocking
           Promise.all([
             ...(args.continue ? [] : [sessionListPromise]),
+            client.provider.list().then((x) => {
+              if (!current() || !x.data) return
+              setStore("provider_next", reconcile(x.data))
+            }),
             client.command.list().then((x) => current() && setStore("command", reconcile(x.data ?? []))),
             client.lsp.status().then((x) => current() && setStore("lsp", reconcile(x.data!))),
             client.mcp.status().then((x) => current() && setStore("mcp", reconcile(x.data!))),

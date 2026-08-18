@@ -89,6 +89,10 @@ export namespace ProviderHttpApi {
 
   export const ApiLive = HttpApiBuilder.layer(Api)
 
+  // Same as ConfigHttpApi: runtime provider/model records still carry present
+  // `undefined` optionals. The encoder rejects those; JSON round-trip drops them.
+  const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
+
   export const handlers = {
     list: () =>
       Effect.gen(function* () {
@@ -104,17 +108,17 @@ export namespace ProviderHttpApi {
           connected,
         )
 
-        return {
+        return jsonSafe({
           all: Object.values(providers),
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
           connected: Object.keys(connected),
-        }
+        })
       }).pipe(Effect.orDie),
     auth: () =>
       Effect.gen(function* () {
         const providerAuth = yield* ProviderAuth.Service
         const methods = yield* providerAuth.methods()
-        return methods
+        return jsonSafe(methods)
       }).pipe(Effect.orDie),
     api: ({ params, payload }: { params: { providerID: string }; payload: typeof ApiPayload.Type }) =>
       Effect.gen(function* () {
