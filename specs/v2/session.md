@@ -52,8 +52,6 @@ A caller that loses the race does not start a second loop. New input is admitted
 
 Ownership lives only in memory. `sessions.active()`-style liveness is a snapshot of this process, never a durable fact. A graceful shutdown writes `session_info.time_suspended` and the next server resumes each claimed row once; a hard crash never writes the mark, so the durable rows remain and the loop does not. See [restart continuation](./session-restart-continuation.md).
 
-`SessionRunner` (`src/session/runner.ts`) is a separate single-flight state machine — `Idle | Running | Shell | ShellThenRun` — used where a shell command (`!cmd`) and a model run compete for one session. It guarantees at most one shell plus at most one run, and forks into a caller-supplied `Scope`. It does not replace `PromptState`.
-
 ---
 
 ## Own one logical call

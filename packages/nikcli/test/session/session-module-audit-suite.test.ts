@@ -7,7 +7,6 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, spyOn } from "bu
 import { flushBenchmarkRun, recordBenchmark, recordVisualArtifact } from "../benchmarks/runner"
 import { Identifier } from "@nikcli-ai/util/id"
 import { Instance } from "@/project/instance"
-import { Message } from "@/session/message"
 import { MessageV2 } from "@/session/message-v2"
 import { Session } from "@/session"
 import { SessionCompaction } from "@/session/compaction"
@@ -157,7 +156,6 @@ const sessionModulePaths = [
   "@/session",
   "@/session/retry",
   "@/session/status",
-  "@/session/message",
   "@/session/message-v2",
   "@/session/compaction",
   "@/session/todo",
@@ -632,70 +630,6 @@ describe("Session status matrix", () => {
       expect(hasRetry).toBeGreaterThan(0)
     })
   })
-})
-
-describe("Legacy Message schemas", () => {
-  const legacyCases = [
-    { label: "text", value: { type: "text", text: "hello" }, valid: true },
-    { label: "reasoning", value: { type: "reasoning", text: "think" }, valid: true },
-    { label: "file", value: { type: "file", mediaType: "text/plain", url: "file:///tmp/a.txt" }, valid: true },
-    { label: "source-url", value: { type: "source-url", sourceId: "id", url: "https://example.com" }, valid: true },
-    {
-      label: "tool",
-      value: {
-        type: "tool-invocation",
-        toolInvocation: { state: "call", toolCallId: "id", toolName: "tool", args: {} },
-      },
-      valid: true,
-    },
-    { label: "step-start", value: { type: "step-start" }, valid: true },
-    { label: "missing-type", value: { text: "nope" }, valid: false },
-    {
-      label: "invalid-tool",
-      value: { type: "tool-invocation", toolInvocation: { state: "invalid", x: 1 } },
-      valid: false,
-    },
-    { label: "invalid-text", value: { type: "text", text: 1 }, valid: false },
-    { label: "invalid-file", value: { type: "file", mediaType: 1, url: "x" }, valid: false },
-    { label: "invalid-step", value: { type: "step-start", extra: true }, valid: true },
-  ] as const
-
-  it.each([...legacyCases])("legacy Message part $label validation", ({ value, valid }) => {
-    const result = Message.MessagePart.safeParse(value)
-    expect(result.success).toBe(valid)
-  })
-
-  it.each(Array.from({ length: 30 }, (_, index) => ({ label: `schema-${index}`, index })))(
-    "legacy Message roundtrip stress $label",
-    ({ index }) => {
-      const value =
-        index % 2 === 0
-          ? Message.TextPart.parse({ type: "text", text: `msg-${index}` })
-          : Message.ReasoningPart.parse({ type: "reasoning", text: "step", providerMetadata: { step: index } })
-      const payload = Message.Info.parse({
-        id: `msg-${index}`,
-        role: index % 2 === 0 ? "user" : "assistant",
-        parts: [value],
-        metadata: {
-          time: { created: Date.now() },
-          sessionID: "s",
-          tool: {},
-          assistant:
-            index % 2 === 0
-              ? undefined
-              : {
-                  system: [],
-                  modelID: "m",
-                  providerID: "p",
-                  path: { cwd: "/", root: "/" },
-                  cost: 0,
-                  tokens: { input: 1, output: 1, reasoning: 0, cache: { read: 0, write: 0 } },
-                },
-        },
-      } as never)
-      expect(payload.parts).toHaveLength(1)
-    },
-  )
 })
 
 describe("MessageV2 conversion and cursor matrix", () => {
