@@ -69,9 +69,7 @@ export namespace ServerRouter {
     // that *require* the session lookup still fall through to
     // `sessionForRequest` below (`getAnyProject` is its own short-circuit).
     const explicitWorkspace = url.searchParams.get("workspace") || request.headers.get("x-nikcli-workspace")
-    const routeSession = sessionID && !explicitWorkspace
-      ? await sessionForRequest(sessionID, directory)
-      : undefined
+    const routeSession = sessionID && !explicitWorkspace ? await sessionForRequest(sessionID, directory) : undefined
     const workspaceID = explicitWorkspace || routeSession?.workspaceID
     const workspace = workspaceID ? await Workspace.get(workspaceID).catch(() => undefined) : undefined
     if (workspace) {

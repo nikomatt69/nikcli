@@ -243,10 +243,7 @@ export namespace HttpApiBridge {
     return webHandler(request, Context.empty() as Context.Context<any>)
   }
 
-  export async function handle(
-    request: Request,
-    options?: { upstreamAuthVerified?: boolean; pathname?: string },
-  ) {
+  export async function handle(request: Request, options?: { upstreamAuthVerified?: boolean; pathname?: string }) {
     // Raw streaming responses (SSE, chunked prompt bodies) are served ahead
     // of the router — they are not schema-encoded HttpApi bodies.
     const pathname = options?.pathname ?? new URL(request.url).pathname

@@ -3,6 +3,30 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.293.0 (August 2026)
+
+## Core
+
+- Enhance JSON safety in provider responses (@nikomatt69)
+- H6 — named payload field refs; keep unknown as unknown (@nikomatt69)
+- X2 — delete unused share/message/runner/llm adapters (@nikomatt69)
+- H4 — collapse two dispatcher stacks; add AccountGroup + profilesList (@nikomatt69)
+- H5 — generate implementedRoutes from OpenApi.fromApi(PublicApi) (@nikomatt69)
+- E4 — Schema.optionalKey across domain, delete jsonSafe (@nikomatt69)
+- P2 quick cuts — disableLogger, COUNT(*), skip sessionForRequest on pinned workspace (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - perf(httpapi): P2 quick cuts — disableLogger, COUNT(*), skip sessionForRequest on pinned workspace
+  - refactor(httpapi): E4 — Schema.optionalKey across domain, delete jsonSafe
+  - perf(httpapi): H5 — generate implementedRoutes from OpenApi.fromApi(PublicApi)
+  - feat(httpapi): H4 — collapse two dispatcher stacks; add AccountGroup + profilesList
+  - refactor(util): I1 — delete unprefixed Identifier; enterprise uses util/id
+  - chore(nikcli): X2 — delete unused share/message/runner/llm adapters
+  - feat(httpapi): H6 — named payload field refs; keep unknown as unknown
+  - feat(httpapi): enhance JSON safety in provider responses
+
 ## v1.292.0 (August 2026)
 
 - No notable changes

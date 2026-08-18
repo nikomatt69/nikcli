@@ -3886,14 +3886,7 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -4433,14 +4426,7 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -5113,10 +5099,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ConnectorsAuthInput"
-                  }
+                  "type": "array"
                 }
               }
             }
@@ -6561,9 +6544,7 @@
                               "type": "string",
                               "enum": ["Die"]
                             },
-                            "defect": {
-                              "$ref": "#/components/schemas/ConnectorsAuthInput"
-                            }
+                            "defect": {}
                           },
                           "required": ["_tag", "defect"],
                           "additionalProperties": false
@@ -9555,9 +9536,7 @@
             "description": "WebSocket upgrade",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
+                "schema": {}
               }
             }
           }
@@ -10401,9 +10380,7 @@
                               "type": "string",
                               "enum": ["Die"]
                             },
-                            "defect": {
-                              "$ref": "#/components/schemas/ConnectorsAuthInput"
-                            }
+                            "defect": {}
                           },
                           "required": ["_tag", "defect"],
                           "additionalProperties": false
@@ -11415,10 +11392,7 @@
                     "sessions": {
                       "anyOf": [
                         {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/ConnectorsAuthInput"
-                          }
+                          "type": "array"
                         },
                         {
                           "type": "null"
@@ -13576,14 +13550,7 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -14166,14 +14133,7 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -14224,14 +14184,7 @@
             "name": "directory",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -14239,14 +14192,7 @@
             "name": "roots",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -14254,14 +14200,7 @@
             "name": "start",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -14269,14 +14208,7 @@
             "name": "search",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -14284,14 +14216,7 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -15553,14 +15478,7 @@
             "name": "messageID",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -15639,14 +15557,7 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -16363,7 +16274,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
+                  "$ref": "#/components/schemas/SessionV2State"
                 }
               }
             }
@@ -17084,14 +16995,7 @@
             "name": "lines",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -17228,6 +17132,209 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.session.monitorCancel({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/account": {
+      "get": {
+        "tags": ["account"],
+        "operationId": "getAccount",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Account / null / session payload, shape depends on the call.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionV2State"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "AccountError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.getAccount({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/account/login": {
+      "post": {
+        "tags": ["account"],
+        "operationId": "postAccountLogin",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Account / null / session payload, shape depends on the call.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionV2State"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "AccountError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.postAccountLogin({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/account/login/complete": {
+      "post": {
+        "tags": ["account"],
+        "operationId": "postAccountLoginComplete",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Account / null / session payload, shape depends on the call.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionV2State"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "AccountError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "deviceCode": {
+                    "type": "string"
+                  },
+                  "expiresIn": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity", "-Infinity", "NaN"]
+                      }
+                    ]
+                  }
+                },
+                "required": ["deviceCode"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": true
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.postAccountLoginComplete({\n  ...\n})"
           }
         ]
       }
@@ -17502,7 +17609,7 @@
                               "enum": ["Die"]
                             },
                             "defect": {
-                              "$ref": "#/components/schemas/ConnectorsAuthInput"
+                              "$ref": "#/components/schemas/SessionV2State"
                             }
                           },
                           "required": ["_tag", "defect"],
@@ -17817,7 +17924,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConnectorsAuthInput"
+                "$ref": "#/components/schemas/TuiAppendPromptInput"
               }
             }
           },
@@ -18138,7 +18245,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConnectorsAuthInput"
+                "$ref": "#/components/schemas/TuiExecuteCommandInput"
               }
             }
           },
@@ -18201,7 +18308,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConnectorsAuthInput"
+                "$ref": "#/components/schemas/TuiShowToastInput"
               }
             }
           },
@@ -18264,7 +18371,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConnectorsAuthInput"
+                "$ref": "#/components/schemas/TuiPublishInput"
               }
             }
           },
@@ -18337,7 +18444,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConnectorsAuthInput"
+                "$ref": "#/components/schemas/TuiSelectSessionInput"
               }
             }
           },
@@ -18476,7 +18583,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConnectorsAuthInput"
+                "$ref": "#/components/schemas/TuiControlResponseInput"
               }
             }
           },
@@ -19215,7 +19322,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
+                  "$ref": "#/components/schemas/SessionV2State"
                 }
               }
             }
@@ -19280,6 +19387,47 @@
       }
     },
     "/config/profiles": {
+      "get": {
+        "tags": ["config-management"],
+        "operationId": "getConfigProfiles",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "ConfigProfilesList",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigProfilesList"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.getConfigProfiles({\n  ...\n})"
+          }
+        ]
+      },
       "post": {
         "tags": ["config-management"],
         "operationId": "postConfigProfiles",
@@ -19481,7 +19629,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
+                  "$ref": "#/components/schemas/SessionV2State"
                 }
               }
             }
@@ -19727,7 +19875,7 @@
                               "enum": ["Die"]
                             },
                             "defect": {
-                              "$ref": "#/components/schemas/ConnectorsAuthInput"
+                              "$ref": "#/components/schemas/SessionV2State"
                             }
                           },
                           "required": ["_tag", "defect"],
@@ -19853,7 +20001,7 @@
                               "enum": ["Die"]
                             },
                             "defect": {
-                              "$ref": "#/components/schemas/ConnectorsAuthInput"
+                              "$ref": "#/components/schemas/SessionV2State"
                             }
                           },
                           "required": ["_tag", "defect"],
@@ -19954,7 +20102,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ConnectorsAuthInput"
+                    "$ref": "#/components/schemas/SessionV2State"
                   }
                 }
               }
@@ -20301,7 +20449,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
+                  "$ref": "#/components/schemas/SessionV2State"
                 }
               }
             }
@@ -32508,7 +32656,81 @@
           "$ref": "#/components/schemas/ConnectorStatus"
         }
       },
-      "ConnectorsAuthInput": {},
+      "ConnectorsAuthInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "botToken": {
+            "type": "string"
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "refreshTokenExpiresAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "ConnectorsSuccess": {
         "type": "object",
         "properties": {
@@ -32528,10 +32750,7 @@
             "enum": ["ValidationError"]
           },
           "data": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           }
         },
         "required": ["name", "data"],
@@ -32541,14 +32760,7 @@
         "type": "object",
         "properties": {
           "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -32650,9 +32862,7 @@
           "description": {
             "type": "string"
           },
-          "parameters": {
-            "$ref": "#/components/schemas/ConnectorsAuthInput"
-          }
+          "parameters": {}
         },
         "required": ["id", "description", "parameters"],
         "additionalProperties": false
@@ -33961,46 +34171,32 @@
             "type": "string"
           },
           "model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "tokenBudget": {
             "anyOf": [
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
@@ -34015,14 +34211,7 @@
             "enum": ["pending", "running", "done", "blocked", "skipped", "error"]
           },
           "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": ["id", "name", "objective", "agent", "dependsOn", "status"],
@@ -34059,34 +34248,13 @@
         "type": "object",
         "properties": {
           "worker": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "validation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "orchestrator": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -34098,14 +34266,7 @@
             "type": "string"
           },
           "branch": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "directory": {
             "type": "string"
@@ -34140,54 +34301,33 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
           "sandbox": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "worktree": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/MissionWorktree"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/MissionWorktree"
           },
           "status": {
             "type": "string",
@@ -34235,34 +34375,13 @@
             "enum": ["idle", "running", "paused", "error", "cancelling"]
           },
           "sessionID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "currentMilestoneID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "currentFeatureID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "doneFeatures": {
             "anyOf": [
@@ -34319,46 +34438,32 @@
             ]
           },
           "lastError": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "lastRunAt": {
             "anyOf": [
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           }
@@ -34424,24 +34529,10 @@
             "type": "string"
           },
           "model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "agent": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": ["description"],
@@ -34455,10 +34546,7 @@
             "enum": ["ValidationError"]
           },
           "data": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           }
         },
         "required": ["name", "data"],
@@ -34515,32 +34603,25 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
@@ -34553,54 +34634,33 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
           "sessionID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "ok": {
             "type": "boolean"
@@ -34643,10 +34703,7 @@
             "enum": ["NotFound"]
           },
           "data": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           }
         },
         "required": ["name", "data"],
@@ -36247,1391 +36304,6 @@
         ],
         "additionalProperties": false
       },
-      "AgentConfig1": {
-        "type": "object",
-        "properties": {
-          "model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "variant": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "temperature": {
-            "anyOf": [
-              {
-                "anyOf": [
-                  {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
-                  }
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "top_p": {
-            "anyOf": [
-              {
-                "anyOf": [
-                  {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
-                  }
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "prompt": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "tools": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "boolean"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "disable": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "mode": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": ["subagent", "primary", "all"]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "hidden": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "options": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "steps": {
-            "anyOf": [
-              {
-                "anyOf": [
-                  {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
-                  }
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "order": {
-            "anyOf": [
-              {
-                "anyOf": [
-                  {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
-                  }
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "maxSteps": {
-            "anyOf": [
-              {
-                "anyOf": [
-                  {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
-                  }
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "permission": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PermissionConfig"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "advisor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "advisor_max_uses": {
-            "anyOf": [
-              {
-                "anyOf": [
-                  {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
-                  }
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "additionalProperties": {
-          "anyOf": [
-            {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "ProviderConfig1": {
-        "type": "object",
-        "properties": {
-          "api": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "env": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "npm": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "models": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "name": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "family": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "release_date": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "attachment": {
-                      "anyOf": [
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "reasoning": {
-                      "anyOf": [
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "temperature": {
-                      "anyOf": [
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "tool_call": {
-                      "anyOf": [
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "interleaved": {
-                      "anyOf": [
-                        {
-                          "anyOf": [
-                            {
-                              "type": "boolean",
-                              "enum": [true]
-                            },
-                            {
-                              "type": "object",
-                              "properties": {
-                                "field": {
-                                  "type": "string",
-                                  "enum": ["reasoning_content", "reasoning_details"]
-                                }
-                              },
-                              "required": ["field"],
-                              "additionalProperties": false
-                            }
-                          ]
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "cost": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "input": {
-                              "anyOf": [
-                                {
-                                  "anyOf": [
-                                    {
-                                      "type": "number"
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["NaN"]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["Infinity"]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["-Infinity"]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "string",
-                                  "enum": ["Infinity", "-Infinity", "NaN"]
-                                }
-                              ]
-                            },
-                            "output": {
-                              "anyOf": [
-                                {
-                                  "anyOf": [
-                                    {
-                                      "type": "number"
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["NaN"]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["Infinity"]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["-Infinity"]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "string",
-                                  "enum": ["Infinity", "-Infinity", "NaN"]
-                                }
-                              ]
-                            },
-                            "cache_read": {
-                              "anyOf": [
-                                {
-                                  "anyOf": [
-                                    {
-                                      "anyOf": [
-                                        {
-                                          "type": "number"
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["NaN"]
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["Infinity"]
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["-Infinity"]
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["Infinity", "-Infinity", "NaN"]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "cache_write": {
-                              "anyOf": [
-                                {
-                                  "anyOf": [
-                                    {
-                                      "anyOf": [
-                                        {
-                                          "type": "number"
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["NaN"]
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["Infinity"]
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["-Infinity"]
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["Infinity", "-Infinity", "NaN"]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "context_over_200k": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "input": {
-                                      "anyOf": [
-                                        {
-                                          "anyOf": [
-                                            {
-                                              "type": "number"
-                                            },
-                                            {
-                                              "type": "string",
-                                              "enum": ["NaN"]
-                                            },
-                                            {
-                                              "type": "string",
-                                              "enum": ["Infinity"]
-                                            },
-                                            {
-                                              "type": "string",
-                                              "enum": ["-Infinity"]
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["Infinity", "-Infinity", "NaN"]
-                                        }
-                                      ]
-                                    },
-                                    "output": {
-                                      "anyOf": [
-                                        {
-                                          "anyOf": [
-                                            {
-                                              "type": "number"
-                                            },
-                                            {
-                                              "type": "string",
-                                              "enum": ["NaN"]
-                                            },
-                                            {
-                                              "type": "string",
-                                              "enum": ["Infinity"]
-                                            },
-                                            {
-                                              "type": "string",
-                                              "enum": ["-Infinity"]
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["Infinity", "-Infinity", "NaN"]
-                                        }
-                                      ]
-                                    },
-                                    "cache_read": {
-                                      "anyOf": [
-                                        {
-                                          "anyOf": [
-                                            {
-                                              "anyOf": [
-                                                {
-                                                  "type": "number"
-                                                },
-                                                {
-                                                  "type": "string",
-                                                  "enum": ["NaN"]
-                                                },
-                                                {
-                                                  "type": "string",
-                                                  "enum": ["Infinity"]
-                                                },
-                                                {
-                                                  "type": "string",
-                                                  "enum": ["-Infinity"]
-                                                }
-                                              ]
-                                            },
-                                            {
-                                              "type": "string",
-                                              "enum": ["Infinity", "-Infinity", "NaN"]
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "null"
-                                        }
-                                      ]
-                                    },
-                                    "cache_write": {
-                                      "anyOf": [
-                                        {
-                                          "anyOf": [
-                                            {
-                                              "anyOf": [
-                                                {
-                                                  "type": "number"
-                                                },
-                                                {
-                                                  "type": "string",
-                                                  "enum": ["NaN"]
-                                                },
-                                                {
-                                                  "type": "string",
-                                                  "enum": ["Infinity"]
-                                                },
-                                                {
-                                                  "type": "string",
-                                                  "enum": ["-Infinity"]
-                                                }
-                                              ]
-                                            },
-                                            {
-                                              "type": "string",
-                                              "enum": ["Infinity", "-Infinity", "NaN"]
-                                            }
-                                          ]
-                                        },
-                                        {
-                                          "type": "null"
-                                        }
-                                      ]
-                                    }
-                                  },
-                                  "required": ["input", "output"],
-                                  "additionalProperties": false
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            }
-                          },
-                          "required": ["input", "output"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "limit": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "context": {
-                              "anyOf": [
-                                {
-                                  "anyOf": [
-                                    {
-                                      "type": "number"
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["NaN"]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["Infinity"]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["-Infinity"]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "string",
-                                  "enum": ["Infinity", "-Infinity", "NaN"]
-                                }
-                              ]
-                            },
-                            "input": {
-                              "anyOf": [
-                                {
-                                  "anyOf": [
-                                    {
-                                      "anyOf": [
-                                        {
-                                          "type": "number"
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["NaN"]
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["Infinity"]
-                                        },
-                                        {
-                                          "type": "string",
-                                          "enum": ["-Infinity"]
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["Infinity", "-Infinity", "NaN"]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "output": {
-                              "anyOf": [
-                                {
-                                  "anyOf": [
-                                    {
-                                      "type": "number"
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["NaN"]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["Infinity"]
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": ["-Infinity"]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "string",
-                                  "enum": ["Infinity", "-Infinity", "NaN"]
-                                }
-                              ]
-                            }
-                          },
-                          "required": ["context", "output"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "modalities": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "input": {
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "enum": ["text", "audio", "image", "video", "pdf"]
-                              }
-                            },
-                            "output": {
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "enum": ["text", "audio", "image", "video", "pdf"]
-                              }
-                            }
-                          },
-                          "required": ["input", "output"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "experimental": {
-                      "anyOf": [
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "status": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "enum": ["alpha", "beta", "deprecated"]
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "options": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/ConnectorsAuthInput"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "headers": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "provider": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "npm": {
-                              "type": "string"
-                            },
-                            "api": {
-                              "type": "string"
-                            }
-                          },
-                          "required": ["npm", "api"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "reasoning_options": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "type": {
-                                    "type": "string",
-                                    "enum": ["effort"]
-                                  },
-                                  "values": {
-                                    "type": "array",
-                                    "items": {
-                                      "anyOf": [
-                                        {
-                                          "type": "string"
-                                        },
-                                        {
-                                          "type": "null"
-                                        }
-                                      ]
-                                    }
-                                  }
-                                },
-                                "required": ["type", "values"],
-                                "additionalProperties": false
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "type": {
-                                    "type": "string",
-                                    "enum": ["toggle"]
-                                  }
-                                },
-                                "required": ["type"],
-                                "additionalProperties": false
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "type": {
-                                    "type": "string",
-                                    "enum": ["budget_tokens"]
-                                  },
-                                  "min": {
-                                    "anyOf": [
-                                      {
-                                        "anyOf": [
-                                          {
-                                            "anyOf": [
-                                              {
-                                                "type": "number"
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": ["NaN"]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": ["Infinity"]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": ["-Infinity"]
-                                              }
-                                            ]
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": ["Infinity", "-Infinity", "NaN"]
-                                          }
-                                        ]
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
-                                  "max": {
-                                    "anyOf": [
-                                      {
-                                        "anyOf": [
-                                          {
-                                            "anyOf": [
-                                              {
-                                                "type": "number"
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": ["NaN"]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": ["Infinity"]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": ["-Infinity"]
-                                              }
-                                            ]
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": ["Infinity", "-Infinity", "NaN"]
-                                          }
-                                        ]
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  }
-                                },
-                                "required": ["type"],
-                                "additionalProperties": false
-                              }
-                            ]
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "variants": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "type": "object",
-                            "properties": {
-                              "disabled": {
-                                "anyOf": [
-                                  {
-                                    "type": "boolean"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              }
-                            },
-                            "additionalProperties": {
-                              "anyOf": [
-                                {
-                                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            }
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "disabled": {
-                      "anyOf": [
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "auth_provider": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "whitelist": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "blacklist": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "options": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "apiKey": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "baseURL": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "enterpriseUrl": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "setCacheKey": {
-                    "anyOf": [
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "timeout": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          {
-                            "anyOf": [
-                              {
-                                "anyOf": [
-                                  {
-                                    "type": "number"
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["NaN"]
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["Infinity"]
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["-Infinity"]
-                                  }
-                                ]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity", "-Infinity", "NaN"]
-                              }
-                            ]
-                          },
-                          {
-                            "type": "boolean",
-                            "enum": [false]
-                          }
-                        ]
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "headerTimeout": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          {
-                            "anyOf": [
-                              {
-                                "anyOf": [
-                                  {
-                                    "type": "number"
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["NaN"]
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["Infinity"]
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["-Infinity"]
-                                  }
-                                ]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity", "-Infinity", "NaN"]
-                              }
-                            ]
-                          },
-                          {
-                            "type": "boolean",
-                            "enum": [false]
-                          }
-                        ]
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "chunkTimeout": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["NaN"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["-Infinity"]
-                              }
-                            ]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity", "-Infinity", "NaN"]
-                          }
-                        ]
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "additionalProperties": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ConnectorsAuthInput"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "additionalProperties": false
-      },
       "MobileConfigInfo": {
         "type": "object",
         "properties": {
@@ -38250,7 +36922,7 @@
                   "build": {
                     "anyOf": [
                       {
-                        "$ref": "#/components/schemas/AgentConfig1"
+                        "$ref": "#/components/schemas/AgentConfig"
                       },
                       {
                         "type": "null"
@@ -38260,7 +36932,7 @@
                   "plan": {
                     "anyOf": [
                       {
-                        "$ref": "#/components/schemas/AgentConfig1"
+                        "$ref": "#/components/schemas/AgentConfig"
                       },
                       {
                         "type": "null"
@@ -38271,7 +36943,7 @@
                 "additionalProperties": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/AgentConfig1"
+                      "$ref": "#/components/schemas/AgentConfig"
                     },
                     {
                       "type": "null"
@@ -38292,7 +36964,7 @@
                   "plan": {
                     "anyOf": [
                       {
-                        "$ref": "#/components/schemas/AgentConfig1"
+                        "$ref": "#/components/schemas/AgentConfig"
                       },
                       {
                         "type": "null"
@@ -38302,7 +36974,7 @@
                   "build": {
                     "anyOf": [
                       {
-                        "$ref": "#/components/schemas/AgentConfig1"
+                        "$ref": "#/components/schemas/AgentConfig"
                       },
                       {
                         "type": "null"
@@ -38312,7 +36984,7 @@
                   "general": {
                     "anyOf": [
                       {
-                        "$ref": "#/components/schemas/AgentConfig1"
+                        "$ref": "#/components/schemas/AgentConfig"
                       },
                       {
                         "type": "null"
@@ -38322,7 +36994,7 @@
                   "explore": {
                     "anyOf": [
                       {
-                        "$ref": "#/components/schemas/AgentConfig1"
+                        "$ref": "#/components/schemas/AgentConfig"
                       },
                       {
                         "type": "null"
@@ -38332,7 +37004,7 @@
                   "scout": {
                     "anyOf": [
                       {
-                        "$ref": "#/components/schemas/AgentConfig1"
+                        "$ref": "#/components/schemas/AgentConfig"
                       },
                       {
                         "type": "null"
@@ -38342,7 +37014,7 @@
                   "title": {
                     "anyOf": [
                       {
-                        "$ref": "#/components/schemas/AgentConfig1"
+                        "$ref": "#/components/schemas/AgentConfig"
                       },
                       {
                         "type": "null"
@@ -38352,7 +37024,7 @@
                   "summary": {
                     "anyOf": [
                       {
-                        "$ref": "#/components/schemas/AgentConfig1"
+                        "$ref": "#/components/schemas/AgentConfig"
                       },
                       {
                         "type": "null"
@@ -38362,7 +37034,7 @@
                   "compaction": {
                     "anyOf": [
                       {
-                        "$ref": "#/components/schemas/AgentConfig1"
+                        "$ref": "#/components/schemas/AgentConfig"
                       },
                       {
                         "type": "null"
@@ -38373,7 +37045,7 @@
                 "additionalProperties": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/AgentConfig1"
+                      "$ref": "#/components/schemas/AgentConfig"
                     },
                     {
                       "type": "null"
@@ -38391,7 +37063,7 @@
               {
                 "type": "object",
                 "additionalProperties": {
-                  "$ref": "#/components/schemas/ProviderConfig1"
+                  "$ref": "#/components/schemas/ProviderConfig"
                 }
               },
               {
@@ -38687,10 +37359,7 @@
                             "initialization": {
                               "anyOf": [
                                 {
-                                  "type": "object",
-                                  "additionalProperties": {
-                                    "$ref": "#/components/schemas/ConnectorsAuthInput"
-                                  }
+                                  "type": "object"
                                 },
                                 {
                                   "type": "null"
@@ -39496,9 +38165,7 @@
           },
           "browser": {
             "anyOf": [
-              {
-                "$ref": "#/components/schemas/ConnectorsAuthInput"
-              },
+              {},
               {
                 "type": "null"
               }
@@ -42793,10 +41460,7 @@
         "additionalProperties": false
       },
       "JSONSchema": {
-        "type": "object",
-        "additionalProperties": {
-          "$ref": "#/components/schemas/ConnectorsAuthInput"
-        }
+        "type": "object"
       },
       "OutputFormatJsonSchema": {
         "type": "object",
@@ -43674,9 +42338,7 @@
           },
           "structured": {
             "anyOf": [
-              {
-                "$ref": "#/components/schemas/ConnectorsAuthInput"
-              },
+              {},
               {
                 "type": "null"
               }
@@ -43836,10 +42498,7 @@
           "metadata": {
             "anyOf": [
               {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
+                "type": "object"
               },
               {
                 "type": "null"
@@ -43941,10 +42600,7 @@
           "metadata": {
             "anyOf": [
               {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
+                "type": "object"
               },
               {
                 "type": "null"
@@ -44370,10 +43026,7 @@
             "enum": ["pending"]
           },
           "input": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           },
           "raw": {
             "type": "string"
@@ -44390,10 +43043,7 @@
             "enum": ["running"]
           },
           "input": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           },
           "title": {
             "anyOf": [
@@ -44408,10 +43058,7 @@
           "metadata": {
             "anyOf": [
               {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
+                "type": "object"
               },
               {
                 "type": "null"
@@ -44421,10 +43068,7 @@
           "structured": {
             "anyOf": [
               {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
+                "type": "object"
               },
               {
                 "type": "null"
@@ -44532,10 +43176,7 @@
             "enum": ["completed"]
           },
           "input": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           },
           "output": {
             "type": "string"
@@ -44544,10 +43185,7 @@
             "type": "string"
           },
           "metadata": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           },
           "time": {
             "type": "object",
@@ -44669,10 +43307,7 @@
             "enum": ["error"]
           },
           "input": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           },
           "error": {
             "type": "string"
@@ -44680,10 +43315,7 @@
           "metadata": {
             "anyOf": [
               {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
+                "type": "object"
               },
               {
                 "type": "null"
@@ -44799,10 +43431,7 @@
           "metadata": {
             "anyOf": [
               {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
+                "type": "object"
               },
               {
                 "type": "null"
@@ -45571,10 +44200,7 @@
             }
           },
           "metadata": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           },
           "always": {
             "type": "array",
@@ -46822,10 +45448,7 @@
           "structured": {
             "anyOf": [
               {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
+                "type": "object"
               },
               {
                 "type": "null"
@@ -47353,9 +45976,7 @@
           },
           "format": {
             "anyOf": [
-              {
-                "$ref": "#/components/schemas/ConnectorsAuthInput"
-              },
+              {},
               {
                 "type": "null"
               }
@@ -48533,14 +47154,7 @@
             "type": "string"
           },
           "model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "objective": {
             "type": "string"
@@ -48550,32 +47164,25 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           }
@@ -48643,14 +47250,7 @@
             "type": "string"
           },
           "branch": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "directory": {
             "type": "string"
@@ -48682,32 +47282,25 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
@@ -48716,74 +47309,39 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
           "createPR": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "sandbox": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "worktree": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/LoopWorktree"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/LoopWorktree"
           },
           "paused": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -51534,14 +50092,7 @@
             ]
           },
           "code": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": ["method"],
@@ -51722,10 +50273,7 @@
             "enum": ["PtyCreateError"]
           },
           "data": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           }
         },
         "required": ["name", "data"],
@@ -51739,10 +50287,7 @@
             "enum": ["NotFoundError"]
           },
           "data": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           }
         },
         "required": ["name", "data"],
@@ -51874,54 +50419,33 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
           "lastError": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "sessionID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": ["loopID", "status", "runs"],
@@ -51962,14 +50486,7 @@
             "type": "object",
             "properties": {
               "name": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "string"
               },
               "stages": {
                 "type": "array",
@@ -51977,34 +50494,13 @@
                   "type": "object",
                   "properties": {
                     "name": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string"
                     },
                     "agent": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string"
                     },
                     "model": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string"
                     },
                     "objective": {
                       "type": "string"
@@ -52014,32 +50510,25 @@
                         {
                           "anyOf": [
                             {
-                              "anyOf": [
-                                {
-                                  "type": "number"
-                                },
-                                {
-                                  "type": "string",
-                                  "enum": ["NaN"]
-                                },
-                                {
-                                  "type": "string",
-                                  "enum": ["Infinity"]
-                                },
-                                {
-                                  "type": "string",
-                                  "enum": ["-Infinity"]
-                                }
-                              ]
+                              "type": "number"
                             },
                             {
                               "type": "string",
-                              "enum": ["Infinity", "-Infinity", "NaN"]
+                              "enum": ["NaN"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["Infinity"]
+                            },
+                            {
+                              "type": "string",
+                              "enum": ["-Infinity"]
                             }
                           ]
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "enum": ["Infinity", "-Infinity", "NaN"]
                         }
                       ]
                     }
@@ -52053,32 +50542,25 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               },
@@ -52087,32 +50569,25 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               }
@@ -52144,24 +50619,10 @@
             "type": "string"
           },
           "model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "agent": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": ["description"],
@@ -52175,10 +50636,7 @@
             "enum": ["ValidationError"]
           },
           "data": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           }
         },
         "required": ["name", "data"],
@@ -52224,14 +50682,7 @@
             "type": "string"
           },
           "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "action": {
             "type": "string",
@@ -52282,32 +50733,25 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
@@ -52320,67 +50764,39 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
           "sessionID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "ok": {
             "type": "boolean"
           },
           "pullRequest": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/LoopPullRequestRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/LoopPullRequestRef"
           }
         },
         "required": ["id", "loopID", "startedAt", "status", "ok"],
@@ -52420,10 +50836,7 @@
             "enum": ["NotFound"]
           },
           "data": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           }
         },
         "required": ["name", "data"],
@@ -52449,32 +50862,25 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
@@ -52483,84 +50889,42 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
           "createPR": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "sandbox": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "worktree": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/LoopWorktree"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/LoopWorktree"
           },
           "paused": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "enabled": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           }
         },
         "required": ["name", "stages", "trigger"],
@@ -52586,32 +50950,25 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
@@ -52620,74 +50977,39 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
           "createPR": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "sandbox": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "worktree": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/LoopWorktree"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/LoopWorktree"
           },
           "paused": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -52740,14 +51062,7 @@
         "type": "object",
         "properties": {
           "sessionID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -52762,70 +51077,23 @@
         "type": "object",
         "properties": {
           "parentID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "permission": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "array"
           },
           "skills": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
-          "github": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ConnectorsAuthInput"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
+          "github": {},
           "workspaceID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -52844,10 +51112,7 @@
             "enum": ["NotFoundError"]
           },
           "data": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           }
         },
         "required": ["name", "data"],
@@ -52861,10 +51126,7 @@
             "enum": ["SessionBusyError"]
           },
           "data": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
-            }
+            "type": "object"
           }
         },
         "required": ["name", "data"],
@@ -52877,61 +51139,40 @@
         "type": "object",
         "properties": {
           "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "time": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "archived": {
+            "type": "object",
+            "properties": {
+              "archived": {
+                "anyOf": [
+                  {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["NaN"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["-Infinity"]
-                              }
-                            ]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity", "-Infinity", "NaN"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
+                ]
               }
-            ]
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -52940,14 +51181,7 @@
         "type": "object",
         "properties": {
           "messageID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -52959,14 +51193,7 @@
             "type": "string"
           },
           "partID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": ["messageID"],
@@ -52982,14 +51209,7 @@
             "type": "string"
           },
           "auto": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           }
         },
         "required": ["providerID", "modelID"],
@@ -52999,45 +51219,17 @@
         "type": "object",
         "properties": {
           "messageID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "delivery": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": ["steer", "queue"]
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string",
+            "enum": ["steer", "queue"]
           },
           "agent": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "arguments": {
             "type": "string"
@@ -53046,27 +51238,10 @@
             "type": "string"
           },
           "variant": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "parts": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/ConnectorsAuthInput"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "array"
           }
         },
         "required": ["arguments", "command"],
@@ -53095,24 +51270,17 @@
             "type": "string"
           },
           "model": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "providerID": {
-                    "type": "string"
-                  },
-                  "modelID": {
-                    "type": "string"
-                  }
-                },
-                "required": ["providerID", "modelID"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "providerID": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "modelID": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["providerID", "modelID"],
+            "additionalProperties": false
           },
           "command": {
             "type": "string"
@@ -53649,15 +51817,13 @@
         }
       },
       "SessionV2EntryList": {
-        "type": "array",
-        "items": {
-          "$ref": "#/components/schemas/ConnectorsAuthInput"
-        }
+        "type": "array"
       },
+      "SessionV2State": {},
       "SessionV2EventList": {
         "type": "array",
         "items": {
-          "$ref": "#/components/schemas/ConnectorsAuthInput"
+          "$ref": "#/components/schemas/SessionV2State"
         }
       },
       "SessionInstructionList": {
@@ -53690,14 +51856,7 @@
             "type": "string"
           },
           "detail": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "tokens": {
             "anyOf": [
@@ -53733,25 +51892,11 @@
             "type": "boolean"
           },
           "toggleKind": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": ["mcp", "skill", "instruction", "tool"]
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string",
+            "enum": ["mcp", "skill", "instruction", "tool"]
           },
           "toggleKey": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": ["id", "category", "label", "tokens", "enabled", "togglable"],
@@ -53761,54 +51906,47 @@
         "type": "object",
         "properties": {
           "model": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "providerID": {
-                    "type": "string"
-                  },
-                  "modelID": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "contextLimit": {
+            "type": "object",
+            "properties": {
+              "providerID": {
+                "type": "string"
+              },
+              "modelID": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "contextLimit": {
+                "anyOf": [
+                  {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
-                },
-                "required": ["providerID", "modelID", "name", "contextLimit"],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
+                ]
               }
-            ]
+            },
+            "required": ["providerID", "modelID", "name", "contextLimit"],
+            "additionalProperties": false
           },
           "reported": {
             "type": "object",
@@ -54261,69 +52399,34 @@
             "type": "string"
           },
           "parentAgent": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "status": {
             "type": "string",
             "enum": ["running", "complete", "error", "timeout", "cancelled", "orphaned", "synthesizing"]
           },
           "source": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "task",
-                  "model-subtask",
-                  "advisor",
-                  "research",
-                  "ultrareview",
-                  "delegator",
-                  "delegator-followup",
-                  "loop",
-                  "other"
-                ]
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "task",
+              "model-subtask",
+              "advisor",
+              "research",
+              "ultrareview",
+              "delegator",
+              "delegator-followup",
+              "loop",
+              "other"
             ]
           },
           "workerSessionID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "delegatorID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "delegatorSessionID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "createdAt": {
             "anyOf": [
@@ -54384,32 +52487,25 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
@@ -54418,64 +52514,36 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
           "progressSummary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "resultSummary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": [
@@ -55246,6 +53314,16 @@
           }
         ]
       },
+      "AccountError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
       "SyncEventRecord": {
         "type": "object",
         "properties": {
@@ -55275,7 +53353,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/ConnectorsAuthInput"
+            "$ref": "#/components/schemas/SessionV2State"
           },
           "timestamp": {
             "anyOf": [
@@ -55371,7 +53449,7 @@
           "events": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
+              "$ref": "#/components/schemas/SessionV2State"
             }
           },
           "hasMore": {
@@ -55412,7 +53490,7 @@
             ]
           },
           "state": {
-            "$ref": "#/components/schemas/ConnectorsAuthInput"
+            "$ref": "#/components/schemas/SessionV2State"
           }
         },
         "required": ["lastSeq", "state"],
@@ -55501,7 +53579,7 @@
             "type": "string"
           },
           "dataPreview": {
-            "$ref": "#/components/schemas/ConnectorsAuthInput"
+            "$ref": "#/components/schemas/SessionV2State"
           }
         },
         "required": ["id", "projectId", "aggregate", "seq", "type", "timestamp", "origin", "dataPreview"],
@@ -55769,6 +53847,16 @@
         "required": ["configured", "started"],
         "additionalProperties": false
       },
+      "TuiAppendPromptInput": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": ["text"],
+        "additionalProperties": false
+      },
       "TuiBooleanResult": {
         "type": "boolean"
       },
@@ -55776,10 +53864,10 @@
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/ConnectorsAuthInput"
+            "$ref": "#/components/schemas/SessionV2State"
           },
           "error": {
-            "$ref": "#/components/schemas/ConnectorsAuthInput"
+            "$ref": "#/components/schemas/SessionV2State"
           },
           "success": {
             "type": "boolean",
@@ -55787,6 +53875,83 @@
           }
         },
         "required": ["data", "error", "success"],
+        "additionalProperties": false
+      },
+      "TuiExecuteCommandInput": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string"
+          }
+        },
+        "required": ["command"],
+        "additionalProperties": false
+      },
+      "TuiShowToastInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "variant": {
+            "type": "string",
+            "enum": ["info", "success", "warning", "error"]
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          }
+        },
+        "required": ["message", "variant", "duration"],
+        "additionalProperties": false
+      },
+      "TuiPublishInput": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "properties": {
+            "$ref": "#/components/schemas/SessionV2State"
+          }
+        },
+        "required": ["type", "properties"],
+        "additionalProperties": false
+      },
+      "TuiSelectSessionInput": {
+        "type": "object",
+        "properties": {
+          "sessionID": {
+            "type": "string"
+          }
+        },
+        "required": ["sessionID"],
         "additionalProperties": false
       },
       "TuiNotFoundError": {
@@ -55799,7 +53964,7 @@
           "data": {
             "type": "object",
             "additionalProperties": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
+              "$ref": "#/components/schemas/SessionV2State"
             }
           }
         },
@@ -55809,7 +53974,7 @@
       "PluginOptionsConfig": {
         "type": "object",
         "additionalProperties": {
-          "$ref": "#/components/schemas/ConnectorsAuthInput"
+          "$ref": "#/components/schemas/SessionV2State"
         }
       },
       "PluginSpecConfig": {
@@ -57137,32 +55302,25 @@
             ]
           },
           "plugin_meta": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "object",
-                  "properties": {
-                    "scope": {
-                      "type": "string",
-                      "enum": ["global", "local"]
-                    },
-                    "source": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["scope", "source"],
-                  "additionalProperties": false
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "scope": {
+                  "type": "string",
+                  "enum": ["global", "local"]
+                },
+                "source": {
+                  "type": "string"
                 }
               },
-              {
-                "type": "null"
-              }
-            ]
+              "required": ["scope", "source"],
+              "additionalProperties": false
+            }
           }
         },
         "additionalProperties": {
-          "$ref": "#/components/schemas/ConnectorsAuthInput"
+          "$ref": "#/components/schemas/SessionV2State"
         }
       },
       "TuiControlRequest": {
@@ -57172,7 +55330,20 @@
             "type": "string"
           },
           "body": {
-            "$ref": "#/components/schemas/ConnectorsAuthInput"
+            "$ref": "#/components/schemas/SessionV2State"
+          }
+        },
+        "required": ["path", "body"],
+        "additionalProperties": false
+      },
+      "TuiControlResponseInput": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "body": {
+            "$ref": "#/components/schemas/SessionV2State"
           }
         },
         "required": ["path", "body"],
@@ -57528,7 +55699,7 @@
           "events": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
+              "$ref": "#/components/schemas/SessionV2State"
             }
           }
         },
@@ -57553,7 +55724,7 @@
           "events": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConnectorsAuthInput"
+              "$ref": "#/components/schemas/SessionV2State"
             }
           }
         },
@@ -57752,7 +55923,7 @@
             "type": "string"
           },
           "config": {
-            "$ref": "#/components/schemas/ConnectorsAuthInput"
+            "$ref": "#/components/schemas/SessionV2State"
           }
         },
         "required": ["name", "config"],
@@ -57766,6 +55937,89 @@
           }
         },
         "required": ["success"],
+        "additionalProperties": false
+      },
+      "ConfigProfileInfo": {
+        "type": "object",
+        "properties": {
+          "mcpCount": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "plugins": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "providerCount": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          }
+        },
+        "required": ["mcpCount", "plugins", "providerCount"],
+        "additionalProperties": false
+      },
+      "ConfigProfilesList": {
+        "type": "object",
+        "properties": {
+          "profiles": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ConfigProfileInfo"
+            }
+          },
+          "activeProfile": {
+            "type": "string"
+          }
+        },
+        "required": ["profiles", "activeProfile"],
         "additionalProperties": false
       },
       "SessionPromptInput": {
@@ -61656,14 +59910,7 @@
             "type": "object",
             "properties": {
               "title": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "string"
               },
               "message": {
                 "type": "string"
@@ -64332,6 +62579,9 @@
     },
     {
       "name": "session"
+    },
+    {
+      "name": "account"
     },
     {
       "name": "sync"
