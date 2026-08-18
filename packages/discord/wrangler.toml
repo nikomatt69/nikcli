@@ -14,6 +14,9 @@ custom_domain = true
 [vars]
 NODE_ENV = "production"
 WRANGLER_LOG_LEVEL = "info"
+# The Worker has no local agent to fall back on, so this is required.
+NIKCLI_URL = "https://nikcli-mobile-production.up.railway.app"
+NIKCLI_USERNAME = "nikcli"
 
 # One instance per Discord channel: holds that channel's nikcli session id and
 # serializes the prompts running against it.
@@ -28,8 +31,6 @@ new_sqlite_classes = ["ChannelSession"]
 # Secrets to set via `wrangler secret put`:
 # - DISCORD_PUBLIC_KEY      # Developer Portal → General Information → Public Key
 # - DISCORD_APPLICATION_ID  # Developer Portal → General Information → Application ID
-# - NIKCLI_URL              # URL of your nikcli server
-# - NIKCLI_USERNAME         # Basic Auth username (default: nikcli)
 # - NIKCLI_PASSWORD         # Basic Auth password (NIKCLI_SERVER_PASSWORD)
 # - DISCORD_ALLOWED_CHANNELS  # optional, comma-separated channel IDs
 #
