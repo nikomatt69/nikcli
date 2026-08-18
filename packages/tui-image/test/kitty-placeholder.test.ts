@@ -178,6 +178,11 @@ describe("supportsKittyUnicodePlaceholders", () => {
     expect(supportsKittyUnicodePlaceholders(kittyCaps(null), {})).toBe(false)
   })
 
+  it("is on inside a herdr pane", () => {
+    expect(supportsKittyUnicodePlaceholders(kittyCaps("herdr"), { HERDR_PANE_ID: "w1Y:p6" })).toBe(true)
+    expect(supportsKittyUnicodePlaceholders(kittyCaps("herdr"), { HERDR_ENV: "1" })).toBe(true)
+  })
+
   it("honours the explicit override", () => {
     expect(supportsKittyUnicodePlaceholders(kittyCaps("kitty"), { NIKCLI_KITTY_PLACEHOLDERS: "0" })).toBe(false)
     expect(supportsKittyUnicodePlaceholders(kittyCaps("WezTerm"), { NIKCLI_KITTY_PLACEHOLDERS: "1" })).toBe(true)

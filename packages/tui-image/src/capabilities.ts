@@ -64,6 +64,20 @@ interface Env {
   [key: string]: string | undefined
 }
 
+/**
+ * Whether we are running inside a herdr pane.
+ *
+ * herdr is a terminal multiplexer: the pane we write to is *its* VT
+ * (libghostty), not the terminal that launched it. It overrides `TERM` and
+ * `COLORTERM` but leaves the host terminal's identity variables
+ * (`TERM_PROGRAM`, `WEZTERM_EXECUTABLE`, `WEZTERM_PANE`, `ITERM_SESSION_ID`, …)
+ * in the child environment, so the heuristic below would otherwise negotiate
+ * with a terminal that is not the one reading our bytes.
+ */
+export function insideHerdr(env: Env = readEnv()): boolean {
+  return Boolean(env.HERDR_PANE_ID || env.HERDR_ENV || env.HERDR_SOCKET_PATH)
+}
+
 function readEnv(): Env {
   if (typeof process !== "undefined" && process.env) return process.env as Env
   return {}
@@ -132,12 +146,15 @@ export function applyLiveCapabilities(
   env: Env = readEnv(),
 ): Capabilities {
   if (!live) return detected
+  const inHerdr = insideHerdr(env)
   const kitty = detected.kitty || live.kitty_graphics === true
-  const sixel = live.sixel === true
+  // Inside herdr the DA1 answer comes from libghostty, which renders neither
+  // Sixel nor iTerm2 images regardless of what the host terminal would report.
+  const sixel = live.sixel === true && !inHerdr
   const liveName = typeof live.terminal === "object" && live.terminal ? (live.terminal.name ?? "") : ""
   const identifier = `${detected.terminal ?? ""} ${liveName}`.toLowerCase()
   const explicitIterm2 = Boolean(env.ITERM_SESSION_ID) || /iterm|wezterm|mintty|rio|konsole/.test(identifier)
-  const iterm2 = detected.iterm2 && (explicitIterm2 || sixel)
+  const iterm2 = detected.iterm2 && (explicitIterm2 || sixel) && !inHerdr
   const available = [
     kitty ? Protocol.KITTY : null,
     sixel ? Protocol.SIXEL : null,
@@ -149,7 +166,7 @@ export function applyLiveCapabilities(
     kitty,
     sixel,
     iterm2,
-    terminal: detected.terminal ?? (liveName || null),
+    terminal: inHerdr ? "herdr" : (detected.terminal ?? (liveName || null)),
   }
 }
 
@@ -200,6 +217,15 @@ export function detectCapabilities(stream?: StreamProbe, env: Env = readEnv()): 
   // Kitty still works because the stream is kept in raw mode by the renderer.
   if (isStderr) detected.delete(Protocol.ITERM2)
 
+  // A multiplexer replaces the terminal we are writing to, so the host's leaked
+  // identity variables describe the wrong device. herdr's pane VT is libghostty:
+  // it renders the Kitty protocol and nothing else — OSC 1337 is parsed and
+  // discarded as unimplemented, and there is no Sixel decoder at all.
+  if (insideHerdr(env)) {
+    detected.clear()
+    detected.add(Protocol.KITTY)
+  }
+
   const order: readonly Protocol[] = [Protocol.KITTY, Protocol.SIXEL, Protocol.ITERM2]
   const available = order.filter((protocol) => detected.has(protocol))
 
@@ -209,7 +235,7 @@ export function detectCapabilities(stream?: StreamProbe, env: Env = readEnv()): 
     kitty: detected.has(Protocol.KITTY),
     sixel: detected.has(Protocol.SIXEL),
     iterm2: detected.has(Protocol.ITERM2),
-    terminal: termProgram ?? term,
+    terminal: insideHerdr(env) ? "herdr" : (termProgram ?? term),
   }
 }
 

@@ -21,7 +21,7 @@
  */
 import type { PixelImage } from "./pixels"
 import { base64FromBytes, rgbaToPng } from "./encode"
-import type { Capabilities } from "./capabilities"
+import { insideHerdr, type Capabilities } from "./capabilities"
 
 const ESC = "\x1b"
 const ST = "\x1b\\"
@@ -84,6 +84,11 @@ export function supportsKittyUnicodePlaceholders(
   if (env["NIKCLI_KITTY_PLACEHOLDERS"] === "1") return true
   const terminal = (capabilities.terminal ?? "").toLowerCase()
   if (terminal.includes("kitty") || terminal.includes("ghostty")) return true
+  // herdr's pane VT is libghostty: it scans the viewport for U+10EEEE runs,
+  // reads the image id from the cell foreground, and re-emits the placement to
+  // the host terminal clipped to the pane. Placeholders are the only path that
+  // survives a multiplexer's repaints, so it is also the one we want here.
+  if (insideHerdr(env)) return true
   if (env["KITTY_WINDOW_ID"]) return true
   if (env["GHOSTTY_RESOURCES_DIR"] || env["GHOSTTY_BIN_DIR"]) return true
   const termEnv = (env["TERM"] ?? "").toLowerCase()

@@ -73,6 +73,34 @@ describe("detectCapabilities", () => {
     expect(caps.iterm2).toBe(true)
   })
 
+  test("ignores the host terminal identity leaked into a herdr pane", () => {
+    // herdr overrides TERM/COLORTERM but leaves the launching terminal's
+    // variables in the child environment. Its pane VT (libghostty) drops
+    // iTerm2 inline images and Sixel, so only Kitty may be negotiated.
+    const caps = detectCapabilities(undefined, {
+      HERDR_PANE_ID: "w1Y:p6",
+      TERM: "xterm-256color",
+      TERM_PROGRAM: "WezTerm",
+      WEZTERM_EXECUTABLE: "C:\\Program Files\\WezTerm\\wezterm-gui.exe",
+      WEZTERM_PANE: "0",
+      ITERM_SESSION_ID: "abc",
+    })
+    expect(caps.kitty).toBe(true)
+    expect(caps.iterm2).toBe(false)
+    expect(caps.sixel).toBe(false)
+    expect(caps.best).toBe(Protocol.KITTY)
+    expect(caps.terminal).toBe("herdr")
+    expect(bestOverlayProtocol(caps)).toBeNull()
+  })
+
+  test("keeps a herdr pane off Sixel even when the DA1 answer claims it", () => {
+    const env = { HERDR_ENV: "1", TERM_PROGRAM: "WezTerm" }
+    const merged = applyLiveCapabilities(detectCapabilities(undefined, env), { sixel: true }, env)
+    expect(merged.sixel).toBe(false)
+    expect(merged.iterm2).toBe(false)
+    expect(merged.best).toBe(Protocol.KITTY)
+  })
+
   test("does not guess sixel from WT_SESSION", () => {
     const caps = detectCapabilities(undefined, { WT_SESSION: "abc" })
     expect(caps.sixel).toBe(false)
