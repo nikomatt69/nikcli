@@ -235,7 +235,8 @@ export function createV2Data(input: Input): Data {
         },
         async refresh(sessionID) {
           const response = await input.sdk.client.session.v2.state({ sessionID }, { throwOnError: true })
-          setPending(sessionID, reconcile((response.data?.pending ?? []) as PendingEntry[]))
+          const state = response.data as { pending?: PendingEntry[] } | undefined
+          setPending(sessionID, reconcile(state?.pending ?? []))
         },
       },
       // Reads the shared sync store rather than a store of its own: that

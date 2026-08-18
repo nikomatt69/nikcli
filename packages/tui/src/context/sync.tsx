@@ -943,7 +943,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               draft.session_diff[sessionID] = diff.data ?? []
               if (goal?.data) draft.session_goal[sessionID] = goal.data as GoalState
               else delete draft.session_goal[sessionID]
-              draft.entry[sessionID] = entries?.data ?? []
+              draft.entry[sessionID] = (entries?.data ?? []) as SessionEntry[]
               draft.session_pending[sessionID] = pending?.data ?? []
             }),
           )

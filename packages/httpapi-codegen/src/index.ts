@@ -636,6 +636,7 @@ function renderPromiseTypes(
       .join("; ")
     return `export type ${identifier} = { readonly ${JSON.stringify(error.tagged.key)}: ${JSON.stringify(error.tagged.tag)}; ${fields} }\nexport const is${identifier} = (value: unknown): value is ${identifier} => typeof value === "object" && value !== null && ${JSON.stringify(error.tagged.key)} in value && value[${JSON.stringify(error.tagged.key)}] === ${JSON.stringify(error.tagged.tag)}`
   })
+  const payloadAliases: Array<string> = []
   const operations = groups
     .flatMap((group) =>
       group.endpoints.flatMap((endpoint) => {
@@ -646,12 +647,23 @@ function renderPromiseTypes(
           headers: endpoint.headers,
           payload: endpoint.payloads[0],
         }
+        const payloadSchema = endpoint.payloads[0]
+        const payloadName =
+          payloadSchema !== undefined && endpoint.input.some((field) => field.source === "payload" && !field.whole)
+            ? `${prefix}Payload`
+            : undefined
+        if (payloadName !== undefined && payloadSchema !== undefined) {
+          payloadAliases.push(`export type ${payloadName} = ${typeOf(payloadSchema)}`)
+        }
         const input = promiseInput(endpoint)
           .map((field) => {
             if (field.source === "wildcard") return `readonly ${JSON.stringify(field.name)}: string`
             const schema = schemas[field.source]
             if (schema === undefined)
               throw new GenerationError({ reason: `Missing input schema: ${prefix}.${field.name}` })
+            if (field.source === "payload" && payloadName !== undefined && !field.whole) {
+              return `readonly ${JSON.stringify(field.name)}${field.optional ? "?" : ""}: ${payloadName}[${JSON.stringify(field.name)}]`
+            }
             return `readonly ${JSON.stringify(field.name)}${field.optional ? "?" : ""}: ${field.whole ? typeOf(schema, field.source === "query") : `(${typeOf(schema, field.source === "query")})[${JSON.stringify(field.name)}]`}`
           })
           .join("; ")
@@ -679,7 +691,7 @@ function renderPromiseTypes(
     ...groups.flatMap((group) =>
       group.endpoints.flatMap((endpoint) => {
         const prefix = promiseTypePrefix(group.identifier, endpoint.clientPath)
-        return [`${prefix}Input`, `${prefix}Output`]
+        return [`${prefix}Input`, `${prefix}Output`, `${prefix}Payload`]
       }),
     ),
     ...Object.values(outputTypes ?? {}).map((output) => output.name),
@@ -688,14 +700,17 @@ function renderPromiseTypes(
   const resolve = (source: string) =>
     rendered.types.reduce((result, type, index) => result.replaceAll(`__PROMISE_TYPE_${index}__`, type), source)
   const resolvedErrors = errorTypes.map(resolve)
+  const resolvedPayloads = payloadAliases.map(resolve)
   const resolvedOperations = resolve(operations)
-  const json = [...rendered.definitions, ...resolvedErrors, resolvedOperations].some((type) =>
+  const json = [...rendered.definitions, ...resolvedErrors, resolvedPayloads, resolvedOperations].some((type) =>
     type.includes("JsonValue"),
   )
     ? `export type JsonValue = null | boolean | number | string | ${mutableOutputs ? "Array<JsonValue> | { [key: string]: JsonValue }" : "ReadonlyArray<JsonValue> | { readonly [key: string]: JsonValue }"}`
     : ""
   const imports = [...new Set(Object.values(outputTypes ?? {}).map((override) => override.import))]
-  return [...imports, json, ...rendered.definitions, ...resolvedErrors, resolvedOperations].filter(Boolean).join("\n\n")
+  return [...imports, json, ...rendered.definitions, ...resolvedErrors, ...resolvedPayloads, resolvedOperations]
+    .filter(Boolean)
+    .join("\n\n")
 }
 
 function mutableType(type: string) {
@@ -857,10 +872,7 @@ function structuralTypes(schemas: ReadonlyArray<Schema.Top>, mutable: boolean, r
       const pattern = `(?<![A-Za-z0-9_$.'"])${reference.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_$.'"])`
       type = type.replace(new RegExp(pattern, "g"), name)
     }
-    const output = type
-      .replaceAll(/ & Brand\.Brand<"[^"]+">/g, "")
-      .replaceAll("Schema.Json", "JsonValue")
-      .replaceAll(/(?<!["'])\bunknown\b(?!["'])/g, "any")
+    const output = rewritePromiseType(type)
     return mutable ? mutableType(output) : output
   }
   return {
@@ -901,9 +913,15 @@ function structuralType(schema: Schema.Top) {
     }
     return type
   }
-  return expand(document.codes[0].Type)
+  return rewritePromiseType(expand(document.codes[0].Type))
+}
+
+/** Brand/Json cleanup. Headline `unknown` stays `unknown`; catchalls stay `any`. */
+function rewritePromiseType(type: string) {
+  return type
     .replaceAll(/ & Brand\.Brand<"[^"]+">/g, "")
     .replaceAll("Schema.Json", "JsonValue")
+    .replaceAll(/(\[x: string\]: )unknown\b/g, "$1any")
 }
 
 function normalizePromiseClientContent(content: string, groups: ReadonlyArray<Group>) {

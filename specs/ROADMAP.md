@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-17** (third pass: H1 write-path leftovers landed; Effect v4 / HttpApi / request-path continuations added from the live tree).
+Last reconciled against the source: **2026-08-18** (I1 / X2 / H6 landed in working tree; H4 / H5 / P2 / E4 / H1 first slice already committed).
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -330,6 +330,28 @@ Recorded at phase boundaries so the next pass does not redo work.
 - **A second Effect HttpApi rewrite.** The seam exists; deepen the module.
 - **Product work without a structural leftover** — single-binary distribution, provider cost envelopes, unifying mobile and voice upload, an active Brain planner, share v2, a workspace trust lattice. None of those have a file-and-fact case in the tree today.
 
+### 2026-08-18 — I1 / X2 / H6
+
+**Phase 1 — I1 (one Identifier module).**
+- `packages/util/src/identifier.ts` deleted. Unprefixed `ascending()` / `descending()` cannot generate an id the prefixed schema will reject.
+- `packages/enterprise/src/core/share.ts` and its test import `@nikcli-ai/util/id` and call `Identifier.descending("event")` / `Identifier.descending("session")`. Prefix is required.
+
+**Phase 2 — X2 (delete adapters with no production callers).**
+- Deleted: `provider/llm-client.ts`, `session/llm/ai-sdk.ts`, `session/message.ts` (legacy v1; not `message-v2` / `message-repo`), `session/run-state.ts`, `session/runner.ts`, `share/share.ts` (nikcli adapter; not enterprise `share.ts`).
+- Tests that only pinned those modules went with them: `test/session/runner.test.ts`, the audit-suite `Legacy Message schemas` block, and the deep-bench `Message.*` schema loop. `specs/v2/session.md` no longer describes `SessionRunner` as a second ownership machine. Live ownership stays `PromptState`; live share stays `ShareNext`.
+
+**Phase 3 — H6 (codegen flatten + keep `unknown`).**
+- Flattened Promise inputs stay flat (call-site compatible). Each struct payload is emitted once as `${Op}Payload`, then fields are `${Op}Payload["name"]` instead of inlining the whole struct per field.
+- Headline open aliases stay `unknown` (`SessionV2State`, `AccountResponse`, `MobileGithubReposOutput`, …). Index-signature catchalls stay `{ [x: string]: any }` (the old global `\bunknown\b` → `any` rewrite is gone).
+- SDK `SessionEntry` is `{ id: string } & Record<string, unknown>` — the generated list is still `Array<unknown>`.
+- `ConfigHandlersLive` now `handleRaw`s `profilesList` (H4 leftover that failed typecheck).
+- Named-ref `payload: LoopCreateInput` is not this landing. Measure in [README.md](./README.md) §Open payloads.
+
+**Followups noted, not done.**
+- H6 polish: emit input schemas into `structuralTypes` so flattened payloads can be `payload: LoopCreateInput`.
+- E4 service-side `jsonSafe` in `session.ts` (`Session.Info` / `MessageV2.Info`).
+- H7 / E5 / H8 / H3 / R1 / T3 / S4r / P3.
+
 ## Follow working rules
 
 - Commit at phase boundaries, not per file. H4 and H5 land together.
@@ -337,7 +359,7 @@ Recorded at phase boundaries so the next pass does not redo work.
 - Verify with `bun test` unit tests and `bun run typecheck` (never a bare `tsc`; the repo's `.bin/tsc` is the JS 5.x one). Do not verify with the simulation harness. Typecheck once at the end of an edit session.
 - Adding a migration breaks `test/database/database.test.ts`'s journal assertion. That is expected; update it in the same commit.
 - After an HttpApi contract change, run `bun run generate:httpapi-clients` from `packages/nikcli` and commit the generated output.
-- `bun run check:routes` is the inventory gate today. `--strict` is ignored until H4 implements it; do not treat a green `--strict` as coverage until then.
+- `bun run check:routes` is the inventory gate today. `--strict` is honored as of H4 (same rules as default; future strict-only checks land in `script/check-route-coverage.ts`).
 - The TUI packaging check is `bun run smoke:tui` / `bun run smoke:standalone`, not `--version` or `--help`.
 - The unit-suite baseline observed 2026-08-16 is one source-reading failure: `test/tui/profile-command.test.ts` still looks for `systemPrompt.profile()` in `session/prompt.ts` after S3 moved that block into `InstructionSync`. `EditTool` passed in isolation. Do not treat that leftover assertion as a missing profile feature.
 - Prefer Effect v4 APIs already in the tree (`Schema.optionalKey`, `Schema.TaggedErrorClass`, `Effect.fn`, `HttpApiMiddleware`) over new wrappers. Verify against `.opencode/references/effect-smol` when adding Effect-specific code.

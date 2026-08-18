@@ -87,7 +87,7 @@ export type MobileGitBranchesResponse = MobileGitBranchesOutput
  * entry union as an open type — see specs/effect/http-api.md, "Contract schema
  * split".
  */
-export type SessionEntry = SessionV2EntryList[number]
+export type SessionEntry = { readonly id: string } & Record<string, unknown>
 
 /** The `parts` union accepted by `session.prompt`. */
 export type PromptPartInput = SessionPromptPromptInput["parts"][number]

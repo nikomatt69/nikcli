@@ -42,15 +42,15 @@ Authority follows the concern. When a document and the code disagree, the code w
 Everything else gets a real schema. Measure top-level leftovers with:
 
 ```sh
-grep -cE '^export type [A-Za-z0-9_]+ = (any|Array<any>)$' packages/sdk/js/src/httpapi/generated/types.ts
+grep -cE '^export type [A-Za-z0-9_]+ = (unknown|Array<unknown>)$' packages/sdk/js/src/httpapi/generated/types.ts
 ```
 
 That command only sees an alias whose **whole** right-hand side is open. It is the headline number, not the whole count, and an item is not done because it reached zero. An open payload nested inside a struct is invisible to it.
 
-Measured **2026-08-17**: 9 top-level aliases (all justified — SessionV2, SSE, share redirects, GitHub repo list, `MobileEventsOutput`) against 125 lines containing `any` (was 189 on 2026-08-16). Loop/mission create-update, `MobileProject`, and `ProfilePatchInput` are real structs. Three nested shapes remain, and each is a different verdict:
+Measured **2026-08-18** (H6 landed): open payloads emit `unknown`, not `any` — the codegen no longer rewrites `\bunknown\b` → `any`. Index-signature catchalls still emit `{ [x: string]: any }`. Top-level open aliases are now `SessionV2EntryList = Array<unknown>`, `SessionV2State = unknown`, `SessionV2EventList = Array<unknown>`, `AccountResponse = unknown`, `WorkspaceJournalEvent = unknown`, `MobileGithubReposOutput = Array<unknown>`, `MobileSessionStreamOutput = unknown`, `MobileEventsOutput = unknown`, `SyncStreamOutput = unknown`, `ShareShortOutput = unknown` (all justified in the categories above). Flattened write inputs are `{ name: OpPayload["name"]; … }` plus path params. Loop/mission create-update, `MobileProject`, and `ProfilePatchInput` are real structs.
 
 ```sh
-grep -nE '(\[x: string\]: any|Array<any>|: unknown\b)' packages/sdk/js/src/httpapi/generated/types.ts
+grep -nE '(\[x: string\]: any|Array<unknown>|: unknown\b)' packages/sdk/js/src/httpapi/generated/types.ts
 ```
 
 - **`{ [x: string]: any }` as a whole body** — `MobileConfigInfo` is the config document (`fromZod(Config.Info)`). The catchall is the zod document’s open tail. Pin it or name it here as the one config exception (roadmap H1).

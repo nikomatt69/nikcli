@@ -437,6 +437,17 @@ export namespace ContractExtraHttpApi {
     return name
   }
 
+  function profileInfo(config: unknown) {
+    const value = config as { mcp?: object; plugin?: unknown; provider?: object } | undefined
+    return {
+      mcpCount: Object.keys(value?.mcp ?? {}).length,
+      plugins: Array.isArray(value?.plugin)
+        ? value.plugin.map((item: unknown) => String(Array.isArray(item) ? item[0] : item))
+        : [],
+      providerCount: Object.keys(value?.provider ?? {}).length,
+    }
+  }
+
   function configService<A, E>(run: (service: Config.Interface) => Effect.Effect<A, E>) {
     return Effect.gen(function* () {
       const service = yield* Config.Service
@@ -518,6 +529,29 @@ export namespace ContractExtraHttpApi {
             JSON.stringify({ ...current, mcp: next }, null, 2),
           )
           return json({ success: true })
+        }),
+      )
+      .handleRaw(
+        "profilesList",
+        raw(async () => {
+          await fs.mkdir(profileDir(), { recursive: true })
+          const current = await runConfig(configService((service) => service.get()))
+          const profiles: Record<string, ReturnType<typeof profileInfo>> = {
+            default: profileInfo(current),
+          }
+          for (const entry of await fs.readdir(profileDir(), { withFileTypes: true }).catch(() => [])) {
+            if (!entry.isFile() || !entry.name.endsWith(".json")) continue
+            const name = entry.name.slice(0, -".json".length)
+            const rawProfile = await Bun.file(path.join(profileDir(), entry.name))
+              .json()
+              .catch(() => undefined)
+            profiles[name] = profileInfo(rawProfile)
+          }
+          const activeProfile = await Bun.file(activeProfilePath())
+            .text()
+            .then((value) => value.trim() || "default")
+            .catch(() => "default")
+          return json({ profiles, activeProfile: profiles[activeProfile] ? activeProfile : "default" })
         }),
       )
       .handleRaw(
