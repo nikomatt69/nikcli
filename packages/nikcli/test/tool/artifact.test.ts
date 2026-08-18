@@ -59,6 +59,8 @@ describe("ArtifactTool", () => {
       Database.syncDb()
 
       process.env["NIKCLI_ARTIFACT_URL"] = "https://nikcli.store"
+      // SAFETY: the stub answers the single publish call this test makes, so it
+      // implements only the slice of `fetch` that call exercises.
       globalThis.fetch = (async (input: string | URL | Request) => {
         expect(String(input)).toBe("https://nikcli.store/api/artifact")
         return Response.json(

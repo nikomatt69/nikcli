@@ -21,6 +21,9 @@ describe("sandbox types", () => {
     })
 
     it("rejects invalid ref", () => {
+      // SAFETY: the value is deliberately invalid — the assertion exists so the
+      // test can hand the parser input its type rejects, which is the behaviour
+      // under test.
       expect(() => Sandbox.Ref.parse({ type: "invalid" as any })).toThrow()
     })
   })

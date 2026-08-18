@@ -272,11 +272,14 @@ export namespace Question {
   }
 
   function makeRequest(input: AskInput, id: string): Request {
-    return {
+    const request: Request = {
       id,
       sessionID: input.sessionID,
       questions: structuredClone(input.questions),
-      ...(input.tool === undefined ? {} : { tool: { ...input.tool } }),
     }
+    // Assigned rather than spread so the key stays absent for a question that
+    // was not raised by a tool call.
+    if (input.tool !== undefined) request.tool = { ...input.tool }
+    return request
   }
 }

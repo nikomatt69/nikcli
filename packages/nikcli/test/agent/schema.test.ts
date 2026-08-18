@@ -6,6 +6,8 @@ describe("Agent.Info schema", () => {
   const minimal = {
     name: "unit-test",
     mode: "primary" as const,
+    // SAFETY: the assertion gives the empty array its element type; no rule is
+    // added because this fixture exercises the default permission set.
     permission: [] as { permission: string; pattern: string; action: "allow" | "deny" | "ask" }[],
     options: {},
   }

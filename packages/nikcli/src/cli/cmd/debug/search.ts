@@ -87,6 +87,8 @@ const ContentCommand = cmd({
   async handler(args) {
     await bootstrap(process.cwd(), async () => {
       const result = await FFF.grep(args.pattern, {
+        // SAFETY: the builder declares `choices: ["plain", "regex", "fuzzy"] as const`
+        // with a default, so yargs rejects any other value before the handler runs.
         mode: args.mode as "plain" | "regex" | "fuzzy",
         maxMatchesPerFile: args.limit ?? 200,
       })

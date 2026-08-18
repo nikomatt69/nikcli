@@ -257,6 +257,10 @@ async function ghJson<T>(args: string[], cwd: string): Promise<T | undefined> {
   const text = result.stdout.toString("utf8").trim()
   if (!text) return undefined
   try {
+    // SAFETY: every caller passes `--json <fields>` and instantiates `T` with
+    // exactly those fields (see the `pr list` / `pr view` call sites), so the
+    // shape is the documented contract of that flag rather than an unchecked
+    // guess. A body that is not JSON at all throws and is caught here.
     return JSON.parse(text) as T
   } catch (error) {
     log.debug("gh json parse failed", { args, error })

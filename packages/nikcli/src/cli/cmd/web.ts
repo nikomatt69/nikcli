@@ -29,6 +29,9 @@ export const WebCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "start nikcli server and open web interface",
   handler: async (args) => {
+    // SAFETY: this command's builder is `withNetworkOptions`, which declares
+    // exactly the flags `resolveNetworkOptions` reads. yargs infers a wider
+    // argv type than the builder guarantees.
     const opts = await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0])
 
     const loopback = opts.hostname === "127.0.0.1" || opts.hostname === "::1" || opts.hostname === "localhost"

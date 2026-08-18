@@ -168,6 +168,9 @@ for (const item of targets) {
       //@ts-ignore (bun types aren't up to date)
       autoloadTsconfig: true,
       autoloadPackageJson: true,
+      // SAFETY: the `@ts-ignore` above says it — bun's published types lag the
+      // runtime, so the compile-target union they declare is narrower than the
+      // targets `Bun.build` actually accepts.
       target: name.replace(pkg.name, "bun") as any,
       outfile: `dist/${name}/bin/nikcli`,
       execArgv: [`--user-agent=nikcli/${Script.version}`, "--use-system-ca", "--"],

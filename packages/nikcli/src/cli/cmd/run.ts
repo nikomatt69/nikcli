@@ -8,7 +8,7 @@ import { Command } from "../../command"
 import { EOL } from "os"
 import { pathToFileURL } from "url"
 import { select } from "@clack/prompts"
-import { createNikcliClient, type NikcliClient } from "@nikcli-ai/sdk/httpapi"
+import { createNikcliClient, type Event as SdkEvent, type NikcliClient } from "@nikcli-ai/sdk/httpapi"
 import { Server } from "../../server/server"
 import { Provider } from "../../provider/provider"
 import { Agent } from "../../agent/agent"
@@ -361,6 +361,15 @@ async function importShareReference(input: string): Promise<string | undefined> 
   return info.id as string
 }
 
+/**
+ * The per-event fields `--format json` merges into a line, beside the common
+ * `type` / `timestamp` / `sessionID`. Derived from the SDK event union so a
+ * changed event body fails here instead of silently reshaping the output.
+ */
+type RunJsonFields =
+  | { part: Extract<SdkEvent, { type: "message.part.updated" }>["properties"]["part"] }
+  | { error: NonNullable<Extract<SdkEvent, { type: "session.error" }>["properties"]["error"]> }
+
 export const RunCommand = cmd({
   command: "run [message..]",
   describe: "run nikcli with a message",
@@ -504,7 +513,7 @@ export const RunCommand = cmd({
         )
       }
 
-      const outputJsonEvent = (type: string, data: object) => {
+      const outputJsonEvent = (type: string, data: RunJsonFields) => {
         if (args.format === "json") {
           process.stdout.write(
             JSON.stringify({

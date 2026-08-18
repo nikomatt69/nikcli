@@ -37,7 +37,7 @@ export namespace Truncate {
         const cutoff = Identifier.timestamp(Identifier.create("tool", false, Date.now() - RETENTION_MS))
         const glob = new Bun.Glob("tool_*")
         const entries = yield* Effect.promise(() =>
-          Array.fromAsync(glob.scan({ cwd: DIR, onlyFiles: true })).catch(() => [] as string[]),
+          Array.fromAsync(glob.scan({ cwd: DIR, onlyFiles: true })).catch((): string[] => []),
         )
         for (const entry of entries) {
           if (Identifier.timestamp(entry) >= cutoff) continue

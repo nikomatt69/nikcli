@@ -52,6 +52,9 @@ describe("SessionSyncBridge", () => {
             const events = await waitForEvents(projectID, sessionID, 1)
             expect(events).toHaveLength(1)
             expect(events[0].type).toBe("session.idle")
+            // SAFETY: the assertion above pins this to the single
+            // `session.idle` event the bridge under test just published, whose
+            // payload carries `properties.sessionID`.
             expect((events[0].data as any).properties.sessionID).toBe(sessionID)
 
             // Event types outside the restore set are not journaled.

@@ -26,6 +26,8 @@ preserveTestEnv(["NIKCLI_TEST_HOME"])
 const { Project } = await import("@/project/project")
 
 function runProject<A, E>(effect: Effect.Effect<A, E, any>) {
+  // SAFETY: `Project.defaultLayer` provides every requirement the effect declares,
+  // so nothing is left for the runtime to supply.
   return Effect.runPromise(effect.pipe(Effect.provide(Project.defaultLayer)) as Effect.Effect<A, E, never>)
 }
 

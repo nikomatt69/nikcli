@@ -12,5 +12,8 @@ export function runService<R, A, E>(
   wrap?: (effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>,
 ): Promise<A> {
   const run = wrap ? wrap(effect) : effect
+  // SAFETY: `module.defaultLayer` provides exactly `R`; the assertion only
+  // opens the requirements parameter so the layer and the effect can be
+  // related generically, which TypeScript cannot express here.
   return runPromiseWithLayer(module.defaultLayer, run as Effect.Effect<A, E, any>)
 }

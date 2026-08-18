@@ -575,7 +575,8 @@ First-class MCP server with OAuth auth (`packages/nikcli/src/mcp`):
 `packages/nikcli/src/chatbot/` orchestrates multi-platform bots thanks to `@chat-adapter/*`:
 
 - **Slack** (`packages/slack`, deployed on `slack.nikcli.store` via Wrangler).
-- **Discord** (`@chat-adapter/discord`).
+- **Discord Gateway** (`packages/discord`, `@nikcli-ai/discord`) — native Gateway bot. In the TUI, `/discord` (alias `/discord-setup`) walks through the bot token, invite URL, and start/stop. HTTP: `GET /discord`, `POST /discord/setup`, `/start`, `/stop`.
+- **Discord webhooks** (`@chat-adapter/discord`) — the Chat SDK adapter, managed with `/bots`.
 - **Microsoft Teams** (`@chat-adapter/teams`).
 - **Google Chat** (`@chat-adapter/gchat`).
 - **GitHub Issues** (`@chat-adapter/github`).
@@ -585,9 +586,11 @@ First-class MCP server with OAuth auth (`packages/nikcli/src/mcp`):
 Unified command:
 
 ```bash
-nikcli chat          # configure and start the bot
+nikcli chat          # configure and start the Chat SDK bot
 nikcli chatbot       # alias
 ```
+
+In the TUI, `/discord` sets up the Discord Gateway bot (token, invite, start). `/bots` manages Chat SDK webhook adapters.
 
 Bot sessions are full nikcli sessions: prompt, tools, MCP, connectors, history.
 

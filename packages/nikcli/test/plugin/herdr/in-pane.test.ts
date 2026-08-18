@@ -73,6 +73,8 @@ describe("HerdrBridge — running inside a herdr pane", () => {
       const liveRaw = await bridge.call<unknown>("pane.list", undefined, 3000, {
         socketPath,
       })
+      // SAFETY: every level is optional and defaulted — a tmux payload of any
+      // other shape yields an empty pane list.
       const paneList = (liveRaw as { panes?: Array<{ pane_id?: string }> } | undefined)?.panes ?? []
       const realPane = paneList[0]?.pane_id
       expect(realPane).toBeDefined()

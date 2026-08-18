@@ -240,6 +240,8 @@ export namespace GithubApi {
         status: response.status,
       })
     }
+    // SAFETY: the non-ok branch above already returned, so this is the GitHub
+    // pulls list body; the caller reads only the first element.
     const pulls = (await response.json()) as any[]
     return pulls[0]
   }

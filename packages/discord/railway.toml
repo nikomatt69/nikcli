@@ -1,0 +1,14 @@
+# Railway config for the Discord Gateway bot (full Claude Tag features).
+# Point the discord-bot service's "Config File Path" at this file so it
+# builds packages/discord/Dockerfile instead of the repo-root Dockerfile.serve.
+# Build context stays the repo root (Root Directory = "/").
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "packages/discord/Dockerfile"
+
+[deploy]
+# Gateway connects outbound to Discord — no inbound HTTP needed beyond /health.
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+numReplicas = 1

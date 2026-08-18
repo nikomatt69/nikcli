@@ -1,5 +1,7 @@
 export namespace Env {
   function backing(): Record<string, string | undefined> {
+    // SAFETY: Node's `ProcessEnv` is this index signature plus a handful of
+    // declared well-known keys; the assertion only drops those extras.
     return process.env as Record<string, string | undefined>
   }
 

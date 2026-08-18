@@ -31,6 +31,8 @@ describe("InstanceState hot reload", () => {
     try {
       const result = await Effect.runPromise(
         locallyInstance(
+          // SAFETY: the reload path reads only `project.id` off the instance
+          // context.
           { directory, worktree: directory, project: { id: "test" } as any },
           Effect.scoped(
             Effect.gen(function* () {

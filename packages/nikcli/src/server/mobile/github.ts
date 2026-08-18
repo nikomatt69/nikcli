@@ -38,6 +38,8 @@ export async function handleGithubRequest(request: Request): Promise<Response | 
     if (!token) return json({ error: "GitHub token not configured" }, 401)
     const [repos, imports] = await Promise.all([GithubApi.listRepos(token, "all", "updated"), githubImports()])
     return json(
+      // SAFETY: `listRepos` returns the GitHub `/user/repos` body, whose every
+      // element carries `full_name`; only that field is read here.
       (repos as Array<{ full_name: string }>).map((repo) => {
         const existing = imports.get(repo.full_name.toLowerCase())
         return {

@@ -34,6 +34,11 @@ import type {
   ChatbotStartOutput,
   ChatbotStopInput,
   ChatbotStopOutput,
+  DiscordStatusOutput,
+  DiscordSetupInput,
+  DiscordSetupOutput,
+  DiscordStartOutput,
+  DiscordStopOutput,
   VoiceTranscribeInput,
   VoiceTranscribeOutput,
   ProfileGetOutput,
@@ -919,6 +924,35 @@ export function make(options: ClientOptions) {
             declaredStatuses: [],
             empty: false,
           },
+          requestOptions,
+        ),
+    },
+    discord: {
+      status: (requestOptions?: RequestOptions) =>
+        request<DiscordStatusOutput>(
+          { method: "GET", path: `/discord`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      setup: (input: DiscordSetupInput, requestOptions?: RequestOptions) =>
+        request<DiscordSetupOutput>(
+          {
+            method: "POST",
+            path: `/discord/setup`,
+            body: { botToken: input["botToken"] },
+            successStatus: 200,
+            declaredStatuses: [400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      start: (requestOptions?: RequestOptions) =>
+        request<DiscordStartOutput>(
+          { method: "POST", path: `/discord/start`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      stop: (requestOptions?: RequestOptions) =>
+        request<DiscordStopOutput>(
+          { method: "POST", path: `/discord/stop`, successStatus: 200, declaredStatuses: [], empty: false },
           requestOptions,
         ),
     },

@@ -12,6 +12,7 @@ import Missions from "../feature-plugins/mission"
 import Brain from "../feature-plugins/brain"
 import Browser from "../feature-plugins/browser"
 import Chatbot from "../feature-plugins/chatbot"
+import Discord from "../feature-plugins/discord"
 import Computer from "../feature-plugins/computer"
 import Connectors from "../feature-plugins/connectors"
 import Observability from "../feature-plugins/observability"
@@ -49,6 +50,7 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   Brain,
   Browser,
   Chatbot,
+  Discord,
   Computer,
   Connectors,
   Observability,

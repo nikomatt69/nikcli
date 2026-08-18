@@ -18,6 +18,8 @@ export async function removeTestDir(dir: string, attempts = 20): Promise<void> {
       await fs.rm(dir, { recursive: true, force: true })
       return
     } catch (error) {
+      // SAFETY: this catch only wraps `fs.rm`, and Node rejects filesystem
+      // calls with an `ErrnoException`.
       const code = (error as NodeJS.ErrnoException).code
       if (code !== "EBUSY" && code !== "EPERM" && code !== "ENOTEMPTY") throw error
       if (attempt >= attempts) return

@@ -142,6 +142,21 @@ export type ChatbotStartResult = { running: boolean; error?: string | undefined 
 
 export type ChatbotStopResult = { removed: boolean }
 
+export type DiscordStatus = {
+  configured: boolean
+  running: boolean
+  username?: string
+  clientId?: string
+  inviteUrl?: string
+  error?: string
+}
+
+export type DiscordSetupOutput2 = { username: string; clientId: string; inviteUrl: string }
+
+export type DiscordStartResult = { running: boolean; error?: string }
+
+export type DiscordStopResult = { stopped: boolean }
+
 export type VoiceTranscribeResult = { transcript: string; error?: string | undefined }
 
 export type ProfileInfo = {
@@ -3510,6 +3525,8 @@ export type VcsApplyError = {
 
 export type AnalyticsSessionNotFound = { readonly error: "Session not found" }
 
+export type DiscordValidationError = { readonly name: "ValidationError"; readonly data: { readonly [x: string]: any } }
+
 export type ConfigUpdateError = { readonly name: string; readonly data: { readonly [x: string]: any } }
 
 export type ConnectorsValidationError = {
@@ -3562,6 +3579,8 @@ export type AppSkillCreatePayload = {
 }
 
 export type BrainTriggerPayload = { readonly force?: boolean | undefined; readonly sessionID?: string | undefined }
+
+export type DiscordSetupPayload = { readonly botToken: string }
 
 export type VoiceTranscribePayload = { readonly audio: string; readonly format?: string | undefined }
 
@@ -5109,6 +5128,16 @@ export type ChatbotStartOutput = ChatbotStartResult
 export type ChatbotStopInput = { readonly name: { readonly name: string }["name"] }
 
 export type ChatbotStopOutput = ChatbotStopResult
+
+export type DiscordStatusOutput = DiscordStatus
+
+export type DiscordSetupInput = { readonly botToken: DiscordSetupPayload["botToken"] }
+
+export type DiscordSetupOutput = DiscordSetupOutput2
+
+export type DiscordStartOutput = DiscordStartResult
+
+export type DiscordStopOutput = DiscordStopResult
 
 export type VoiceTranscribeInput = {
   readonly audio: VoiceTranscribePayload["audio"]

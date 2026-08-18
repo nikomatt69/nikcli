@@ -140,5 +140,7 @@ async function readBounded(response: Response): Promise<string> {
   } finally {
     reader.releaseLock()
   }
+  // SAFETY: `chunks` collects the `Uint8Array` values the stream reader yields,
+  // which are valid `BlobPart`s.
   return new TextDecoder().decode(await new Blob(chunks as BlobPart[]).arrayBuffer())
 }

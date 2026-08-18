@@ -28,8 +28,8 @@ export namespace ChatbotHttp {
     if (request.method.toUpperCase() !== "POST") return null
     const match = new URL(request.url).pathname.match(/^\/chatbot\/([^/]+)\/([^/]+)$/)
     if (!match) return null
-    const platform = match[1] as ChatbotWebhook.Platform
-    if (!PLATFORMS.includes(platform)) return null
+    const platform = PLATFORMS.find((candidate) => candidate === match[1])
+    if (!platform) return null
 
     const result = await ChatbotWebhook.handle(platform, decodeURIComponent(match[2]), request)
     return new Response(result.body, {

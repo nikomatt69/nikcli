@@ -8,20 +8,14 @@ import { coerceToString, createAggregateErrorValue, createErrorValue, errorConst
 
 export const normalizeError = (error: unknown): Diagnostic => {
   if (error instanceof InterpreterRuntimeError) {
-    return {
-      kind: error.kind,
-      message: `${error.message}${formatLocation(error.node)}`,
-      ...(error.node?.loc ? { location: sourceLocation(error.node) } : {}),
-      ...(error.suggestions ? { suggestions: error.suggestions } : {}),
-    }
+    const base = { kind: error.kind, message: `${error.message}${formatLocation(error.node)}` }
+    const located = error.node?.loc ? { ...base, location: sourceLocation(error.node) } : base
+    return error.suggestions ? { ...located, suggestions: error.suggestions } : located
   }
 
   if (error instanceof ToolRuntimeError) {
-    return {
-      kind: error.kind,
-      message: error.message,
-      ...(error.suggestions.length > 0 ? { suggestions: error.suggestions } : {}),
-    }
+    const base = { kind: error.kind, message: error.message }
+    return error.suggestions.length > 0 ? { ...base, suggestions: error.suggestions } : base
   }
 
   if (error instanceof ToolError) {

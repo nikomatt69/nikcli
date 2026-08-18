@@ -71,6 +71,8 @@ describe("isRecord", () => {
         module: "isRecord",
         scenario: "throughput",
         iterations,
+        // SAFETY: the assertion only stops the ternary from narrowing to the
+        // literal union `0 | 1`; the field is a measurement count.
         value: isRecord(values[i++ % values.length]) ? 1 : (0 as number),
         unit: "ms",
       })

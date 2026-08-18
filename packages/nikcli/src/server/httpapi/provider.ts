@@ -91,6 +91,12 @@ export namespace ProviderHttpApi {
 
   // Same as ConfigHttpApi: runtime provider/model records still carry present
   // `undefined` optionals. The encoder rejects those; JSON round-trip drops them.
+  //
+  // SAFETY: the round trip returns the same value with the JSON-invalid parts
+  // removed — keys whose value was `undefined`, which every field this is
+  // applied to already declares optional. Callers pass response bodies the
+  // endpoint schema then encodes, so a shape that did not survive the trip
+  // fails there rather than silently reaching a client.
   const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
 
   export const handlers = {

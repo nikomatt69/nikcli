@@ -58,6 +58,8 @@ await Bun.build({
     // @ts-ignore - bun types lag
     autoloadTsconfig: true,
     autoloadPackageJson: true,
+    // SAFETY: as the `@ts-ignore` above notes, bun's published types lag the
+    // runtime and declare a narrower compile-target union than it accepts.
     target: target as any,
     outfile: binPath,
     execArgv: [`--user-agent=nikcli/${Script.version}`, "--use-system-ca", "--"],

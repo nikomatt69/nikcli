@@ -30,6 +30,8 @@ export namespace SyncReducer {
     projectors: Projector<S>[],
   ): Promise<{ state: S; lastSeq: number }> {
     const cached = SyncSnapshot.load(key)
+    // SAFETY: the snapshot is loaded under the same `key` the projectors for
+    // `S` write it under, so a cached state for this key is an `S`.
     let state: S = cached ? (cached.state as S) : initial
     let lastSeq = cached?.lastSeq ?? 0
 

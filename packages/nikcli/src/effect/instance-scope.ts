@@ -40,6 +40,9 @@ export const InstanceScope = {
           const scoped = input.workspaceID
             ? locallyWorkspace({ id: input.workspaceID }, locallyInstance(ctx, effect))
             : locallyInstance(ctx, effect)
+          // SAFETY: `locallyInstance` (and `locallyWorkspace` when a workspace is
+          // pinned) provide every requirement the effect declares, so nothing is
+          // left for the runtime to supply.
           const fiber = AppRuntime.runFork(scoped as Effect.Effect<A, E, never>)
           inner = fiber
           if (cancelled) fiber.interruptUnsafe()

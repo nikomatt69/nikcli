@@ -1,0 +1,27 @@
+{
+  "name": "@nikcli-ai/discord",
+  "version": "1.292.0",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/bot.ts",
+    "./invite": "./src/invite.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "start": "./start.sh",
+    "setup": "bun run src/setup.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nikcli-ai/sdk": "workspace:*",
+    "discord.js": "14.22.1"
+  },
+  "devDependencies": {
+    "@tsconfig/bun": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "@typescript/native": "catalog:"
+  }
+}

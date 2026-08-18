@@ -13,6 +13,8 @@ preserveTestEnv(["NIKCLI_TEST_HOME"])
 const { McpAuth } = await import("@/mcp/auth")
 
 function runMcpAuth<A, E>(effect: Effect.Effect<A, E, any>) {
+  // SAFETY: `McpAuth.defaultLayer` provides every requirement the effect declares,
+  // so nothing is left for the runtime to supply.
   return Effect.runPromise(effect.pipe(Effect.provide(McpAuth.defaultLayer)) as Effect.Effect<A, E, never>)
 }
 

@@ -29,6 +29,8 @@ let counter = 0
 function makeSession(overrides: Partial<Session.Info> = {}): Session.Info {
   const now = Date.now()
   counter++
+  // SAFETY: the literal below sets every field the repo round-trip reads; the
+  // assertion covers the optional members no test here exercises.
   return {
     id: `ses_test_${counter}`,
     projectID: "proj_test",

@@ -30,6 +30,7 @@ COPY packages/remote/package.json /app/packages/remote/
 COPY packages/plugin/package.json /app/packages/plugin/
 COPY packages/companion/package.json /app/packages/companion/
 COPY packages/slack/package.json /app/packages/slack/
+COPY packages/discord/package.json /app/packages/discord/
 COPY packages/identity/package.json /app/packages/identity/
 COPY packages/auth/package.json /app/packages/auth/
 COPY packages/llm/package.json /app/packages/llm/

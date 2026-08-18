@@ -75,10 +75,11 @@
   },
   "devDependencies": {
     "@actions/artifact": "5.0.1",
+    "@oxlint/plugins": "1.79.0",
     "@tsconfig/bun": "catalog:",
     "husky": "9.1.7",
     "oxfmt": "0.56.0",
-    "oxlint": "1.71.0",
+    "oxlint": "1.79.0",
     "prettier": "3.8.4",
     "semver": "^7.6.0",
     "sst": "3.19.3",

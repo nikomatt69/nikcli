@@ -21,6 +21,10 @@ export namespace ArtifactRepo {
 
   function readRecord(data: string): StoredRecord | undefined {
     try {
+      // SAFETY: `data` is the column this module wrote in `upsert`, which only
+      // ever stores `JSON.stringify(record)` for a `StoredRecord`. Unparsable
+      // JSON is caught below; a row written by an older version surfaces as
+      // missing optional fields, which every caller already handles.
       return JSON.parse(data) as StoredRecord
     } catch {
       return undefined

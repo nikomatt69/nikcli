@@ -18,7 +18,12 @@ export namespace State {
         recordsByKey.set(key, entries)
       }
       const exists = entries.get(init)
-      if (exists) return exists.state as S
+      if (exists) {
+        // SAFETY: entries are keyed by the `init` function itself, so an entry
+        // found under this key was produced by this very initialiser and its
+        // state is that initialiser's `S`.
+        return exists.state as S
+      }
       const state = init()
       entries.set(init, {
         state,

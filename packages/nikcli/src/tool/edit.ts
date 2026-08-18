@@ -188,10 +188,10 @@ export const EditTool = Tool.define("edit", {
         yield* lsp.touchFile(filePath, true)
         return yield* lsp.diagnostics()
       }),
-    ).catch((err) => {
+    ).catch((err): Record<string, LSP.Diagnostic[]> => {
       // LSP errors are non-fatal, log and continue
       log.debug("LSP diagnostics failed", { error: String(err), filePath })
-      return {} as Record<string, LSP.Diagnostic[]>
+      return {}
     })
     const normalizedFilePath = Filesystem.normalizePath(filePath)
     const issues = diagnostics[normalizedFilePath] ?? []

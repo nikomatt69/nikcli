@@ -467,37 +467,45 @@ export function definitionFromGeneratedText(text: string): MissionDefinition {
       const rawFeatures = Array.isArray(m.features) ? m.features : []
       const features: GeneratedFeature[] = rawFeatures
         .filter((f): f is Record<string, unknown> => typeof f === "object" && f !== null)
-        .map((f) => ({
-          objective: typeof f.objective === "string" ? f.objective : "",
-          ...(typeof f.name === "string" && f.name.trim() ? { name: f.name } : {}),
-          ...(typeof f.agent === "string" && f.agent.trim() ? { agent: f.agent } : {}),
-          ...(typeof f.model === "string" && isValidModel(f.model) ? { model: f.model } : {}),
-          ...(typeof f.tokenBudget === "number" ? { tokenBudget: f.tokenBudget } : {}),
-          ...(Array.isArray(f.dependsOn)
-            ? { dependsOn: f.dependsOn.filter((d): d is string => typeof d === "string") }
-            : {}),
-        }))
-      return {
-        features,
-        ...(typeof m.name === "string" && m.name.trim() ? { name: m.name } : {}),
-        ...(typeof m.validation === "string" && ValidationPolicySchema.safeParse(m.validation).success
-          ? { validation: m.validation as ValidationPolicy }
-          : {}),
+        .map((f) => {
+          // Fields are assigned only when the draft carries a usable value, so a
+          // key the model omitted stays absent rather than becoming undefined.
+          const feature: GeneratedFeature = {
+            objective: typeof f.objective === "string" ? f.objective : "",
+          }
+          if (typeof f.name === "string" && f.name.trim()) feature.name = f.name
+          if (typeof f.agent === "string" && f.agent.trim()) feature.agent = f.agent
+          if (typeof f.model === "string" && isValidModel(f.model)) feature.model = f.model
+          if (typeof f.tokenBudget === "number") feature.tokenBudget = f.tokenBudget
+          if (Array.isArray(f.dependsOn)) {
+            feature.dependsOn = f.dependsOn.filter((d): d is string => typeof d === "string")
+          }
+          return feature
+        })
+      const milestone: GeneratedMilestone = { features }
+      if (typeof m.name === "string" && m.name.trim()) milestone.name = m.name
+      if (typeof m.validation === "string") {
+        const validation = ValidationPolicySchema.safeParse(m.validation)
+        if (validation.success) milestone.validation = validation.data
       }
+      return milestone
     })
-  const models = typeof v.models === "object" && v.models !== null ? (v.models as Record<string, unknown>) : undefined
-  return definitionFromGenerated({
+  const rawModels = typeof v.models === "object" && v.models !== null ? v.models : undefined
+  const mission: GeneratedMission = {
     brief: typeof v.brief === "string" ? v.brief : "",
     milestones,
-    ...(typeof v.name === "string" && v.name.trim() ? { name: v.name } : {}),
-    ...(models
-      ? {
-          models: {
-            ...(typeof models.worker === "string" ? { worker: models.worker } : {}),
-            ...(typeof models.validation === "string" ? { validation: models.validation } : {}),
-            ...(typeof models.orchestrator === "string" ? { orchestrator: models.orchestrator } : {}),
-          },
-        }
-      : {}),
-  })
+  }
+  if (typeof v.name === "string" && v.name.trim()) mission.name = v.name
+  if (rawModels) {
+    const models: NonNullable<GeneratedMission["models"]> = {}
+    if ("worker" in rawModels && typeof rawModels.worker === "string") models.worker = rawModels.worker
+    if ("validation" in rawModels && typeof rawModels.validation === "string") {
+      models.validation = rawModels.validation
+    }
+    if ("orchestrator" in rawModels && typeof rawModels.orchestrator === "string") {
+      models.orchestrator = rawModels.orchestrator
+    }
+    mission.models = models
+  }
+  return definitionFromGenerated(mission)
 }

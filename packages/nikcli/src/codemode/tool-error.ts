@@ -8,4 +8,4 @@ export class ToolError extends Schema.TaggedErrorClass<ToolError>()("ToolError",
 
 /** Creates a tool refusal whose message is safe to include in an execution diagnostic. */
 export const toolError = (message: string, cause?: unknown): ToolError =>
-  new ToolError({ message, ...(cause === undefined ? {} : { cause }) })
+  cause === undefined ? new ToolError({ message }) : new ToolError({ message, cause })

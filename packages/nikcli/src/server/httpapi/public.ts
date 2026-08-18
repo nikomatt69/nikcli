@@ -10,6 +10,7 @@ import { MobileHttpApi } from "./mobile"
 import { MobileHandlersLive } from "./mobile-handlers"
 import { BrainHttpApi } from "./brain"
 import { ChatbotHttpApi } from "./chatbot-api"
+import { DiscordHttpApi } from "./discord"
 import { VoiceHttpApi } from "./voice"
 import { ProfileHttpApi } from "./profile"
 import { ConfigHttpApi } from "./config"
@@ -47,6 +48,7 @@ export namespace PublicHttpApi {
     .add(AppHttpApi.Group)
     .add(BrainHttpApi.Group)
     .add(ChatbotHttpApi.Group)
+    .add(DiscordHttpApi.Group)
     .add(VoiceHttpApi.Group)
     .add(ProfileHttpApi.Group)
     .add(ConfigHttpApi.Group)
@@ -257,6 +259,14 @@ export namespace PublicHttpApi {
       .handle("stop", (request) => ChatbotHttpApi.handlers.stop(request)),
   )
 
+  const DiscordHandlersLive = HttpApiBuilder.group(Api, "discord", (handlers) =>
+    handlers
+      .handle("status", () => DiscordHttpApi.handlers.status())
+      .handle("setup", (request) => DiscordHttpApi.handlers.setup(request))
+      .handle("start", () => DiscordHttpApi.handlers.start())
+      .handle("stop", () => DiscordHttpApi.handlers.stop()),
+  )
+
   const VoiceHandlersLive = HttpApiBuilder.group(Api, "voice", (handlers) =>
     handlers.handle("transcribe", (request) => VoiceHttpApi.handlers.transcribe(request)),
   )
@@ -388,6 +398,7 @@ export namespace PublicHttpApi {
         AppHandlersLive.pipe(Layer.provide(AppHttpApi.DependenciesLive)),
         BrainHandlersLive,
         ChatbotHandlersLive,
+        DiscordHandlersLive.pipe(Layer.provide(DiscordHttpApi.DependenciesLive)),
         VoiceHandlersLive,
         ProfileHandlersLive,
         ConfigHandlersLive.pipe(Layer.provide(ConfigHttpApi.DependenciesLive)),

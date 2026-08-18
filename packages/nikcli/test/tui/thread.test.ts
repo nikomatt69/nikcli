@@ -44,7 +44,7 @@ describe("TUI thread bootstrap", () => {
     expect(shouldTerminateWorker("linux")).toBe(true)
 
     let released = false
-    releaseWorkerWithoutTermination({ unref: () => (released = true) })
+    releaseWorkerWithoutTermination({ terminate: () => {}, unref: () => (released = true) })
     expect(released).toBe(true)
   })
 

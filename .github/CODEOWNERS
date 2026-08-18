@@ -9,3 +9,9 @@
 /packages/nikcli/src/server/ @nikomatt69
 /packages/remote/ @nikomatt69
 /packages/sdk/ @nikomatt69
+packages/tui @nikomatt69
+
+
+packages/app @SandroHub013
+packages/desktop @SandroHub013
+packages/ui @SandroHub013

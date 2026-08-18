@@ -106,6 +106,13 @@ describe("HttpApi bridge auth", () => {
       expect(HttpApiBridge.supports("/connectors/invalidate", "POST")).toBe(true)
     })
 
+    it("flags discord routes", () => {
+      expect(HttpApiBridge.supports("/discord", "GET")).toBe(true)
+      expect(HttpApiBridge.supports("/discord/setup", "POST")).toBe(true)
+      expect(HttpApiBridge.supports("/discord/start", "POST")).toBe(true)
+      expect(HttpApiBridge.supports("/discord/stop", "POST")).toBe(true)
+    })
+
     it("flags chatbot webhook receivers", () => {
       expect(HttpApiBridge.supports("/chatbot/discord/notify", "POST")).toBe(true)
       expect(HttpApiBridge.supports("/chatbot/slack/notify", "POST")).toBe(true)

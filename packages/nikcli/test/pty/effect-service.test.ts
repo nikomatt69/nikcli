@@ -110,6 +110,8 @@ describe("Pty.Service", () => {
             env: { SHARED: "caller", TERM: "caller" },
           })
           // Subscribe before the command finishes so its output streams live.
+          // SAFETY: `fakeWs` implements the slice of the socket `connect` uses
+          // (send/close); the assertion skips the rest of the WebSocket surface.
           yield* pty.connect(created.id, fakeWs as never)
           // Poll for the command's output instead of sleeping a fixed 500ms:
           // on a slow CI runner the printf lands later than that, which tore

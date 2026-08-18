@@ -26,6 +26,7 @@ afterAll(async () => {
 describe("Session.Service", () => {
   it("uses the Effect instance context for session storage and paths", async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-effect-"))
+    // SAFETY: session storage reads only `project.id` and `project.vcs`.
     const project = { id: `project-${path.basename(directory)}`, vcs: true } as any
 
     try {

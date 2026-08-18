@@ -11,6 +11,9 @@ export const OpenTUIVizTool = Tool.define("opentui", {
   // validate cleanly. See SafeVizSpecZod for the full rationale.
   parameters: SafeVizSpecZod,
   async execute(params, _ctx) {
+    // SAFETY: `SafeVizSpecZod` (see the note above) already validated the
+    // payload; the assertion only restores the component union that the
+    // parser-safe schema widens.
     const flatCount = countFlatComponents(params.components as VizComponent[])
     return {
       title: params.title,

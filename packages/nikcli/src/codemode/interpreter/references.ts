@@ -60,9 +60,17 @@ export const containsOpaqueReference = (value: unknown, seen = new Set<object>()
   return contains
 }
 
+/**
+ * A container the interpreter mutates in place. `rejectCircularInsertion` only
+ * ever compares it by identity, so this names what the call sites actually
+ * pass — `Array.push/unshift/splice/fill` targets and object-assignment
+ * targets — instead of accepting any object.
+ */
+export type MutableContainer = Array<unknown> | Record<string, unknown>
+
 // Reject cycles before mutation so later boundary walks remain safe.
 export const rejectCircularInsertion = (
-  container: object,
+  container: MutableContainer,
   value: unknown,
   label: string,
   node: AstNode,

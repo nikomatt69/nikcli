@@ -5,6 +5,7 @@ import { recordBenchmark } from "../benchmarks/runner"
 
 describe("MessageV2 benchmark", () => {
   it("records toModelMessages for repeated user turns", () => {
+    // SAFETY: `toModelMessages` reads only the api/id/cost fields set below.
     const model = {
       api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" },
       id: "MiniMax-M2.7",

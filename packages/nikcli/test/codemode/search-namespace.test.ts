@@ -31,6 +31,8 @@ const value = async (code: string) => {
 }
 
 const paths = async (namespace: string) =>
+  // SAFETY: the interpreted `search(...)` call returns the search result object,
+  // whose `items` this helper maps.
   ((await value(`return search({ query: "", namespace: ${JSON.stringify(namespace)} })`)) as any).items
     .map((entry: { path: string }) => entry.path)
     .sort()

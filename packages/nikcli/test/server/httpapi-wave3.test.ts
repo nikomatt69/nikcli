@@ -214,6 +214,27 @@ describe("Users raw HTTP (instance-less bridge branch)", () => {
   })
 })
 
+describe("Discord HttpApi", () => {
+  it("advertises discord routes", () => {
+    expect(HttpApiBridge.supports("/discord", "GET")).toBe(true)
+    expect(HttpApiBridge.supports("/discord/setup", "POST")).toBe(true)
+    expect(HttpApiBridge.supports("/discord/start", "POST")).toBe(true)
+    expect(HttpApiBridge.supports("/discord/stop", "POST")).toBe(true)
+  })
+
+  it("serves GET /discord status unconfigured in a temp project", async () => {
+    const directory = await makeProjectDir()
+    const response = await request("/discord", directory)
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as {
+      configured: boolean
+      running: boolean
+    }
+    expect(body.configured).toBe(false)
+    expect(typeof body.running).toBe("boolean")
+  })
+})
+
 describe("Chatbot webhook special", () => {
   it("advertises chatbot webhook routes on the instance bridge", () => {
     expect(HttpApiBridge.supports("/chatbot/slack/mybot", "POST")).toBe(true)

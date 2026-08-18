@@ -175,8 +175,10 @@ export async function startRun(loopID: string, sessionID?: string): Promise<Loop
     heartbeatAt: now,
     status: "running",
     ok: false,
-    ...(sessionID ? { sessionID } : {}),
   }
+  // Assigned rather than spread so the key stays absent when there is no
+  // session, without an empty-object spread hiding the shape.
+  if (sessionID) run.sessionID = sessionID
   LoopRepo.putRun(project, run)
   // Bump the lifetime counter; on first contact derive it from history (the
   // record above is already included in that count).

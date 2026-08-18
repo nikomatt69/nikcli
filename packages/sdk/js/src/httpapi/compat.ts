@@ -183,6 +183,12 @@ export function compat(raw: Raw, defaults: CompatDefaults = {}) {
       start: result(raw.chatbot.start),
       stop: result(raw.chatbot.stop),
     },
+    discord: {
+      status: result0(raw.discord.status),
+      setup: result(raw.discord.setup),
+      start: result0(raw.discord.start),
+      stop: result0(raw.discord.stop),
+    },
     voice: {
       transcribe: result(raw.voice.transcribe),
     },

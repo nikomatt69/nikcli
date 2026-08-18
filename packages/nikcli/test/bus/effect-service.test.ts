@@ -32,6 +32,8 @@ describe("Bus.Service", () => {
     try {
       const seen = await Effect.runPromise(
         locallyInstance(
+          // SAFETY: the code under test reads only `project.id` off the
+          // instance context, so a stub carrying just that id is sufficient.
           { directory, worktree: directory, project: { id: "test" } as any },
           Effect.gen(function* () {
             const bus = yield* Bus.Service

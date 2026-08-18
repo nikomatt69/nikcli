@@ -144,8 +144,10 @@ export async function startExec(
     heartbeatAt: now,
     status: "running",
     ok: false,
-    ...(sessionID ? { sessionID } : {}),
   }
+  // Assigned rather than spread so the key stays absent when there is no
+  // session, without an empty-object spread hiding the shape.
+  if (sessionID) exec.sessionID = sessionID
   MissionRepo.putExec(projectID(), exec)
   return exec
 }

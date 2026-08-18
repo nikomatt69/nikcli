@@ -304,6 +304,9 @@ export namespace Installation {
         // failing the whole update check.
         const res = await fetch("https://formulae.brew.sh/api/formula/nikcli.json").catch(() => null)
         if (res?.ok) {
+          // SAFETY: only `versions.stable` is read, optional-chained on the next
+          // line, so a brew response of any other shape yields undefined and
+          // falls through to the GitHub release path below.
           const data = (await res.json()) as { versions?: { stable?: string } }
           if (data.versions?.stable) return data.versions.stable
         }

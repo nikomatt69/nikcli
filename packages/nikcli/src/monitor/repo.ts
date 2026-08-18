@@ -30,6 +30,9 @@ export namespace MonitorRepo {
 
   function readRecord(data: string): Monitor.Record | undefined {
     try {
+      // SAFETY: `data` is the column written by `toRow`, which only ever stores
+      // `JSON.stringify(record)` for a `Monitor.Record`. Unparsable JSON is
+      // caught below and reported as a missing record.
       return JSON.parse(data) as Monitor.Record
     } catch {
       return undefined

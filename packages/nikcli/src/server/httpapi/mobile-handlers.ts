@@ -6,6 +6,10 @@ import { MobileHttpApi } from "./mobile"
 
 function forward({ request }: { readonly request: HttpServerRequest.HttpServerRequest }) {
   return Effect.promise(async () => {
+    // SAFETY: `source` is typed `unknown` because Effect supports several
+    // server adapters. nikcli only ever serves this router through
+    // `Server.fetch`, i.e. the web-standard adapter, where `source` is the
+    // incoming `Request` that adapter was handed.
     const source = request.source as Request
     return (await dispatchMobileRequest(source)) ?? new Response("Not Found", { status: 404 })
   }).pipe(Effect.map(HttpServerResponse.fromWeb))

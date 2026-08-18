@@ -40,6 +40,8 @@ describe("SessionRetry benchmark", () => {
     const iterations = 3_000
     const start = performance.now()
     for (let i = 0; i < iterations; i += 1) {
+      // SAFETY: `payloads` holds the provider error shapes this benchmark
+      // measures; the union does not name their plain-object form.
       SessionRetry.retryable(payloads[i % payloads.length] as never)
     }
     const elapsed = performance.now() - start

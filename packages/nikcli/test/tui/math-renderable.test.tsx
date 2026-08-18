@@ -123,6 +123,8 @@ describe("inline substitution through the markdown renderer", () => {
   test("a substituted formula survives the round trip", async () => {
     const blocks = buildMathBlocks("the sum $\\sum_{i=1}^{n} i$ counts")
     expect(blocks).toHaveLength(1)
+    // SAFETY: the length assertion above proves the block exists, and
+    // `buildMathBlocks` returns blocks carrying `content`.
     const painted = await render((blocks[0] as { content: string }).content)
     expect(painted).toContain("the sum")
     expect(painted).toContain("counts")

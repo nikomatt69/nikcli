@@ -83,6 +83,8 @@ describe("loop/manager", () => {
 
   it("rejects invalid definitions with a thrown error", async () => {
     const bad = makeDef({
+      // SAFETY: the empty objective is the invalid value under test; the
+      // assertion only stops the literal from narrowing.
       stages: [{ name: "s", agent: "ralph", objective: "" as string }],
     })
     await expect(withInstance(() => Manager.upsert(bad))).rejects.toThrow()

@@ -80,6 +80,7 @@
 | `packages/companion`                                           | `@nikcli-ai/companion`           | Companion server (Hono + WebSocket + Cloudflare Workers)                                                              |
 | `packages/remote`                                              | `@nikcli-ai/remote`              | Remote terminal via WebSocket + QR code + tunnels                                                                     |
 | `packages/slack`                                               | `@nikcli-ai/slack`               | Slack bot (@slack/bolt + Cloudflare Workers)                                                                          |
+| `packages/discord`                                             | `@nikcli-ai/discord`             | Discord Gateway bot (discord.js) + invite helpers; TUI `/discord` wizard via HttpApi                                  |
 | `packages/web`                                                 | `@nikcli-ai/web`                 | Marketing/docs site at `nikcli.store` (Astro + React + Cloudflare)                                                    |
 | `packages/inference`                                           | `@nikcli-ai/inference`           | Inference service                                                                                                     |
 | `packages/inference-dashboard`                                 | `@nikcli-ai/inference-dashboard` | Analytics dashboard (Astro)                                                                                           |

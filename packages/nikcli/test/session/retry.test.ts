@@ -91,6 +91,8 @@ describe("SessionRetry", () => {
         name: "UnknownError" as const,
         data: { message: '{"code":"rate_limit_exhausted"}' },
       }
+      // SAFETY: `retryable` takes the provider error union; this literal is the
+      // plain-object form a provider returns, which the union does not name.
       expect(SessionRetry.retryable(plain as never)).toBe("Provider is overloaded")
     })
 

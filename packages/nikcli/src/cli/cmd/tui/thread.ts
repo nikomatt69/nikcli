@@ -89,8 +89,21 @@ export function shouldTerminateWorker(platform = process.platform): boolean {
   return platform !== "win32"
 }
 
-export function releaseWorkerWithoutTermination(worker: object): void {
-  ;(worker as { unref?: () => void }).unref?.()
+/**
+ * The slice of a worker handle this module drives.
+ *
+ * `unref` is optional because it is a Bun extension that the DOM `Worker` type
+ * does not declare; `terminate` is required so a bare `{ unref }` object cannot
+ * pass for a worker. Naming the shape also removes the assertion this function
+ * used to need.
+ */
+export type WorkerHandle = {
+  terminate: () => void
+  unref?: () => void
+}
+
+export function releaseWorkerWithoutTermination(worker: WorkerHandle): void {
+  worker.unref?.()
 }
 
 export async function shutdownWorker(input: {

@@ -110,6 +110,8 @@ describe("InstanceScope", () => {
       const failure = Cause.findErrorOption(exit.cause)
       expect(failure._tag).toBe("Some")
       if (failure._tag === "Some") {
+        // SAFETY: the effect under test fails with exactly `MarkerError`, and
+        // the `_tag === "Some"` guard above proves a failure was found.
         const error = failure.value as MarkerError
         expect(error._tag).toBe("MarkerError")
         expect(error.detail).toBe("kept")

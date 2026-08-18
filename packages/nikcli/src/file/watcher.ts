@@ -38,6 +38,9 @@ export namespace FileWatcher {
       const binding = require(
         `@parcel/watcher-${process.platform}-${process.arch}${process.platform === "linux" ? `-${NIKCLI_LIBC || "glibc"}` : ""}`,
       )
+      // SAFETY: `createWrapper` implements the `@parcel/watcher` surface over the
+      // platform binding resolved just above; a missing binding throws and is
+      // caught below.
       return createWrapper(binding) as typeof import("@parcel/watcher")
     } catch (error) {
       log.error("failed to load watcher binding", { error })

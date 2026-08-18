@@ -121,9 +121,9 @@ export namespace InstanceReload {
     watchFile(path.join(Global.Path.config, "nikcli.json"))
     watchFile(path.join(directory, "nikcli.json"))
     if (worktree !== "/" && worktree !== directory) watchFile(path.join(worktree, "nikcli.json"))
-    for (const dir of await configDirectories().catch((error) => {
+    for (const dir of await configDirectories().catch((error): string[] => {
       log.warn("failed to resolve config directories for hot reload", { directory, error })
-      return [] as string[]
+      return []
     })) {
       watchDir(dir)
     }
