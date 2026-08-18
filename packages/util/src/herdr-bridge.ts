@@ -588,7 +588,6 @@ export function releasePaneSync(): void {
   }
 }
 
-
 /**
  * Report a nikcli session as a herdr agent. No-op when the bridge is not
  * enabled or the socket is unreachable. Failures are logged, never thrown,

@@ -162,10 +162,7 @@ export namespace DiscordHttpApi {
         const directory = Instance.directory
         return yield* fromPromise(async (): Promise<StartBody> => {
           try {
-            const [{ startDiscordBot }, { Server }] = await Promise.all([
-              discordBot(),
-              import("@/server/server"),
-            ])
+            const [{ startDiscordBot }, { Server }] = await Promise.all([discordBot(), import("@/server/server")])
             const status = await startDiscordBot({
               botToken,
               nikcliUrl: Server.url().origin,

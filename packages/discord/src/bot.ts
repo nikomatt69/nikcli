@@ -23,21 +23,9 @@ import { createNikcli } from "@nikcli-ai/sdk/server"
 import { ChannelMemory } from "./channel-memory"
 import { ChannelTools } from "./channel-tools"
 import { FollowUps } from "./followups"
-import {
-  CONNECTOR_NAME,
-  INVITE_PERMISSIONS,
-  inviteUrl,
-  lookupBotUser,
-  type DiscordUser,
-} from "./invite"
+import { CONNECTOR_NAME, INVITE_PERMISSIONS, inviteUrl, lookupBotUser, type DiscordUser } from "./invite"
 
-export {
-  CONNECTOR_NAME,
-  INVITE_PERMISSIONS,
-  inviteUrl,
-  lookupBotUser,
-  type DiscordUser,
-}
+export { CONNECTOR_NAME, INVITE_PERMISSIONS, inviteUrl, lookupBotUser, type DiscordUser }
 
 export type DiscordBotStartOptions = {
   botToken: string
@@ -571,7 +559,8 @@ async function ensureWorkChannel(
   if (message.channel.isDMBased()) return message.channel
   if (message.channel.isThread()) return message.channel
   if (message.hasThread && message.thread) return message.thread
-  if (!message.inGuild() || !message.channel.isTextBased()) return message.channel.isTextBased() ? message.channel : null
+  if (!message.inGuild() || !message.channel.isTextBased())
+    return message.channel.isTextBased() ? message.channel : null
 
   const name = threadName.replace(/\s+/g, " ").trim().slice(0, 100) || "nikcli"
   try {

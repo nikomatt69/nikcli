@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.295.0 (August 2026)
+
+## Core
+
+- Add Discord Gateway bot integration (@nikomatt69)
+- Update artifact URLs to include view keys (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(session): update artifact URLs to include view keys
+  - feat(discord): add Discord Gateway bot integration
+
 ## v1.293.0 (August 2026)
 
 ## Core
@@ -13,12 +26,12 @@
 - H4 — collapse two dispatcher stacks; add AccountGroup + profilesList (@nikomatt69)
 - H5 — generate implementedRoutes from OpenApi.fromApi(PublicApi) (@nikomatt69)
 - E4 — Schema.optionalKey across domain, delete jsonSafe (@nikomatt69)
-- P2 quick cuts — disableLogger, COUNT(*), skip sessionForRequest on pinned workspace (@nikomatt69)
+- P2 quick cuts — disableLogger, COUNT(\*), skip sessionForRequest on pinned workspace (@nikomatt69)
 
 **Thank you to 1 community contributor:**
 
 - @nikomatt69:
-  - perf(httpapi): P2 quick cuts — disableLogger, COUNT(*), skip sessionForRequest on pinned workspace
+  - perf(httpapi): P2 quick cuts — disableLogger, COUNT(\*), skip sessionForRequest on pinned workspace
   - refactor(httpapi): E4 — Schema.optionalKey across domain, delete jsonSafe
   - perf(httpapi): H5 — generate implementedRoutes from OpenApi.fromApi(PublicApi)
   - feat(httpapi): H4 — collapse two dispatcher stacks; add AccountGroup + profilesList

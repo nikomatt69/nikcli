@@ -318,7 +318,13 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
           </Text>
         </View>
         {primary ? <InlineArtifactCard preview={primary} onPress={() => props.onOpen(primary)} /> : null}
-        <View className={rest.length || props.artifacts.some((artifact) => artifact.viewerUrl || artifact.url) ? "mt-3 gap-2" : undefined}>
+        <View
+          className={
+            rest.length || props.artifacts.some((artifact) => artifact.viewerUrl || artifact.url)
+              ? "mt-3 gap-2"
+              : undefined
+          }
+        >
           {rest.map((artifact) => (
             <Pressable
               key={artifact.id}
@@ -364,41 +370,41 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
             .map((artifact) => {
               const href = artifact.viewerUrl || artifact.url!
               return (
-              <Pressable
-                key={`${artifact.id}:link`}
-                onPress={() => {
-                  void triggerHaptic("selection")
-                  void Linking.openURL(href).catch(() => undefined)
-                }}
-                onLongPress={() => {
-                  void Clipboard.setStringAsync(href)
-                  void triggerHaptic("success")
-                }}
-                accessibilityRole="link"
-                accessibilityLabel={`Open artifact link ${href}`}
-                accessibilityHint="Long press to copy the link"
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  borderRadius: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
-                  borderWidth: 1,
-                  borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
-                  opacity: pressed ? 0.82 : 1,
-                })}
-              >
-                <Link2 size={13} color={palette.accentLight} strokeWidth={2.2} />
-                <Text
-                  numberOfLines={1}
-                  className="flex-1 text-[12px] font-medium underline"
-                  style={{ color: palette.accentLight }}
+                <Pressable
+                  key={`${artifact.id}:link`}
+                  onPress={() => {
+                    void triggerHaptic("selection")
+                    void Linking.openURL(href).catch(() => undefined)
+                  }}
+                  onLongPress={() => {
+                    void Clipboard.setStringAsync(href)
+                    void triggerHaptic("success")
+                  }}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open artifact link ${href}`}
+                  accessibilityHint="Long press to copy the link"
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    borderRadius: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
+                    borderWidth: 1,
+                    borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
+                    opacity: pressed ? 0.82 : 1,
+                  })}
                 >
-                  {href}
-                </Text>
-              </Pressable>
+                  <Link2 size={13} color={palette.accentLight} strokeWidth={2.2} />
+                  <Text
+                    numberOfLines={1}
+                    className="flex-1 text-[12px] font-medium underline"
+                    style={{ color: palette.accentLight }}
+                  >
+                    {href}
+                  </Text>
+                </Pressable>
               )
             })}
         </View>

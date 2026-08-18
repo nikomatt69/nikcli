@@ -27,24 +27,24 @@ Horizons are ordering, not dates. An item moves up when its dependency lands, no
 
 The first PR is **H4 + H5** together: one dispatcher, one `HandlersLive` list, `supports()` generated from the contract. Land the uncommitted method-bucket benchmark with H5.
 
-| ID      | Horizon | Item                                                                  |
-| ------- | ------- | --------------------------------------------------------------------- |
-| **H4**  | Now     | Close contract-only strangler leftovers (one live dispatcher)         |
-| **H5**  | Now     | Generate `HttpApiBridge.supports` from `PublicApi`                    |
-| **H1**  | Now     | Close remaining nested `Unknown` / `payload: unknown`                 |
+| ID      | Horizon | Item                                                                       |
+| ------- | ------- | -------------------------------------------------------------------------- |
+| **H4**  | Now     | Close contract-only strangler leftovers (one live dispatcher)              |
+| **H5**  | Now     | Generate `HttpApiBridge.supports` from `PublicApi`                         |
+| **H1**  | Now     | Close remaining nested `Unknown` / `payload: unknown`                      |
 | **E4**  | Later   | Encode optionals as absent keys (per endpoint; `jsonSafe` is load-bearing) |
-| **H6**  | Later   | Codegen named field refs; keep `unknown` as `unknown`                 |
-| **H7**  | Later   | JSON `/mobile/*` onto encoded handlers                                |
-| **E5**  | Later   | Typed Effect failure channel on HttpApi handlers                      |
-| **H3**  | Later   | Generate the SDK namespaced view (`compat.ts`)                        |
-| **P2**  | Later   | Request-path cuts (URL, session lookup, logs, list SQL)               |
-| **H8**  | Later   | `HttpApiMiddleware` on encoded groups                                 |
-| **R1**  | Later   | Keyed scoped instance runtime (drop ALS)                              |
-| **I1**  | Later   | Reconcile Identifier (`util/id` vs `util/identifier`)                 |
-| **T3**  | Later   | Output codecs on structured built-ins                                 |
-| **S4r** | Later   | Import / teleport / run write through SessionV2                       |
-| **X2**  | Later   | Delete adapters with no production callers                            |
-| **P3**  | Later   | `normalizeMessages` on the LLM turn path                              |
+| **H6**  | Later   | Codegen named field refs; keep `unknown` as `unknown`                      |
+| **H7**  | Later   | JSON `/mobile/*` onto encoded handlers                                     |
+| **E5**  | Later   | Typed Effect failure channel on HttpApi handlers                           |
+| **H3**  | Later   | Generate the SDK namespaced view (`compat.ts`)                             |
+| **P2**  | Later   | Request-path cuts (URL, session lookup, logs, list SQL)                    |
+| **H8**  | Later   | `HttpApiMiddleware` on encoded groups                                      |
+| **R1**  | Later   | Keyed scoped instance runtime (drop ALS)                                   |
+| **I1**  | Later   | Reconcile Identifier (`util/id` vs `util/identifier`)                      |
+| **T3**  | Later   | Output codecs on structured built-ins                                      |
+| **S4r** | Later   | Import / teleport / run write through SessionV2                            |
+| **X2**  | Later   | Delete adapters with no production callers                                 |
+| **P3**  | Later   | `normalizeMessages` on the LLM turn path                                   |
 
 ---
 
@@ -109,7 +109,7 @@ State the wins, so nobody re-plans them:
 ### Close the contract-only strangler leftovers (H4)
 
 - **Buys** — One live dispatcher for JSON contract-only routes. Adding a handle in the group file cannot typecheck and 404 because `public.ts` was not copied. `check:routes` can actually mean “this path is served.” `/account` gets the same generation contract `/user` already has.
-- **Evidence** — `PublicApi` adds eight contract-only groups. Live serving is a second pathname stack (`PublicRoutes` / `extra.ts` / `HttpApiPrompt`). `httpapi/global-handlers.ts` says the two stacks exist *because* H4 has not landed. `ContractExtraHttpApi.HandlersLive` is an Effect copy of those routes; the only importer of `contract-extra.ts` is `public.ts`, and it adds the groups, not `HandlersLive`. Almost every group already exports `HandlersLive`; `public.ts` re-declares the same `.handle` names. Only `SyncHttpApi.HandlersLive` is composed as-is. Group-local `export const layer` is unused by the served API. `/user/*` is on `UsersGroup`; `/account`, `/account/login`, and `/account/login/complete` are not on `PublicApi`. `GET /config/profiles` is served from `extra.ts` and is absent from `rawRouteImplementations` (the POSTs are listed). `bun run check:routes --strict` is a no-op: `packages/nikcli/script/check-route-coverage.ts` never reads `argv`, while `script/ci-validate.ts` still passes `--strict`.
+- **Evidence** — `PublicApi` adds eight contract-only groups. Live serving is a second pathname stack (`PublicRoutes` / `extra.ts` / `HttpApiPrompt`). `httpapi/global-handlers.ts` says the two stacks exist _because_ H4 has not landed. `ContractExtraHttpApi.HandlersLive` is an Effect copy of those routes; the only importer of `contract-extra.ts` is `public.ts`, and it adds the groups, not `HandlersLive`. Almost every group already exports `HandlersLive`; `public.ts` re-declares the same `.handle` names. Only `SyncHttpApi.HandlersLive` is composed as-is. Group-local `export const layer` is unused by the served API. `/user/*` is on `UsersGroup`; `/account`, `/account/login`, and `/account/login/complete` are not on `PublicApi`. `GET /config/profiles` is served from `extra.ts` and is absent from `rawRouteImplementations` (the POSTs are listed). `bun run check:routes --strict` is a no-op: `packages/nikcli/script/check-route-coverage.ts` never reads `argv`, while `script/ci-validate.ts` still passes `--strict`.
 - **Depends on** — nothing now that H2 landed: `/account` is already a root in `httpapi/instance-less.ts`, so putting it on `PublicApi` is a contract edit, not a routing one.
 - **Done when** — `HandlersLive` in `contract-extra.ts` is deleted or is the single live adapter for those JSON routes. `PublicHttpApi.layer` is `Layer.mergeAll(SessionHttpApi.HandlersLive, …)` — the per-group `HandlersLive` is the single list. `GET /config/profiles` is in `inventory.ts`. `/account` is on `PublicApi` the way `/user` is. `check-route-coverage.ts` implements `--strict` (fail on contract/handler/raw inventory gaps) and CI’s existing flag starts meaning something. `bun run check:routes --strict` is clean. SSE, prompt streaming, and websocket upgrades stay raw (see non-goals).
 - **First PR** — land with H5.
@@ -140,13 +140,14 @@ State the wins, so nobody re-plans them:
 
   Nested leftovers the headline grep cannot see:
 
-  | Leftover | Source already in tree |
-  | --- | --- |
-  | Six TUI `payload: unknown` (`TuiAppendPromptInput`, `TuiExecuteCommandInput`, `TuiShowToastInput`, `TuiPublishInput`, `TuiSelectSessionInput`, `TuiControlResponseInput`) | zod `parseWith` in `httpapi/tui.ts` |
-  | `ConnectorsAuthSetInput.payload: unknown` | connector auth schema |
-  | `MobileConfigInfo` `[x: string]: any` catchall | `fromZod(Config.Info)` — the zod document’s open tail |
+  | Leftover                                                                                                                                                                  | Source already in tree                                |
+  | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+  | Six TUI `payload: unknown` (`TuiAppendPromptInput`, `TuiExecuteCommandInput`, `TuiShowToastInput`, `TuiPublishInput`, `TuiSelectSessionInput`, `TuiControlResponseInput`) | zod `parseWith` in `httpapi/tui.ts`                   |
+  | `ConnectorsAuthSetInput.payload: unknown`                                                                                                                                 | connector auth schema                                 |
+  | `MobileConfigInfo` `[x: string]: any` catchall                                                                                                                            | `fromZod(Config.Info)` — the zod document’s open tail |
 
   `MobileConfigInfo`’s catchall is the one config exception: either pin it or name it in [README.md](./README.md) §Open payloads as justified (the `nikcli.json` catchall). Do not treat a zero headline `any` count as done.
+
 - **Blocks** — Typed TUI/SDK callers for those writes; H3 generating `any`/`unknown` into the namespaced view.
 - **Done when** — The nested measure in [README.md](./README.md) §Open payloads lists only justified open payloads. TUI payloads reuse the zod codecs already used by `parseWith`, lifted to Effect. Connector auth payload reuses the connector schema. `bun run generate:httpapi-clients` and `bun run check:routes` pass. Land one group at a time; curl the write route against a real server — `Schema.optional` accepts a present `undefined` and puts `null` on the wire, while `optionalKey` fails the request outright (see E4).
 - **Keep `Unknown`** — `SessionV2` entry/state/event lists (`SessionEntry.Entry` grows without a contract bump). SSE (`/event`, `/sync/stream`, mobile session stream, `MobileEventsOutput`). Share short-links. GitHub repo list: type the `imported*` wrapper fields; the upstream repo body may stay open. Do not pin `SessionEntry.Entry` through `fromZod` as part of this item.
@@ -164,17 +165,18 @@ These are evidenced leftovers, not product ideas. They wait because a smaller it
 route tests; corrected below before anyone repeats it.**
 
 - **Buys** — The remaining `jsonSafe` handlers (`session.ts`, `provider.ts`, `config.ts`) stop doing `JSON.parse(JSON.stringify(...))` before HttpApi encodes.
-- **Evidence** — `Schema.optional` is `optionalKey(UndefinedOr(self))` (`node_modules/effect/src/Schema.ts:2022`), so `undefined` is a valid *union member* — and the HTTP encode path serializes that member as **`null`**. `jsonSafe` is what turns a present `undefined` into an *absent key*; it is load-bearing, not the defensive placeholder its own comment claims. Deleting it while the schemas stay `Schema.optional` produces:
+- **Evidence** — `Schema.optional` is `optionalKey(UndefinedOr(self))` (`node_modules/effect/src/Schema.ts:2022`), so `undefined` is a valid _union member_ — and the HTTP encode path serializes that member as **`null`**. `jsonSafe` is what turns a present `undefined` into an _absent key_; it is load-bearing, not the defensive placeholder its own comment claims. Deleting it while the schemas stay `Schema.optional` produces:
   - `POST /session/:id/unrevert` → `revert: null` instead of absent (fails `httpapi-session.test.ts:270`)
   - `GET /session/:id/context` → `model: null`
   - `GET /config` → **400** (`httpapi-config.test.ts:113`, the test written for exactly this)
 
-  Flipping those response schemas to `optionalKey` instead does not work on its own either: `optionalKey` *rejects* a present `undefined` at encode time, and the producers emit one — `session/context-breakdown.ts:362` (`detail: firstLine ? … : undefined`) and `:418` (`model`), and `delegation/manager.ts` `projectJob`, which assigns all ten optional `JobItem` members unconditionally.
+  Flipping those response schemas to `optionalKey` instead does not work on its own either: `optionalKey` _rejects_ a present `undefined` at encode time, and the producers emit one — `session/context-breakdown.ts:362` (`detail: firstLine ? … : undefined`) and `:418` (`model`), and `delegation/manager.ts` `projectJob`, which assigns all ten optional `JobItem` members unconditionally.
 
   **A schema-level probe lies about this.** `Schema.encodeUnknownEffect` returns the JS object with the present-`undefined` own property still attached, and the `Result`'s `toJSON` renders it through `JSON.stringify`, which drops it — so the probe prints `{"a":"x"}` and reads as "key dropped". (The success field is `.success`, not `.value`.) Only a real request through `Server.fetch` shows the `null`. Verify this class of change end to end, never with a probe.
+
 - **Depends on** — nothing, but it is **not** the small item it looked like. It is producer-by-producer: each response schema flips to `optionalKey` **and** its producer stops writing present-`undefined`, together, per endpoint. Scope: `Session.InfoSchema` (16 optional fields), `MessageV2` part schemas, `SessionContext.breakdown`, `Delegation.projectJob`.
 - **Costs if skipped** — Nothing user-visible. `jsonSafe` produces the correct wire shape today; this is a cost and clarity item, not a bug.
-- **Done when** — Per endpoint: the response schema uses `optionalKey`, the producer omits the key, and a route test asserts the key is *absent* (not `null`) with a service object that leaves the field unset. `jsonSafe` is gone from `session.ts` / `provider.ts` / `config.ts`. Curl `GET /session`, `GET /session/:id`, `GET /config` against a real server with a session whose optionals are unset.
+- **Done when** — Per endpoint: the response schema uses `optionalKey`, the producer omits the key, and a route test asserts the key is _absent_ (not `null`) with a service object that leaves the field unset. `jsonSafe` is gone from `session.ts` / `provider.ts` / `config.ts`. Curl `GET /session`, `GET /session/:id`, `GET /config` against a real server with a session whose optionals are unset.
 - **Already paid for** — The two live 400s this same failure mode was causing are fixed (see 2026-08-18 landed work): `mission.ts` `featureMutate` and `config/tui.ts` `plugin_meta`. Grep for `= undefined` on a field whose response schema is `optionalKey` before adding one.
 
 ### Codegen named field refs (H6)
@@ -184,10 +186,11 @@ route tests; corrected below before anyone repeats it.**
 
   ```ts
   // packages/httpapi-codegen/src/index.ts (promiseInput emission)
-  `(${typeOf(schema)})[${JSON.stringify(field.name)}]`
+  ;`(${typeOf(schema)})[${JSON.stringify(field.name)}]`
   ```
 
   `LoopUpsertInput` inlines `LoopCreateInput` once per field (`T["name"]`, `T["stages"]`, …). That indexed-access pattern appears hundreds of times in `packages/sdk/js/src/httpapi/generated/types.ts`. `structuralTypes` also rewrites `\bunknown\b` → `any`. `generate-httpapi-clients.ts` omits union payloads `auth.set` and `session.partUpdate` from the Effect client because `HttpApiClient.ForApi` narrows a union payload to its first member.
+
 - **Depends on** — H1 (do not freeze `any` into named refs). Independent of H4.
 - **Done when** — Flattened inputs are `{ name: LoopCreateInput["name"]; … }` or `payload: LoopCreateInput` plus path params. `unknown` stays `unknown` for documented open payloads. Effect clients express `auth.set` and `session.partUpdate` or the omit list is justified next to `PublicApi`. `bun run generate:httpapi-clients` and SDK typecheck pass.
 
@@ -204,6 +207,7 @@ route tests; corrected below before anyone repeats it.**
 - **Evidence** — `httpapi/session.ts`: “services still wrap async impls with `Effect.promise`, so expected errors can arrive on either channel” — then `declaredErrors` does `catch` **and** `catchDefect`. `Session.BusyError` is already `Schema.TaggedErrorClass`. Session handlers reinvent `{ name, data }` next to the schema.
 
   **Corrected 2026-08-18 for `loop.ts` / `mission.ts`.** Both already carry the typed channel: declared 404/400 schemas plus `failNotFound` / `failValidation`, and their managers use the return-`undefined` convention the handlers already check. The `fromPromise` `orDie` wraps genuine I/O, not domain errors. There are no `Engine.LoopNotFoundError` / `MissionNotFoundError` / `MissionAlreadyExistsError` tags to fail with — an earlier draft of this item invented them. The one real gap there is fixed (see landed work).
+
 - **Depends on** — nothing strictly. Cleaner after H4 so there is one place to catch.
 - **Done when** — Domain methods return `Effect.fail(SessionError.NotFoundError)` (and siblings) **where the service actually throws**; the return-`undefined` convention plus an explicit `fail` is equally typed and already in place for loop/mission. Handlers `catchTag` / schema-declared errors. `Effect.promise` is only for true unknown I/O. (`httpapi/errors.ts` is gone — see landed work.)
 
@@ -304,12 +308,14 @@ Recorded at phase boundaries so the next pass does not redo work.
 ### 2026-08-17 — H4 / H5 / P2 / E4 / H1 first slice
 
 **Phase 1 — P2 quick cuts (4 small perf items).**
+
 - `bridge.ts` `webHandler` now sets `disableLogger: true`. Effect's `HttpMiddleware.logger` was double-logging every encoded request on top of `ServerRouter.dispatch`'s start/duration log; nikcli's own log wins.
 - `MessageRepo.countMessages` switched from `SELECT id … array.length` to `SELECT COUNT(*)` via drizzle's `count()`. Used by `SessionV2` entry-projection check.
 - `ServerRouter.context` skips `sessionForRequest` when `?workspace=` or `x-nikcli-workspace` is set. The session lookup also derives the workspace; pinning one short-circuits the call.
 - `extra.ts` keeps a single source of `URL` parsed at the top of the dispatcher (comment note).
 
 **Phase 2 — E4 (delete `jsonSafe`).**
+
 - `domain.ts` — `LoopWorktree`, `LoopStage`, `LoopAuthoredFields`, `LoopCreateInput`, `LoopUpdateInput`, `LoopPullRequestRef`, `LoopRun`, `LoopRuntime`, `LoopTemplate`, `Routine` switched to `Schema.optionalKey`. Two layers of `Schema.optional` (synthetic + author) flattened.
 - `loop.ts` — `jsonSafe` definition removed; all 10 call sites dropped. Handlers return objects directly.
 - `mission.ts` — same `jsonSafe` deletion. `MissionFeature`, `MissionMilestone`, `MissionModels`, `MissionWorktree`, `MissionDefinitionOutput`, `MissionExecSchema`, `MissionRuntime` switched to `optionalKey`.
@@ -319,16 +325,19 @@ Recorded at phase boundaries so the next pass does not redo work.
 - `session.ts` — local input schemas (ListQuery, CreatePayload, UpdatePayload, ForkPayload, RevertPayload, SummarizePayload, CommandPayload, ShellPayload, MonitorLogQuery, MessagesQuery, DiffQuery, ContextSource, ContextBreakdown, DelegationJob) switched to `optionalKey`. Service-boundary `jsonSafe` kept — the next E4 sub-step is the service-side `Session.Info` / `MessageV2.Info` schemas.
 
 **Phase 3 — H1 first slice (TUI payloads typed).**
+
 - `tui.ts` — `parseWith` helper removed. `AppendPromptPayload = TuiEventPayload.promptAppend`, `ExecuteCommandPayload = { command: string }`, `ShowToastPayload = TuiEventPayload.toastShow`, `PublishPayload = { type, properties: Unknown }`, `SelectSessionPayload = TuiEventPayload.sessionSelect`, `ControlResponsePayload = { path, body: Unknown }`. Handlers receive typed payloads; `Bus.publish` is the only Effect call. `TuiEventZod.toastShow` is the bridge for the legacy `default(5000)` zod parse.
 - `connectors.ts` — `authSet` payload is `ConnectorAuth.EntrySchema` (the H1 connector leftover).
 - `session.ts` — `partUpdate` handler now declares `payload: typeof MessagePart.Type` (was `unknown`); inside the body it parses through `MessageV2.Part.parse` because the service's `updatePart` takes the mutable `Part` (the first arm of `UpdatePartInput`'s zod union).
 
 **Phase 4 — H5 (generate supports from PublicApi).**
+
 - `bridge.ts` — `implementedRoutes` now derives from `OpenApi.fromApi(PublicApi)` via `routesFromPublicApi`. `pathToRegex` walks the OpenAPI template; `groupByMethod` keeps the per-method bucket strategy. Manual entries (`/mobile/*` prefix match) are an override layer.
 - `globalRoutes` derives the same way, filtered by `/^\/(global|user)\//`, plus the three `/account` entries that the dispatcher still consults.
 - Bench regression guard: `test/benchmarks/bridge-supports.benchmark.test.ts`. New numbers: hits 1.30µs/op (was 3.29µs), misses 1.43µs/op (was 1.65µs), mixed 1.33µs/op (was 1.63µs), supportsGlobal 0.06µs/op (was 0.59µs). Bucket strategy stays; the generator cut the per-method scan by ~10x for global.
 
 **Phase 5 — H4 (collapse two dispatcher stacks).**
+
 - `contract-extra.ts` adds `AccountGroup` (paths `/account`, `/account/login`, `/account/login/complete`, prefix `/account`, `handleRaw` callers to `AccountHttp.handle`). `ConfigManagementGroup` gains `profilesList` (GET `/config/profiles`).
 - `public.ts` `PublicApi` and `PublicHttpApi.Api` both `.add(ContractExtraHttpApi.AccountGroup)`. `AccountHandlersLive` is registered in `Layer.mergeAll` next to the other handlers.
 - `inventory.ts` — `rawRouteImplementations` updated so the three account paths are not flagged as both handler and raw. `/config/profiles` removed (now a contract entry).
@@ -338,6 +347,7 @@ Recorded at phase boundaries so the next pass does not redo work.
 - Verifies: `bun run check:routes --strict` exits 0. 334 contracts, 311 handlers, 23 raw implementations.
 
 **Followups noted, not done.**
+
 - Eight `/account` `{ error }` bodies still cannot round-trip the HttpApi error encoder. The contract declares the schema with `success: AccountSuccess` (`Schema.Unknown.annotate`); the raw handle path answers. The discriminator stays raw until `TaggedErrorClass` lands enough of the contract error vocabulary.
 - E4 service-side: `Session.Info` / `MessageV2.Info` schemas still use `Schema.optional`. The session.ts `jsonSafe` calls remain on `Session.Info` / `MessageV2.Info` returns until those schemas flip.
 - **Re-opening June 2026 resource-review items that already landed.** JSON `storage.update()` pretty-print (storage module gone). Per-client SSE `GlobalBus.on` (EventFeed). Unbounded bash buffer (5MB cap).
@@ -347,14 +357,17 @@ Recorded at phase boundaries so the next pass does not redo work.
 ### 2026-08-18 — I1 / X2 / H6
 
 **Phase 1 — I1 (one Identifier module).**
+
 - `packages/util/src/identifier.ts` deleted. Unprefixed `ascending()` / `descending()` cannot generate an id the prefixed schema will reject.
 - `packages/enterprise/src/core/share.ts` and its test import `@nikcli-ai/util/id` and call `Identifier.descending("event")` / `Identifier.descending("session")`. Prefix is required.
 
 **Phase 2 — X2 (delete adapters with no production callers).**
+
 - Deleted: `provider/llm-client.ts`, `session/llm/ai-sdk.ts`, `session/message.ts` (legacy v1; not `message-v2` / `message-repo`), `session/run-state.ts`, `session/runner.ts`, `share/share.ts` (nikcli adapter; not enterprise `share.ts`).
 - Tests that only pinned those modules went with them: `test/session/runner.test.ts`, the audit-suite `Legacy Message schemas` block, and the deep-bench `Message.*` schema loop. `specs/v2/session.md` no longer describes `SessionRunner` as a second ownership machine. Live ownership stays `PromptState`; live share stays `ShareNext`.
 
 **Phase 3 — H6 (codegen flatten + keep `unknown`).**
+
 - Flattened Promise inputs stay flat (call-site compatible). Each struct payload is emitted once as `${Op}Payload`, then fields are `${Op}Payload["name"]` instead of inlining the whole struct per field.
 - Headline open aliases stay `unknown` (`SessionV2State`, `AccountResponse`, `MobileGithubReposOutput`, …). Index-signature catchalls stay `{ [x: string]: any }` (the old global `\bunknown\b` → `any` rewrite is gone).
 - SDK `SessionEntry` is `{ id: string } & Record<string, unknown>` — the generated list is still `Array<unknown>`.
@@ -362,6 +375,7 @@ Recorded at phase boundaries so the next pass does not redo work.
 - Named-ref `payload: LoopCreateInput` is not this landing. Measure in [README.md](./README.md) §Open payloads.
 
 **Followups noted, not done.**
+
 - H6 polish: emit input schemas into `structuralTypes` so flattened payloads can be `payload: LoopCreateInput`.
 - E4 service-side `jsonSafe` in `session.ts` (`Session.Info` / `MessageV2.Info`).
 - H7 / E5 / H8 / H3 / R1 / T3 / S4r / P3.
@@ -369,37 +383,43 @@ Recorded at phase boundaries so the next pass does not redo work.
 ### 2026-08-18 (later) — E4 correction / E5 slice / session-model inheritance / route-table repairs
 
 **Phase 1 — E4 is not what it looked like.**
+
 - Executing the written E4 (delete `jsonSafe`, leave the schemas) turned three route tests red and was reverted. The plan section above now carries the measurement instead of the assumption. `jsonSafe` stays in `session.ts` / `provider.ts` / `config.ts`.
 - The failure mode it predicts is real and was already shipping as two 400s, both fixed here (Phase 4).
 
 **Phase 2 — E5 slice: `Manager.upsert` throw → declared 400.**
+
 - `sanitizeDefinition` runs `safeParse` **then** `validateDefinition`; the handlers re-ran only the second, so a body that satisfied the route payload schema could still make `upsert` throw → `fromPromise`/`orDie` → 500, on routes that already declare a 400.
 - `loop.ts` / `mission.ts` — new `upsertDefinition` maps that throw onto the declared `ValidationError`. New `test/server/httpapi-loop.test.ts` pins it: on the previous commit the route answers `500`, now `400`. Mission's create already zod-parses in the handler, so the helper is defensive there (`featureMutate` does not) — no test was added that would pass either way.
 - The rest of `loop.ts` / `mission.ts` was left alone: see the E5 correction above.
 
 **Phase 3 — mission / loop / brain run on the launching session's model.**
+
 - New `src/session/model.ts` — `sessionModelOwn` (persisted `lastModel` column → message stream → `undefined`), `sessionModel` (same + global default), `sessionModelRef` (`"providerID/modelID"`). `tool/plan.ts`'s private `getLastModel` was the original of this logic and now imports it.
-- Execution already inherited (`Engine.runOnce` / `Engine.start` take `callerSessionID`). The gap was *generation*: `{loop,mission}/generate.ts` created a throwaway session with no parent and no model, so drafting a mission from a description ran on the global default. `sessionID` now threads through the httpapi and `/mobile/*` payloads, the TUI dialogs (`api.route.current`), and `Brain.trigger` → `getBrainProviderModel(sessionID)`.
+- Execution already inherited (`Engine.runOnce` / `Engine.start` take `callerSessionID`). The gap was _generation_: `{loop,mission}/generate.ts` created a throwaway session with no parent and no model, so drafting a mission from a description ran on the global default. `sessionID` now threads through the httpapi and `/mobile/*` payloads, the TUI dialogs (`api.route.current`), and `Brain.trigger` → `getBrainProviderModel(sessionID)`.
 - The model is passed as an **explicit** `model`, not left to the inheritance chain: `prepareUserMessage` resolves `input.model ?? agent.model ?? inheritedModel(...)`, so an agent with a configured model would otherwise outrank the session. For the same reason `sessionModelOwn` returns `undefined` rather than the global default.
 - Verified against real data: the drafting session now records `minimax-coding-plan/MiniMax-M3` with its parent set, where the previous runs recorded `openrouter/google/gemini-3-pro-image-preview` (an image model — hence "No endpoints found that support tool use").
 
 **Phase 4 — seven pre-existing bugs, found by making the suite green.**
+
 - `config/tui.ts:228` wrote `plugin_meta = undefined` against an `optionalKey` response schema: `GET /tui/config` answered an **empty 400 for every user with no plugins**, and the TUI read that as an empty config (no keybinds) with nothing logged.
 - `mission.ts` `featureMutate` wrote `next.error = undefined` the same way: `POST /mission/:id/feature/:id` answered **400** on `status: "done"`.
 - `mission.start` / `loop.run` declared a bare payload while their handlers read `payload?.` — a bodyless POST failed the request decode with a 400 before the handler could answer 404. Now `[HttpApiSchema.NoContent, …]`, as `session.create` already did.
 - `bridge.ts` `globalRoutes` filtered `/^\/(global|user)\//` against `pattern.source`, which begins `^\/…` — it never matched, so the list had silently collapsed to the three hand-rolled `/account` entries and `/user/*` sat in the instance table instead of the instance-less branch. Filtering happens on the OpenAPI path now.
 - `POST /chatbot/:platform/:bot` was missing from the table (contract only describes `/chatbot/bots*`); the pattern is built from `ChatbotHttp.PLATFORMS` so an unknown platform stays unsupported exactly as the handler rejects it.
-- `GET /pty/:id/connect` (a WebSocket upgrade, contract-only for the OpenAPI) was *in* the table.
+- `GET /pty/:id/connect` (a WebSocket upgrade, contract-only for the OpenAPI) was _in_ the table.
 - Trailing slash was lost when the hand-written table (`/^\/mission\/?$/`, `/^\/doctor\/?$/`) became OpenAPI-derived; `supports` retries without it, raw path first so the `/mobile/` prefix entries are untouched.
 
 **Phase 5 — deleted `httpapi/errors.ts`.**
+
 - `notFound` / `badRequest` / `conflict` / `asHttpBody` (the `__http` marker helpers) had no production importer in their lifetime — only `test/server/httpapi-errors.test.ts`, deleted with them. Its docstring described the per-route `catchTag` design E5 wants, but its wire literal is `{ name: "NotFound" }` while `session.ts` declares `"NotFoundError"`, so one shared helper could not have served both groups without changing the public error body. Each group already carries its own typed helpers against its own declared literal (`failNotFound` / `failValidation` in loop and mission, `asSessionError` in session); E5 continues from those, not from a fourth vocabulary.
 
 **Test-suite repairs.**
+
 - `test/tool/edit.test.ts` never set `NIKCLI_TEST_HOME`, so it ran against the developer's real `~/.local/share/nikcli/nikcli.db` while a live nikcli held it open — an intermittent `SQLITE_IOERR_VNODE` from `fromDirectoryImpl`. It has its own home now.
 - `database.test.ts` journal list was missing `20260816000000_session_last_model`.
 - `profile-command.test.ts` asserted `systemPrompt.profile()` in `session/prompt.ts`; that assembly moved to `session/instruction-sync.ts` (the feature is intact) and the test now pins it there.
-- **Verify with `bun run test`, not bare `bun test`.** The script is `--timeout 30000` with `**/*benchmark*.test.ts` and `**/*integration*.test.ts` ignored. Bare `bun test` uses bun's 5s default and pulls the benchmarks in, manufacturing a *rotating* set of 5-7 failures per run (provider/brain layer boot, and benchmarks asserting relative timings — one failed by 3%). Also capture `$?` immediately: `bun test > log; echo $?; grep …` inside one command reports grep's status, which hides both a failing suite and a failing typecheck.
+- **Verify with `bun run test`, not bare `bun test`.** The script is `--timeout 30000` with `**/*benchmark*.test.ts` and `**/*integration*.test.ts` ignored. Bare `bun test` uses bun's 5s default and pulls the benchmarks in, manufacturing a _rotating_ set of 5-7 failures per run (provider/brain layer boot, and benchmarks asserting relative timings — one failed by 3%). Also capture `$?` immediately: `bun test > log; echo $?; grep …` inside one command reports grep's status, which hides both a failing suite and a failing typecheck.
 - Result: `bun run test` 3820 pass / 0 fail; `bun run typecheck` clean.
 
 ## Follow working rules

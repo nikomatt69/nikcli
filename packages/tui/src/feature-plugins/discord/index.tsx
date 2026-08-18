@@ -182,20 +182,13 @@ function openWizard(api: TuiPluginApi): void {
 
 function showStatus(api: TuiPluginApi, status: DiscordStatus): void {
   const Alert = api.ui.DialogAlert
-  const lines = [
-    `Configured: ${status.configured ? "yes" : "no"}`,
-    `Running: ${status.running ? "yes" : "no"}`,
-  ]
+  const lines = [`Configured: ${status.configured ? "yes" : "no"}`, `Running: ${status.running ? "yes" : "no"}`]
   if (status.username) lines.push(`Username: ${status.username}`)
   if (status.clientId) lines.push(`Client ID: ${status.clientId}`)
   if (status.inviteUrl) lines.push(`Invite URL: ${status.inviteUrl}`)
   if (status.error) lines.push(`Error: ${status.error}`)
   api.ui.dialog.replace(() => (
-    <Alert
-      title="Discord bot"
-      message={lines.join("\n")}
-      onConfirm={() => openManager(api)}
-    />
+    <Alert title="Discord bot" message={lines.join("\n")} onConfirm={() => openManager(api)} />
   ))
 }
 

@@ -1272,6 +1272,198 @@
         ]
       }
     },
+    "/discord": {
+      "get": {
+        "tags": ["discord"],
+        "operationId": "discord.status",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "DiscordStatus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordStatus"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.discord.status({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/discord/setup": {
+      "post": {
+        "tags": ["discord"],
+        "operationId": "discord.setup",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "DiscordSetupOutput",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSetupOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DiscordValidationError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordSetupInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.discord.setup({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/discord/start": {
+      "post": {
+        "tags": ["discord"],
+        "operationId": "discord.start",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "DiscordStartResult",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordStartResult"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.discord.start({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/discord/stop": {
+      "post": {
+        "tags": ["discord"],
+        "operationId": "discord.stop",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "DiscordStopResult",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordStopResult"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk/httpapi\"\n\nconst client = createNikcliClient()\nawait client.discord.stop({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/voice/transcribe": {
       "post": {
         "tags": ["voice"],
@@ -24907,6 +25099,16 @@
                 "type": "null"
               }
             ]
+          },
+          "sessionID": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -25042,6 +25244,94 @@
           }
         },
         "required": ["removed"],
+        "additionalProperties": false
+      },
+      "DiscordStatus": {
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "running": {
+            "type": "boolean"
+          },
+          "username": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "inviteUrl": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": ["configured", "running"],
+        "additionalProperties": false
+      },
+      "DiscordSetupInput": {
+        "type": "object",
+        "properties": {
+          "botToken": {
+            "type": "string"
+          }
+        },
+        "required": ["botToken"],
+        "additionalProperties": false
+      },
+      "DiscordSetupOutput": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "inviteUrl": {
+            "type": "string"
+          }
+        },
+        "required": ["username", "clientId", "inviteUrl"],
+        "additionalProperties": false
+      },
+      "DiscordValidationError": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["ValidationError"]
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": ["name", "data"],
+        "additionalProperties": false
+      },
+      "DiscordStartResult": {
+        "type": "object",
+        "properties": {
+          "running": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": ["running"],
+        "additionalProperties": false
+      },
+      "DiscordStopResult": {
+        "type": "object",
+        "properties": {
+          "stopped": {
+            "type": "boolean"
+          }
+        },
+        "required": ["stopped"],
         "additionalProperties": false
       },
       "VoiceTranscribeInput": {
@@ -34532,6 +34822,9 @@
             "type": "string"
           },
           "agent": {
+            "type": "string"
+          },
+          "sessionID": {
             "type": "string"
           }
         },
@@ -47932,6 +48225,16 @@
                 "type": "null"
               }
             ]
+          },
+          "sessionID": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["description"],
@@ -49300,6 +49603,16 @@
                 "type": "null"
               }
             ]
+          },
+          "sessionID": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["description"],
@@ -50622,6 +50935,9 @@
             "type": "string"
           },
           "agent": {
+            "type": "string"
+          },
+          "sessionID": {
             "type": "string"
           }
         },
@@ -62525,6 +62841,9 @@
     },
     {
       "name": "chatbot"
+    },
+    {
+      "name": "discord"
     },
     {
       "name": "voice"

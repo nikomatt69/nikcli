@@ -61,22 +61,22 @@ Privileged Gateway Intents.
 
 ## Environment variables
 
-| Variable                      | Required | Description                                                      |
-| ----------------------------- | -------- | ---------------------------------------------------------------- |
-| `DISCORD_BOT_TOKEN`           | Yes      | Bot token from Developer Portal → Bot                            |
-| `DISCORD_CLIENT_ID`           | No       | Derived via `users/@me` if unset                                 |
-| `NIKCLI_URL`                  | No       | Remote nikcli server; when unset a local server is started       |
-| `NIKCLI_USERNAME`             | No       | Basic Auth username for `NIKCLI_URL`                             |
-| `NIKCLI_PASSWORD`             | No       | Basic Auth password for `NIKCLI_URL`                             |
-| `OPENROUTER_API_KEY`          | No       | Whisper transcription for voice / audio                          |
-| `DISCORD_ALLOWED_CHANNELS`    | No       | Comma-separated channel IDs; empty = all                         |
-| `DISCORD_CHANNEL_MEMORY`      | No       | `"false"` disables per-channel memory (default on)               |
-| `DISCORD_CHANNEL_MEMORY_SIZE` | No       | Max remembered requests per channel (default `12`)               |
-| `DISCORD_FOLLOWUPS`           | No       | `"false"` disables autonomous follow-ups (default on)            |
-| `DISCORD_FOLLOWUP_SLOW_MS`    | No       | Warn a job is slow after this many ms (default `120000`)         |
-| `DISCORD_FOLLOWUP_DONE_MS`    | No       | Only ping on completion if job ran ≥ this many ms (`20000`)      |
-| `DISCORD_DEFAULT_TOOLS`       | No       | Workspace tool defaults, e.g. `bash=false,write=false`           |
-| `DISCORD_ADMIN_USERS`         | No       | Comma-separated Discord user IDs allowed to run `/nikcli-tools`  |
+| Variable                      | Required | Description                                                        |
+| ----------------------------- | -------- | ------------------------------------------------------------------ |
+| `DISCORD_BOT_TOKEN`           | Yes      | Bot token from Developer Portal → Bot                              |
+| `DISCORD_CLIENT_ID`           | No       | Derived via `users/@me` if unset                                   |
+| `NIKCLI_URL`                  | No       | Remote nikcli server; when unset a local server is started         |
+| `NIKCLI_USERNAME`             | No       | Basic Auth username for `NIKCLI_URL`                               |
+| `NIKCLI_PASSWORD`             | No       | Basic Auth password for `NIKCLI_URL`                               |
+| `OPENROUTER_API_KEY`          | No       | Whisper transcription for voice / audio                            |
+| `DISCORD_ALLOWED_CHANNELS`    | No       | Comma-separated channel IDs; empty = all                           |
+| `DISCORD_CHANNEL_MEMORY`      | No       | `"false"` disables per-channel memory (default on)                 |
+| `DISCORD_CHANNEL_MEMORY_SIZE` | No       | Max remembered requests per channel (default `12`)                 |
+| `DISCORD_FOLLOWUPS`           | No       | `"false"` disables autonomous follow-ups (default on)              |
+| `DISCORD_FOLLOWUP_SLOW_MS`    | No       | Warn a job is slow after this many ms (default `120000`)           |
+| `DISCORD_FOLLOWUP_DONE_MS`    | No       | Only ping on completion if job ran ≥ this many ms (`20000`)        |
+| `DISCORD_DEFAULT_TOOLS`       | No       | Workspace tool defaults, e.g. `bash=false,write=false`             |
+| `DISCORD_ADMIN_USERS`         | No       | Comma-separated Discord user IDs allowed to run `/nikcli-tools`    |
 | `HEALTH_PORT`                 | No       | CLI health server port (default `3000`; not bound in library mode) |
 
 ## Library
