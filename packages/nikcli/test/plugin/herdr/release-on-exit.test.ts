@@ -34,4 +34,10 @@ describe("herdr shutdown", () => {
     delete process.env.HERDR_PANE_ID
     expect(() => bridge.releasePaneSync()).not.toThrow()
   })
+
+  it("can still hand the pane back after stop() resets local runtime state", () => {
+    delete process.env.HERDR_PANE_ID
+    bridge.stop()
+    expect(() => bridge.releasePaneSync()).not.toThrow()
+  })
 })

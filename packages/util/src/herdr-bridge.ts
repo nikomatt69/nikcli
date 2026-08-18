@@ -578,7 +578,11 @@ export function releasePaneSync(): void {
   if (!paneId || !bin) return
   runtime.released = true
   try {
-    spawnSync(bin, releaseAgentArgv(paneId, nextReportSeq()), { stdio: "ignore", timeout: 2000 })
+    spawnSync(bin, releaseAgentArgv(paneId, nextReportSeq()), {
+      stdio: "ignore",
+      timeout: 2000,
+      windowsHide: true,
+    })
   } catch (error) {
     log.debug("herdr release_agent (cli) failed", { error: errorMessage(error) })
   }
