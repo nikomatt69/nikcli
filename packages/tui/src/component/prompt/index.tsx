@@ -12,7 +12,7 @@ import {
   Match,
   For,
 } from "solid-js"
-import "opentui-spinner/solid"
+import { registerSpinner } from "opentui-spinner/solid"
 import { TuiPluginRuntime } from "@tui/plugin"
 import { useLocal } from "@tui/context/local"
 import { useLanguage } from "@tui/context/language"
@@ -60,6 +60,8 @@ import path from "path"
 import { friendlyErrorMessage } from "../../util/error-message"
 import { PromptJobsInlineCompact } from "../prompt-jobs-inline"
 import { getMonitorsSorted, type MonitorInfo } from "../../util/monitor-helpers"
+
+registerSpinner()
 
 export type PromptProps = {
   sessionID?: string
