@@ -34,6 +34,7 @@
  *     command) — never on import. This protects the chat session stream
  *     from being hooked while the user has no pane registered.
  */
+import { spawnSync } from "node:child_process"
 import { createConnection, type NetConnectOpts, type Socket } from "node:net"
 import { platform } from "node:os"
 import fs from "fs/promises"
@@ -557,6 +558,38 @@ export async function releasePane(input?: { paneId?: string; socketPath?: string
 }
 
 /**
+ * Release the pane without an event loop.
+ *
+ * Herdr keeps a reported agent until someone releases it — it only clears
+ * agents it recognizes by process, and nikcli is not one of those, so a
+ * quit that skips the release leaves a zombie row in herdr's agent panel
+ * until the pane's shell itself exits. `process.on("exit")` cannot await a
+ * socket write, so the shutdown path goes through the herdr CLI instead,
+ * which is synchronous.
+ */
+export function releaseAgentArgv(paneId: string, seq: number): string[] {
+  return ["pane", "release-agent", paneId, "--source", HERDR_SOURCE, "--agent", HERDR_AGENT, "--seq", String(seq)]
+}
+
+export function releasePaneSync(): void {
+  if (runtime.released) return
+  const paneId = process.env["HERDR_PANE_ID"]
+  const bin = resolveHerdrBin()
+  if (!paneId || !bin) return
+  runtime.released = true
+  try {
+    spawnSync(bin, releaseAgentArgv(paneId, nextReportSeq()), {
+      stdio: "ignore",
+      timeout: 2000,
+      windowsHide: true,
+    })
+  } catch (error) {
+    log.debug("herdr release_agent (cli) failed", { error: errorMessage(error) })
+  }
+}
+
+
+/**
  * Report a nikcli session as a herdr agent. No-op when the bridge is not
  * enabled or the socket is unreachable. Failures are logged, never thrown,
  * so a flaky herdr can't affect the session lifecycle.
@@ -982,6 +1015,7 @@ export const HerdrBridge = {
   handleEvent,
   handleChatMessage,
   releasePane,
+  releasePaneSync,
   isInHerdrPane,
   nextReportSeq,
   normalizeSnapshot,

@@ -319,7 +319,12 @@ export async function HerdrPlugin(_input: PluginInput): Promise<Hooks> {
   return {
     async dispose() {
       log.info("disposing herdr plugin")
+      // stop() resets runtime.released, so the CLI release has to run after
+      // it. Otherwise a late report could reclaim the pane we just handed
+      // back. The TUI process also calls releasePaneSync() because Windows
+      // never awaits this dispose.
       HerdrBridge.stop()
+      HerdrBridge.releasePaneSync()
     },
     async event(input) {
       // Session lifecycle is already covered by the bridge's GlobalBus
