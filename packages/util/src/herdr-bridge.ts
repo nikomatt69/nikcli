@@ -584,23 +584,6 @@ export function releasePaneSync(): void {
   }
 }
 
-let exitReleaseInstalled = false
-
-/**
- * Release the pane when this process goes away. Idempotent, and only ever
- * registered from a real herdr pane.
- *
- * Deliberately no signal handlers: nikcli reads ctrl+c as a key in raw
- * mode and owns its own quit path, so intercepting SIGINT here would
- * change behaviour that has nothing to do with herdr. A hard kill
- * (`SIGKILL`, `taskkill /F`) still leaves the row behind — the same as
- * every other herdr integration.
- */
-export function installExitRelease(): void {
-  if (exitReleaseInstalled) return
-  exitReleaseInstalled = true
-  process.on("exit", releasePaneSync)
-}
 
 /**
  * Report a nikcli session as a herdr agent. No-op when the bridge is not
@@ -1029,7 +1012,6 @@ export const HerdrBridge = {
   handleChatMessage,
   releasePane,
   releasePaneSync,
-  installExitRelease,
   isInHerdrPane,
   nextReportSeq,
   normalizeSnapshot,

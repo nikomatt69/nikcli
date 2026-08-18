@@ -12,6 +12,7 @@ import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
 import type { EventSource } from "@nikcli-ai/tui/context/sdk"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "@nikcli-ai/util/win32"
 import { errorMessage } from "@nikcli-ai/util/error-format"
+import { HerdrBridge } from "@nikcli-ai/util/herdr-bridge"
 import { Process } from "@nikcli-ai/util/process"
 import { SessionPrimitives } from "@nikcli-ai/util/session-primitives"
 
@@ -265,6 +266,12 @@ export const TuiThreadCommand = cmd({
           error: errorMessage(error),
         })
       })
+      // The worker owns the herdr plugin, but on Windows its shutdown is
+      // fire-and-forget (see shutdownWorker), so the plugin's dispose is cut
+      // off before it can hand the pane back. This is the process that is
+      // actually about to exit, so release from here. Synchronous and
+      // idempotent; a no-op outside a herdr pane.
+      HerdrBridge.releasePaneSync()
       simulation?.backend.stop()
     }
 

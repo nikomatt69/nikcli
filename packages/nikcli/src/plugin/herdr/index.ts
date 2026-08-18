@@ -311,9 +311,6 @@ export async function HerdrPlugin(_input: PluginInput): Promise<Hooks> {
     } else {
       log.info("running inside a Herdr pane; auto-enabling bridge")
       HerdrBridge.setEnabled(true)
-      // Nothing else clears the row: herdr only auto-drops agents it
-      // detects by process, so quitting nikcli has to hand the pane back.
-      HerdrBridge.installExitRelease()
     }
   } else {
     log.debug("not inside a Herdr pane; bridge stays disabled until manually enabled")
