@@ -347,6 +347,19 @@ function editRunCap(api: TuiPluginApi, def: Store.LoopDefinition): void {
 
 // ── Model & agent pickers ─────────────────────────────────────────────────────
 
+/**
+ * The session the user is looking at, when the current route is a session.
+ * Missions, loops and the drafting calls they make inherit that session's
+ * model, so the work runs on the model shown in its footer rather than the
+ * global default.
+ */
+function currentSessionID(api: TuiPluginApi): string | undefined {
+  const current = api.route.current
+  if (current.name !== "session") return undefined
+  const sessionID = (current as { params?: { sessionID?: unknown } }).params?.sessionID
+  return typeof sessionID === "string" ? sessionID : undefined
+}
+
 /** Resolve a "providerID/modelID" reference to a friendly label, or "default model". */
 export function modelLabel(api: TuiPluginApi, model?: string): string {
   if (!model) return "default model"
@@ -905,6 +918,7 @@ function askGenerateDescription(api: TuiPluginApi): void {
           try {
             const def = await api2.generateFromDescription(description, {
               agent: "general",
+              ...(currentSessionID(api) ? { sessionID: currentSessionID(api) } : {}),
             })
             // The generated LoopDefinition is fully formed; offer to save as-is or
             // open it in the stage editor. For now we just save and open the

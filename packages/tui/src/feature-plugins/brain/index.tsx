@@ -28,7 +28,19 @@ const tui: TuiPlugin = async (api) => {
           api.ui.dialog.clear()
           api.ui.toast({ message: "Brain started in background", variant: "info" })
           void (async () => {
-            const result = (await api.client.brain.trigger({ force: true })).data
+            // Run the pass on the model of the session the user triggered it
+            // from, not the global default.
+            const current = api.route.current
+            const sessionID =
+              current.name === "session"
+                ? (current as { params?: { sessionID?: unknown } }).params?.sessionID
+                : undefined
+            const result = (
+              await api.client.brain.trigger({
+                force: true,
+                ...(typeof sessionID === "string" ? { sessionID } : {}),
+              })
+            ).data
             if (!result?.success) {
               api.ui.toast({
                 message: result?.error ?? "Brain failed",

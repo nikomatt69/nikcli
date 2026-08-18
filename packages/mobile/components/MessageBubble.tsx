@@ -318,7 +318,7 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
           </Text>
         </View>
         {primary ? <InlineArtifactCard preview={primary} onPress={() => props.onOpen(primary)} /> : null}
-        <View className={rest.length || props.artifacts.some((artifact) => artifact.url) ? "mt-3 gap-2" : undefined}>
+        <View className={rest.length || props.artifacts.some((artifact) => artifact.viewerUrl || artifact.url) ? "mt-3 gap-2" : undefined}>
           {rest.map((artifact) => (
             <Pressable
               key={artifact.id}
@@ -360,20 +360,22 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
             </Pressable>
           ))}
           {props.artifacts
-            .filter((artifact) => Boolean(artifact.url))
-            .map((artifact) => (
+            .filter((artifact) => Boolean(artifact.viewerUrl || artifact.url))
+            .map((artifact) => {
+              const href = artifact.viewerUrl || artifact.url!
+              return (
               <Pressable
                 key={`${artifact.id}:link`}
                 onPress={() => {
                   void triggerHaptic("selection")
-                  void Linking.openURL(artifact.url!).catch(() => undefined)
+                  void Linking.openURL(href).catch(() => undefined)
                 }}
                 onLongPress={() => {
-                  void Clipboard.setStringAsync(artifact.url!)
+                  void Clipboard.setStringAsync(href)
                   void triggerHaptic("success")
                 }}
                 accessibilityRole="link"
-                accessibilityLabel={`Open artifact link ${artifact.url}`}
+                accessibilityLabel={`Open artifact link ${href}`}
                 accessibilityHint="Long press to copy the link"
                 style={({ pressed }) => ({
                   flexDirection: "row",
@@ -394,10 +396,11 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
                   className="flex-1 text-[12px] font-medium underline"
                   style={{ color: palette.accentLight }}
                 >
-                  {artifact.url}
+                  {href}
                 </Text>
               </Pressable>
-            ))}
+              )
+            })}
         </View>
       </View>
     </View>

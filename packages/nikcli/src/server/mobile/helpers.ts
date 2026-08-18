@@ -250,7 +250,7 @@ export function toMobileArtifact(info: Artifact.Info): z.infer<typeof MobileArti
     filename: info.filename,
     contentType: info.contentType,
     kind: info.kind,
-    url: info.url,
+    url: Artifact.viewerUrl(info),
     viewerUrl: Artifact.viewerUrl(info),
     previewUrl: Artifact.previewUrl(info),
     version: info.version,
@@ -500,6 +500,8 @@ export const MobileLoopGenerateInput = z
       .regex(/^[^/]+\/[^/]+$/)
       .optional(),
     agent: z.string().trim().min(1).optional(),
+    /** Inherit the drafting model from this session when `model` is absent. */
+    sessionID: z.string().trim().min(1).optional(),
   })
   .meta({ ref: "MobileLoopGenerateInput" })
 export const MobileMissionWriteInput = MissionDefinitionSchema.omit({

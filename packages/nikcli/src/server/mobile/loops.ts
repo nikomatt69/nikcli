@@ -28,7 +28,13 @@ export async function handleLoopsRequest(request: Request): Promise<Response | u
   if (path === "/mobile/loops/generate" && request.method === "POST") {
     const input = await body(request, MobileLoopGenerateInput)
     if (isResponse(input)) return input
-    return json(await generateFromDescription(input.description, { model: input.model, agent: input.agent }))
+    return json(
+      await generateFromDescription(input.description, {
+        model: input.model,
+        agent: input.agent,
+        sessionID: input.sessionID,
+      }),
+    )
   }
   if (path === "/mobile/loops/runs/recent" && request.method === "GET") {
     const input = query(request, Limit)

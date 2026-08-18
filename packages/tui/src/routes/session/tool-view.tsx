@@ -28,6 +28,7 @@ import { Locale } from "@nikcli-ai/util/locale"
 import { reasoningSummary } from "@tui/context/thinking"
 import { Token } from "@nikcli-ai/util/token"
 import {
+  artifactPublishedHref,
   diagnosticMessage,
   type ApplyPatchShape,
   type ArtifactShape,
@@ -344,7 +345,7 @@ function ComputerUse(props: ToolProps<ComputerShape>) {
 function ArtifactView(props: ToolProps<ArtifactShape>) {
   const { theme } = useTheme()
   const title = createMemo(() => props.metadata.title ?? props.input.title ?? "Artifact")
-  const url = createMemo(() => props.metadata.url)
+  const url = createMemo(() => artifactPublishedHref(props.metadata, props.output))
   const detail = createMemo(() => {
     const kind = props.metadata.kind ? String(props.metadata.kind).toUpperCase() : "ARTIFACT"
     const version = props.metadata.version ? ` · v${props.metadata.version}` : ""

@@ -371,7 +371,7 @@ export class MissionApi {
 
   async generateFromDescription(
     description: string,
-    opts: { model?: string; agent?: string } = {},
+    opts: { model?: string; agent?: string; sessionID?: string } = {},
   ): Promise<MissionDefinition | undefined> {
     const data = await this.call<unknown>("generate", { description, ...opts })
     return data ? asDefinition(data) : undefined

@@ -58,11 +58,14 @@ export const ArtifactTool = Tool.define("artifact", {
       artifactID: params.artifactID,
     })
 
+    // The ?key= capability link is the user-facing URL. The store's bare
+    // `info.url` is login-gated and must not be what we print or put on
+    // `metadata.url` — TUI/mobile/Studio all render that field as the link.
+    const shareUrl = Artifact.viewerUrl(info)
+
     const lines = [
       `Published "${info.title}" (${info.kind}, v${info.version})`,
-      // The ?key= capability link opens without a store login; the bare URL
-      // is the login-gated page for the owner's account.
-      Artifact.viewerUrl(info),
+      shareUrl,
       params.artifactID ? "Updated in place — anyone with the page open sees the new version." : undefined,
       `To update this artifact later, call the artifact tool with artifactID: ${info.id}`,
     ].filter(Boolean)
@@ -76,8 +79,9 @@ export const ArtifactTool = Tool.define("artifact", {
         description: info.description,
         filename: info.filename,
         contentType: info.contentType,
-        url: info.url,
-        viewerUrl: Artifact.viewerUrl(info),
+        url: shareUrl,
+        viewerUrl: shareUrl,
+        viewKey: info.viewKey,
         previewUrl: Artifact.previewUrl(info),
         kind: info.kind,
         version: info.version,

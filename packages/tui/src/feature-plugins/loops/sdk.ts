@@ -358,7 +358,7 @@ export class LoopApi {
    */
   async generateFromDescription(
     description: string,
-    opts: { model?: string; agent?: string } = {},
+    opts: { model?: string; agent?: string; sessionID?: string } = {},
   ): Promise<LoopDefinition> {
     const res = await this.client.loop.generate({ description, ...opts })
     const def = asDefinition((res.data as unknown) ?? undefined)

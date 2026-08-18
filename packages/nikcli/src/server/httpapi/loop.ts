@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Bus } from "@/bus"
 import { generateFromDescription } from "@/loop/generate"
@@ -53,6 +53,23 @@ export namespace LoopHttpApi {
 
   const fromPromise = <A>(fn: () => Promise<A>) => Effect.promise(fn).pipe(Effect.orDie)
 
+  /**
+   * `Manager.upsert` throws when `sanitizeDefinition` rejects the definition.
+   * The handlers re-run `validateDefinition` first, but not the zod
+   * `LoopDefinitionSchema.safeParse` that `sanitizeDefinition` runs ahead of
+   * it, so a body that satisfies the route payload schema can still fail
+   * there. That is a client input error and both writing routes already
+   * declare 400 — going through `fromPromise` turned it into a 500 defect.
+   */
+  const upsertDefinition = (def: LoopDefinition): Effect.Effect<LoopDefinition, ValidationErrorBody> =>
+    Effect.tryPromise({
+      try: () => Manager.upsert(def),
+      catch: (cause) => ({
+        name: "ValidationError" as const,
+        data: { message: cause instanceof Error ? cause.message : String(cause) } as Record<string, unknown>,
+      }),
+    })
+
   const LoopIDPath = Schema.Struct({ id: Schema.String })
 
   const RunsQuery = Schema.Struct({
@@ -80,6 +97,12 @@ export namespace LoopHttpApi {
     description: Schema.String,
     model: Schema.optionalKey(Schema.String),
     agent: Schema.optionalKey(Schema.String),
+    /**
+     * The session the request was launched from. Absent `model`, the drafting
+     * call inherits this session's model instead of the global default — the
+     * one the user has selected in front of them.
+     */
+    sessionID: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "LoopGenerateInput" })
 
   /**
@@ -146,7 +169,11 @@ export namespace LoopHttpApi {
     .add(
       HttpApiEndpoint.post("run", "/:id/run", {
         params: LoopIDPath,
-        payload: RunPayload,
+        // The body is optional — the handler reads `payload?.sessionID`, and the
+        // lifecycle routes are called without one. Declaring the payload bare
+        // made a bodyless POST fail the request decode with an empty 400
+        // before the handler could answer 404.
+        payload: [HttpApiSchema.NoContent, RunPayload],
         success: BooleanResult,
         error: NotFound,
       }),
@@ -202,6 +229,7 @@ export namespace LoopHttpApi {
         generateFromDescription(payload.description, {
           model: payload.model,
           agent: payload.agent,
+          sessionID: payload.sessionID,
         }),
       ).pipe(
         Effect.catch((cause: unknown) => {
@@ -246,7 +274,7 @@ export namespace LoopHttpApi {
         } as LoopDefinition
         const err = validateDefinition(def)
         if (err) return yield* failValidation(err)
-        const saved = yield* fromPromise(() => Manager.upsert(def))
+        const saved = yield* upsertDefinition(def)
         yield* fromPromise(() => Engine.sync(saved.id))
         yield* Effect.promise(() => Bus.publish(Engine.LoopEvent.Upserted, { loopID: saved.id }))
         return saved
@@ -268,7 +296,7 @@ export namespace LoopHttpApi {
         if (err) return yield* failValidation(err)
         const existing = yield* fromPromise(() => Manager.get(params.id))
         if (!existing) return yield* failNotFound(`Loop "${params.id}" not found`)
-        const saved = yield* fromPromise(() => Manager.upsert(body))
+        const saved = yield* upsertDefinition(body)
         if (saved.maxRuns !== existing.maxRuns) {
           yield* fromPromise(() => Engine.resetRunCount(saved.id))
         }
@@ -298,7 +326,7 @@ export namespace LoopHttpApi {
         return next
       }),
 
-    run: ({ params, payload }: { params: { id: string }; payload?: { sessionID?: string } }) =>
+    run: ({ params, payload }: { params: { id: string }; payload: typeof RunPayload.Type | void }) =>
       Effect.gen(function* () {
         const def = yield* fromPromise(() => Manager.get(params.id))
         if (!def) return yield* failNotFound(`Loop "${params.id}" not found`)

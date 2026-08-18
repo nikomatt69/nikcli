@@ -885,7 +885,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/brain/trigger`,
-            body: { force: input?.["force"] },
+            body: { force: input?.["force"], sessionID: input?.["sessionID"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -1438,7 +1438,12 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mission/generate`,
-            body: { description: input["description"], model: input["model"], agent: input["agent"] },
+            body: {
+              description: input["description"],
+              model: input["model"],
+              agent: input["agent"],
+              sessionID: input["sessionID"],
+            },
             successStatus: 200,
             declaredStatuses: [400],
             empty: false,
@@ -2254,7 +2259,12 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mobile/loops/generate`,
-            body: { description: input["description"], model: input["model"], agent: input["agent"] },
+            body: {
+              description: input["description"],
+              model: input["model"],
+              agent: input["agent"],
+              sessionID: input["sessionID"],
+            },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -2581,7 +2591,12 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mobile/missions/generate`,
-            body: { description: input["description"], model: input["model"], agent: input["agent"] },
+            body: {
+              description: input["description"],
+              model: input["model"],
+              agent: input["agent"],
+              sessionID: input["sessionID"],
+            },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -3080,7 +3095,12 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/loop/generate`,
-            body: { description: input["description"], model: input["model"], agent: input["agent"] },
+            body: {
+              description: input["description"],
+              model: input["model"],
+              agent: input["agent"],
+              sessionID: input["sessionID"],
+            },
             successStatus: 200,
             declaredStatuses: [400],
             empty: false,

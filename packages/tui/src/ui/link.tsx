@@ -15,20 +15,24 @@ export interface LinkProps {
 
 /**
  * Link component that renders clickable hyperlinks.
- * Clicking anywhere on the link text opens the URL in the default browser.
+ *
+ * The inner `<a href>` is an OpenTUI OSC-8 hyperlink whose target is `href`
+ * in full — including query strings such as artifact `?key=` capabilities.
+ * Terminal URL autodetection often stops before `?`, so a bare text URL
+ * would open the login-gated page even when the visible string has the key.
+ * `onMouseUp` still opens the same `href` for terminals without OSC-8.
  */
 export function Link(props: LinkProps) {
-  const displayText = props.children ?? props.href
-
   return (
     <text
       fg={props.fg}
       attributes={props.underline !== false ? TextAttributes.UNDERLINE : undefined}
+      wrapMode="char"
       onMouseUp={() => {
         open(props.href).catch(() => {})
       }}
     >
-      {displayText}
+      <a href={props.href}>{props.children ?? props.href}</a>
     </text>
   )
 }

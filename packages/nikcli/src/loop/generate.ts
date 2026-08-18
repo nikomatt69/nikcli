@@ -4,6 +4,7 @@
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "../effect"
 import { Session } from "../session"
+import { sessionModelRef } from "../session/model"
 import { SessionPrompt } from "../session/prompt"
 import { Log } from "@nikcli-ai/util/log"
 import { definitionFromGenerated, definitionFromGeneratedText, type LoopDefinition } from "./schema"
@@ -20,17 +21,24 @@ function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Servic
 
 export async function generateFromDescription(
   description: string,
-  opts: { model?: string; agent?: string },
+  opts: { model?: string; agent?: string; sessionID?: string },
 ): Promise<LoopDefinition> {
   const session = await runSession(
     Effect.gen(function* () {
       const service = yield* Session.Service
       return yield* service.create({
         title: "loop: generate from description",
+        // Parent the drafting session to the one that asked for it, so the
+        // model inheritance chain in `SessionPrompt` has something to walk
+        // even when the reference below resolves to nothing.
+        ...(opts.sessionID ? { parentID: opts.sessionID } : {}),
       })
     }),
   )
-  const modelID = opts.model ?? ""
+  // The user launched this from a session whose footer shows a model; that is
+  // the model they expect to draft the plan. An explicit `model` still wins,
+  // and an absent one falls through to the agent's own model as before.
+  const modelID = opts.model ?? (await sessionModelRef(opts.sessionID)) ?? ""
   const agent = opts.agent ?? "general"
 
   const userMessage = `${description}\n\nRespond with the JSON object and nothing else. When the JSON is fully emitted, call the update_goal tool with status="complete" and your one-line summary.`

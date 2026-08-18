@@ -32,7 +32,13 @@ export async function handleMissionsRequest(request: Request): Promise<Response 
     const input = await body(request, MobileMissionGenerateInput)
     if (isResponse(input)) return input
     try {
-      return json(await generateFromDescription(input.description, { model: input.model, agent: input.agent }))
+      return json(
+        await generateFromDescription(input.description, {
+          model: input.model,
+          agent: input.agent,
+          sessionID: input.sessionID,
+        }),
+      )
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : String(error) }, 400)
     }

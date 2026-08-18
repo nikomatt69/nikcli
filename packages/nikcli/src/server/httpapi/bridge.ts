@@ -66,12 +66,31 @@ export namespace HttpApiBridge {
    * aligned. Manual entries for non-OpenAPI surface (SSE / mobile prefix
    * match / `/sync/stream`) are appended afterwards.
    */
-  function routesFromPublicApi(api: typeof PublicApi): ReadonlyArray<readonly [string, RegExp]> {
+  /**
+   * `/global/*` and `/user/*` are served by `handleGlobal`, before instance
+   * context is bound, so they belong to `globalRoutes` and must stay out of
+   * the instance table.
+   */
+  const INSTANCE_LESS_PATH = /^\/(global|user)\//
+
+  /**
+   * `GET /pty/{ptyID}/connect` is a WebSocket upgrade. It is declared on
+   * `PublicApi` so the public OpenAPI carries the path, but it is not an HTTP
+   * route the bridge serves — advertising it here would route the upgrade
+   * into the HTTP handler instead of the WS server.
+   */
+  const WEBSOCKET_UPGRADE_PATH = /^\/pty\/[^/]+\/connect$/
+
+  function routesFromPublicApi(
+    api: typeof PublicApi,
+    include?: (path: string) => boolean,
+  ): ReadonlyArray<readonly [string, RegExp]> {
     const spec = OpenApi.fromApi(api) as Record<string, any>
     const verbMethods = ["get", "post", "put", "delete", "patch"] as const
     const result: Array<readonly [string, RegExp]> = []
     const paths = (spec.paths ?? {}) as Record<string, any>
     for (const [path, item] of Object.entries(paths)) {
+      if (include && !include(path)) continue
       const re = pathToRegex(path)
       for (const method of verbMethods) {
         if (item?.[method]) result.push([method.toUpperCase(), re])
@@ -97,6 +116,12 @@ export namespace HttpApiBridge {
    * - `/sync/stats` — covered above; the regex + verb walk produces it.
    */
   const extraImplementedRoutes: ReadonlyArray<readonly [string, RegExp]> = [
+    // `POST /chatbot/:platform/:bot` — webhook receivers served by
+    // `ChatbotHttp.handle`, which is not on `PublicApi` (the contract only
+    // describes `/chatbot/bots*`). The platform alternation comes from the
+    // handler's own list so the two cannot drift: an unknown platform must
+    // stay unsupported here, exactly as the handler rejects it.
+    ["POST", new RegExp(`^\\/chatbot\\/(${ChatbotHttp.PLATFORMS.join("|")})\\/[^/]+$`)],
     // Prefix match for any `/mobile/*` path that the OpenAPI walk missed.
     ["GET", /^\/mobile\//],
     ["POST", /^\/mobile\//],
@@ -105,7 +130,10 @@ export namespace HttpApiBridge {
     ["DELETE", /^\/mobile\//],
   ]
 
-  const generatedRoutes = routesFromPublicApi(PublicApi)
+  const generatedRoutes = routesFromPublicApi(
+    PublicApi,
+    (path) => !INSTANCE_LESS_PATH.test(path) && !WEBSOCKET_UPGRADE_PATH.test(path.replace(/\{[^}]+\}/g, "x")),
+  )
   const implementedRoutes = [...generatedRoutes, ...extraImplementedRoutes] as const
 
   /**
@@ -119,7 +147,20 @@ export namespace HttpApiBridge {
    * `routesFromPublicApi` against the account group.
    */
   const globalRoutes = [
-    ...routesFromPublicApi(PublicApi).filter(([_, pattern]) => /^\/(global|user)\//.test(pattern.source)),
+    // Filter on the OpenAPI path, not on `pattern.source`: the source starts
+    // with `^` and carries escaped slashes (`^\/user\/status$`), so the old
+    // path-shaped test never matched and this list silently collapsed to the
+    // three hand-rolled account entries below.
+    ...routesFromPublicApi(PublicApi, (path) => INSTANCE_LESS_PATH.test(path)),
+    // `/user/*` is raw (`UsersHttp`), and the contract only describes three of
+    // the nine paths it serves — `status`, `me`, `logout`, `list` and the
+    // delete are undeclared. A prefix entry keeps the branch honest with
+    // `INSTANCE_LESS_ROOTS` in instance-less.ts, which already claims the whole
+    // root, instead of drifting one path at a time.
+    ["GET", /^\/user\//],
+    ["POST", /^\/user\//],
+    ["PATCH", /^\/user\//],
+    ["DELETE", /^\/user\//],
     ["GET", /^\/account$/],
     ["POST", /^\/account\/login$/],
     ["POST", /^\/account\/login\/complete$/],
@@ -210,16 +251,36 @@ export namespace HttpApiBridge {
     disableLogger: true,
   }).handler
 
+  /**
+   * Match `pathname`, then retry without a trailing slash.
+   *
+   * When this table was hand-written the collection roots carried the
+   * tolerance in the pattern itself (`/^\/mission\/?$/`, `/^\/doctor\/?$/`).
+   * Deriving the patterns from the OpenAPI spec dropped it, because the spec
+   * only knows the joined path — so `GET /mission/` stopped reaching the
+   * bridge and fell through to the website proxy instead. The raw path is
+   * tried first so prefix entries that end in a slash (`/^\/mobile\//`)
+   * keep matching exactly as before.
+   */
+  function matchesAny(bucket: ReadonlyArray<RegExp>, pathname: string) {
+    if (bucket.some((pattern) => pattern.test(pathname))) return true
+    if (pathname.length > 1 && pathname.endsWith("/")) {
+      const trimmed = pathname.slice(0, -1)
+      return bucket.some((pattern) => pattern.test(trimmed))
+    }
+    return false
+  }
+
   export function supports(pathname: string, method = "GET") {
     const bucket = implementedByMethod.get(method.toUpperCase())
     if (!bucket) return false
-    return bucket.some((pattern) => pattern.test(pathname))
+    return matchesAny(bucket, pathname)
   }
 
   export function supportsGlobal(pathname: string, method = "GET") {
     const bucket = globalByMethod.get(method.toUpperCase())
     if (!bucket) return false
-    return bucket.some((pattern) => pattern.test(pathname))
+    return matchesAny(bucket, pathname)
   }
 
   /** Serve an instance-less `/global/*` or `/user/*` request. Reads no Instance ALS. */

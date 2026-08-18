@@ -56,7 +56,7 @@ describe("published session artifacts", () => {
     const previews = extractSessionPreviews([image, video])
 
     expect(previews.map((item) => item.kind)).toEqual(["video", "image"])
-    expect(previews[0]?.url).toBe("https://nikcli.store/artifact/vid")
+    expect(previews[0]?.url).toBe("https://nikcli.store/artifact/vid?key=view-key")
     expect(previews[0]?.previewUrl).toBe("https://nikcli.store/artifact/vid/raw?key=view-key")
     expect(previews[0]?.viewerUrl).toBe("https://nikcli.store/artifact/vid?key=view-key")
   })

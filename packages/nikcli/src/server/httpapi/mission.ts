@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Bus } from "@/bus"
 import { generateFromDescription } from "@/mission/generate"
@@ -147,6 +147,25 @@ export namespace MissionHttpApi {
 
   const fromPromise = <A>(fn: () => Promise<A>) => Effect.promise(fn).pipe(Effect.orDie)
 
+  /**
+   * `Manager.upsert` throws when `sanitizeDefinition` rejects the definition.
+   * The handlers re-run `validateDefinition` first, but not the zod
+   * `MissionDefinitionSchema.safeParse` that `sanitizeDefinition` runs ahead
+   * of it. `create`/`update` already run that same parse in the handler, so
+   * this is unreachable from them today; `featureMutate` does not, and either
+   * way a rejected definition is a client input error that belongs on the 400
+   * all three routes declare, not on the defect channel. The loop slice has
+   * the same helper for a path that *is* reachable (see httpapi-loop.test.ts).
+   */
+  const upsertDefinition = (def: MissionDefinition): Effect.Effect<MissionDefinition, ValidationErrorBody> =>
+    Effect.tryPromise({
+      try: () => Manager.upsert(def),
+      catch: (cause) => ({
+        name: "ValidationError" as const,
+        data: { message: cause instanceof Error ? cause.message : String(cause) } as Record<string, unknown>,
+      }),
+    })
+
   const MissionIDPath = Schema.Struct({ id: Schema.String })
 
   const FeaturePath = Schema.Struct({
@@ -162,6 +181,12 @@ export namespace MissionHttpApi {
     description: Schema.String,
     model: Schema.optionalKey(Schema.String),
     agent: Schema.optionalKey(Schema.String),
+    /**
+     * The session the request was launched from. Absent `model`, the drafting
+     * call inherits this session's model instead of the global default — the
+     * one the user has selected in front of them.
+     */
+    sessionID: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "MissionGenerateInput" })
 
   // These zod schemas validate bodies and apply schema defaults (feature
@@ -266,7 +291,11 @@ export namespace MissionHttpApi {
     .add(
       HttpApiEndpoint.post("start", "/:id/start", {
         params: MissionIDPath,
-        payload: StartPayload,
+        // The body is optional — the handler reads `payload?.sessionID`, and the
+        // lifecycle routes are called without one. Declaring the payload bare
+        // made a bodyless POST fail the request decode with an empty 400
+        // before the handler could answer 404.
+        payload: [HttpApiSchema.NoContent, StartPayload],
         success: BooleanResult,
         error: NotFound,
       }),
@@ -328,6 +357,7 @@ export namespace MissionHttpApi {
         generateFromDescription(payload.description, {
           model: payload.model,
           agent: payload.agent,
+          sessionID: payload.sessionID,
         }),
       ).pipe(
         Effect.catch((cause: unknown) => {
@@ -369,7 +399,7 @@ export namespace MissionHttpApi {
         }
         const err = validateDefinition(def)
         if (err) return yield* failValidation(err)
-        const saved = yield* fromPromise(() => Manager.upsert(def))
+        const saved = yield* upsertDefinition(def)
         yield* publishUpserted(saved.id)
         return saved
       }),
@@ -389,7 +419,7 @@ export namespace MissionHttpApi {
         if (err) return yield* failValidation(err)
         const existing = yield* fromPromise(() => Manager.get(params.id))
         if (!existing) return yield* failNotFound(`Mission "${params.id}" not found`)
-        const saved = yield* fromPromise(() => Manager.upsert(body))
+        const saved = yield* upsertDefinition(body)
         yield* publishUpserted(saved.id)
         return saved
       }),
@@ -414,7 +444,7 @@ export namespace MissionHttpApi {
         return true
       }),
 
-    start: ({ params, payload }: { params: { id: string }; payload?: { sessionID?: string } }) =>
+    start: ({ params, payload }: { params: { id: string }; payload: typeof StartPayload.Type | void }) =>
       Effect.gen(function* () {
         const def = yield* fromPromise(() => Manager.get(params.id))
         if (!def) return yield* failNotFound(`Mission "${params.id}" not found`)
@@ -456,7 +486,10 @@ export namespace MissionHttpApi {
             found = true
             const next: typeof f = { ...f }
             if (payload.status !== undefined) next.status = payload.status
-            if (payload.status === "done") next.error = undefined
+            // Delete rather than assign `undefined`: `MissionFeature.error` is
+            // `optionalKey`, which rejects a present `undefined` at encode time
+            // and turns the whole response into an empty 400.
+            if (payload.status === "done") delete next.error
             if (payload.error !== undefined) next.error = payload.error
             if (payload.appendDependsOn && payload.appendDependsOn.length > 0) {
               const known = new Set(m.features.map((ff) => ff.id))
@@ -472,7 +505,7 @@ export namespace MissionHttpApi {
         const updated: MissionDefinition = { ...def, milestones }
         const err = validateDefinition(updated)
         if (err) return yield* failValidation(err)
-        const saved = yield* fromPromise(() => Manager.upsert(updated))
+        const saved = yield* upsertDefinition(updated)
         yield* publishUpserted(saved.id)
         return saved
       }),

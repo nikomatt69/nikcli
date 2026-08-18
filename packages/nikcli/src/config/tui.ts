@@ -225,9 +225,16 @@ export namespace TuiConfig {
     const merged = dedupePlugins([...discovered, ...acc.entries])
     acc.result.keybinds = Config.Keybinds.parse(acc.result.keybinds ?? {})
     acc.result.plugin = merged.map((item) => item.item)
-    acc.result.plugin_meta = merged.length
-      ? Object.fromEntries(merged.map((item) => [Config.pluginSpecifier(item.item), item.meta]))
-      : undefined
+    // Assign the key only when there is something to put in it. The HttpApi
+    // response schema declares `plugin_meta` as `optionalKey`, which rejects a
+    // present `undefined` at encode time — so writing `undefined` here turned
+    // `GET /tui/config` into an empty 400 for every user with no plugins, and
+    // the TUI read that as an empty config (no keybinds) with nothing logged.
+    if (merged.length) {
+      acc.result.plugin_meta = Object.fromEntries(merged.map((item) => [Config.pluginSpecifier(item.item), item.meta]))
+    } else {
+      delete acc.result.plugin_meta
+    }
 
     const deps: Promise<void>[] = []
     if (bootstrap && acc.result.plugin?.length) {

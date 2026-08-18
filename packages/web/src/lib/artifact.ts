@@ -95,6 +95,13 @@ export function publicMeta(stored: StoredArtifact): ArtifactMeta {
   return meta
 }
 
+/** Capability link the publisher should share — the bare `/artifact/{id}` page is login-gated. */
+export function artifactShareUrl(id: string, viewKey: string, origin: string | URL): string {
+  const url = new URL(`/artifact/${id}`, origin)
+  url.searchParams.set("key", viewKey)
+  return url.toString()
+}
+
 export async function readArtifactContent(bucket: R2Bucket, id: string, version: number) {
   return bucket.get(contentKey(id, version))
 }

@@ -87,7 +87,7 @@ export const ArtifactListCommand = cmd({
 
       for (const artifact of artifacts) {
         prompts.log.info(`${artifact.title} ${UI.Style.TEXT_DIM}(${artifact.kind}, v${artifact.version})`)
-        prompts.log.info(`  ${artifact.url}`)
+        prompts.log.info(`  ${Artifact.viewerUrl(artifact)}`)
       }
       prompts.outro(`${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"}`)
     })

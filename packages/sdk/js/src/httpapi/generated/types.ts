@@ -3561,7 +3561,7 @@ export type AppSkillCreatePayload = {
   readonly scope?: "workspace" | "global" | undefined
 }
 
-export type BrainTriggerPayload = { readonly force?: boolean | undefined }
+export type BrainTriggerPayload = { readonly force?: boolean | undefined; readonly sessionID?: string | undefined }
 
 export type VoiceTranscribePayload = { readonly audio: string; readonly format?: string | undefined }
 
@@ -3656,7 +3656,12 @@ export type McpAuthCallbackPayload = { readonly code: string }
 
 export type McpTogglePayload = { readonly enabled: boolean }
 
-export type MissionGeneratePayload = { readonly description: string; readonly model?: string; readonly agent?: string }
+export type MissionGeneratePayload = {
+  readonly description: string
+  readonly model?: string
+  readonly agent?: string
+  readonly sessionID?: string
+}
 
 export type MissionUpsertPayload = {
   readonly name: string
@@ -4457,6 +4462,7 @@ export type MobileLoopGeneratePayload = {
   readonly description: string
   readonly model?: string | undefined
   readonly agent?: string | undefined
+  readonly sessionID?: string | undefined
 }
 
 export type MobileLoopUpdatePayload = {
@@ -4562,6 +4568,7 @@ export type MobileMissionGeneratePayload = {
   readonly description: string
   readonly model?: string | undefined
   readonly agent?: string | undefined
+  readonly sessionID?: string | undefined
 }
 
 export type MobileMissionUpdatePayload = {
@@ -4653,7 +4660,12 @@ export type PtyUpdatePayload = {
   readonly size?: { readonly rows: number; readonly cols: number } | undefined
 }
 
-export type LoopGeneratePayload = { readonly description: string; readonly model?: string; readonly agent?: string }
+export type LoopGeneratePayload = {
+  readonly description: string
+  readonly model?: string
+  readonly agent?: string
+  readonly sessionID?: string
+}
 
 export type LoopUpsertPayload = {
   readonly name: string
@@ -5081,7 +5093,10 @@ export type AppSkillDeleteOutput = boolean
 
 export type BrainStatusOutput = BrainStatus
 
-export type BrainTriggerInput = { readonly force?: BrainTriggerPayload["force"] }
+export type BrainTriggerInput = {
+  readonly force?: BrainTriggerPayload["force"]
+  readonly sessionID?: BrainTriggerPayload["sessionID"]
+}
 
 export type BrainTriggerOutput = BrainResult
 
@@ -6296,6 +6311,7 @@ export type MissionGenerateInput = {
   readonly description: MissionGeneratePayload["description"]
   readonly model?: MissionGeneratePayload["model"]
   readonly agent?: MissionGeneratePayload["agent"]
+  readonly sessionID?: MissionGeneratePayload["sessionID"]
 }
 
 export type MissionGenerateOutput = MissionDefinition
@@ -6698,6 +6714,7 @@ export type MobileLoopGenerateInput = {
   readonly description: MobileLoopGeneratePayload["description"]
   readonly model?: MobileLoopGeneratePayload["model"]
   readonly agent?: MobileLoopGeneratePayload["agent"]
+  readonly sessionID?: MobileLoopGeneratePayload["sessionID"]
 }
 
 export type MobileLoopGenerateOutput = LoopDefinition
@@ -6863,6 +6880,7 @@ export type MobileMissionGenerateInput = {
   readonly description: MobileMissionGeneratePayload["description"]
   readonly model?: MobileMissionGeneratePayload["model"]
   readonly agent?: MobileMissionGeneratePayload["agent"]
+  readonly sessionID?: MobileMissionGeneratePayload["sessionID"]
 }
 
 export type MobileMissionGenerateOutput = MobileMissionDefinition
@@ -7157,6 +7175,7 @@ export type LoopGenerateInput = {
   readonly description: LoopGeneratePayload["description"]
   readonly model?: LoopGeneratePayload["model"]
   readonly agent?: LoopGeneratePayload["agent"]
+  readonly sessionID?: LoopGeneratePayload["sessionID"]
 }
 
 export type LoopGenerateOutput = LoopDefinition

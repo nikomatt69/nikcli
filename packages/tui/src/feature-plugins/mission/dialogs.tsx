@@ -48,6 +48,19 @@ function progressLine(def: Store.MissionDefinition): string {
 
 // ── Model & agent pickers (mirrors feature-plugins/loops/dialogs.tsx) ──────────
 
+/**
+ * The session the user is looking at, when the current route is a session.
+ * Missions, loops and the drafting calls they make inherit that session's
+ * model, so the work runs on the model shown in its footer rather than the
+ * global default.
+ */
+function currentSessionID(api: TuiPluginApi): string | undefined {
+  const current = api.route.current
+  if (current.name !== "session") return undefined
+  const sessionID = (current as { params?: { sessionID?: unknown } }).params?.sessionID
+  return typeof sessionID === "string" ? sessionID : undefined
+}
+
 /** Resolve a "providerID/modelID" reference to a friendly label, or "default model". */
 function modelLabel(api: TuiPluginApi, model?: string): string {
   if (!model) return "default model"
@@ -369,7 +382,10 @@ function askGenerateDescription(api: TuiPluginApi, preset?: { brief?: string }):
             message: "Asking the model to draft a plan…",
           })
           const api2 = new MissionApi(api.client)
-          const def = await api2.generateFromDescription(description).catch(() => undefined)
+          const sessionID = currentSessionID(api)
+          const def = await api2
+            .generateFromDescription(description, sessionID ? { sessionID } : {})
+            .catch(() => undefined)
           if (!def) {
             api.ui.toast({
               variant: "error",

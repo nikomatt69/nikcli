@@ -9,6 +9,7 @@ import { Session } from "@/session"
 import type { MessageV2 } from "@/session/message-v2"
 import { SessionRepo } from "@/session/repo"
 import { SessionPrompt } from "@/session/prompt"
+import { sessionModelOwn } from "@/session/model"
 import { Provider } from "@/provider/provider"
 import { Flock } from "@nikcli-ai/util/flock"
 import { Effect } from "effect"
@@ -55,11 +56,13 @@ function providerGetModel(providerID: string, modelID: string) {
  *
  * - If the user configured `experimental.brainModel` and the model is available,
  *   it is used as-is.
+ * - Otherwise the pass runs on `sessionID`'s model — the one the user has
+ *   selected in the session they triggered Brain from.
  * - If the configured model is unknown, missing providers/models, or the lookup
  *   throws, we silently fall back to the user's default model so the Brain pass
  *   still runs instead of failing the whole flow.
  */
-export async function getBrainProviderModel(): Promise<{
+export async function getBrainProviderModel(sessionID?: string): Promise<{
   providerID: string
   modelID: string
 }> {
@@ -74,6 +77,20 @@ export async function getBrainProviderModel(): Promise<{
         modelID: cfg.model.modelID,
         error: String(e),
       })
+    }
+  }
+  // No explicit `brainModel`: run on the model of the session the user
+  // triggered this from, rather than the global default. Same precedence the
+  // mission and loop drafting calls use — a configured model is a deliberate
+  // choice and still wins, everything else follows what is on screen.
+  const inherited = await sessionModelOwn(sessionID).catch(() => undefined)
+  if (inherited) {
+    try {
+      await providerGetModel(inherited.providerID, inherited.modelID)
+      return inherited
+    } catch {
+      // the session's model is no longer usable (provider removed, key
+      // revoked) — the default is a better answer than failing the pass
     }
   }
   return defaultProviderModel()
@@ -304,7 +321,7 @@ export namespace Brain {
 
   let pending: Promise<BrainResult> | null = null
 
-  export async function trigger(input?: { force?: boolean }): Promise<BrainResult> {
+  export async function trigger(input?: { force?: boolean; sessionID?: string }): Promise<BrainResult> {
     const existing = pending
     if (existing) return existing
     const task = runBrain(input).finally(() => {
@@ -314,7 +331,7 @@ export namespace Brain {
     return task
   }
 
-  async function runBrain(input?: { force?: boolean }): Promise<BrainResult> {
+  async function runBrain(input?: { force?: boolean; sessionID?: string }): Promise<BrainResult> {
     const log = Log.create({ service: "brain" })
 
     if (!(await isBrainEnabled())) {
@@ -374,7 +391,7 @@ export namespace Brain {
 
       const before = await getBrainMemoryContent()
       const habitsBefore = await getHabitsContent()
-      const sessionID = await executeBrain(sessionIds)
+      const sessionID = await executeBrain(sessionIds, input?.sessionID)
       const after = await getBrainMemoryContent()
       const habitsAfter = await getHabitsContent()
 
@@ -421,7 +438,7 @@ export namespace Brain {
     }
   }
 
-  async function executeBrain(sessionIds: string[]): Promise<string> {
+  async function executeBrain(sessionIds: string[], callerSessionID?: string): Promise<string> {
     try {
       if (!sessionIds.length) {
         throw new Error("No recent sessions available for Brain")
@@ -465,7 +482,7 @@ export namespace Brain {
           }),
         )
         log.info("brain session created", { sessionID: session.id })
-        const model = await getBrainProviderModel()
+        const model = await getBrainProviderModel(callerSessionID)
         log.info("brain model selected", {
           providerID: model.providerID,
           modelID: model.modelID,

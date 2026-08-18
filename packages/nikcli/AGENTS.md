@@ -117,8 +117,15 @@ Adding or changing an endpoint:
   routes, which serialised whatever they were given. A schema that does not
   match what the service actually returns turns into a failed request, not a
   dropped field. Verify a new schema against real data, not just typecheck.
-  Handlers that push bodies through `jsonSafe` drop `undefined` properties, so
-  optional fields are genuinely absent; model them with `Schema.optional`.
+  Pick the optional flavour from what the **producer** actually writes:
+  `Schema.optionalKey` rejects a present `undefined` and fails the whole
+  request with an empty 400, while `Schema.optional` accepts it and puts
+  `null` on the wire. So a service that assigns `field: cond ? x : undefined`
+  needs either `Schema.optional`, or a producer that omits the key. Handlers
+  that still push bodies through `jsonSafe` get absent keys for free — that
+  helper is load-bearing, not decoration (see ROADMAP §E4). Two shipped 400s
+  came from exactly this: `mission.ts` `featureMutate` and `config/tui.ts`
+  `plugin_meta`.
 - `handleRaw` endpoints and contract-only groups are **not** encoded at
   runtime, so their schemas shape the SDK without any request-time risk.
 

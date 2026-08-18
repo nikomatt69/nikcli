@@ -27,6 +27,12 @@ export namespace BrainHttpApi {
 
   const TriggerPayload = Schema.Struct({
     force: Schema.optional(Schema.Boolean),
+    /**
+     * The session the pass was triggered from. Absent an explicit
+     * `experimental.brainModel`, Brain runs on this session's model instead of
+     * the global default.
+     */
+    sessionID: Schema.optional(Schema.String),
   }).annotate({ identifier: "BrainTriggerInput" })
 
   const Result = Schema.Struct({
@@ -75,8 +81,8 @@ export namespace BrainHttpApi {
 
     trigger: ({ payload }: { payload: typeof TriggerPayload.Type }) =>
       fromPromise(() => {
-        log.info("brain trigger requested", { force: payload.force })
-        return Brain.trigger({ force: payload.force })
+        log.info("brain trigger requested", { force: payload.force, sessionID: payload.sessionID })
+        return Brain.trigger({ force: payload.force, sessionID: payload.sessionID })
       }),
   }
 

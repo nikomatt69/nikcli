@@ -89,7 +89,63 @@ export type BrowserControlShape = ToolShape<{ action?: string }, { action?: stri
 
 export type ComputerShape = ToolShape<{ action?: string }, { mode?: string; liveUrl?: string }>
 
+export type ArtifactPublishedMeta = {
+  title?: string
+  url?: string
+  viewerUrl?: string
+  viewKey?: string
+}
+
 export type ArtifactShape = ToolShape<
   { title?: string },
-  { title?: string; url?: string; kind?: string; version?: string | number }
+  ArtifactPublishedMeta & { kind?: string; version?: string | number }
 >
+
+/**
+ * Link shown on the published-artifact card.
+ *
+ * Prefer any candidate that already carries `?key=` (viewerUrl, url, a URL
+ * reconstructed from `viewKey`, or a capability link in the tool output).
+ * Older tool results stored the login-gated page as `url` and omitted
+ * `viewerUrl`; without this, the card prints a dead link.
+ */
+export function artifactPublishedHref(meta: ArtifactPublishedMeta, output?: string): string | undefined {
+  const reconstructed =
+    meta.url && meta.viewKey && !hasCapabilityKey(meta.url) ? appendCapabilityKey(meta.url, meta.viewKey) : undefined
+  return (
+    firstKeyed(meta.viewerUrl, meta.url, reconstructed, keyedUrlInText(output)) ??
+    reconstructed ??
+    meta.viewerUrl ??
+    meta.url
+  )
+}
+
+function hasCapabilityKey(value: string): boolean {
+  try {
+    return Boolean(new URL(value).searchParams.get("key"))
+  } catch {
+    return /[?&]key=[^&\s]+/.test(value)
+  }
+}
+
+function appendCapabilityKey(value: string, key: string): string | undefined {
+  try {
+    const url = new URL(value)
+    url.searchParams.set("key", key)
+    return url.toString()
+  } catch {
+    return undefined
+  }
+}
+
+function firstKeyed(...values: Array<string | undefined>): string | undefined {
+  return values.find((value) => value && hasCapabilityKey(value))
+}
+
+function keyedUrlInText(text?: string): string | undefined {
+  if (!text) return undefined
+  for (const token of text.split(/\s+/)) {
+    const trimmed = token.replace(/[.,;:)\]>]+$/g, "")
+    if (hasCapabilityKey(trimmed)) return trimmed
+  }
+}

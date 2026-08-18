@@ -133,7 +133,10 @@ export type Endpoint3_0Output = EffectValue<ReturnType<RawClient["brain"]["statu
 export type BrainStatusOperation<E = never> = () => Effect.Effect<Endpoint3_0Output, E>
 
 type Endpoint3_1Request = Parameters<RawClient["brain"]["trigger"]>[0]
-export type Endpoint3_1Input = { readonly force?: Endpoint3_1Request["payload"]["force"] }
+export type Endpoint3_1Input = {
+  readonly force?: Endpoint3_1Request["payload"]["force"]
+  readonly sessionID?: Endpoint3_1Request["payload"]["sessionID"]
+}
 export type Endpoint3_1Output = EffectValue<ReturnType<RawClient["brain"]["trigger"]>>
 export type BrainTriggerOperation<E = never> = (input?: Endpoint3_1Input) => Effect.Effect<Endpoint3_1Output, E>
 
@@ -522,6 +525,7 @@ export type Endpoint14_2Input = {
   readonly description: Endpoint14_2Request["payload"]["description"]
   readonly model?: Endpoint14_2Request["payload"]["model"]
   readonly agent?: Endpoint14_2Request["payload"]["agent"]
+  readonly sessionID?: Endpoint14_2Request["payload"]["sessionID"]
 }
 export type Endpoint14_2Output = EffectValue<ReturnType<RawClient["mission"]["generate"]>>
 export type MissionGenerateOperation<E = never> = (input: Endpoint14_2Input) => Effect.Effect<Endpoint14_2Output, E>
@@ -573,7 +577,7 @@ export type MissionRemoveOperation<E = never> = (input: Endpoint14_7Input) => Ef
 type Endpoint14_8Request = Parameters<RawClient["mission"]["start"]>[0]
 export type Endpoint14_8Input = {
   readonly id: Endpoint14_8Request["params"]["id"]
-  readonly sessionID?: Endpoint14_8Request["payload"]["sessionID"]
+  readonly sessionID?: Extract<Endpoint14_8Request["payload"], object>["sessionID"]
 }
 export type Endpoint14_8Output = EffectValue<ReturnType<RawClient["mission"]["start"]>>
 export type MissionStartOperation<E = never> = (input: Endpoint14_8Input) => Effect.Effect<Endpoint14_8Output, E>
@@ -1070,6 +1074,7 @@ export type Endpoint15_59Input = {
   readonly description: Endpoint15_59Request["payload"]["description"]
   readonly model?: Endpoint15_59Request["payload"]["model"]
   readonly agent?: Endpoint15_59Request["payload"]["agent"]
+  readonly sessionID?: Endpoint15_59Request["payload"]["sessionID"]
 }
 export type Endpoint15_59Output = EffectValue<ReturnType<RawClient["mobile"]["loopGenerate"]>>
 export type MobileLoopGenerateOperation<E = never> = (
@@ -1278,6 +1283,7 @@ export type Endpoint15_87Input = {
   readonly description: Endpoint15_87Request["payload"]["description"]
   readonly model?: Endpoint15_87Request["payload"]["model"]
   readonly agent?: Endpoint15_87Request["payload"]["agent"]
+  readonly sessionID?: Endpoint15_87Request["payload"]["sessionID"]
 }
 export type Endpoint15_87Output = EffectValue<ReturnType<RawClient["mobile"]["missionGenerate"]>>
 export type MobileMissionGenerateOperation<E = never> = (
@@ -1754,6 +1760,7 @@ export type Endpoint21_2Input = {
   readonly description: Endpoint21_2Request["payload"]["description"]
   readonly model?: Endpoint21_2Request["payload"]["model"]
   readonly agent?: Endpoint21_2Request["payload"]["agent"]
+  readonly sessionID?: Endpoint21_2Request["payload"]["sessionID"]
 }
 export type Endpoint21_2Output = EffectValue<ReturnType<RawClient["loop"]["generate"]>>
 export type LoopGenerateOperation<E = never> = (input: Endpoint21_2Input) => Effect.Effect<Endpoint21_2Output, E>
@@ -1818,7 +1825,7 @@ export type LoopToggleOperation<E = never> = (input: Endpoint21_8Input) => Effec
 type Endpoint21_9Request = Parameters<RawClient["loop"]["run"]>[0]
 export type Endpoint21_9Input = {
   readonly id: Endpoint21_9Request["params"]["id"]
-  readonly sessionID?: Endpoint21_9Request["payload"]["sessionID"]
+  readonly sessionID?: Extract<Endpoint21_9Request["payload"], object>["sessionID"]
 }
 export type Endpoint21_9Output = EffectValue<ReturnType<RawClient["loop"]["run"]>>
 export type LoopRunOperation<E = never> = (input: Endpoint21_9Input) => Effect.Effect<Endpoint21_9Output, E>
