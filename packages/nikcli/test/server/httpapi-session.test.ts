@@ -155,6 +155,30 @@ describe("Session HttpApi bridge", () => {
     for (const key of optionals.filter((k) => k !== "parentID")) expect(child).not.toHaveProperty(key)
   })
 
+  /**
+   * `ContextBreakdown.model` and each source's `detail` are `optionalKey`, and
+   * the producer used to write `undefined` for both — the encode only survived
+   * because the handler round-tripped through `jsonSafe`. Without a route test
+   * this endpoint had no coverage at all.
+   */
+  it("serves the context breakdown with unset optionals omitted", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, {})) as { id: string }
+
+    const breakdown = (await request(`/session/${created.id}/context`, directory)) as {
+      model?: unknown
+      sources: { id: string; detail?: unknown }[]
+      estimatedTotal: number
+    }
+
+    expect(Array.isArray(breakdown.sources)).toBe(true)
+    expect(typeof breakdown.estimatedTotal).toBe("number")
+    if (!("model" in breakdown)) expect(breakdown.model).toBeUndefined()
+    for (const source of breakdown.sources) {
+      if ("detail" in source) expect(source.detail).not.toBeNull()
+    }
+  })
+
   it("creates a session without a request body for legacy SDK compatibility", async () => {
     const directory = await makeProjectDir()
     const created = (await jsonRequest("POST", "/session", directory)) as {

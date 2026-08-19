@@ -291,6 +291,8 @@ export namespace Delegation {
       worker.progressSummary ??
       delegator?.resultSummary ??
       worker.resultSummary
+    const resultSummary = delegator?.resultSummary ?? worker.resultSummary
+    const jobError = delegator?.error ?? errorRecord?.error
 
     let status: JobStatus
     if (delegator?.status === "running" && runningNonDelegators.length === 0) {
@@ -303,25 +305,29 @@ export namespace Delegation {
       status = worker.status
     }
 
+    // The ten optional members are spread in only when they have a value.
+    // `DelegationJob` on the HTTP contract declares them `Schema.optionalKey`,
+    // which rejects a *present* `undefined` at encode time — writing them
+    // unconditionally answers 400 on `GET /session/:id/delegation`.
     return {
       jobID: BackgroundRun.getJobID(root),
       rootDelegationID: BackgroundRun.getRootDelegationID(root),
       parentSessionID: root.parentSessionID,
       title: worker.title,
       agent: worker.agent,
-      parentAgent: worker.parentAgent,
+      ...(worker.parentAgent !== undefined && { parentAgent: worker.parentAgent }),
       status,
-      source: worker.source,
-      workerSessionID: worker.sessionID,
-      delegatorID: worker.delegatorID,
-      delegatorSessionID: worker.delegatorSessionID,
+      ...(worker.source !== undefined && { source: worker.source }),
+      ...(worker.sessionID !== undefined && { workerSessionID: worker.sessionID }),
+      ...(worker.delegatorID !== undefined && { delegatorID: worker.delegatorID }),
+      ...(worker.delegatorSessionID !== undefined && { delegatorSessionID: worker.delegatorSessionID }),
       createdAt: root.createdAt,
       updatedAt: latest.updatedAt,
-      completedAt,
-      lastActivityAt,
-      progressSummary,
-      resultSummary: delegator?.resultSummary ?? worker.resultSummary,
-      error: delegator?.error ?? errorRecord?.error,
+      ...(completedAt !== undefined && { completedAt }),
+      ...(lastActivityAt !== undefined && { lastActivityAt }),
+      ...(progressSummary !== undefined && { progressSummary }),
+      ...(resultSummary !== undefined && { resultSummary }),
+      ...(jobError !== undefined && { error: jobError }),
     }
   }
 

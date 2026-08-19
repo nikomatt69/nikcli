@@ -950,7 +950,7 @@ export namespace SessionHttpApi {
     contextBreakdown: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const result = yield* Effect.promise(() => SessionContext.breakdown(params.sessionID))
-        return jsonSafe(result)
+        return result
       }).pipe(declaredErrors),
     contextToggle: ({
       params,
@@ -1011,7 +1011,7 @@ export namespace SessionHttpApi {
           })
         }
         const result = yield* Effect.promise(() => SessionContext.breakdown(params.sessionID))
-        return jsonSafe(result)
+        return result
       }).pipe(declaredErrors),
     goal: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -1030,11 +1030,11 @@ export namespace SessionHttpApi {
           return yield* Effect.fail({ error: "Session not found" as const })
         }
         const jobs = yield* Effect.promise(() => Delegation.listJobs(params.sessionID))
-        return jsonSafe(jobs)
+        return jobs
       }),
     backgroundInspect: ({ params }: { params: typeof DelegationPath.Type }) =>
       Effect.promise(() => Delegation.inspectJobForSession(params.sessionID, params.delegationID)).pipe(
-        Effect.map((job) => jsonSafe(job ?? null)),
+        Effect.map((job) => job ?? null),
         Effect.orDie,
       ),
     backgroundRead: ({ params }: { params: typeof DelegationPath.Type }) =>

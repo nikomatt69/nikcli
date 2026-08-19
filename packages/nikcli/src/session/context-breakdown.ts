@@ -359,7 +359,9 @@ export namespace SessionContext {
           id: "tool:" + tool.id,
           category: "tools",
           label: tool.id,
-          detail: firstLine ? firstLine.slice(0, 80) : undefined,
+          // `detail` is `optionalKey` on the route: a present `undefined`
+          // fails the response encode instead of omitting the field.
+          ...(firstLine ? { detail: firstLine.slice(0, 80) } : {}),
           tokens: toolTokens(tool.description, schema),
           enabled: ToolRegistry.enabled(tool.id, disabledTools),
           togglable: true,
@@ -408,14 +410,16 @@ export namespace SessionContext {
     const estimatedTotal = sources.filter((s) => s.enabled).reduce((sum, s) => sum + s.tokens, 0)
 
     return {
-      model: model
+      ...(model
         ? {
-            providerID: model.providerID,
-            modelID: model.id,
-            name: model.name,
-            contextLimit: model.limit.input ?? model.limit.context,
+            model: {
+              providerID: model.providerID,
+              modelID: model.id,
+              name: model.name,
+              contextLimit: model.limit.input ?? model.limit.context,
+            },
           }
-        : undefined,
+        : {}),
       reported,
       sources,
       estimatedTotal,
