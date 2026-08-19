@@ -806,6 +806,32 @@ export type SessionStatus =
   | { type: "busy"; since: number }
   | { type: "busy" }
 
+export type SessionWorktree4 = {
+  name: string
+  branch: string
+  directory: string
+  repositoryDirectory?: string
+  cleanedAt?: number
+}
+
+export type SessionWorktree5 = {
+  name: string
+  branch: string
+  directory: string
+  repositoryDirectory?: string
+  cleanedAt?: number
+}
+
+export type SessionMobile2 = {
+  platforms: Array<"ios" | "android" | "expo" | "flutter" | "react-native">
+  primaryPlatform: string
+  method: string
+  detectedAt: number
+  buildStatus?: "unknown" | "building" | "succeeded" | "failed"
+  lastBuildAt?: number
+  artifacts?: Array<{ platform: string; path: string; size?: number; createdAt?: number }>
+}
+
 export type OutputFormatText = { type: "text" }
 
 export type JSONSchema = { [x: string]: any }
@@ -1610,6 +1636,32 @@ export type EventMessagePartRemoved = {
   properties: { sessionID: string; messageID: string; partID: string }
 }
 
+export type SessionWorktree8 = {
+  name: string
+  branch: string
+  directory: string
+  repositoryDirectory?: string
+  cleanedAt?: number
+}
+
+export type SessionWorktree9 = {
+  name: string
+  branch: string
+  directory: string
+  repositoryDirectory?: string
+  cleanedAt?: number
+}
+
+export type SessionMobile4 = {
+  platforms: Array<"ios" | "android" | "expo" | "flutter" | "react-native">
+  primaryPlatform: string
+  method: string
+  detectedAt: number
+  buildStatus?: "unknown" | "building" | "succeeded" | "failed"
+  lastBuildAt?: number
+  artifacts?: Array<{ platform: string; path: string; size?: number; createdAt?: number }>
+}
+
 export type EventSessionPendingPromoted = {
   type: "session.pending.promoted"
   properties: { sessionID: string; pendingIDs: Array<string>; messageIDs: Array<string> }
@@ -2070,6 +2122,23 @@ export type SessionStatusMap = { [x: string]: SessionStatus }
 
 export type EventSessionStatus = { type: "session.status"; properties: { sessionID: string; status: SessionStatus } }
 
+export type SessionGithub2 = {
+  owner: string
+  repo: string
+  fullName: string
+  baseBranch: string
+  headBranch: string
+  repositoryDirectory?: string
+  cloneUrl?: string
+  htmlUrl?: string
+  private?: boolean
+  worktree: SessionWorktree4
+  pullRequest?: { number: number; url: string; title: string }
+  lastCommitSha?: string
+  publishedAt?: number
+  publishError?: string
+}
+
 export type OutputFormatJsonSchema = { type: "json_schema"; schema: JSONSchema; retryCount?: number | undefined }
 
 export type AssistantMessage = {
@@ -2359,6 +2428,23 @@ export type EventQuestionReplied = {
   properties: { sessionID: string; requestID: string; answers: Array<QuestionAnswer> }
 }
 
+export type SessionGithub4 = {
+  owner: string
+  repo: string
+  fullName: string
+  baseBranch: string
+  headBranch: string
+  repositoryDirectory?: string
+  cloneUrl?: string
+  htmlUrl?: string
+  private?: boolean
+  worktree: SessionWorktree8
+  pullRequest?: { number: number; url: string; title: string }
+  lastCommitSha?: string
+  publishedAt?: number
+  publishError?: string
+}
+
 export type UserSession = { token: string; user: PublicUser }
 
 export type AnalyticsGlobal = {
@@ -2609,25 +2695,23 @@ export type Session2 = {
   slug: string
   projectID: string
   directory: string
-  parentID?: string | undefined
-  workspaceID?: string | undefined
-  summary?: { additions: number; deletions: number; files: number; diffs?: Array<FileDiff> | undefined } | undefined
-  share?: { url: string } | undefined
-  github?: SessionGithub | undefined
-  worktree?: SessionWorktree | undefined
-  mobile?: SessionMobile | undefined
+  parentID?: string
+  workspaceID?: string
+  summary?: { additions: number; deletions: number; files: number; diffs?: Array<FileDiff> }
+  share?: { url: string }
+  github?: SessionGithub2
+  worktree?: SessionWorktree5
+  mobile?: SessionMobile2
   title: string
-  activeCommand?: string | undefined
+  activeCommand?: string
   version: string
-  time: { created: number; updated: number; compacting?: number | undefined; archived?: number | undefined }
-  permission?: PermissionRuleset | undefined
-  skills?: Array<string> | undefined
-  disabledInstructions?: Array<string> | undefined
-  disabledTools?: { [x: string]: boolean } | undefined
-  revert?:
-    | { messageID: string; partID?: string | undefined; snapshot?: string | undefined; diff?: string | undefined }
-    | undefined
-  lastModel?: { providerID: string; modelID: string } | undefined
+  time: { created: number; updated: number; compacting?: number; archived?: number }
+  permission?: PermissionRuleset
+  skills?: Array<string>
+  disabledInstructions?: Array<string>
+  disabledTools?: { [x: string]: boolean }
+  revert?: { messageID: string; partID?: string; snapshot?: string; diff?: string }
+  lastModel?: { providerID: string; modelID: string }
 }
 
 export type Session4 = {
@@ -2635,25 +2719,23 @@ export type Session4 = {
   slug: string
   projectID: string
   directory: string
-  parentID?: string | undefined
-  workspaceID?: string | undefined
-  summary?: { additions: number; deletions: number; files: number; diffs?: Array<FileDiff> | undefined } | undefined
-  share?: { url: string } | undefined
-  github?: SessionGithub | undefined
-  worktree?: SessionWorktree | undefined
-  mobile?: SessionMobile | undefined
+  parentID?: string
+  workspaceID?: string
+  summary?: { additions: number; deletions: number; files: number; diffs?: Array<FileDiff> }
+  share?: { url: string }
+  github?: SessionGithub4
+  worktree?: SessionWorktree9
+  mobile?: SessionMobile4
   title: string
-  activeCommand?: string | undefined
+  activeCommand?: string
   version: string
-  time: { created: number; updated: number; compacting?: number | undefined; archived?: number | undefined }
-  permission?: PermissionRuleset | undefined
-  skills?: Array<string> | undefined
-  disabledInstructions?: Array<string> | undefined
-  disabledTools?: { [x: string]: boolean } | undefined
-  revert?:
-    | { messageID: string; partID?: string | undefined; snapshot?: string | undefined; diff?: string | undefined }
-    | undefined
-  lastModel?: { providerID: string; modelID: string } | undefined
+  time: { created: number; updated: number; compacting?: number; archived?: number }
+  permission?: PermissionRuleset
+  skills?: Array<string>
+  disabledInstructions?: Array<string>
+  disabledTools?: { [x: string]: boolean }
+  revert?: { messageID: string; partID?: string; snapshot?: string; diff?: string }
+  lastModel?: { providerID: string; modelID: string }
 }
 
 export type UserMessage = {

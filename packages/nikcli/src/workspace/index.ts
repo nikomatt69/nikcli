@@ -12,6 +12,7 @@ import { SessionPrompt } from "@/session/prompt"
 import { SessionRepo } from "@/session/repo"
 import { InstructionRepo } from "@/session/instruction-repo"
 import { fn } from "@/util/fn"
+import { setOptional } from "@/util/optional-key"
 import { Log } from "@nikcli-ai/util/log"
 import { getAdaptor, listAdaptors } from "./adaptors"
 import { ConfigSchema } from "./config"
@@ -677,7 +678,8 @@ export namespace Workspace {
         Effect.gen(function* () {
           const session = yield* Session.Service
           yield* session.update(sessionID, (draft) => {
-            draft.workspaceID = workspaceID ?? undefined
+            // `null` is the detach signal on this route, not a value.
+            setOptional(draft, "workspaceID", workspaceID ?? undefined)
             draft.directory = targetDirectory
           })
         }),
@@ -705,7 +707,7 @@ export namespace Workspace {
               const session = yield* Session.Service
               yield* session.update(sessionID, (draft) => {
                 if (draft.workspaceID !== workspaceID || draft.directory !== targetDirectory) return
-                draft.workspaceID = current.workspaceID
+                setOptional(draft, "workspaceID", current.workspaceID)
                 draft.directory = current.directory
               })
             }),

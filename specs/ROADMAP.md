@@ -116,9 +116,10 @@ route tests; corrected below before anyone repeats it.**
 
   **A schema-level probe lies about this.** `Schema.encodeUnknownEffect` returns the JS object with the present-`undefined` own property still attached, and the `Result`'s `toJSON` renders it through `JSON.stringify`, which drops it — so the probe prints `{"a":"x"}` and reads as "key dropped". (The success field is `.success`, not `.value`.) Only a real request through `Server.fetch` shows the `null`. Verify this class of change end to end, never with a probe.
 
-- **Depends on** — nothing, but it is **not** the small item it looked like. It is producer-by-producer: each response schema flips to `optionalKey` **and** its producer stops writing present-`undefined`, together, per endpoint. Scope: `Session.InfoSchema` (16 optional fields), `MessageV2` part schemas, `SessionContext.breakdown`, `Delegation.projectJob`. Measured 2026-08-19: 35 `jsonSafe` call sites remain — 33 in `httpapi/session.ts`, plus `provider.ts:100` and `config.ts`; `session/index.ts` has 40 `Schema.optional` and `session/message-v2.ts` 53, both with zero `optionalKey`.
+- **Depends on** — nothing, but it is **not** the small item it looked like. It is producer-by-producer: each response schema flips to `optionalKey` **and** its producer stops writing present-`undefined`, together, per endpoint. Remaining scope after the first slice: `MessageV2` part schemas, `SessionContext.breakdown`, `Delegation.projectJob`, `provider.ts`, `config.ts`. Measured 2026-08-19 after that slice: 25 `jsonSafe` call sites (23 in `httpapi/session.ts`, plus `provider.ts` and `config.ts`); `session/message-v2.ts` still has 53 `Schema.optional` and no `optionalKey`.
+- **How to do a slice** — The compiler will not help: `exactOptionalPropertyTypes` is off, so `field?: X` still accepts `undefined` and every producer bug is a runtime 400. Flip the schema, then grep the producers three ways — `draft.<field> = undefined`, an object literal that assigns an optional member unconditionally, and any value typed `T | null` handed to a `string` member (`null` fails `optionalKey` exactly like a present `undefined`, and that is what broke `sessionWarp`'s detach path). Use `setOptional` from `@/util/optional-key`, or `...(v !== undefined && { k: v })` in a literal. Then run the **whole** suite, not the route test: the three producers this slice missed were caught by `httpapi-workspace.test.ts` and `workspace-warp-route.test.ts`, not by the session tests.
 - **Costs if skipped** — Nothing user-visible. `jsonSafe` produces the correct wire shape today; this is a cost and clarity item, not a bug.
-- **Done when** — Per endpoint: the response schema uses `optionalKey`, the producer omits the key, and a route test asserts the key is _absent_ (not `null`) with a service object that leaves the field unset. `jsonSafe` is gone from `session.ts` / `provider.ts` / `config.ts`. Curl `GET /session`, `GET /session/:id`, `GET /config` against a real server with a session whose optionals are unset.
+- **Done when** — Per endpoint: the response schema uses `optionalKey`, the producer omits the key, and a route test asserts the key is _absent_ (not `null`) with a service object that leaves the field unset. `jsonSafe` is gone from `session.ts` / `provider.ts` / `config.ts`. Curl `GET /session`, `GET /session/:id`, `GET /config` against a real server with a session whose optionals are unset. Expect the generated types to grow a few numbered duplicates (`SessionWorktree4`, `SessionMobile2`) while a shape exists in both the flipped Effect schema and an unflipped zod mirror; they re-converge as the mirrors flip.
 - **Already paid for** — The two live 400s this same failure mode was causing are fixed (see 2026-08-18 landed work): `mission.ts` `featureMutate` and `config/tui.ts` `plugin_meta`. Grep for `= undefined` on a field whose response schema is `optionalKey` before adding one.
 
 ### JSON `/mobile/*` onto encoded handlers (H7)
@@ -336,6 +337,26 @@ Recorded at phase boundaries so the next pass does not redo work.
 - `profile-command.test.ts` asserted `systemPrompt.profile()` in `session/prompt.ts`; that assembly moved to `session/instruction-sync.ts` (the feature is intact) and the test now pins it there.
 - **Verify with `bun run test`, not bare `bun test`.** The script is `--timeout 30000` with `**/*benchmark*.test.ts` and `**/*integration*.test.ts` ignored. Bare `bun test` uses bun's 5s default and pulls the benchmarks in, manufacturing a _rotating_ set of 5-7 failures per run (provider/brain layer boot, and benchmarks asserting relative timings — one failed by 3%). Also capture `$?` immediately: `bun test > log; echo $?; grep …` inside one command reports grep's status, which hides both a failing suite and a failing typecheck.
 - Result: `bun run test` 3820 pass / 0 fail; `bun run typecheck` clean.
+
+### 2026-08-19 — E4 first service-side slice (`Session.Info`) + encode-failure logging
+
+**Phase 1 — `Session.InfoSchema` on `optionalKey`.**
+
+- `session/index.ts` — all 35 `Schema.optional` in `WorktreeInfoSchema`, `GithubInfoSchema`, `MobileInfoSchema` and `InfoSchema` are `Schema.optionalKey`. `createNextImpl` spreads its optional members in only when they have a value instead of assigning all eight unconditionally, and unshare does `delete draft.share`.
+- Producers that wrote a present `undefined`: `revert.ts` (three `draft.revert = undefined`, the `partID` in the constructed revert, and `snapshot` — `Snapshot.track()` returns `string | undefined`), `workspace/index.ts` (two `workspaceID` writes), `prompt.ts` / `prompt-commands.ts` / `tool/goal.ts` (`activeCommand`, which is `undefined` on the goal-finished path), `server/mobile/session-lifecycle.ts` (`publishError`).
+- New `src/util/optional-key.ts` — `setOptional(target, key, value)` deletes on `undefined`. It carries the explanation of why this class of bug is invisible to `bun run typecheck`.
+- `httpapi/session.ts` — the ten handlers returning `Session.Info` (list, create, update, fork, revert, unrevert, share, unshare, get, children) return the service object directly. `jsonSafe` stays for `MessageV2.Info` and the SessionV2 shapes; its comment says so.
+- `test/server/httpapi-session.test.ts` — new case asserts the twelve unset optionals are **absent** on create / get / list / update, and that a child session carries only `parentID`. `toBeUndefined()` would have passed on `null`; `not.toHaveProperty` is the assertion that means something here.
+
+**Phase 2 — `null` is not the same bug, and it bit.**
+
+`sessionWarp` takes `workspaceID: string | null`, where `null` means detach. The old code spelled `?? undefined` and `jsonSafe` dropped the key; a naive `setOptional(draft, "workspaceID", workspaceID)` wrote `null`, which `optionalKey(Schema.String)` rejects exactly like a present `undefined` — `GET /session/:id` answered 400 for every warped session. Caught by `httpapi-workspace.test.ts` and `workspace-warp-route.test.ts`, not by the session suite.
+
+**Phase 3 — an encode failure is no longer silent.**
+
+Diagnosing phase 2 took two blind cycles because the 400 had an **empty body and produced no log at all**. Effect's `HttpMiddleware.logger` is what reports the cause, and P2 turned it off wholesale on 2026-08-17 (`disableLogger: true`) to stop the duplicate request line. `bridge.ts` now passes a `middleware: logFailures` that keeps the silence for successful requests and logs only the failure cause, verified to print `SchemaError: Expected string, got 12345` with the failing path. A declared 404 does not go through it — it is a handled response, not a failure — so this does not log routine not-founds.
+
+**Verified.** `bun run test` 3821 pass / 0 fail. `bun run typecheck` clean. `bun run generate:httpapi-clients` re-run and committed.
 
 ## Follow working rules
 

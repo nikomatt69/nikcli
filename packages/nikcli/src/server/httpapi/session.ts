@@ -154,7 +154,8 @@ export namespace SessionHttpApi {
    * `Delegation.JobItem` and the monitor records. Declared here so the
    * generated clients carry real types; these endpoints encode their
    * responses through the Effect handlers, so the shapes must match what the
-   * services return after `jsonSafe` drops `undefined` properties.
+   * services return after `jsonSafe` drops `undefined` properties. (These four
+   * still go through `jsonSafe`; only `Session.Info` left it.)
    */
   const ContextSource = Schema.Struct({
     id: Schema.String,
@@ -297,18 +298,18 @@ export namespace SessionHttpApi {
   const declaredErrors = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(Effect.catch(asSessionError), Effect.catchDefect(asSessionError))
 
-  // Session/message objects often carry `undefined` properties (parentID, workspaceID, ...).
-  // Effect HttpApi rejects those when encoding `Schema.Unknown` because `undefined` is not a
-  // valid JSON value. Round-tripping through JSON.stringify normalizes the payload by
-  // dropping undefined keys without changing the schema contract for callers.
+  // Drops present-`undefined` keys so an encoder declared with
+  // `Schema.optional` puts an absent key on the wire instead of `null`.
   // Returning `T` keeps handler signatures inferable for HttpApi.
   //
-  // Local input schemas use `Schema.optionalKey` so the route-level encoders
-  // do not need this round-trip. The remaining callers are response handlers
-  // returning `Session.Info` / `MessageV2.Info` from the services — those
-  // services still hand back objects with explicit `undefined` keys, so the
-  // service's own schemas are the next stop on the E4 path. Keep the helper
-  // here until that lands.
+  // `Session.InfoSchema` no longer needs it: its members are
+  // `Schema.optionalKey` and its producers omit rather than assign (E4, first
+  // service-side slice), so the ten handlers returning `Session.Info` return
+  // the service object directly. The remaining callers return `MessageV2.Info`
+  // and the SessionV2 entry/state shapes, whose schemas are still
+  // `Schema.optional` — that is the next slice. Do not delete the helper
+  // before those flip: `httpapi-session.test.ts` and `httpapi-config.test.ts`
+  // pin what happens if you do.
   const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
 
   const InstructionList = Schema.Array(Schema.Struct({ path: Schema.String, name: Schema.String })).annotate({
@@ -643,7 +644,7 @@ export namespace SessionHttpApi {
         })
         filtered.sort((a, b) => b.time.updated - a.time.updated)
         const limited = query.limit !== undefined ? filtered.slice(0, query.limit) : filtered
-        return jsonSafe(limited)
+        return limited
       }).pipe(Effect.orDie),
     status: () =>
       Effect.gen(function* () {
@@ -653,7 +654,7 @@ export namespace SessionHttpApi {
     create: ({ payload }: { payload: typeof CreatePayload.Type | void }) =>
       Effect.gen(function* () {
         const created = yield* SessionV2.createEffect((payload ?? {}) as SessionV2.CreateInput)
-        return jsonSafe(created)
+        return created
       }).pipe(Effect.orDie),
     remove: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -672,7 +673,7 @@ export namespace SessionHttpApi {
           },
           { touch: false },
         )
-        return jsonSafe(updated)
+        return updated
       }).pipe(declaredErrors),
     fork: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof ForkPayload.Type }) =>
       Effect.gen(function* () {
@@ -681,7 +682,7 @@ export namespace SessionHttpApi {
           sessionID: params.sessionID,
           messageID: payload.messageID,
         })
-        return jsonSafe(forked)
+        return forked
       }).pipe(declaredErrors),
     abort: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -705,7 +706,7 @@ export namespace SessionHttpApi {
           sessionID: params.sessionID,
           ...payload,
         })
-        return jsonSafe(reverted)
+        return reverted
       }).pipe(declaredErrors),
     unrevert: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -713,7 +714,7 @@ export namespace SessionHttpApi {
         const reverted = yield* revert.unrevert({
           sessionID: params.sessionID,
         })
-        return jsonSafe(reverted)
+        return reverted
       }).pipe(declaredErrors),
     share: ({
       params,
@@ -746,13 +747,13 @@ export namespace SessionHttpApi {
           },
           { touch: false },
         )
-        return jsonSafe(yield* session.get(params.sessionID))
+        return yield* session.get(params.sessionID)
       }).pipe(declaredErrors),
     unshare: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.unshare(params.sessionID)
-        return jsonSafe(yield* session.get(params.sessionID))
+        return yield* session.get(params.sessionID)
       }).pipe(declaredErrors),
     command: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof CommandPayload.Type }) =>
       Effect.gen(function* () {
@@ -821,13 +822,13 @@ export namespace SessionHttpApi {
       Effect.gen(function* () {
         const session = yield* Session.Service
         const info = yield* session.get(params.sessionID)
-        return jsonSafe(info)
+        return info
       }).pipe(declaredErrors),
     children: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         const children = yield* session.children(params.sessionID)
-        return jsonSafe(children)
+        return children
       }).pipe(declaredErrors),
     todo: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {

@@ -199,7 +199,7 @@ export async function handleSessionLifecycleRequest(request: Request): Promise<R
             draft.github.pullRequest = pullRequest
             draft.github.lastCommitSha = commitSha.trim()
             draft.github.publishedAt = Date.now()
-            draft.github.publishError = undefined
+            delete draft.github.publishError
           })
         }),
       )

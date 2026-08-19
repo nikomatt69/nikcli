@@ -104,6 +104,57 @@ async function jsonRequest(method: string, pathname: string, directory: string, 
 }
 
 describe("Session HttpApi bridge", () => {
+  /**
+   * `Session.InfoSchema` members are `Schema.optionalKey`, so an unset optional
+   * has to leave the key out entirely. The two ways to get this wrong both
+   * look fine from the client type: `Schema.optional` would encode a present
+   * `undefined` as `null`, and a producer that assigns `undefined` against
+   * `optionalKey` fails the encode and answers 400. `toBeUndefined()` catches
+   * only the first, so assert on the keys themselves.
+   */
+  it("omits unset Session.Info optionals instead of sending null", async () => {
+    const directory = await makeProjectDir()
+    const optionals = [
+      "parentID",
+      "summary",
+      "share",
+      "github",
+      "worktree",
+      "mobile",
+      "activeCommand",
+      "permission",
+      "disabledInstructions",
+      "disabledTools",
+      "revert",
+      "lastModel",
+    ]
+
+    const created = (await post("/session", directory, {})) as Record<string, unknown>
+    expect(Object.keys(created)).not.toContain("parentID")
+    for (const key of optionals) expect(created).not.toHaveProperty(key)
+    expect(Object.keys(created.time as object)).not.toContain("archived")
+
+    const fetched = (await request(`/session/${created.id as string}`, directory)) as Record<string, unknown>
+    for (const key of optionals) expect(fetched).not.toHaveProperty(key)
+
+    const [listed] = (await request("/session", directory)) as Record<string, unknown>[]
+    for (const key of optionals) expect(listed).not.toHaveProperty(key)
+
+    // Renaming touches the session through the update path, which clones the
+    // stored object before the editor runs.
+    const updated = (await patch(`/session/${created.id as string}`, directory, { title: "renamed" })) as Record<
+      string,
+      unknown
+    >
+    expect(updated.title).toBe("renamed")
+    for (const key of optionals) expect(updated).not.toHaveProperty(key)
+
+    // A child session sets parentID and nothing else.
+    const child = (await post("/session", directory, { parentID: created.id })) as Record<string, unknown>
+    expect(child.parentID).toBe(created.id)
+    for (const key of optionals.filter((k) => k !== "parentID")) expect(child).not.toHaveProperty(key)
+  })
+
   it("creates a session without a request body for legacy SDK compatibility", async () => {
     const directory = await makeProjectDir()
     const created = (await jsonRequest("POST", "/session", directory)) as {

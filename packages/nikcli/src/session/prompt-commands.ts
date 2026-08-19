@@ -22,6 +22,7 @@ import { PromptParts } from "./prompt-parts"
 import type { SessionPrompt } from "./prompt"
 import { defer } from "@nikcli-ai/util/defer"
 import type { InstanceContext } from "@/effect"
+import { setOptional } from "@/util/optional-key"
 
 /**
  * `shell` and `command` live in their own module because they are the
@@ -504,7 +505,7 @@ export namespace PromptCommands {
         }),
       )
       await deps.sessionUpdate(input.sessionID, (draft) => {
-        draft.activeCommand = commandResult.activeCommand
+        setOptional(draft, "activeCommand", commandResult.activeCommand)
       })
       const result = (await deps.prompt({
         sessionID: input.sessionID,

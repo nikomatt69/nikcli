@@ -1,7 +1,7 @@
 import { HttpRouter } from "effect/unstable/http"
 import { OpenApi } from "effect/unstable/httpapi"
 import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
-import { Context, Layer } from "effect"
+import { Context, Effect, Layer } from "effect"
 import { InstanceRef, LogRedirect, sharedMemoMap } from "@/effect"
 import { Instance } from "@/project/instance"
 import { ChatbotHttp } from "./chatbot"
@@ -239,16 +239,35 @@ export namespace HttpApiBridge {
   )
 
   /**
+   * Log the cause when an encoded route fails.
+   *
+   * Effect's `HttpMiddleware.logger` is the only thing that reports the cause
+   * behind the response it produces, and `disableLogger: true` (below) turns
+   * it off — so a response-encode failure answered an **empty 400 with nothing
+   * logged at all**. That is not a corner case: it is how `plugin_meta` broke
+   * `GET /tui/config` for every user with no plugins and how `featureMutate`
+   * broke `POST /mission/:id/feature/:id`, both silently. This keeps the
+   * silence for successful requests — `ServerRouter.dispatch` already logs
+   * those — and logs only the failures, with the `SchemaError` path intact
+   * (`Expected string, got null at ["workspaceID"]`).
+   */
+  const logFailures = <A, E, R>(httpApp: Effect.Effect<A, E, R>) =>
+    Effect.tapCause(httpApp, (cause) => Effect.logError("encoded route failed", cause))
+
+  /**
    * Web-standard request handler for the schema-encoded HttpApi routes.
    *
    * `disableLogger: true` skips Effect's built-in `HttpMiddleware.logger`:
    * `ServerRouter.dispatch` already logs start + duration for every request
    * except `POST /log`, so adding Effect's logger logs each encoded request
-   * twice with the same span. Disable here and keep nikcli's own log.
+   * twice with the same span. Disable here and keep nikcli's own log — but
+   * keep the half of that middleware nikcli has no replacement for, via
+   * `logFailures` above.
    */
   export const webHandler = HttpRouter.toWebHandler(layer, {
     memoMap: sharedMemoMap,
     disableLogger: true,
+    middleware: logFailures,
   }).handler
 
   /**

@@ -10,6 +10,7 @@ import { InstructionRepo } from "./instruction-repo"
 import { zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { setOptional } from "@/util/optional-key"
 
 export namespace SessionRevert {
   const log = Log.create({ service: "session.revert" })
@@ -81,7 +82,9 @@ export namespace SessionRevert {
             const partID = remaining.some((item) => ["text", "tool"].includes(item.type)) ? input.partID : undefined
             revert = {
               messageID: !partID && lastUser ? lastUser.id : msg.info.id,
-              partID,
+              // `Session.Info["revert"]` members are `optionalKey`: a present
+              // `undefined` fails the response encode with a 400.
+              ...(partID !== undefined && { partID }),
             }
           }
           remaining.push(part)
@@ -96,14 +99,20 @@ export namespace SessionRevert {
           return yield* sessionService.get(input.sessionID)
         }),
       )
-      revert.snapshot =
+      // `track()` returns `string | undefined` (no repository, nothing to
+      // snapshot). `snapshot` is `optionalKey`, so assigning the `undefined`
+      // would fail the response encode with a 400 instead of omitting it.
+      setOptional(
+        revert,
+        "snapshot",
         current.revert?.snapshot ??
-        (await runSnapshot(
-          Effect.gen(function* () {
-            const snapshot = yield* Snapshot.Service
-            return yield* snapshot.track()
-          }),
-        ))
+          (await runSnapshot(
+            Effect.gen(function* () {
+              const snapshot = yield* Snapshot.Service
+              return yield* snapshot.track()
+            }),
+          )),
+      )
       await runSnapshot(
         Effect.gen(function* () {
           const snapshot = yield* Snapshot.Service
@@ -176,7 +185,7 @@ export namespace SessionRevert {
       Effect.gen(function* () {
         const sessionService = yield* Session.Service
         return yield* sessionService.update(input.sessionID, (draft) => {
-          draft.revert = undefined
+          delete draft.revert
         })
       }),
     )
@@ -199,7 +208,7 @@ export namespace SessionRevert {
         Effect.gen(function* () {
           const sessionService = yield* Session.Service
           yield* sessionService.update(sessionID, (draft) => {
-            draft.revert = undefined
+            delete draft.revert
           })
         }),
       )
@@ -243,7 +252,7 @@ export namespace SessionRevert {
       Effect.gen(function* () {
         const sessionService = yield* Session.Service
         yield* sessionService.update(sessionID, (draft) => {
-          draft.revert = undefined
+          delete draft.revert
         })
       }),
     )

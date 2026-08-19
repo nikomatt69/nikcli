@@ -66,8 +66,8 @@ export namespace Session {
      * sessions already carry the equivalent `github.repositoryDirectory`
      * as a sibling field.
      */
-    repositoryDirectory: Schema.optional(Schema.String),
-    cleanedAt: Schema.optional(Schema.Number),
+    repositoryDirectory: Schema.optionalKey(Schema.String),
+    cleanedAt: Schema.optionalKey(Schema.Number),
   }).annotate({ ...strip, identifier: "SessionWorktree" })
   const WorktreeInfo = zodObject(WorktreeInfoSchema)
 
@@ -77,21 +77,21 @@ export namespace Session {
     fullName: Schema.String,
     baseBranch: Schema.String,
     headBranch: Schema.String,
-    repositoryDirectory: Schema.optional(Schema.String),
-    cloneUrl: Schema.optional(Schema.String),
-    htmlUrl: Schema.optional(Schema.String),
-    private: Schema.optional(Schema.Boolean),
+    repositoryDirectory: Schema.optionalKey(Schema.String),
+    cloneUrl: Schema.optionalKey(Schema.String),
+    htmlUrl: Schema.optionalKey(Schema.String),
+    private: Schema.optionalKey(Schema.Boolean),
     worktree: WorktreeInfoSchema,
-    pullRequest: Schema.optional(
+    pullRequest: Schema.optionalKey(
       Schema.Struct({
         number: Schema.Number,
         url: Schema.String,
         title: Schema.String,
       }).annotate(strip),
     ),
-    lastCommitSha: Schema.optional(Schema.String),
-    publishedAt: Schema.optional(Schema.Number),
-    publishError: Schema.optional(Schema.String),
+    lastCommitSha: Schema.optionalKey(Schema.String),
+    publishedAt: Schema.optionalKey(Schema.Number),
+    publishError: Schema.optionalKey(Schema.String),
   }).annotate({ ...strip, identifier: "SessionGithub" })
   const GithubInfo = zodObject(GithubInfoSchema)
 
@@ -100,15 +100,15 @@ export namespace Session {
     primaryPlatform: Schema.String,
     method: Schema.String,
     detectedAt: Schema.Number,
-    buildStatus: Schema.optional(Schema.Literals(["unknown", "building", "succeeded", "failed"])),
-    lastBuildAt: Schema.optional(Schema.Number),
-    artifacts: Schema.optional(
+    buildStatus: Schema.optionalKey(Schema.Literals(["unknown", "building", "succeeded", "failed"])),
+    lastBuildAt: Schema.optionalKey(Schema.Number),
+    artifacts: Schema.optionalKey(
       Schema.Array(
         Schema.Struct({
           platform: Schema.String,
           path: Schema.String,
-          size: Schema.optional(Schema.Number),
-          createdAt: Schema.optional(Schema.Number),
+          size: Schema.optionalKey(Schema.Number),
+          createdAt: Schema.optionalKey(Schema.Number),
         }).annotate(strip),
       ),
     ),
@@ -125,41 +125,41 @@ export namespace Session {
     slug: Schema.String,
     projectID: Schema.String,
     directory: Schema.String,
-    parentID: Schema.optional(Identifier.schemaEffect("session")),
-    workspaceID: Schema.optional(Schema.String),
-    summary: Schema.optional(
+    parentID: Schema.optionalKey(Identifier.schemaEffect("session")),
+    workspaceID: Schema.optionalKey(Schema.String),
+    summary: Schema.optionalKey(
       Schema.Struct({
         additions: Schema.Number,
         deletions: Schema.Number,
         files: Schema.Number,
-        diffs: Schema.optional(Schema.Array(Snapshot.FileDiffSchema)),
+        diffs: Schema.optionalKey(Schema.Array(Snapshot.FileDiffSchema)),
       }).annotate(strip),
     ),
-    share: Schema.optional(
+    share: Schema.optionalKey(
       Schema.Struct({
         url: Schema.String,
       }).annotate(strip),
     ),
-    github: Schema.optional(GithubInfoSchema),
+    github: Schema.optionalKey(GithubInfoSchema),
     /**
      * Isolated worktree for plain (non-GitHub) sessions -- see
      * createSessionWorktreeContext in server/mobile/helpers.ts.
      * GitHub-linked sessions keep their worktree nested under `github`
      * instead, since it doubles as PR/publish metadata there.
      */
-    worktree: Schema.optional(WorktreeInfoSchema),
-    mobile: Schema.optional(MobileInfoSchema),
+    worktree: Schema.optionalKey(WorktreeInfoSchema),
+    mobile: Schema.optionalKey(MobileInfoSchema),
     title: Schema.String,
-    activeCommand: Schema.optional(Schema.String),
+    activeCommand: Schema.optionalKey(Schema.String),
     version: Schema.String,
     time: Schema.Struct({
       created: Schema.Number,
       updated: Schema.Number,
-      compacting: Schema.optional(Schema.Number),
-      archived: Schema.optional(Schema.Number),
+      compacting: Schema.optionalKey(Schema.Number),
+      archived: Schema.optionalKey(Schema.Number),
     }).annotate(strip),
-    permission: Schema.optional(PermissionNext.RulesetSchema),
-    skills: Schema.optional(Schema.Array(Schema.String)),
+    permission: Schema.optionalKey(PermissionNext.RulesetSchema),
+    skills: Schema.optionalKey(Schema.Array(Schema.String)),
     /**
      * Paths of custom instruction files (AGENTS.md, CLAUDE.md, etc.) that
      * the user has explicitly disabled for this session. The server
@@ -167,20 +167,20 @@ export namespace Session {
      * never sees them — the only way to actually shrink that part of the
      * context.
      */
-    disabledInstructions: Schema.optional(Schema.Array(Schema.String)),
+    disabledInstructions: Schema.optionalKey(Schema.Array(Schema.String)),
     /**
      * Tool IDs the user has disabled for this session. Both the schema
      * (so the model never sees them) and the permission rule are
      * suppressed. Map value is unused but kept as a record for forward
      * compatibility with "true/false" partial disables.
      */
-    disabledTools: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
-    revert: Schema.optional(
+    disabledTools: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
+    revert: Schema.optionalKey(
       Schema.Struct({
         messageID: Schema.String,
-        partID: Schema.optional(Schema.String),
-        snapshot: Schema.optional(Schema.String),
-        diff: Schema.optional(Schema.String),
+        partID: Schema.optionalKey(Schema.String),
+        snapshot: Schema.optionalKey(Schema.String),
+        diff: Schema.optionalKey(Schema.String),
       }).annotate(strip),
     ),
     /**
@@ -189,7 +189,7 @@ export namespace Session {
      * from this session can inherit the model without re-prompting the user
      * and without falling back to the global provider default.
      */
-    lastModel: Schema.optional(
+    lastModel: Schema.optionalKey(
       Schema.Struct({
         providerID: Schema.String,
         modelID: Schema.String,
@@ -410,7 +410,7 @@ export namespace Session {
       ctx,
       id,
       (draft) => {
-        draft.share = undefined
+        delete draft.share
       },
       { touch: false },
     )
@@ -456,22 +456,27 @@ export namespace Session {
   async function createNextImpl(ctx: InstanceContext, input: CreateNextInput) {
     const inheritedSkills =
       !input.skills && input.parentID ? (await getImpl(ctx, input.parentID).catch(() => undefined))?.skills : undefined
+    const workspaceID = input.workspaceID ?? WorkspaceContext.workspaceID
+    // The optional members are spread in only when they have a value. They are
+    // `Schema.optionalKey`, which rejects a *present* `undefined` at encode
+    // time, and this object is what `POST /session` returns — writing the key
+    // unconditionally answers 400 instead of omitting the field.
     const result: Info = {
       id: Identifier.descending("session", input.id),
       slug: Slug.create(),
       version: Installation.VERSION,
       projectID: ctx.project.id,
       directory: input.directory,
-      parentID: input.parentID,
-      workspaceID: input.workspaceID ?? WorkspaceContext.workspaceID,
+      ...(input.parentID !== undefined && { parentID: input.parentID }),
+      ...(workspaceID !== undefined && { workspaceID }),
       title: input.title ?? createDefaultTitle(!!input.parentID),
-      permission: input.permission,
+      ...(input.permission !== undefined && { permission: input.permission }),
       skills: input.skills ?? inheritedSkills ?? [],
-      disabledInstructions: input.disabledInstructions,
-      disabledTools: input.disabledTools,
-      github: input.github,
-      worktree: input.worktree,
-      mobile: input.mobile,
+      ...(input.disabledInstructions !== undefined && { disabledInstructions: input.disabledInstructions }),
+      ...(input.disabledTools !== undefined && { disabledTools: input.disabledTools }),
+      ...(input.github !== undefined && { github: input.github }),
+      ...(input.worktree !== undefined && { worktree: input.worktree }),
+      ...(input.mobile !== undefined && { mobile: input.mobile }),
       time: {
         created: Date.now(),
         updated: Date.now(),

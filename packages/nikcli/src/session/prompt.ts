@@ -30,6 +30,7 @@ import { SessionSummary } from "./summary"
 import { SessionGoal } from "./goal"
 import { EventError } from "./event-error"
 import { fn } from "@/util/fn"
+import { setOptional } from "@/util/optional-key"
 import { SessionProcessor } from "./processor"
 import { TaskTool } from "@/tool/task"
 import { Tool } from "@/tool/tool"
@@ -1245,7 +1246,7 @@ export namespace SessionPrompt {
         const continuation = await nextGoalPrompt(sessionID)
         if (continuation) {
           await sessionUpdate(sessionID, (draft) => {
-            draft.activeCommand = continuation.activeCommand
+            setOptional(draft, "activeCommand", continuation.activeCommand)
           })
           const continueMsg: MessageV2.User = {
             id: Identifier.ascending("message"),
