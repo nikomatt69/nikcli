@@ -145,9 +145,17 @@ Worker secrets (`wrangler secret put <NAME>`):
 | `DISCORD_PUBLIC_KEY`       | Yes      | Developer Portal → General Information        |
 | `DISCORD_APPLICATION_ID`   | Yes      | Developer Portal → General Information        |
 | `NIKCLI_URL`               | Yes      | The Worker has no local agent to fall back on |
-| `NIKCLI_USERNAME`          | No       | Basic Auth username (default `nikcli`)        |
-| `NIKCLI_PASSWORD`          | No       | Basic Auth password                           |
+| `NIKCLI_TOKEN`             | *        | Bearer, for a `nikcli mobile serve` host      |
+| `NIKCLI_USERNAME`          | *        | Basic Auth username (default `nikcli`)        |
+| `NIKCLI_PASSWORD`          | *        | Basic Auth password                           |
 | `DISCORD_ALLOWED_CHANNELS` | No       | Comma-separated channel IDs                   |
+
+\* Which credential you need depends on how the nikcli server was started.
+`nikcli mobile serve` sets `mobileAuthRequired`, which rejects Basic auth
+outright and accepts only a bearer — a mobile pairing token, an external
+session, or an `nku_` user token. A plain `nikcli serve` takes Basic auth.
+Mint a pairing token on the host with `nikcli mobile pair`. When both are set
+the bearer wins.
 
 ### Other targets
 

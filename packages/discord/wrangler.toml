@@ -14,7 +14,11 @@ custom_domain = true
 [vars]
 NODE_ENV = "production"
 WRANGLER_LOG_LEVEL = "info"
-# The Worker has no local agent to fall back on, so this is required.
+# The Worker has no local agent to fall back on, so this is required. The host
+# below runs `nikcli mobile serve`, which sets mobileAuthRequired and therefore
+# rejects Basic auth outright — it takes only a bearer, so NIKCLI_TOKEN must be
+# a mobile pairing token. NIKCLI_USERNAME/NIKCLI_PASSWORD apply only if you
+# repoint this at a plain `nikcli serve`.
 NIKCLI_URL = "https://nikcli-mobile-production.up.railway.app"
 NIKCLI_USERNAME = "nikcli"
 
@@ -31,7 +35,8 @@ new_sqlite_classes = ["ChannelSession"]
 # Secrets to set via `wrangler secret put`:
 # - DISCORD_PUBLIC_KEY      # Developer Portal → General Information → Public Key
 # - DISCORD_APPLICATION_ID  # Developer Portal → General Information → Application ID
-# - NIKCLI_PASSWORD         # Basic Auth password (NIKCLI_SERVER_PASSWORD)
+# - NIKCLI_TOKEN            # bearer for a `nikcli mobile serve` host (see below)
+# - NIKCLI_PASSWORD         # Basic Auth password, for a plain `nikcli serve` host
 # - DISCORD_ALLOWED_CHANNELS  # optional, comma-separated channel IDs
 #
 # DISCORD_BOT_TOKEN is not needed by the Worker, only by `bun run register`.

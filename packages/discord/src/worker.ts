@@ -24,6 +24,7 @@ interface Env {
   DISCORD_APPLICATION_ID: string
   DISCORD_BOT_TOKEN?: string
   NIKCLI_URL: string
+  NIKCLI_TOKEN?: string
   NIKCLI_USERNAME?: string
   NIKCLI_PASSWORD?: string
   NIKCLI_TIMEOUT_MS?: string
@@ -88,6 +89,7 @@ export default {
         status: "healthy",
         timestamp: Date.now(),
         nikcliUrl: env.NIKCLI_URL || "not configured",
+        nikcliAuth: env.NIKCLI_TOKEN ? "bearer" : env.NIKCLI_PASSWORD ? "basic" : "none",
         publicKey: env.DISCORD_PUBLIC_KEY ? "configured" : "not configured",
         applicationId: env.DISCORD_APPLICATION_ID ? "configured" : "not configured",
       })
@@ -408,7 +410,14 @@ function getNikcliUrl(env: Env): string | null {
   return env.NIKCLI_URL.replace(/\/+$/, "")
 }
 
+/**
+ * A server started with `nikcli mobile serve` sets `mobileAuthRequired`, which
+ * rejects Basic auth outright and accepts only a bearer — a mobile pairing
+ * token, an external session, or an `nku_` user token. A plain `nikcli serve`
+ * takes Basic. Prefer the bearer when both are configured.
+ */
 function getAuthHeader(env: Env): { Authorization: string } | Record<string, never> {
+  if (env.NIKCLI_TOKEN) return { Authorization: `Bearer ${env.NIKCLI_TOKEN}` }
   if (!env.NIKCLI_PASSWORD) return {}
   const username = env.NIKCLI_USERNAME || "nikcli"
   return { Authorization: `Basic ${btoa(`${username}:${env.NIKCLI_PASSWORD}`)}` }
