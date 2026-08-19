@@ -3,10 +3,4 @@
  * what a wire contract may carry. Use it at parse boundaries instead of
  * leaking `unknown` (or `any`) into callers.
  */
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { readonly [key: string]: JsonValue };
+export type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue }

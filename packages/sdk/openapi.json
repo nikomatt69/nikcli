@@ -32327,14 +32327,7 @@
                 "type": "string"
               },
               "url": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "string"
               },
               "npm": {
                 "type": "string"
@@ -32347,14 +32340,7 @@
             "type": "string"
           },
           "family": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "capabilities": {
             "type": "object",
@@ -32556,11 +32542,66 @@
                 "additionalProperties": false
               },
               "experimentalOver200K": {
-                "anyOf": [
-                  {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity", "-Infinity", "NaN"]
+                      }
+                    ]
+                  },
+                  "output": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity", "-Infinity", "NaN"]
+                      }
+                    ]
+                  },
+                  "cache": {
                     "type": "object",
                     "properties": {
-                      "input": {
+                      "read": {
                         "anyOf": [
                           {
                             "anyOf": [
@@ -32587,7 +32628,7 @@
                           }
                         ]
                       },
-                      "output": {
+                      "write": {
                         "anyOf": [
                           {
                             "anyOf": [
@@ -32613,76 +32654,14 @@
                             "enum": ["Infinity", "-Infinity", "NaN"]
                           }
                         ]
-                      },
-                      "cache": {
-                        "type": "object",
-                        "properties": {
-                          "read": {
-                            "anyOf": [
-                              {
-                                "anyOf": [
-                                  {
-                                    "type": "number"
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["NaN"]
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["Infinity"]
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["-Infinity"]
-                                  }
-                                ]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity", "-Infinity", "NaN"]
-                              }
-                            ]
-                          },
-                          "write": {
-                            "anyOf": [
-                              {
-                                "anyOf": [
-                                  {
-                                    "type": "number"
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["NaN"]
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["Infinity"]
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["-Infinity"]
-                                  }
-                                ]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity", "-Infinity", "NaN"]
-                              }
-                            ]
-                          }
-                        },
-                        "required": ["read", "write"],
-                        "additionalProperties": false
                       }
                     },
-                    "required": ["input", "output", "cache"],
+                    "required": ["read", "write"],
                     "additionalProperties": false
-                  },
-                  {
-                    "type": "null"
                   }
-                ]
+                },
+                "required": ["input", "output", "cache"],
+                "additionalProperties": false
               }
             },
             "required": ["input", "output", "cache"],
@@ -32723,32 +32702,25 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               },
@@ -32800,17 +32772,10 @@
             "type": "string"
           },
           "variants": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "object"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
           }
         },
         "required": [
@@ -41276,6 +41241,356 @@
         },
         "additionalProperties": false
       },
+      "SessionWorktree5": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "directory": {
+            "type": "string"
+          },
+          "repositoryDirectory": {
+            "type": "string"
+          },
+          "cleanedAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          }
+        },
+        "required": ["name", "branch", "directory"],
+        "additionalProperties": false
+      },
+      "SessionGithub3": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "baseBranch": {
+            "type": "string"
+          },
+          "headBranch": {
+            "type": "string"
+          },
+          "repositoryDirectory": {
+            "type": "string"
+          },
+          "cloneUrl": {
+            "type": "string"
+          },
+          "htmlUrl": {
+            "type": "string"
+          },
+          "private": {
+            "type": "boolean"
+          },
+          "worktree": {
+            "$ref": "#/components/schemas/SessionWorktree5"
+          },
+          "pullRequest": {
+            "type": "object",
+            "properties": {
+              "number": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": ["number", "url", "title"],
+            "additionalProperties": false
+          },
+          "lastCommitSha": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "publishError": {
+            "type": "string"
+          }
+        },
+        "required": ["owner", "repo", "fullName", "baseBranch", "headBranch", "worktree"],
+        "additionalProperties": false
+      },
+      "SessionWorktree6": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "directory": {
+            "type": "string"
+          },
+          "repositoryDirectory": {
+            "type": "string"
+          },
+          "cleanedAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          }
+        },
+        "required": ["name", "branch", "directory"],
+        "additionalProperties": false
+      },
+      "SessionMobile2": {
+        "type": "object",
+        "properties": {
+          "platforms": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["ios", "android", "expo", "flutter", "react-native"]
+            }
+          },
+          "primaryPlatform": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "detectedAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "buildStatus": {
+            "type": "string",
+            "enum": ["unknown", "building", "succeeded", "failed"]
+          },
+          "lastBuildAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "platform": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "size": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["NaN"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["Infinity"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["-Infinity"]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["Infinity", "-Infinity", "NaN"]
+                    }
+                  ]
+                },
+                "createdAt": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["NaN"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["Infinity"]
+                        },
+                        {
+                          "type": "string",
+                          "enum": ["-Infinity"]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["Infinity", "-Infinity", "NaN"]
+                    }
+                  ]
+                }
+              },
+              "required": ["platform", "path"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["platforms", "primaryPlatform", "method", "detectedAt"],
+        "additionalProperties": false
+      },
       "Session2": {
         "type": "object",
         "properties": {
@@ -41297,197 +41612,134 @@
             "type": "string"
           },
           "parentID": {
-            "anyOf": [
+            "type": "string",
+            "allOf": [
               {
-                "type": "string",
-                "allOf": [
-                  {
-                    "pattern": "^ses"
-                  }
-                ]
-              },
-              {
-                "type": "null"
+                "pattern": "^ses"
               }
             ]
           },
           "workspaceID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "summary": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "additions": {
+            "type": "object",
+            "properties": {
+              "additions": {
+                "anyOf": [
+                  {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
-                      }
-                    ]
-                  },
-                  "deletions": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "enum": ["NaN"]
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
-                      }
-                    ]
-                  },
-                  "files": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "enum": ["Infinity"]
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
-                  "diffs": {
-                    "anyOf": [
-                      {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/components/schemas/FileDiff"
-                        }
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
-                },
-                "required": ["additions", "deletions", "files"],
-                "additionalProperties": false
+                ]
               },
-              {
-                "type": "null"
+              "deletions": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "files": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "diffs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FileDiff"
+                }
               }
-            ]
+            },
+            "required": ["additions", "deletions", "files"],
+            "additionalProperties": false
           },
           "share": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "url": {
-                    "type": "string"
-                  }
-                },
-                "required": ["url"],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["url"],
+            "additionalProperties": false
           },
           "github": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SessionGithub"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/SessionGithub3"
           },
           "worktree": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SessionWorktree"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/SessionWorktree6"
           },
           "mobile": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SessionMobile"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/SessionMobile2"
           },
           "title": {
             "type": "string"
           },
           "activeCommand": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "version": {
             "type": "string"
@@ -41554,32 +41806,25 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               },
@@ -41588,32 +41833,25 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               }
@@ -41622,120 +41860,57 @@
             "additionalProperties": false
           },
           "permission": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PermissionRuleset"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/PermissionRuleset"
           },
           "skills": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "disabledInstructions": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "disabledTools": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "boolean"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
           },
           "revert": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "messageID": {
-                    "type": "string"
-                  },
-                  "partID": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "snapshot": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "diff": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["messageID"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "messageID": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "partID": {
+                "type": "string"
+              },
+              "snapshot": {
+                "type": "string"
+              },
+              "diff": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["messageID"],
+            "additionalProperties": false
           },
           "lastModel": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "providerID": {
-                    "type": "string"
-                  },
-                  "modelID": {
-                    "type": "string"
-                  }
-                },
-                "required": ["providerID", "modelID"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "providerID": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "modelID": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["providerID", "modelID"],
+            "additionalProperties": false
           }
         },
         "required": ["id", "slug", "projectID", "directory", "title", "version", "time"],
@@ -44816,54 +44991,26 @@
             "additionalProperties": false
           },
           "format": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/OutputFormat1"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/OutputFormat1"
           },
           "summary": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "title": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "body": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "diffs": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/FileDiff"
-                    }
-                  }
-                },
-                "required": ["diffs"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "body": {
+                "type": "string"
+              },
+              "diffs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FileDiff"
+                }
               }
-            ]
+            },
+            "required": ["diffs"],
+            "additionalProperties": false
           },
           "agent": {
             "type": "string"
@@ -44882,40 +45029,140 @@
             "additionalProperties": false
           },
           "system": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "tools": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "boolean"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
           },
           "variant": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": ["id", "sessionID", "role", "time", "agent", "model"],
+        "additionalProperties": false
+      },
+      "MessageContextOverflowError1": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["MessageContextOverflowError"]
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "statusCode": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "responseBody": {
+                "type": "string"
+              }
+            },
+            "required": ["message"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["name", "data"],
+        "additionalProperties": false
+      },
+      "APIError2": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["APIError"]
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "statusCode": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "isRetryable": {
+                "type": "boolean"
+              },
+              "responseHeaders": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "responseBody": {
+                "type": "string"
+              },
+              "metadata": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "classification": {
+                "type": "string",
+                "enum": ["payload-too-large"]
+              }
+            },
+            "required": ["message", "isRetryable"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["name", "data"],
         "additionalProperties": false
       },
       "AssistantMessage1": {
@@ -44966,32 +45213,25 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               }
@@ -45002,32 +45242,25 @@
           "error": {
             "anyOf": [
               {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/ProviderAuthError"
-                  },
-                  {
-                    "$ref": "#/components/schemas/UnknownError"
-                  },
-                  {
-                    "$ref": "#/components/schemas/MessageOutputLengthError"
-                  },
-                  {
-                    "$ref": "#/components/schemas/MessageContextOverflowError"
-                  },
-                  {
-                    "$ref": "#/components/schemas/MessageAbortedError"
-                  },
-                  {
-                    "$ref": "#/components/schemas/StructuredOutputError"
-                  },
-                  {
-                    "$ref": "#/components/schemas/APIError"
-                  }
-                ]
+                "$ref": "#/components/schemas/ProviderAuthError"
               },
               {
-                "type": "null"
+                "$ref": "#/components/schemas/UnknownError"
+              },
+              {
+                "$ref": "#/components/schemas/MessageOutputLengthError"
+              },
+              {
+                "$ref": "#/components/schemas/MessageContextOverflowError1"
+              },
+              {
+                "$ref": "#/components/schemas/MessageAbortedError"
+              },
+              {
+                "$ref": "#/components/schemas/StructuredOutputError"
+              },
+              {
+                "$ref": "#/components/schemas/APIError2"
               }
             ]
           },
@@ -45060,14 +45293,7 @@
             "additionalProperties": false
           },
           "summary": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "cost": {
             "anyOf": [
@@ -45104,32 +45330,25 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               },
@@ -45279,23 +45498,9 @@
             "required": ["input", "output", "reasoning", "cache"],
             "additionalProperties": false
           },
-          "structured": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ]
-          },
+          "structured": {},
           "finish": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": [
@@ -45344,142 +45549,10 @@
             "type": "string"
           },
           "synthetic": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "ignored": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "time": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "start": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
-                      }
-                    ]
-                  },
-                  "end": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["NaN"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["-Infinity"]
-                              }
-                            ]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity", "-Infinity", "NaN"]
-                          }
-                        ]
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["start"],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": ["id", "sessionID", "messageID", "type", "text"],
-        "additionalProperties": false
-      },
-      "ReasoningPart1": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sessionID": {
-            "type": "string"
-          },
-          "messageID": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["reasoning"]
-          },
-          "text": {
-            "type": "string"
-          },
-          "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "time": {
             "type": "object",
@@ -45516,32 +45589,163 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              }
+            },
+            "required": ["start"],
+            "additionalProperties": false
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": ["id", "sessionID", "messageID", "type", "text"],
+        "additionalProperties": false
+      },
+      "SubtaskPart1": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["subtask"]
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "agent": {
+            "type": "string"
+          },
+          "model": {
+            "type": "object",
+            "properties": {
+              "providerID": {
+                "type": "string"
+              },
+              "modelID": {
+                "type": "string"
+              }
+            },
+            "required": ["providerID", "modelID"],
+            "additionalProperties": false
+          },
+          "command": {
+            "type": "string"
+          },
+          "background": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "sessionID", "messageID", "type", "prompt", "description", "agent"],
+        "additionalProperties": false
+      },
+      "ReasoningPart1": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["reasoning"]
+          },
+          "text": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "end": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               }
@@ -45665,27 +45869,13 @@
             "type": "string"
           },
           "filename": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "url": {
             "type": "string"
           },
           "source": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FilePartSource2"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FilePartSource2"
           }
         },
         "required": ["id", "sessionID", "messageID", "type", "mime", "url"],
@@ -45719,89 +45909,54 @@
             "type": "object"
           },
           "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object"
           },
           "structured": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object"
           },
           "content": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "anyOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "type": {
-                          "type": "string",
-                          "enum": ["text"]
-                        },
-                        "text": {
-                          "type": "string"
-                        }
-                      },
-                      "required": ["type", "text"],
-                      "additionalProperties": false
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["text"]
                     },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "type": {
-                          "type": "string",
-                          "enum": ["file"]
-                        },
-                        "data": {
-                          "type": "string"
-                        },
-                        "mime": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        }
-                      },
-                      "required": ["type", "data", "mime"],
-                      "additionalProperties": false
+                    "text": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["type", "text"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["file"]
+                    },
+                    "data": {
+                      "type": "string"
+                    },
+                    "mime": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["type", "data", "mime"],
+                  "additionalProperties": false
                 }
-              },
-              {
-                "type": "null"
-              }
-            ]
+              ]
+            }
           },
           "time": {
             "type": "object",
@@ -45922,32 +46077,25 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               }
@@ -45956,17 +46104,10 @@
             "additionalProperties": false
           },
           "attachments": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/FilePart2"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilePart2"
+            }
           }
         },
         "required": ["status", "input", "output", "title", "metadata", "time"],
@@ -45986,14 +46127,7 @@
             "type": "string"
           },
           "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object"
           },
           "time": {
             "type": "object",
@@ -46102,17 +46236,262 @@
             "$ref": "#/components/schemas/ToolState1"
           },
           "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object"
           }
         },
         "required": ["id", "sessionID", "messageID", "type", "callID", "tool", "state"],
+        "additionalProperties": false
+      },
+      "StepStartPart1": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["step-start"]
+          },
+          "snapshot": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "messageID", "type"],
+        "additionalProperties": false
+      },
+      "StepFinishPart1": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["step-finish"]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "snapshot": {
+            "type": "string"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "tokens": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "input": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "output": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "reasoning": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "cache": {
+                "type": "object",
+                "properties": {
+                  "read": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity", "-Infinity", "NaN"]
+                      }
+                    ]
+                  },
+                  "write": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity", "-Infinity", "NaN"]
+                      }
+                    ]
+                  }
+                },
+                "required": ["read", "write"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["input", "output", "reasoning", "cache"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["id", "sessionID", "messageID", "type", "reason", "cost", "tokens"],
         "additionalProperties": false
       },
       "AgentPart1": {
@@ -46135,30 +46514,107 @@
             "type": "string"
           },
           "source": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "value": {
-                    "type": "string"
-                  },
-                  "start": {
-                    "type": "integer"
-                  },
-                  "end": {
-                    "type": "integer"
-                  }
-                },
-                "required": ["value", "start", "end"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "start": {
+                "type": "integer"
+              },
+              "end": {
+                "type": "integer"
               }
-            ]
+            },
+            "required": ["value", "start", "end"],
+            "additionalProperties": false
           }
         },
         "required": ["id", "sessionID", "messageID", "type", "name"],
+        "additionalProperties": false
+      },
+      "RetryPart1": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["retry"]
+          },
+          "attempt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "error": {
+            "$ref": "#/components/schemas/APIError2"
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "created": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              }
+            },
+            "required": ["created"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["id", "sessionID", "messageID", "type", "attempt", "error", "time"],
         "additionalProperties": false
       },
       "Part1": {
@@ -46167,7 +46623,7 @@
             "$ref": "#/components/schemas/TextPart1"
           },
           {
-            "$ref": "#/components/schemas/SubtaskPart"
+            "$ref": "#/components/schemas/SubtaskPart1"
           },
           {
             "$ref": "#/components/schemas/ReasoningPart1"
@@ -46179,10 +46635,10 @@
             "$ref": "#/components/schemas/ToolPart1"
           },
           {
-            "$ref": "#/components/schemas/StepStartPart"
+            "$ref": "#/components/schemas/StepStartPart1"
           },
           {
-            "$ref": "#/components/schemas/StepFinishPart"
+            "$ref": "#/components/schemas/StepFinishPart1"
           },
           {
             "$ref": "#/components/schemas/SnapshotPart"
@@ -46194,7 +46650,7 @@
             "$ref": "#/components/schemas/AgentPart1"
           },
           {
-            "$ref": "#/components/schemas/RetryPart"
+            "$ref": "#/components/schemas/RetryPart1"
           },
           {
             "$ref": "#/components/schemas/CompactionPart"
@@ -51647,6 +52103,16 @@
           "additionalProperties": false
         }
       },
+      "OutputFormat3": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/OutputFormatText"
+          },
+          {
+            "$ref": "#/components/schemas/OutputFormatJsonSchema1"
+          }
+        ]
+      },
       "TextPartInput": {
         "type": "object",
         "properties": {
@@ -51658,109 +52124,74 @@
             "type": "string"
           },
           "synthetic": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "ignored": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "time": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "start": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "anyOf": [
+                  {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
-                  "end": {
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
+                  }
+                ]
+              },
+              "end": {
+                "anyOf": [
+                  {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["NaN"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["-Infinity"]
-                              }
-                            ]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity", "-Infinity", "NaN"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
-                },
-                "required": ["start"],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
+                ]
               }
-            ]
+            },
+            "required": ["start"],
+            "additionalProperties": false
           },
           "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object"
           },
           "id": {
             "anyOf": [
@@ -51787,27 +52218,13 @@
             "type": "string"
           },
           "filename": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "url": {
             "type": "string"
           },
           "source": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FilePartSource2"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FilePartSource2"
           },
           "id": {
             "anyOf": [
@@ -51834,27 +52251,20 @@
             "type": "string"
           },
           "source": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "value": {
-                    "type": "string"
-                  },
-                  "start": {
-                    "type": "integer"
-                  },
-                  "end": {
-                    "type": "integer"
-                  }
-                },
-                "required": ["value", "start", "end"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "start": {
+                "type": "integer"
+              },
+              "end": {
+                "type": "integer"
               }
-            ]
+            },
+            "required": ["value", "start", "end"],
+            "additionalProperties": false
           },
           "id": {
             "anyOf": [
@@ -51887,44 +52297,23 @@
             "type": "string"
           },
           "model": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "providerID": {
-                    "type": "string"
-                  },
-                  "modelID": {
-                    "type": "string"
-                  }
-                },
-                "required": ["providerID", "modelID"],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "command": {
-            "anyOf": [
-              {
+            "type": "object",
+            "properties": {
+              "providerID": {
                 "type": "string"
               },
-              {
-                "type": "null"
+              "modelID": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["providerID", "modelID"],
+            "additionalProperties": false
+          },
+          "command": {
+            "type": "string"
           },
           "background": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "id": {
             "anyOf": [
@@ -51963,108 +52352,45 @@
             "type": "string"
           },
           "messageID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "delivery": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": ["steer", "queue"]
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string",
+            "enum": ["steer", "queue"]
           },
           "model": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "providerID": {
-                    "type": "string"
-                  },
-                  "modelID": {
-                    "type": "string"
-                  }
-                },
-                "required": ["providerID", "modelID"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "providerID": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "modelID": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["providerID", "modelID"],
+            "additionalProperties": false
           },
           "agent": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "noReply": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "tools": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "boolean"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
           },
           "format": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/OutputFormat1"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/OutputFormat3"
           },
           "system": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "variant": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "parts": {
             "type": "array",
@@ -52508,32 +52834,25 @@
               {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
                     "type": "string",
-                    "enum": ["Infinity", "-Infinity", "NaN"]
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
               }
             ]
           },
@@ -52924,17 +53243,10 @@
                 "type": "string"
               },
               "partID": {
-                "anyOf": [
+                "type": "string",
+                "allOf": [
                   {
-                    "type": "string",
-                    "allOf": [
-                      {
-                        "pattern": "^prt"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "null"
+                    "pattern": "^prt"
                   }
                 ]
               },
@@ -52958,32 +53270,25 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               },
@@ -52996,32 +53301,25 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               },
@@ -53030,44 +53328,30 @@
                   {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
                         "type": "string",
-                        "enum": ["Infinity", "-Infinity", "NaN"]
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["Infinity", "-Infinity", "NaN"]
                   }
                 ]
               },
               "signal": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "string"
               },
               "logPath": {
                 "type": "string"
@@ -53201,32 +53485,25 @@
                       {
                         "anyOf": [
                           {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["NaN"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["-Infinity"]
-                              }
-                            ]
+                            "type": "number"
                           },
                           {
                             "type": "string",
-                            "enum": ["Infinity", "-Infinity", "NaN"]
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
                           }
                         ]
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["Infinity", "-Infinity", "NaN"]
                       }
                     ]
                   }
@@ -53285,17 +53562,10 @@
                     "type": "string"
                   },
                   "partID": {
-                    "anyOf": [
+                    "type": "string",
+                    "allOf": [
                       {
-                        "type": "string",
-                        "allOf": [
-                          {
-                            "pattern": "^prt"
-                          }
-                        ]
-                      },
-                      {
-                        "type": "null"
+                        "pattern": "^prt"
                       }
                     ]
                   },
@@ -53319,32 +53589,25 @@
                       {
                         "anyOf": [
                           {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["NaN"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["-Infinity"]
-                              }
-                            ]
+                            "type": "number"
                           },
                           {
                             "type": "string",
-                            "enum": ["Infinity", "-Infinity", "NaN"]
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
                           }
                         ]
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["Infinity", "-Infinity", "NaN"]
                       }
                     ]
                   },
@@ -53357,32 +53620,25 @@
                       {
                         "anyOf": [
                           {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["NaN"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["-Infinity"]
-                              }
-                            ]
+                            "type": "number"
                           },
                           {
                             "type": "string",
-                            "enum": ["Infinity", "-Infinity", "NaN"]
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
                           }
                         ]
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["Infinity", "-Infinity", "NaN"]
                       }
                     ]
                   },
@@ -53391,44 +53647,30 @@
                       {
                         "anyOf": [
                           {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["NaN"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["-Infinity"]
-                              }
-                            ]
+                            "type": "number"
                           },
                           {
                             "type": "string",
-                            "enum": ["Infinity", "-Infinity", "NaN"]
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
                           }
                         ]
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["Infinity", "-Infinity", "NaN"]
                       }
                     ]
                   },
                   "signal": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": "string"
                   },
                   "logPath": {
                     "type": "string"
@@ -53562,32 +53804,25 @@
                           {
                             "anyOf": [
                               {
-                                "anyOf": [
-                                  {
-                                    "type": "number"
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["NaN"]
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["Infinity"]
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": ["-Infinity"]
-                                  }
-                                ]
+                                "type": "number"
                               },
                               {
                                 "type": "string",
-                                "enum": ["Infinity", "-Infinity", "NaN"]
+                                "enum": ["NaN"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["Infinity"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["-Infinity"]
                               }
                             ]
                           },
                           {
-                            "type": "null"
+                            "type": "string",
+                            "enum": ["Infinity", "-Infinity", "NaN"]
                           }
                         ]
                       }
@@ -56342,108 +56577,45 @@
         "type": "object",
         "properties": {
           "messageID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "delivery": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": ["steer", "queue"]
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string",
+            "enum": ["steer", "queue"]
           },
           "model": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "providerID": {
-                    "type": "string"
-                  },
-                  "modelID": {
-                    "type": "string"
-                  }
-                },
-                "required": ["providerID", "modelID"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "providerID": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "modelID": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["providerID", "modelID"],
+            "additionalProperties": false
           },
           "agent": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "noReply": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "tools": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "boolean"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
           },
           "format": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/OutputFormat1"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/OutputFormat3"
           },
           "system": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "variant": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "parts": {
             "type": "array",
@@ -57130,54 +57302,26 @@
             "additionalProperties": false
           },
           "format": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/OutputFormat1"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/OutputFormat1"
           },
           "summary": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "title": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "body": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "diffs": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/FileDiff6"
-                    }
-                  }
-                },
-                "required": ["diffs"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "body": {
+                "type": "string"
+              },
+              "diffs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FileDiff6"
+                }
               }
-            ]
+            },
+            "required": ["diffs"],
+            "additionalProperties": false
           },
           "agent": {
             "type": "string"
@@ -57196,37 +57340,16 @@
             "additionalProperties": false
           },
           "system": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "tools": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "boolean"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
           },
           "variant": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": ["id", "sessionID", "role", "time", "agent", "model"],
@@ -57248,38 +57371,24 @@
               "statusCode": {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               "responseBody": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "string"
               }
             },
             "required": ["message"],
@@ -57345,26 +57454,19 @@
               "statusCode": {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
@@ -57372,51 +57474,23 @@
                 "type": "boolean"
               },
               "responseHeaders": {
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
               },
               "responseBody": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "string"
               },
               "metadata": {
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
               },
               "classification": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "enum": ["payload-too-large"]
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "string",
+                "enum": ["payload-too-large"]
               }
             },
             "required": ["message", "isRetryable"],
@@ -57464,26 +57538,19 @@
               "completed": {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               }
@@ -57494,32 +57561,25 @@
           "error": {
             "anyOf": [
               {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/ProviderAuthError"
-                  },
-                  {
-                    "$ref": "#/components/schemas/UnknownError"
-                  },
-                  {
-                    "$ref": "#/components/schemas/MessageOutputLengthError"
-                  },
-                  {
-                    "$ref": "#/components/schemas/MessageContextOverflowError3"
-                  },
-                  {
-                    "$ref": "#/components/schemas/MessageAbortedError"
-                  },
-                  {
-                    "$ref": "#/components/schemas/StructuredOutputError3"
-                  },
-                  {
-                    "$ref": "#/components/schemas/APIError6"
-                  }
-                ]
+                "$ref": "#/components/schemas/ProviderAuthError"
               },
               {
-                "type": "null"
+                "$ref": "#/components/schemas/UnknownError"
+              },
+              {
+                "$ref": "#/components/schemas/MessageOutputLengthError"
+              },
+              {
+                "$ref": "#/components/schemas/MessageContextOverflowError3"
+              },
+              {
+                "$ref": "#/components/schemas/MessageAbortedError"
+              },
+              {
+                "$ref": "#/components/schemas/StructuredOutputError3"
+              },
+              {
+                "$ref": "#/components/schemas/APIError6"
               }
             ]
           },
@@ -57552,14 +57612,7 @@
             "additionalProperties": false
           },
           "summary": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "cost": {
             "anyOf": [
@@ -57586,26 +57639,19 @@
               "total": {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
@@ -57715,23 +57761,9 @@
             "required": ["input", "output", "reasoning", "cache"],
             "additionalProperties": false
           },
-          "structured": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ]
-          },
+          "structured": {},
           "finish": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           }
         },
         "required": [
@@ -57825,195 +57857,10 @@
             "type": "string"
           },
           "synthetic": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "ignored": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "time": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "start": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
-                  },
-                  "end": {
-                    "anyOf": [
-                      {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["start"],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": ["id", "sessionID", "messageID", "type", "text"],
-        "additionalProperties": false
-      },
-      "SubtaskPart4": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sessionID": {
-            "type": "string"
-          },
-          "messageID": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["subtask"]
-          },
-          "prompt": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "agent": {
-            "type": "string"
-          },
-          "model": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "providerID": {
-                    "type": "string"
-                  },
-                  "modelID": {
-                    "type": "string"
-                  }
-                },
-                "required": ["providerID", "modelID"],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "command": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "background": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": ["id", "sessionID", "messageID", "type", "prompt", "description", "agent"],
-        "additionalProperties": false
-      },
-      "ReasoningPart4": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sessionID": {
-            "type": "string"
-          },
-          "messageID": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["reasoning"]
-          },
-          "text": {
-            "type": "string"
-          },
-          "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "time": {
             "type": "object",
@@ -58040,26 +57887,93 @@
               "end": {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              }
+            },
+            "required": ["start"],
+            "additionalProperties": false
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": ["id", "sessionID", "messageID", "type", "text"],
+        "additionalProperties": false
+      },
+      "ReasoningPart4": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["reasoning"]
+          },
+          "text": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              "end": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               }
@@ -58227,27 +58141,13 @@
             "type": "string"
           },
           "filename": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "url": {
             "type": "string"
           },
           "source": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FilePartSource7"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FilePartSource7"
           }
         },
         "required": ["id", "sessionID", "messageID", "type", "mime", "url"],
@@ -58264,89 +58164,54 @@
             "type": "object"
           },
           "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object"
           },
           "structured": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object"
           },
           "content": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "anyOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "type": {
-                          "type": "string",
-                          "enum": ["text"]
-                        },
-                        "text": {
-                          "type": "string"
-                        }
-                      },
-                      "required": ["type", "text"],
-                      "additionalProperties": false
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["text"]
                     },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "type": {
-                          "type": "string",
-                          "enum": ["file"]
-                        },
-                        "data": {
-                          "type": "string"
-                        },
-                        "mime": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        }
-                      },
-                      "required": ["type", "data", "mime"],
-                      "additionalProperties": false
+                    "text": {
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": ["type", "text"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["file"]
+                    },
+                    "data": {
+                      "type": "string"
+                    },
+                    "mime": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["type", "data", "mime"],
+                  "additionalProperties": false
                 }
-              },
-              {
-                "type": "null"
-              }
-            ]
+              ]
+            }
           },
           "time": {
             "type": "object",
@@ -58441,26 +58306,19 @@
               "compacted": {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               }
@@ -58469,17 +58327,10 @@
             "additionalProperties": false
           },
           "attachments": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/FilePart7"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilePart7"
+            }
           }
         },
         "required": ["status", "input", "output", "title", "metadata", "time"],
@@ -58499,14 +58350,7 @@
             "type": "string"
           },
           "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object"
           },
           "time": {
             "type": "object",
@@ -58599,47 +58443,10 @@
             "$ref": "#/components/schemas/ToolState4"
           },
           "metadata": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object"
           }
         },
         "required": ["id", "sessionID", "messageID", "type", "callID", "tool", "state"],
-        "additionalProperties": false
-      },
-      "StepStartPart4": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sessionID": {
-            "type": "string"
-          },
-          "messageID": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["step-start"]
-          },
-          "snapshot": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": ["id", "sessionID", "messageID", "type"],
         "additionalProperties": false
       },
       "StepFinishPart4": {
@@ -58662,14 +58469,7 @@
             "type": "string"
           },
           "snapshot": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "cost": {
             "anyOf": [
@@ -58696,26 +58496,19 @@
               "total": {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
@@ -58829,52 +58622,6 @@
         "required": ["id", "sessionID", "messageID", "type", "reason", "cost", "tokens"],
         "additionalProperties": false
       },
-      "AgentPart4": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sessionID": {
-            "type": "string"
-          },
-          "messageID": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["agent"]
-          },
-          "name": {
-            "type": "string"
-          },
-          "source": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "value": {
-                    "type": "string"
-                  },
-                  "start": {
-                    "type": "integer"
-                  },
-                  "end": {
-                    "type": "integer"
-                  }
-                },
-                "required": ["value", "start", "end"],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": ["id", "sessionID", "messageID", "type", "name"],
-        "additionalProperties": false
-      },
       "RetryPart4": {
         "type": "object",
         "properties": {
@@ -58949,7 +58696,7 @@
             "$ref": "#/components/schemas/TextPart4"
           },
           {
-            "$ref": "#/components/schemas/SubtaskPart4"
+            "$ref": "#/components/schemas/SubtaskPart1"
           },
           {
             "$ref": "#/components/schemas/ReasoningPart4"
@@ -58961,7 +58708,7 @@
             "$ref": "#/components/schemas/ToolPart4"
           },
           {
-            "$ref": "#/components/schemas/StepStartPart4"
+            "$ref": "#/components/schemas/StepStartPart1"
           },
           {
             "$ref": "#/components/schemas/StepFinishPart4"
@@ -58973,7 +58720,7 @@
             "$ref": "#/components/schemas/PatchPart"
           },
           {
-            "$ref": "#/components/schemas/AgentPart4"
+            "$ref": "#/components/schemas/AgentPart1"
           },
           {
             "$ref": "#/components/schemas/RetryPart4"
@@ -58997,14 +58744,7 @@
                 "$ref": "#/components/schemas/Part4"
               },
               "delta": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "string"
               }
             },
             "required": ["part"],
@@ -59144,7 +58884,7 @@
         "required": ["type", "properties"],
         "additionalProperties": false
       },
-      "SessionWorktree8": {
+      "SessionWorktree9": {
         "type": "object",
         "properties": {
           "name": {
@@ -59157,38 +58897,24 @@
             "type": "string"
           },
           "repositoryDirectory": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "cleanedAt": {
             "anyOf": [
               {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["NaN"]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["Infinity"]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["-Infinity"]
-                  }
-                ]
+                "type": "number"
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
               }
             ]
           }
@@ -59215,100 +58941,24 @@
             "type": "string"
           },
           "repositoryDirectory": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "cloneUrl": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "htmlUrl": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "private": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "boolean"
           },
           "worktree": {
-            "$ref": "#/components/schemas/SessionWorktree8"
+            "$ref": "#/components/schemas/SessionWorktree9"
           },
           "pullRequest": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "number": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
-                  },
-                  "url": {
-                    "type": "string"
-                  },
-                  "title": {
-                    "type": "string"
-                  }
-                },
-                "required": ["number", "url", "title"],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "lastCommitSha": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "publishedAt": {
-            "anyOf": [
-              {
+            "type": "object",
+            "properties": {
+              "number": {
                 "anyOf": [
                   {
                     "type": "number"
@@ -59327,23 +58977,81 @@
                   }
                 ]
               },
+              "url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": ["number", "url", "title"],
+            "additionalProperties": false
+          },
+          "lastCommitSha": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
               {
-                "type": "null"
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
               }
             ]
           },
           "publishError": {
+            "type": "string"
+          }
+        },
+        "required": ["owner", "repo", "fullName", "baseBranch", "headBranch", "worktree"],
+        "additionalProperties": false
+      },
+      "SessionWorktree10": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "directory": {
+            "type": "string"
+          },
+          "repositoryDirectory": {
+            "type": "string"
+          },
+          "cleanedAt": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "number"
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
               }
             ]
           }
         },
-        "required": ["owner", "repo", "fullName", "baseBranch", "headBranch", "worktree"],
+        "required": ["name", "branch", "directory"],
         "additionalProperties": false
       },
       "SessionMobile4": {
@@ -59382,116 +59090,81 @@
             ]
           },
           "buildStatus": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": ["unknown", "building", "succeeded", "failed"]
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string",
+            "enum": ["unknown", "building", "succeeded", "failed"]
           },
           "lastBuildAt": {
             "anyOf": [
               {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["NaN"]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["Infinity"]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["-Infinity"]
-                  }
-                ]
+                "type": "number"
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
               }
             ]
           },
           "artifacts": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "platform": {
-                      "type": "string"
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "platform": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "size": {
+                  "anyOf": [
+                    {
+                      "type": "number"
                     },
-                    "path": {
-                      "type": "string"
+                    {
+                      "type": "string",
+                      "enum": ["NaN"]
                     },
-                    "size": {
-                      "anyOf": [
-                        {
-                          "anyOf": [
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string",
-                              "enum": ["NaN"]
-                            },
-                            {
-                              "type": "string",
-                              "enum": ["Infinity"]
-                            },
-                            {
-                              "type": "string",
-                              "enum": ["-Infinity"]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                    {
+                      "type": "string",
+                      "enum": ["Infinity"]
                     },
-                    "createdAt": {
-                      "anyOf": [
-                        {
-                          "anyOf": [
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string",
-                              "enum": ["NaN"]
-                            },
-                            {
-                              "type": "string",
-                              "enum": ["Infinity"]
-                            },
-                            {
-                              "type": "string",
-                              "enum": ["-Infinity"]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                    {
+                      "type": "string",
+                      "enum": ["-Infinity"]
                     }
-                  },
-                  "required": ["platform", "path"],
-                  "additionalProperties": false
+                  ]
+                },
+                "createdAt": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["NaN"]
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["Infinity"]
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["-Infinity"]
+                    }
+                  ]
                 }
               },
-              {
-                "type": "null"
-              }
-            ]
+              "required": ["platform", "path"],
+              "additionalProperties": false
+            }
           }
         },
         "required": ["platforms", "primaryPlatform", "method", "detectedAt"],
@@ -59518,173 +59191,110 @@
             "type": "string"
           },
           "parentID": {
-            "anyOf": [
+            "type": "string",
+            "allOf": [
               {
-                "type": "string",
-                "allOf": [
-                  {
-                    "pattern": "^ses"
-                  }
-                ]
-              },
-              {
-                "type": "null"
+                "pattern": "^ses"
               }
             ]
           },
           "workspaceID": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "summary": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "additions": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+            "type": "object",
+            "properties": {
+              "additions": {
+                "anyOf": [
+                  {
+                    "type": "number"
                   },
-                  "deletions": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
                   },
-                  "files": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
                   },
-                  "diffs": {
-                    "anyOf": [
-                      {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/components/schemas/FileDiff6"
-                        }
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
-                },
-                "required": ["additions", "deletions", "files"],
-                "additionalProperties": false
+                ]
               },
-              {
-                "type": "null"
+              "deletions": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              "files": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
+                  }
+                ]
+              },
+              "diffs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FileDiff6"
+                }
               }
-            ]
+            },
+            "required": ["additions", "deletions", "files"],
+            "additionalProperties": false
           },
           "share": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "url": {
-                    "type": "string"
-                  }
-                },
-                "required": ["url"],
-                "additionalProperties": false
-              },
-              {
-                "type": "null"
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["url"],
+            "additionalProperties": false
           },
           "github": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SessionGithub5"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/SessionGithub5"
           },
           "worktree": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SessionWorktree8"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/SessionWorktree10"
           },
           "mobile": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SessionMobile4"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/SessionMobile4"
           },
           "title": {
             "type": "string"
           },
           "activeCommand": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
           },
           "version": {
             "type": "string"
@@ -59733,52 +59343,38 @@
               "compacting": {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               },
               "archived": {
                 "anyOf": [
                   {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["NaN"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["Infinity"]
-                      },
-                      {
-                        "type": "string",
-                        "enum": ["-Infinity"]
-                      }
-                    ]
+                    "type": "number"
                   },
                   {
-                    "type": "null"
+                    "type": "string",
+                    "enum": ["NaN"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["Infinity"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["-Infinity"]
                   }
                 ]
               }
@@ -59787,120 +59383,57 @@
             "additionalProperties": false
           },
           "permission": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PermissionRuleset"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/PermissionRuleset"
           },
           "skills": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "disabledInstructions": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "disabledTools": {
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "boolean"
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
           },
           "revert": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "messageID": {
-                    "type": "string"
-                  },
-                  "partID": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "snapshot": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "diff": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["messageID"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "messageID": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "partID": {
+                "type": "string"
+              },
+              "snapshot": {
+                "type": "string"
+              },
+              "diff": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["messageID"],
+            "additionalProperties": false
           },
           "lastModel": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "providerID": {
-                    "type": "string"
-                  },
-                  "modelID": {
-                    "type": "string"
-                  }
-                },
-                "required": ["providerID", "modelID"],
-                "additionalProperties": false
+            "type": "object",
+            "properties": {
+              "providerID": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "modelID": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["providerID", "modelID"],
+            "additionalProperties": false
           }
         },
         "required": ["id", "slug", "projectID", "directory", "title", "version", "time"],
@@ -60757,26 +60290,19 @@
           "tokenBudget": {
             "anyOf": [
               {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["NaN"]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["Infinity"]
-                  },
-                  {
-                    "type": "string",
-                    "enum": ["-Infinity"]
-                  }
-                ]
+                "type": "number"
               },
               {
-                "type": "null"
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
               }
             ]
           },
@@ -60954,17 +60480,10 @@
                     "type": "string"
                   },
                   "partID": {
-                    "anyOf": [
+                    "type": "string",
+                    "allOf": [
                       {
-                        "type": "string",
-                        "allOf": [
-                          {
-                            "pattern": "^prt"
-                          }
-                        ]
-                      },
-                      {
-                        "type": "null"
+                        "pattern": "^prt"
                       }
                     ]
                   },
@@ -60986,26 +60505,19 @@
                   "timeoutMs": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
@@ -61016,64 +60528,43 @@
                   "pid": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   "exitCode": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   "signal": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": "string"
                   },
                   "logPath": {
                     "type": "string"
@@ -61181,26 +60672,19 @@
                       "completed": {
                         "anyOf": [
                           {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["NaN"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["-Infinity"]
-                              }
-                            ]
+                            "type": "number"
                           },
                           {
-                            "type": "null"
+                            "type": "string",
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
                           }
                         ]
                       }
@@ -61270,17 +60754,10 @@
                     "type": "string"
                   },
                   "partID": {
-                    "anyOf": [
+                    "type": "string",
+                    "allOf": [
                       {
-                        "type": "string",
-                        "allOf": [
-                          {
-                            "pattern": "^prt"
-                          }
-                        ]
-                      },
-                      {
-                        "type": "null"
+                        "pattern": "^prt"
                       }
                     ]
                   },
@@ -61302,26 +60779,19 @@
                   "timeoutMs": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
@@ -61332,64 +60802,43 @@
                   "pid": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   "exitCode": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["NaN"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["Infinity"]
-                          },
-                          {
-                            "type": "string",
-                            "enum": ["-Infinity"]
-                          }
-                        ]
+                        "type": "number"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "enum": ["NaN"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["Infinity"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["-Infinity"]
                       }
                     ]
                   },
                   "signal": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": "string"
                   },
                   "logPath": {
                     "type": "string"
@@ -61497,26 +60946,19 @@
                       "completed": {
                         "anyOf": [
                           {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["NaN"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["Infinity"]
-                              },
-                              {
-                                "type": "string",
-                                "enum": ["-Infinity"]
-                              }
-                            ]
+                            "type": "number"
                           },
                           {
-                            "type": "null"
+                            "type": "string",
+                            "enum": ["NaN"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["Infinity"]
+                          },
+                          {
+                            "type": "string",
+                            "enum": ["-Infinity"]
                           }
                         ]
                       }

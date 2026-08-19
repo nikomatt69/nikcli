@@ -27,18 +27,18 @@ Horizons are ordering, not dates. An item moves up when its dependency lands, no
 
 The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `MessageV2` message and part schema are on `optionalKey` with their producers omitting the key, and `jsonSafe` is down to the payloads that keep it for reasons optionality cannot reach — the three `Schema.Unknown` SessionV2 entry shapes in `session.ts`, and the live-`fetch` records in `provider.ts` / `config.ts`. That unblocks the first PR, **H7**: 115 unvalidated `/mobile/*` bodies, which no longer need a second `jsonSafe` on encoded mobile responses.
 
-| ID      | Horizon | Item                                                                       |
-| ------- | ------- | -------------------------------------------------------------------------- |
-| **E4**  | Done    | Encode optionals as absent keys — optionality work complete; see section  |
-| **H7**  | Now     | JSON `/mobile/*` onto encoded handlers (E4 landed; unblocked)             |
-| **E5**  | Later   | Typed Effect failure channel on HttpApi handlers                           |
-| **P2**  | Later   | Request-path cuts (session list SQL, duplicate URL parse)                  |
-| **H3**  | Later   | Generate the SDK namespaced view (`compat.ts`)                             |
-| **H8**  | Later   | `HttpApiMiddleware` on encoded groups                                      |
-| **R1**  | Later   | Keyed scoped instance runtime (drop ALS)                                   |
-| **T3**  | Later   | Output codecs on structured built-ins                                      |
-| **S4r** | Later   | Import / teleport / run write through SessionV2                            |
-| **P3**  | Later   | `normalizeMessages` on the LLM turn path                                   |
+| ID      | Horizon | Item                                                                     |
+| ------- | ------- | ------------------------------------------------------------------------ |
+| **E4**  | Done    | Encode optionals as absent keys — optionality work complete; see section |
+| **H7**  | Now     | JSON `/mobile/*` onto encoded handlers (E4 landed; unblocked)            |
+| **E5**  | Later   | Typed Effect failure channel on HttpApi handlers                         |
+| **P2**  | Later   | Request-path cuts (session list SQL, duplicate URL parse)                |
+| **H3**  | Later   | Generate the SDK namespaced view (`compat.ts`)                           |
+| **H8**  | Later   | `HttpApiMiddleware` on encoded groups                                    |
+| **R1**  | Later   | Keyed scoped instance runtime (drop ALS)                                 |
+| **T3**  | Later   | Output codecs on structured built-ins                                    |
+| **S4r** | Later   | Import / teleport / run write through SessionV2                          |
+| **P3**  | Later   | `normalizeMessages` on the LLM turn path                                 |
 
 ---
 

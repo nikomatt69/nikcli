@@ -3,6 +3,29 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.298.0 (August 2026)
+
+## Core
+
+- Remove unused type imports and update roadmap documentation (@nikomatt69)
+- Add @oxlint/plugins and oxlint version 1.79.0 to bun.lock and package.json (@nikomatt69)
+- E4 fourth slice — and the config 400 was not the converter (@nikomatt69)
+- E4 third slice — goal, monitor and pending on optionalKey (@nikomatt69)
+- E4 second slice — context breakdown and delegation jobs (@nikomatt69)
+- Put Session.Info on optionalKey and stop hiding encode failures (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - docs(specs): reconcile the roadmap with what is actually in the tree
+  - feat(session): put Session.Info on optionalKey and stop hiding encode failures
+  - feat(session): E4 second slice — context breakdown and delegation jobs
+  - feat(session): E4 third slice — goal, monitor and pending on optionalKey
+  - docs(specs): record what the config half of E4 actually costs
+  - feat(config,provider): E4 fourth slice — and the config 400 was not the converter
+  - chore(dependencies): add @oxlint/plugins and oxlint version 1.79.0 to bun.lock and package.json
+  - refactor(codemode): remove unused type imports and update roadmap documentation
+
 ## v1.295.0 (August 2026)
 
 ## Core
