@@ -28,9 +28,7 @@ COPY packages/sdk/js/package.json packages/sdk/js/
 COPY packages/remote/package.json packages/remote/
 COPY packages/plugin/package.json packages/plugin/
 COPY packages/companion/package.json packages/companion/
-COPY packages/slack/package.json packages/slack/
 COPY packages/discord/package.json packages/discord/
-COPY packages/identity/package.json packages/identity/
 COPY packages/auth/package.json packages/auth/
 COPY packages/llm/package.json packages/llm/
 COPY packages/http-recorder/package.json packages/http-recorder/
@@ -39,12 +37,14 @@ COPY packages/simulation/package.json packages/simulation/
 COPY packages/tui/package.json packages/tui/
 COPY packages/tui-image/package.json packages/tui-image/
 COPY packages/tui-math/package.json packages/tui-math/
-COPY packages/terminal-control/package.json packages/terminal-control/
 COPY packages/browser-control/package.json packages/browser-control/
 COPY packages/computer-use/package.json packages/computer-use/
-COPY github/package.json github/
 
-# Stub package.json for workspace packages not built in this image
+# Stub package.json for workspace packages not built in this image. slack,
+# identity, terminal-control and github sit outside packages/nikcli's
+# workspace closure and nothing under src imports them; stubbing keeps the
+# workspace members that bun.lock knows about while skipping their npm deps
+# (@slack/bolt, jose, @octokit/*, @ffmpeg-installer/ffmpeg).
 RUN set -e; \
     for entry in \
       "packages/app:@nikcli-ai/app" \
@@ -59,6 +59,7 @@ RUN set -e; \
       "packages/desktop:@nikcli-ai/desktop" \
       "packages/enterprise:@nikcli-ai/enterprise" \
       "packages/function:@nikcli-ai/function" \
+      "packages/identity:@nikcli-ai/identity" \
       "packages/inference:@nikcli-ai/inference" \
       "packages/inference-dashboard:@nikcli-ai/inference-dashboard" \
       "packages/mobile:@nikcli-ai/mobile" \
@@ -75,9 +76,12 @@ RUN set -e; \
       "packages/plugin/plugins/smart-title:@nikcli-ai/plugin-smart-title" \
       "packages/remote/web-client:@nikcli-ai/remote-client" \
       "packages/sdk-next:@nikcli-ai/sdk-next" \
+      "packages/slack:@nikcli-ai/slack" \
+      "packages/terminal-control:@nikcli-ai/terminal-control" \
       "packages/ui:@nikcli-ai/ui" \
       "packages/web:@nikcli-ai/web" \
       "packages/webrenderer:@opentui/webrenderer" \
+      "github:github" \
     ; do \
       dir="${entry%%:*}"; name="${entry##*:}"; \
       mkdir -p "/app/$dir" && \
@@ -94,9 +98,7 @@ COPY packages/sdk/js packages/sdk/js
 COPY packages/remote packages/remote
 COPY packages/plugin packages/plugin
 COPY packages/companion packages/companion
-COPY packages/slack packages/slack
 COPY packages/discord packages/discord
-COPY packages/identity packages/identity
 COPY packages/auth packages/auth
 COPY packages/llm packages/llm
 COPY packages/http-recorder packages/http-recorder
@@ -105,10 +107,8 @@ COPY packages/simulation packages/simulation
 COPY packages/tui packages/tui
 COPY packages/tui-image packages/tui-image
 COPY packages/tui-math packages/tui-math
-COPY packages/terminal-control packages/terminal-control
 COPY packages/browser-control packages/browser-control
 COPY packages/computer-use packages/computer-use
-COPY github github
 
 RUN mkdir -p /app/repos
 
