@@ -1,6 +1,5 @@
 import { JsonPointer, Schema } from "effect";
 import type { Definition, JsonSchema, SchemaType } from "./tool";
-import type { JsonValue } from "../util/json";
 
 const isEffectSchema = (
   schema: SchemaType,

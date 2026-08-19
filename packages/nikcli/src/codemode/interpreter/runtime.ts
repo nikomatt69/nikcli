@@ -109,7 +109,6 @@ import {
   CodeModeSet,
   CodeModeURL,
   CodeModeURLSearchParams,
-  type CodeModeData,
 } from "../values";
 
 const instanceofValue = (
