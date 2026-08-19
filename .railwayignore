@@ -1,5 +1,8 @@
 node_modules
 .git
+# .agents/skills/native-ui is a symlink to packages/native-control, which is
+# not in the repo; the uploader aborts on the dangling link.
+.agents
 .worktrees
 .nikcli
 .expo
@@ -43,6 +46,26 @@ packages/*
 !packages/plugin/**
 !packages/companion
 !packages/companion/**
+!packages/discord
+!packages/discord/**
+!packages/auth
+!packages/auth/**
+!packages/llm
+!packages/llm/**
+!packages/http-recorder
+!packages/http-recorder/**
+!packages/httpapi-codegen
+!packages/httpapi-codegen/**
+!packages/simulation
+!packages/simulation/**
+!packages/tui
+!packages/tui/**
+!packages/tui-math
+!packages/tui-math/**
+!packages/browser-control
+!packages/browser-control/**
+!packages/computer-use
+!packages/computer-use/**
 !packages/slack
 !packages/slack/**
 !packages/sdk
@@ -51,6 +74,17 @@ packages/sdk/*
 !packages/sdk/js/**
 !packages/tui-image
 !packages/tui-image/**
+
+# Re-excluded right here, not only further down: the allowlist above
+# re-includes whole directories, so packages/nikcli/dist (255M) and any
+# target/ would ride along if the uploader does not apply last-match-wins
+# across the entire file.
+packages/*/dist
+packages/*/target
+packages/*/build
+packages/*/out
+packages/*/.output
+packages/*/node_modules
 packages/**/node_modules
 packages/**/dist
 packages/**/build
