@@ -47,15 +47,15 @@ grep -cE '^export type [A-Za-z0-9_]+ = (unknown|Array<unknown>)$' packages/sdk/j
 
 That command only sees an alias whose **whole** right-hand side is open. It is the headline number, not the whole count, and an item is not done because it reached zero. An open payload nested inside a struct is invisible to it.
 
-Measured **2026-08-18** (H6 landed): open payloads emit `unknown`, not `any` — the codegen no longer rewrites `\bunknown\b` → `any`. Index-signature catchalls still emit `{ [x: string]: any }`. Top-level open aliases are now `SessionV2EntryList = Array<unknown>`, `SessionV2State = unknown`, `SessionV2EventList = Array<unknown>`, `AccountResponse = unknown`, `WorkspaceJournalEvent = unknown`, `MobileGithubReposOutput = Array<unknown>`, `MobileSessionStreamOutput = unknown`, `MobileEventsOutput = unknown`, `SyncStreamOutput = unknown`, `ShareShortOutput = unknown` (all justified in the categories above). Flattened write inputs are `{ name: OpPayload["name"]; … }` plus path params. Loop/mission create-update, `MobileProject`, and `ProfilePatchInput` are real structs.
+Measured **2026-08-19** (H1 closed; unchanged since H6 landed): open payloads emit `unknown`, not `any` — the codegen no longer rewrites `\bunknown\b` → `any`. Index-signature catchalls still emit `{ [x: string]: any }`. Top-level open aliases are now `SessionV2EntryList = Array<unknown>`, `SessionV2State = unknown`, `SessionV2EventList = Array<unknown>`, `AccountResponse = unknown`, `WorkspaceJournalEvent = unknown`, `MobileGithubReposOutput = Array<unknown>`, `MobileSessionStreamOutput = unknown`, `MobileEventsOutput = unknown`, `SyncStreamOutput = unknown`, `ShareShortOutput = unknown` (all justified in the categories above). Flattened write inputs are `{ name: OpPayload["name"]; … }` plus path params. Loop/mission create-update, `MobileProject`, and `ProfilePatchInput` are real structs.
 
 ```sh
 grep -nE '(\[x: string\]: any|Array<unknown>|: unknown\b)' packages/sdk/js/src/httpapi/generated/types.ts
 ```
 
-- **`{ [x: string]: any }` as a whole body** — `MobileConfigInfo` is the config document (`fromZod(Config.Info)`). The catchall is the zod document’s open tail. Pin it or name it here as the one config exception (roadmap H1).
+- **`{ [x: string]: any }` as a top-level tail** — `Config`, `AgentConfig`, `TuiConfig`. These are the `nikcli.json` document (`fromZod(Config.Info)`); the tail is that zod document’s deliberate open end, and it is the **only** whole-body catchall left. `MobileConfigInfo` is no longer one — it emits the full struct with the tail only where the zod document has it. Find them with `awk '/^export type/{n=$3} /^  \[x: string\]: any/{print n}'`; the flat grep above cannot tell a top-level tail from a nested field.
 - **`{ [x: string]: any }` as one field** — `metadata`, tool `input`, `JSONSchema`. Justified: the value is caller-defined or already a JSON Schema.
-- **`payload: unknown` on a write input** — six TUI payloads (`TuiAppendPromptInput`, `TuiExecuteCommandInput`, `TuiShowToastInput`, `TuiPublishInput`, `TuiSelectSessionInput`, `TuiControlResponseInput`) and `ConnectorsAuthSetInput.payload`. Never justified; the codecs exist in `httpapi/tui.ts` / connector auth. `MobileLoopCreateInput` and `MissionUpdateInput` are typed as of 2026-08-17.
+- **`payload: unknown` on a write input** — **none left** (H1, 2026-08-17). The six TUI payloads reuse `TuiEventPayload`, `ConnectorsAuthSetInput.payload` is `ConnectorAuth.EntrySchema`, and `MobileLoopCreateInput` / `MissionUpdateInput` are structs. `grep -c 'payload: unknown'` on the generated types is 0; it staying 0 is the check.
 
 ## Rules
 
