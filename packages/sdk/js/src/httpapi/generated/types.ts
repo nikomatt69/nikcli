@@ -483,9 +483,9 @@ export type SpeakConfig = {
 export type Model = {
   id: string
   providerID: string
-  api: { id: string; url?: string | undefined; npm: string }
+  api: { id: string; url?: string; npm: string }
   name: string
-  family?: string | undefined
+  family?: string
   capabilities: {
     temperature: boolean
     reasoning: boolean
@@ -499,14 +499,14 @@ export type Model = {
     input: number
     output: number
     cache: { read: number; write: number }
-    experimentalOver200K?: { input: number; output: number; cache: { read: number; write: number } } | undefined
+    experimentalOver200K?: { input: number; output: number; cache: { read: number; write: number } }
   }
-  limit: { context: number; input?: number | undefined; output: number }
+  limit: { context: number; input?: number; output: number }
   status: "alpha" | "beta" | "deprecated" | "active"
   options: { [x: string]: any }
   headers: { [x: string]: string }
   release_date: string
-  variants?: { [x: string]: { [x: string]: any } } | undefined
+  variants?: { [x: string]: { [x: string]: any } }
 }
 
 export type ConnectorStatus =

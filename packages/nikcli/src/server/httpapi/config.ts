@@ -91,7 +91,7 @@ export namespace ConfigHttpApi {
     get: () =>
       Effect.gen(function* () {
         const config = yield* Config.Service
-        return jsonSafe(yield* config.get())
+        return yield* config.get()
       }).pipe(Effect.orDie),
     update: ({ payload }: { payload: typeof Info.Type }) =>
       Effect.gen(function* () {
@@ -111,6 +111,8 @@ export namespace ConfigHttpApi {
       Effect.gen(function* () {
         const provider = yield* Provider.Service
         const providers = yield* provider.list()
+        // Same live `fetch` in provider `options` as `GET /provider` — see the
+        // note in `httpapi/provider.ts`. Not an optionality problem.
         return jsonSafe({
           providers: Object.values(providers),
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),

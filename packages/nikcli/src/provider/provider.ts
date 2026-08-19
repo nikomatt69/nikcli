@@ -36,6 +36,7 @@ import { ProviderTransform } from "./transform"
 import * as CachePolicy from "./cache-policy"
 import { ProviderError } from "./error"
 import { Policy } from "@/policy/policy"
+import { spreadIf } from "@/util/optional-key"
 import {
   NIKCLI_INFERENCE_DEFAULT_URL,
   NIKCLI_INFERENCE_ENV,
@@ -983,10 +984,13 @@ export namespace Provider {
       api: {
         id: model.api?.id ?? fallback?.api.id ?? modelID,
         npm: model.api?.npm ?? fallback?.api.npm ?? "@ai-sdk/openai-compatible",
-        url: model.api?.url ?? fallback?.api.url,
+        // `url` / `family` / `experimentalOver200K` / `limit.input` are
+        // `optionalKey`: a present `undefined` fails the response encode on
+        // `GET /provider` and `GET /config/providers` instead of omitting them.
+        ...spreadIf("url", model.api?.url ?? fallback?.api.url),
       },
       name: model.name ?? fallback?.name ?? modelID,
-      family: model.family ?? fallback?.family,
+      ...spreadIf("family", model.family ?? fallback?.family),
       capabilities: {
         temperature: model.capabilities?.temperature ?? fallback?.capabilities.temperature ?? false,
         reasoning: model.capabilities?.reasoning ?? fallback?.capabilities.reasoning ?? false,
@@ -1015,11 +1019,11 @@ export namespace Provider {
           read: model.cost?.cache?.read ?? fallback?.cost.cache.read ?? 0,
           write: model.cost?.cache?.write ?? fallback?.cost.cache.write ?? 0,
         },
-        experimentalOver200K: model.cost?.experimentalOver200K ?? fallback?.cost.experimentalOver200K,
+        ...spreadIf("experimentalOver200K", model.cost?.experimentalOver200K ?? fallback?.cost.experimentalOver200K),
       },
       limit: {
         context: model.limit?.context ?? fallback?.limit.context ?? 0,
-        input: model.limit?.input ?? fallback?.limit.input,
+        ...spreadIf("input", model.limit?.input ?? fallback?.limit.input),
         output: model.limit?.output ?? fallback?.limit.output ?? 0,
       },
       status: model.status ?? fallback?.status ?? "active",
@@ -1035,7 +1039,7 @@ export namespace Provider {
       id: model.id,
       providerID: provider.id,
       name: model.name,
-      family: model.family,
+      ...spreadIf("family", model.family),
       api: {
         id: model.id,
         url: model.provider?.api ?? provider.api!,
@@ -1054,20 +1058,22 @@ export namespace Provider {
           read: model.cost?.cache_read ?? 0,
           write: model.cost?.cache_write ?? 0,
         },
-        experimentalOver200K: model.cost?.context_over_200k
+        ...(model.cost?.context_over_200k
           ? {
-              cache: {
-                read: model.cost.context_over_200k.cache_read ?? 0,
-                write: model.cost.context_over_200k.cache_write ?? 0,
+              experimentalOver200K: {
+                cache: {
+                  read: model.cost.context_over_200k.cache_read ?? 0,
+                  write: model.cost.context_over_200k.cache_write ?? 0,
+                },
+                input: model.cost.context_over_200k.input,
+                output: model.cost.context_over_200k.output,
               },
-              input: model.cost.context_over_200k.input,
-              output: model.cost.context_over_200k.output,
             }
-          : undefined,
+          : {}),
       },
       limit: {
         context: model.limit.context,
-        input: model.limit.input,
+        ...spreadIf("input", model.limit.input),
         output: model.limit.output,
       },
       capabilities: {
@@ -1425,7 +1431,10 @@ export namespace Provider {
           api: {
             id: apiID,
             npm: apiNpm,
-            url: model.provider?.api ?? provider?.api ?? existingModel?.api.url ?? modelsDev[providerID]?.api,
+            ...spreadIf(
+              "url",
+              model.provider?.api ?? provider?.api ?? existingModel?.api.url ?? modelsDev[providerID]?.api,
+            ),
           },
           status: model.status ?? existingModel?.status ?? "active",
           name,
@@ -1520,7 +1529,7 @@ export namespace Provider {
       if (!apiKey) continue
       mergeProvider(providerID, {
         source: "env",
-        key: provider.env.length === 1 ? apiKey : undefined,
+        ...spreadIf("key", provider.env.length === 1 ? apiKey : undefined),
       })
     }
 
@@ -1530,7 +1539,7 @@ export namespace Provider {
       if (provider.type === "api") {
         mergeProvider(providerID, {
           source: "api",
-          key: provider.key,
+          ...spreadIf("key", provider.key),
         })
       }
     }

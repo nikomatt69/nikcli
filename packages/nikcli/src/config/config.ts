@@ -887,10 +887,14 @@ export namespace Config {
       }
       Object.assign(permission, agent.permission)
 
-      // Convert legacy maxSteps to steps
+      // Convert legacy maxSteps to steps. Spread rather than assign: writing
+      // `steps: undefined` when an agent declares neither leaves a present
+      // `undefined` in the parsed document, and the HttpApi JSON encoder
+      // rejects it — `GET /config` answered 400 until `jsonSafe` was added to
+      // paper over exactly this.
       const steps = agent.steps ?? agent.maxSteps
 
-      return { ...agent, options, permission, steps } as typeof agent & {
+      return { ...agent, options, permission, ...(steps !== undefined && { steps }) } as typeof agent & {
         options?: Record<string, unknown>
         permission?: Permission
         steps?: number

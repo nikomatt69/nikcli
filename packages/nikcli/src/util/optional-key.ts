@@ -23,3 +23,13 @@ export function setOptional<T extends object, K extends keyof T>(target: T, key:
   if (value === undefined) delete (target as Record<PropertyKey, unknown>)[key as PropertyKey]
   else target[key] = value
 }
+
+/**
+ * The object-literal form: `{ ...spreadIf("key", maybeValue) }` contributes the
+ * key only when the value is present. Use it where there is no draft to mutate
+ * — a builder that returns a fresh record, which is where most of these bugs
+ * live.
+ */
+export function spreadIf<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
+  return (value === undefined ? {} : { [key]: value }) as { [P in K]?: V }
+}

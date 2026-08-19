@@ -114,6 +114,13 @@ export namespace ProviderHttpApi {
           connected,
         )
 
+        // `jsonSafe` stays here for a reason that is not optionality: a
+        // provider whose credential comes from the account sign-in carries a
+        // live `fetch` function in `options` (`provider/provider.ts` ~539), and
+        // `options` is `Schema.Record(String, Unknown)`, which at the JSON
+        // boundary rejects a function outright — `GET /provider` answers 400.
+        // The round-trip drops it. Removing this needs the function to stop
+        // living in a schema-declared record, not a schema change.
         return jsonSafe({
           all: Object.values(providers),
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
@@ -124,7 +131,7 @@ export namespace ProviderHttpApi {
       Effect.gen(function* () {
         const providerAuth = yield* ProviderAuth.Service
         const methods = yield* providerAuth.methods()
-        return jsonSafe(methods)
+        return methods
       }).pipe(Effect.orDie),
     api: ({ params, payload }: { params: { providerID: string }; payload: typeof ApiPayload.Type }) =>
       Effect.gen(function* () {

@@ -39,11 +39,11 @@ export const ModelSchema = Schema.Struct({
     // implicit (resolved later from provider options.baseURL or npm defaults).
     // Required here would reject real /config/providers payloads at the
     // Effect HttpApi boundary even though Hono never validated them.
-    url: Schema.optional(Schema.String),
+    url: Schema.optionalKey(Schema.String),
     npm: Schema.String,
   }),
   name: Schema.String,
-  family: Schema.optional(Schema.String),
+  family: Schema.optionalKey(Schema.String),
   capabilities: Schema.Struct({
     temperature: Schema.Boolean,
     reasoning: Schema.Boolean,
@@ -62,7 +62,7 @@ export const ModelSchema = Schema.Struct({
     input: Schema.Number,
     output: Schema.Number,
     cache: CostBlockSchema,
-    experimentalOver200K: Schema.optional(
+    experimentalOver200K: Schema.optionalKey(
       Schema.Struct({
         input: Schema.Number,
         output: Schema.Number,
@@ -72,14 +72,14 @@ export const ModelSchema = Schema.Struct({
   }),
   limit: Schema.Struct({
     context: Schema.Number,
-    input: Schema.optional(Schema.Number),
+    input: Schema.optionalKey(Schema.Number),
     output: Schema.Number,
   }),
   status: Schema.Literals(["alpha", "beta", "deprecated", "active"]),
   options: Schema.Record(Schema.String, Schema.Unknown),
   headers: Schema.Record(Schema.String, Schema.String),
   release_date: Schema.String,
-  variants: Schema.optional(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))),
+  variants: Schema.optionalKey(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))),
 }).annotate({ identifier: "Model" })
 export const Model = zodObject(ModelSchema)
 export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
@@ -89,7 +89,7 @@ export const InfoSchema = Schema.Struct({
   name: Schema.String,
   source: Schema.Literals(["env", "config", "custom", "api"]),
   env: Schema.mutable(Schema.Array(Schema.String)),
-  key: Schema.optional(Schema.String),
+  key: Schema.optionalKey(Schema.String),
   options: Schema.Record(Schema.String, Schema.Unknown),
   models: Schema.Record(Schema.String, ModelSchema),
 }).annotate({ identifier: "Provider" })
