@@ -655,8 +655,8 @@ export type MobileAuthTokenListOperation<E = never> = () => Effect.Effect<Endpoi
 
 type Endpoint16_1Request = Parameters<RawClient["mobile"]["authTokenCreate"]>[0]
 export type Endpoint16_1Input = {
-  readonly name?: Endpoint16_1Request["payload"]["name"]
-  readonly expiresInDays?: Endpoint16_1Request["payload"]["expiresInDays"]
+  readonly name?: Extract<Endpoint16_1Request["payload"], object>["name"]
+  readonly expiresInDays?: Extract<Endpoint16_1Request["payload"], object>["expiresInDays"]
 }
 export type Endpoint16_1Output = EffectValue<ReturnType<RawClient["mobile"]["authTokenCreate"]>>
 export type MobileAuthTokenCreateOperation<E = never> = (
@@ -847,6 +847,7 @@ type Endpoint16_28Request = Parameters<RawClient["mobile"]["sessionMessage"]>[0]
 export type Endpoint16_28Input = {
   readonly sessionID: Endpoint16_28Request["params"]["sessionID"]
   readonly messageID?: Endpoint16_28Request["payload"]["messageID"]
+  readonly delivery?: Endpoint16_28Request["payload"]["delivery"]
   readonly model?: Endpoint16_28Request["payload"]["model"]
   readonly agent?: Endpoint16_28Request["payload"]["agent"]
   readonly noReply?: Endpoint16_28Request["payload"]["noReply"]
@@ -855,6 +856,7 @@ export type Endpoint16_28Input = {
   readonly system?: Endpoint16_28Request["payload"]["system"]
   readonly variant?: Endpoint16_28Request["payload"]["variant"]
   readonly parts: Endpoint16_28Request["payload"]["parts"]
+  readonly parentSessionID?: Endpoint16_28Request["payload"]["parentSessionID"]
 }
 export type Endpoint16_28Output = EffectValue<ReturnType<RawClient["mobile"]["sessionMessage"]>>
 export type MobileSessionMessageOperation<E = never> = (
@@ -976,15 +978,15 @@ export type MobileTeleportOutOperation<E = never> = (input: Endpoint16_41Input) 
 
 type Endpoint16_42Request = Parameters<RawClient["mobile"]["worktreeCreate"]>[0]
 export type Endpoint16_42Input = {
-  readonly name?: Endpoint16_42Request["payload"]["name"]
-  readonly branch?: Endpoint16_42Request["payload"]["branch"]
-  readonly branchPrefix?: Endpoint16_42Request["payload"]["branchPrefix"]
-  readonly baseBranch?: Endpoint16_42Request["payload"]["baseBranch"]
-  readonly remote?: Endpoint16_42Request["payload"]["remote"]
-  readonly startCommand?: Endpoint16_42Request["payload"]["startCommand"]
-  readonly detached?: Endpoint16_42Request["payload"]["detached"]
-  readonly sourceDirectory?: Endpoint16_42Request["payload"]["sourceDirectory"]
-  readonly root?: Endpoint16_42Request["payload"]["root"]
+  readonly name?: Extract<Endpoint16_42Request["payload"], object>["name"]
+  readonly branch?: Extract<Endpoint16_42Request["payload"], object>["branch"]
+  readonly branchPrefix?: Extract<Endpoint16_42Request["payload"], object>["branchPrefix"]
+  readonly baseBranch?: Extract<Endpoint16_42Request["payload"], object>["baseBranch"]
+  readonly remote?: Extract<Endpoint16_42Request["payload"], object>["remote"]
+  readonly startCommand?: Extract<Endpoint16_42Request["payload"], object>["startCommand"]
+  readonly detached?: Extract<Endpoint16_42Request["payload"], object>["detached"]
+  readonly sourceDirectory?: Extract<Endpoint16_42Request["payload"], object>["sourceDirectory"]
+  readonly root?: Extract<Endpoint16_42Request["payload"], object>["root"]
 }
 export type Endpoint16_42Output = EffectValue<ReturnType<RawClient["mobile"]["worktreeCreate"]>>
 export type MobileWorktreeCreateOperation<E = never> = (
@@ -1216,7 +1218,7 @@ export type MobileRoutineUpdateOperation<E = never> = (
 type Endpoint16_75Request = Parameters<RawClient["mobile"]["routineRun"]>[0]
 export type Endpoint16_75Input = {
   readonly id: Endpoint16_75Request["params"]["id"]
-  readonly text?: Endpoint16_75Request["payload"]["text"]
+  readonly text?: Extract<Endpoint16_75Request["payload"], object>["text"]
 }
 export type Endpoint16_75Output = EffectValue<ReturnType<RawClient["mobile"]["routineRun"]>>
 export type MobileRoutineRunOperation<E = never> = (input: Endpoint16_75Input) => Effect.Effect<Endpoint16_75Output, E>
@@ -1238,7 +1240,7 @@ export type MobileRoutineResumeOperation<E = never> = (
 type Endpoint16_78Request = Parameters<RawClient["mobile"]["routineTrigger"]>[0]
 export type Endpoint16_78Input = {
   readonly token: Endpoint16_78Request["params"]["token"]
-  readonly text?: Endpoint16_78Request["payload"]["text"]
+  readonly text?: Extract<Endpoint16_78Request["payload"], object>["text"]
 }
 export type Endpoint16_78Output = EffectValue<ReturnType<RawClient["mobile"]["routineTrigger"]>>
 export type MobileRoutineTriggerOperation<E = never> = (

@@ -1099,6 +1099,8 @@ export type AgentPart1 = {
   source?: { value: string; start: number; end: number }
 }
 
+export type MobileAccepted = { accepted: true }
+
 export type MobileGithubPublishResult = {
   commitSha: string
   branch: string
@@ -3687,6 +3689,12 @@ export type MissionValidationError = { readonly name: "ValidationError"; readonl
 
 export type MissionNotFound = { readonly name: "NotFound"; readonly data: { readonly [x: string]: any } }
 
+export type MobileNotFound = { readonly name: "NotFoundError"; readonly error: string }
+
+export type MobileUnauthorized = { readonly name: "Unauthorized"; readonly error: string }
+
+export type MobileBadRequest = { readonly name: "BadRequest"; readonly error: string }
+
 export type PtyCreateErrorBody = { readonly name: "PtyCreateError"; readonly data: { readonly [x: string]: any } }
 
 export type PtyNotFoundError = { readonly name: "NotFoundError"; readonly data: { readonly [x: string]: any } }
@@ -3907,10 +3915,7 @@ export type MissionFeatureMutatePayload = {
   readonly appendDependsOn?: ReadonlyArray<string> | undefined
 }
 
-export type MobileAuthTokenCreatePayload = {
-  readonly name?: string | undefined
-  readonly expiresInDays?: number | undefined
-}
+export type MobileAuthTokenCreatePayload = { readonly name?: string; readonly expiresInDays?: number }
 
 export type MobileMemoryStashCreatePayload = { readonly input: string }
 
@@ -3987,18 +3992,26 @@ export type MobileSessionCommandPayload = {
 
 export type MobileSessionMessagePayload = {
   readonly messageID?: string | undefined
+  readonly delivery?: "steer" | "queue" | undefined
   readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
   readonly agent?: string | undefined
   readonly noReply?: boolean | undefined
   readonly tools?: { readonly [x: string]: boolean } | undefined
-  readonly format?: unknown | undefined
+  readonly format?:
+    | (
+        | { readonly type: "text" }
+        | {
+            readonly type: "json_schema"
+            readonly schema: { readonly [x: string]: any }
+            readonly retryCount?: number | undefined
+          }
+      )
+    | undefined
   readonly system?: string | undefined
   readonly variant?: string | undefined
   readonly parts: ReadonlyArray<
     | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
+        readonly id?: string | undefined
         readonly type: "text"
         readonly text: string
         readonly synthetic?: boolean | undefined
@@ -4007,30 +4020,7 @@ export type MobileSessionMessagePayload = {
         readonly metadata?: { readonly [x: string]: any } | undefined
       }
     | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
-        readonly type: "subtask"
-        readonly prompt: string
-        readonly description: string
-        readonly agent: string
-        readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-        readonly command?: string | undefined
-        readonly background?: boolean | undefined
-      }
-    | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
-        readonly type: "reasoning"
-        readonly text: string
-        readonly metadata?: { readonly [x: string]: any } | undefined
-        readonly time: { readonly start: number; readonly end?: number | undefined }
-      }
-    | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
+        readonly id?: string | undefined
         readonly type: "file"
         readonly mime: string
         readonly filename?: string | undefined
@@ -4063,164 +4053,26 @@ export type MobileSessionMessagePayload = {
           | undefined
       }
     | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
-        readonly type: "tool"
-        readonly callID: string
-        readonly tool: string
-        readonly state:
-          | { readonly status: "pending"; readonly input: { readonly [x: string]: any }; readonly raw: string }
-          | {
-              readonly status: "running"
-              readonly input: { readonly [x: string]: any }
-              readonly title?: string | undefined
-              readonly metadata?: { readonly [x: string]: any } | undefined
-              readonly structured?: { readonly [x: string]: any } | undefined
-              readonly content?:
-                | ReadonlyArray<
-                    | { readonly type: "text"; readonly text: string }
-                    | {
-                        readonly type: "file"
-                        readonly data: string
-                        readonly mime: string
-                        readonly name?: string | undefined
-                      }
-                  >
-                | undefined
-              readonly time: { readonly start: number }
-            }
-          | {
-              readonly status: "completed"
-              readonly input: { readonly [x: string]: any }
-              readonly output: string
-              readonly title: string
-              readonly metadata: { readonly [x: string]: any }
-              readonly time: { readonly start: number; readonly end: number; readonly compacted?: number | undefined }
-              readonly attachments?:
-                | ReadonlyArray<{
-                    readonly id: string
-                    readonly sessionID: string
-                    readonly messageID: string
-                    readonly type: "file"
-                    readonly mime: string
-                    readonly filename?: string | undefined
-                    readonly url: string
-                    readonly source?:
-                      | (
-                          | {
-                              readonly text: { readonly value: string; readonly start: number; readonly end: number }
-                              readonly type: "file"
-                              readonly path: string
-                            }
-                          | {
-                              readonly text: { readonly value: string; readonly start: number; readonly end: number }
-                              readonly type: "symbol"
-                              readonly path: string
-                              readonly range: {
-                                readonly start: { readonly line: number; readonly character: number }
-                                readonly end: { readonly line: number; readonly character: number }
-                              }
-                              readonly name: string
-                              readonly kind: number
-                            }
-                          | {
-                              readonly text: { readonly value: string; readonly start: number; readonly end: number }
-                              readonly type: "resource"
-                              readonly clientName: string
-                              readonly uri: string
-                            }
-                        )
-                      | undefined
-                  }>
-                | undefined
-            }
-          | {
-              readonly status: "error"
-              readonly input: { readonly [x: string]: any }
-              readonly error: string
-              readonly metadata?: { readonly [x: string]: any } | undefined
-              readonly time: { readonly start: number; readonly end: number }
-            }
-        readonly metadata?: { readonly [x: string]: any } | undefined
-      }
-    | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
-        readonly type: "step-start"
-        readonly snapshot?: string | undefined
-      }
-    | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
-        readonly type: "step-finish"
-        readonly reason: string
-        readonly snapshot?: string | undefined
-        readonly cost: number
-        readonly tokens: {
-          readonly total?: number | undefined
-          readonly input: number
-          readonly output: number
-          readonly reasoning: number
-          readonly cache: { readonly read: number; readonly write: number }
-        }
-      }
-    | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
-        readonly type: "snapshot"
-        readonly snapshot: string
-      }
-    | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
-        readonly type: "patch"
-        readonly hash: string
-        readonly files: ReadonlyArray<string>
-      }
-    | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
+        readonly id?: string | undefined
         readonly type: "agent"
         readonly name: string
         readonly source?: { readonly value: string; readonly start: number; readonly end: number } | undefined
       }
     | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
-        readonly type: "retry"
-        readonly attempt: number
-        readonly error: {
-          readonly name: "APIError"
-          readonly data: {
-            readonly message: string
-            readonly statusCode?: number | undefined
-            readonly isRetryable: boolean
-            readonly responseHeaders?: { readonly [x: string]: string } | undefined
-            readonly responseBody?: string | undefined
-            readonly metadata?: { readonly [x: string]: string } | undefined
-            readonly classification?: "payload-too-large" | undefined
-          }
-        }
-        readonly time: { readonly created: number }
-      }
-    | {
-        readonly id: string
-        readonly sessionID: string
-        readonly messageID: string
-        readonly type: "compaction"
-        readonly auto: boolean
+        readonly id?: string | undefined
+        readonly type: "subtask"
+        readonly prompt: string
+        readonly description: string
+        readonly agent: string
+        readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+        readonly command?: string | undefined
+        readonly background?: boolean | undefined
       }
   >
+  readonly parentSessionID?: string | undefined
 }
 
-export type MobilePermissionRespondPayload = { readonly response: string }
+export type MobilePermissionRespondPayload = { readonly response: "once" | "always" | "reject" }
 
 export type MobileQuestionRespondPayload = { readonly answers: ReadonlyArray<ReadonlyArray<string>> }
 
@@ -6687,6 +6539,7 @@ export type MobileSessionCommandOutput = { info: Message1; parts: Array<Part1> }
 export type MobileSessionMessageInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
   readonly messageID?: MobileSessionMessagePayload["messageID"]
+  readonly delivery?: MobileSessionMessagePayload["delivery"]
   readonly model?: MobileSessionMessagePayload["model"]
   readonly agent?: MobileSessionMessagePayload["agent"]
   readonly noReply?: MobileSessionMessagePayload["noReply"]
@@ -6695,9 +6548,10 @@ export type MobileSessionMessageInput = {
   readonly system?: MobileSessionMessagePayload["system"]
   readonly variant?: MobileSessionMessagePayload["variant"]
   readonly parts: MobileSessionMessagePayload["parts"]
+  readonly parentSessionID?: MobileSessionMessagePayload["parentSessionID"]
 }
 
-export type MobileSessionMessageOutput = { accepted: true }
+export type MobileSessionMessageOutput = MobileAccepted
 
 export type MobileSessionAbortInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
 
@@ -6793,7 +6647,7 @@ export type MobileWorktreeCreateInput = {
   readonly root?: MobileWorktreeCreatePayload["root"]
 }
 
-export type MobileWorktreeCreateOutput = ManagedWorktreeInfo
+export type MobileWorktreeCreateOutput = Worktree
 
 export type MobileWorktreeRemoveInput = {
   readonly directory: MobileWorktreeRemovePayload["directory"]

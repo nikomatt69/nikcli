@@ -6,18 +6,6 @@ describe("mobile framework-neutral dispatcher", () => {
     expect(await dispatchMobileRequest(new Request("http://nikcli.local/project"))).toBeUndefined()
   })
 
-  it("validates worktree JSON without Hono", async () => {
-    const response = await dispatchMobileRequest(
-      new Request("http://nikcli.local/mobile/worktree/reset", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{",
-      }),
-    )
-    expect(response?.status).toBe(400)
-    expect(await response?.json()).toEqual({ error: "Invalid JSON body" })
-  })
-
   it("preserves unknown upload status and JSON headers", async () => {
     const response = await dispatchMobileRequest(
       new Request("http://nikcli.local/mobile/teleport/upload/missing", {
@@ -34,27 +22,23 @@ describe("mobile framework-neutral dispatcher", () => {
     expect(await dispatchMobileRequest(new Request("http://nikcli.local/mobile/not-a-real-route"))).toBeUndefined()
   })
 
-  it("dispatches loop templates without Hono", async () => {
-    const response = await dispatchMobileRequest(new Request("http://nikcli.local/mobile/loops/templates"))
-    expect(response?.status).toBe(200)
-    expect(await response?.json()).toMatchObject({ templates: expect.any(Array) })
-  })
-
-  it("dispatches mission templates without Hono", async () => {
-    const response = await dispatchMobileRequest(new Request("http://nikcli.local/mobile/missions/templates"))
-    expect(response?.status).toBe(200)
-    expect(await response?.json()).toMatchObject({ templates: expect.any(Array) })
-  })
-
-  it("validates PTY creation without Hono", async () => {
-    const response = await dispatchMobileRequest(
-      new Request("http://nikcli.local/mobile/pty", { method: "POST", body: "{" }),
-    )
-    expect(response?.status).toBe(400)
-    expect(await response?.json()).toEqual({ error: "Invalid JSON body" })
-  })
-
   it("leaves PTY websocket connect to the native upgrade path", async () => {
     expect(await dispatchMobileRequest(new Request("http://nikcli.local/mobile/pty/pty_1/connect"))).toBeUndefined()
+  })
+
+  it("does not claim JSON routes that moved to the encoded router", async () => {
+    // H7: every JSON /mobile/* endpoint is an encoded `.handle` on the mobile
+    // group; the dispatcher only answers the SSE streams and the teleport
+    // chunk upload, so these all fall through.
+    const jsonRoutes: Array<[path: string, init: RequestInit]> = [
+      ["/mobile/worktree/reset", { method: "POST", headers: { "content-type": "application/json" }, body: "{" }],
+      ["/mobile/pty", { method: "POST", headers: { "content-type": "application/json" }, body: "{" }],
+      ["/mobile/loops/templates", {}],
+      ["/mobile/missions/templates", {}],
+      ["/mobile/github/repos", {}],
+      ["/mobile/session", { method: "GET" }],
+    ]
+    for (const [path, init] of jsonRoutes)
+      expect(await dispatchMobileRequest(new Request(`http://nikcli.local${path}`, init))).toBeUndefined()
   })
 })

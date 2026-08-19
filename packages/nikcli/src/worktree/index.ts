@@ -19,7 +19,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 // `"@/worktree/managed"` (or `../worktree/managed`).
 
 export namespace Worktree {
-  const InfoSchema = Schema.Struct({
+  export const InfoSchema = Schema.Struct({
     name: Schema.String,
     branch: Schema.optional(Schema.String),
     directory: Schema.String,

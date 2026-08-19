@@ -15,7 +15,7 @@ import { SessionStatus } from "@/session/status"
 import { withInstance, withInstanceAsync } from "@/effect"
 import { createWorkspaceArchive, uploadWorkspaceArchive } from "@nikcli-ai/util/teleport-archive"
 import { log, runProject, runSession, runSessionForSession } from "./helpers"
-import { body, isResponse, json } from "./request"
+import { MobileHttpError } from "./request"
 
 export const TeleportInput = z
   .object({
@@ -159,64 +159,62 @@ async function importSession(input: z.infer<typeof TeleportInput>, directory: st
   }
 }
 
-export async function handleTeleportRequest(request: Request): Promise<Response | undefined> {
+/** Begin an upload session. The archive bytes land through the raw chunk route. */
+export async function teleportUploadBegin() {
+  sweep()
+  const uploadID = Identifier.ascending("session")
+  const target = path.join(tmpdir(), `nikcli-teleport-${uploadID}.tar.gz`)
+  await Bun.write(target, new Uint8Array())
+  uploads.set(uploadID, { path: target, createdAt: Date.now() })
+  return { uploadID }
+}
+
+/** Raw binary route — chunks are the only upload that cannot go through the JSON encoder. */
+export async function handleTeleportUploadChunkRequest(request: Request): Promise<Response | undefined> {
   const pathname = new URL(request.url).pathname
-  if (request.method !== "POST") return
-  if (pathname === "/mobile/teleport/upload") {
-    sweep()
-    const uploadID = Identifier.ascending("session")
-    const target = path.join(tmpdir(), `nikcli-teleport-${uploadID}.tar.gz`)
-    await Bun.write(target, new Uint8Array())
-    uploads.set(uploadID, { path: target, createdAt: Date.now() })
-    return json({ uploadID })
-  }
   const chunk = pathname.match(/^\/mobile\/teleport\/upload\/([^/]+)$/)
-  if (chunk) {
-    const entry = uploads.get(decodeURIComponent(chunk[1]))
-    if (!entry) return json({ error: "Unknown upload" }, 404)
-    await appendFile(entry.path, new Uint8Array(await request.arrayBuffer()))
-    return json({ ok: true })
-  }
-  if (pathname === "/mobile/teleport") {
-    const input = await body(request, TeleportInput)
-    if (isResponse(input)) return input
-    let directory = Instance.directory
-    const upload = input.uploadID ? uploads.get(input.uploadID) : undefined
-    if (input.uploadID && !upload) return json({ error: "Workspace upload not found or expired" }, 400)
-    if (upload) {
-      directory = path.join(Global.Path.data, "teleport", Identifier.ascending("session"))
-      try {
-        await extract(upload.path, directory)
-      } catch (error) {
-        await rm(directory, { recursive: true, force: true }).catch(() => undefined)
-        log.error("teleport extract failed", { error })
-        return json({ error: "Failed to extract workspace archive" }, 400)
-      } finally {
-        uploads.delete(input.uploadID!)
-        await rm(upload.path, { force: true }).catch(() => undefined)
-      }
-      await ensureRepo(directory)
-      await register(directory, input.name)
+  if (!chunk || request.method !== "POST") return
+  const entry = uploads.get(decodeURIComponent(chunk[1]))
+  if (!entry) return Response.json({ error: "Unknown upload" }, { status: 404 })
+  await appendFile(entry.path, new Uint8Array(await request.arrayBuffer()))
+  return Response.json({ ok: true })
+}
+
+export async function teleportIn(input: z.infer<typeof TeleportInput>) {
+  let directory = Instance.directory
+  const upload = input.uploadID ? uploads.get(input.uploadID) : undefined
+  if (input.uploadID && !upload) throw new MobileHttpError("Workspace upload not found or expired", 400)
+  if (upload) {
+    directory = path.join(Global.Path.data, "teleport", Identifier.ascending("session"))
+    try {
+      await extract(upload.path, directory)
+    } catch (error) {
+      await rm(directory, { recursive: true, force: true }).catch(() => undefined)
+      log.error("teleport extract failed", { error })
+      throw new MobileHttpError("Failed to extract workspace archive", 400)
+    } finally {
+      uploads.delete(input.uploadID!)
+      await rm(upload.path, { force: true }).catch(() => undefined)
     }
-    const result = await importSession(input, directory)
-    log.info("teleported session", { ...result, origin: input.origin })
-    return json(result)
+    await ensureRepo(directory)
+    await register(directory, input.name)
   }
-  const outbound = pathname.match(/^\/mobile\/session\/([^/]+)\/teleport$/)
-  if (!outbound) return
-  const input = await body(request, TeleportOutInput)
-  if (isResponse(input)) return input
+  const result = await importSession(input, directory)
+  log.info("teleported session", { ...result, origin: input.origin })
+  return result
+}
+
+export async function teleportOut(sessionID: string, input: z.infer<typeof TeleportOutInput>) {
   const base = baseUrl(input.url)
-  if (!base) return json({ error: "Invalid target server URL" }, 400)
+  if (!base) throw new MobileHttpError("Invalid target server URL", 400)
   const token = input.token.trim()
-  if (!token) return json({ error: "Missing target token" }, 400)
-  const sessionID = decodeURIComponent(outbound[1])
+  if (!token) throw new MobileHttpError("Missing target token", 400)
   const info = await runSession(
     Effect.gen(function* () {
       return yield* (yield* Session.Service).getAnyProject(sessionID)
     }),
   ).catch(() => undefined)
-  if (!info) return json({ error: "Session not found" }, 404)
+  if (!info) throw new MobileHttpError("Session not found", 404)
   const messages = await withInstanceAsync({ directory: info.directory }, () =>
     runSessionForSession(
       info,
@@ -234,8 +232,8 @@ export async function handleTeleportRequest(request: Request): Promise<Response 
       try {
         uploadID = await uploadWorkspaceArchive({ base, token, archivePath: archive.path })
       } catch (error) {
-        return json(
-          { error: `Workspace upload failed: ${error instanceof Error ? error.message : String(error)}` },
+        throw new MobileHttpError(
+          `Workspace upload failed: ${error instanceof Error ? error.message : String(error)}`,
           400,
         )
       } finally {
@@ -254,19 +252,17 @@ export async function handleTeleportRequest(request: Request): Promise<Response 
       uploadID,
     }),
   }).catch(() => undefined)
-  if (!response) return json({ error: `Failed to reach ${base}` }, 400)
+  if (!response) throw new MobileHttpError(`Failed to reach ${base}`, 400)
   if (!response.ok) {
     const detail = await response.text().catch(() => "")
-    return json(
-      {
-        error:
-          response.status === 401
-            ? "Unauthorized — check the target token"
-            : `Target server error ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`,
-      },
+    throw new MobileHttpError(
+      response.status === 401
+        ? "Unauthorized — check the target token"
+        : `Target server error ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`,
       400,
     )
   }
   const result = await response.json().catch(() => null)
-  return result ? json(result) : json({ error: "Invalid response from target server" }, 400)
+  if (!result) throw new MobileHttpError("Invalid response from target server", 400)
+  return result
 }

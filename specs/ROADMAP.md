@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-19**. H4 / H5 / H1 / H6 / I1 / X2 are done and were still sitting in the plan sections; they now live only in landed work. Verified on that date: `bun run test` 3820 pass / 0 fail, `bun run check:routes --strict` clean at 338 contracts / 315 handlers / 23 raw, `payload: unknown` in the generated SDK types at 0. **E4 was re-scoped after measurement — read its section before starting it.**
+Last reconciled against the source: **2026-08-20**. H4 / H5 / H1 / H6 / I1 / X2 / **H7** are done and were still sitting in the plan sections; they now live only in landed work. Verified 2026-08-19: `bun run test` 3820 pass / 0 fail, `bun run check:routes --strict` clean at 338 contracts / 315 handlers / 23 raw, `payload: unknown` in the generated SDK types at 0. H7 verified 2026-08-20: `packages/nikcli` and `packages/sdk` typecheck clean, `check:routes --strict` 338/315/23, mobile route tests 11 pass / 0 fail (full suite not re-run). **E4 was re-scoped after measurement — read its section before starting it.**
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -27,18 +27,18 @@ Horizons are ordering, not dates. An item moves up when its dependency lands, no
 
 The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `MessageV2` message and part schema are on `optionalKey` with their producers omitting the key, and `jsonSafe` is down to the payloads that keep it for reasons optionality cannot reach — the three `Schema.Unknown` SessionV2 entry shapes in `session.ts`, and the live-`fetch` records in `provider.ts` / `config.ts`. That unblocks the first PR, **H7**: 115 unvalidated `/mobile/*` bodies, which no longer need a second `jsonSafe` on encoded mobile responses.
 
-| ID      | Horizon | Item                                                                       |
-| ------- | ------- | -------------------------------------------------------------------------- |
-| **E4**  | Done    | Encode optionals as absent keys — optionality work complete; see section  |
-| **H7**  | Now     | JSON `/mobile/*` onto encoded handlers (E4 landed; unblocked)             |
-| **E5**  | Later   | Typed Effect failure channel on HttpApi handlers                           |
-| **P2**  | Later   | Request-path cuts (session list SQL, duplicate URL parse)                  |
-| **H3**  | Later   | Generate the SDK namespaced view (`compat.ts`)                             |
-| **H8**  | Later   | `HttpApiMiddleware` on encoded groups                                      |
-| **R1**  | Later   | Keyed scoped instance runtime (drop ALS)                                   |
-| **T3**  | Later   | Output codecs on structured built-ins                                      |
-| **S4r** | Later   | Import / teleport / run write through SessionV2                            |
-| **P3**  | Later   | `normalizeMessages` on the LLM turn path                                   |
+| ID      | Horizon | Item                                                                     |
+| ------- | ------- | ------------------------------------------------------------------------ |
+| **E4**  | Done    | Encode optionals as absent keys — optionality work complete; see section |
+| **H7**  | Done    | JSON `/mobile/*` onto encoded handlers (landed 2026-08-20)               |
+| **E5**  | Later   | Typed Effect failure channel on HttpApi handlers                         |
+| **P2**  | Later   | Request-path cuts (session list SQL, duplicate URL parse)                |
+| **H3**  | Later   | Generate the SDK namespaced view (`compat.ts`)                           |
+| **H8**  | Later   | `HttpApiMiddleware` on encoded groups                                    |
+| **R1**  | Later   | Keyed scoped instance runtime (drop ALS)                                 |
+| **T3**  | Later   | Output codecs on structured built-ins                                    |
+| **S4r** | Later   | Import / teleport / run write through SessionV2                          |
+| **P3**  | Later   | `normalizeMessages` on the LLM turn path                                 |
 
 ---
 
@@ -125,13 +125,6 @@ route tests; corrected below before anyone repeats it.**
 - **Costs if skipped** — Nothing user-visible. `jsonSafe` produces the correct wire shape today; this is a cost and clarity item, not a bug.
 - **Done when** — Per endpoint: the response schema uses `optionalKey`, the producer omits the key, and a route test asserts the key is _absent_ (not `null`) with a service object that leaves the field unset. `jsonSafe` is gone from `session.ts` / `provider.ts` / `config.ts`. Curl `GET /session`, `GET /session/:id`, `GET /config` against a real server with a session whose optionals are unset. Expect the generated types to grow a few numbered duplicates (`SessionWorktree4`, `SessionMobile2`) while a shape exists in both the flipped Effect schema and an unflipped zod mirror; they re-converge as the mirrors flip.
 - **Already paid for** — The two live 400s this same failure mode was causing are fixed (see 2026-08-18 landed work): `mission.ts` `featureMutate` and `config/tui.ts` `plugin_meta`. Grep for `= undefined` on a field whose response schema is `optionalKey` before adding one.
-
-### JSON `/mobile/*` onto encoded handlers (H7)
-
-- **Buys** — A drifted mobile JSON schema fails the request instead of shipping a body the contract did not describe. One encoder with `/loop` and `/session`.
-- **Evidence** — `httpapi/mobile.ts` says every `/mobile/*` endpoint is served through `handleRaw` (contract-only). `mobile-handlers.ts` is 115 `handleRaw("…", forward)` calls into `dispatchMobileRequest`. Loop/session/git JSON routes do not need the raw `Request`. SSE, teleport upload, and PTY upgrade do.
-- **Depends on** — E4 only, so encoded mobile responses do not need a second `jsonSafe`. H1 and H4 landed: the write inputs are typed and there is one dispatcher to hang `.handle` on.
-- **Done when** — JSON mobile routes use `.handle`. Raw stays for stream/upload/upgrade. The dispatcher shrinks to those leftovers. `bun run generate:httpapi-clients` and `bun run check:routes --strict` pass.
 
 ## Plan later structure
 
@@ -401,6 +394,18 @@ Diagnosing phase 2 took two blind cycles because the 400 had an **empty body and
 **Verified.** `bun test` on `packages/nikcli` 3982 pass / 7 skip / 0 fail; `bun run typecheck` 35/35 packages clean; `bun run check:routes --strict` ok at 338 contracts / 315 handlers / 23 raw. `bun run generate:httpapi-clients` was stale against the flipped schemas and its output is part of this change: 364 insertions in `httpapi/generated/types.ts`, all of it `?: X | undefined` collapsing to `?: X`, plus the numbered duplicates this section predicted (`MessageContextOverflowError1`, `APIError2`, `SubtaskPart1`) that will re-converge as the zod mirrors flip. Both `specs/README.md` leakage gates are unmoved: 10 top-level open aliases, 0 `payload: unknown`.
 
 **The curl pass E4 asks for, done.** A real server on `127.0.0.1:47823`, a session with its optionals unset: `GET /config`, `GET /session`, `GET /session/:id`, `GET /session/:id/context`, `GET /session/:id/message` and `GET /provider` all answer 200 with **zero** `:null` occurrences across every body. The two cases this section named as the failure mode are clean: `POST /session/:id/unrevert` returns with `revert` **absent**, and the context sources omit `toggleKind` / `toggleKey` rather than nulling them. `POST /session/:id/shell` is the one that matters for this slice — it builds a fresh `MessageV2` with parts and puts it through the Effect encoder rather than reading a `JSON.stringify`-d row; it answers 200 with `summary`, `error`, `structured` and `snapshot` absent. A schema probe could not have shown any of this, which is why this section says to drive the route.
+
+### 2026-08-20 — H7 (JSON `/mobile/*` onto encoded handlers)
+
+**Every JSON `/mobile/*` endpoint is an encoded `.handle`; the dispatcher is down to the raw leftovers.**
+
+- `server/mobile/*.ts` are now typed route functions returning plain data instead of `Request → Response` path matchers. `mobile-handlers.ts` wires each op through `fromPromise` (`Effect.promise` + `orDie`, for routes with no declared error) or `route` (`Effect.promise` + `catchDefect` → a declared `{ name, error }` body, discriminated by an `httpApiStatus` literal of 400/401/404). The response encoder validates every body that used to go through `Response.json` untouched.
+- `dispatchMobileRequest` chains only the three leftovers: `events` (SSE), `session/…/stream` (SSE), and `teleport/upload/:id` (binary chunk). The contract-only `ptyConnect` upgrade stays `handleRaw` and still answers 404 (the dispatcher never served it). A drifted JSON schema now fails the request instead of shipping an undescribed body.
+- Contract changes: `authTokenCreate` / `worktreeCreate` / `routineRun` / `routineTrigger` payloads are `[HttpApiSchema.NoContent, …]` (bodyless POST accepted, exactly as the old `body(schema.optional())` did); `sessionMessage` payload is now `SessionPending.PromptInput.omit({sessionID: true})` (gains `delivery` + `parentSessionID`, `parts` typed as `PromptParts.InputPart`); `sessionMessage` success is `{ accepted: true }` at **202**; `permissionRespond` `response` is the `"once"|"always"|"reject"` literal; `worktreeCreate` success is `Worktree.Info` (the contract declared `ManagedWorktree.Info` — a drift the raw path silently shipped); and every handler that answered a bare `{ error }` now declares the matching 400/401/404 schema.
+- **Two real bugs surfaced by the move.** (1) Mission `create`/`update` relied on the zod `.default([])` on feature `dependsOn` (plus `models` / `status`) that only the old `body()` parse applied — the encoded decode skips zod defaults, so `validateDefinition` iterated an absent `dependsOn` and `POST /mobile/missions` 500'd. Handlers now normalize through `MissionDefinitionSchema.safeParse` before validating (mirroring `sanitizeDefinition`). (2) `gitStatus` returned `staged`/`unstaged`/`lastCommit` as `Record<string, unknown>` — an encode rejection waiting to happen. Now typed to the contract.
+- `test/server/mobile-dispatcher.test.ts` was rewritten for the new dispatcher scope; the JSON routes are covered by the encoded router through `mobile-{session,loop,mission}-route` tests.
+
+**Verified.** `bun run typecheck` clean in `packages/nikcli` and `packages/sdk`. `bun run check:routes --strict` ok at 338 contracts / 315 handlers / 23 raw. Mobile route tests 11 pass / 0 fail. `bun run generate:httpapi-clients` re-run and its output committed (sdk `types.ts` / `client.ts` + nikcli `client/`).
 
 ## Follow working rules
 

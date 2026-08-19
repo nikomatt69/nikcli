@@ -6,7 +6,7 @@ import { MessageV2 } from "@/session/message-v2"
 import { Session } from "@/session"
 import { Snapshot } from "@/snapshot"
 import { Workspace } from "@/workspace"
-import { ManagedWorktree } from "@/worktree/managed"
+import { Worktree } from "@/worktree"
 import { Config } from "@/config/config"
 import * as Domain from "./domain"
 import {
@@ -30,7 +30,6 @@ import {
   MobileMissionGenerateInput,
   MobileMissionUpdateInput,
   MobileMissionWriteInput,
-  MobilePermissionRespondInput,
   MobilePromptHistoryEntry,
   MobilePromptStashEntry,
   MobileRoutine,
@@ -41,7 +40,6 @@ import {
   MobileSessionCommandInput,
   MobileSessionCreateInput,
   MobileSessionDetail,
-  MobileSessionMessageInput,
   MobileSessionSummary,
   MobileWorktreeCreateInput,
   MobileWorktreeRemoveInput,
@@ -54,6 +52,7 @@ import {
 import { MobileAuth } from "@/mobile/auth"
 import { fromZod } from "@/util/zod-effect"
 import { MissionDefinitionSchema, MissionExecSchema } from "@/mission/schema"
+import { SessionPending } from "@/session/pending"
 import { Todo } from "@/session/todo"
 
 /**
@@ -77,16 +76,41 @@ export namespace MobileHttpApi {
     success: Schema.Literal(true),
   }).annotate({ identifier: "MobileSuccess" })
 
+  /** `POST /session/:id/message` answers 202, not 200 — preserved for parity. */
+  const Accepted = Schema.Struct({
+    accepted: Schema.Literal(true),
+  }).annotate({ identifier: "MobileAccepted", httpApiStatus: 202 })
+
+  /**
+   * Declared error contracts for the routes the dispatcher used to answer
+   * with a bare `{ error }` body. `name` is a literal so the response encoder
+   * can discriminate union members (400 vs 401 vs 404) by value instead of
+   * falling back to declaration order — the same trick `session.ts` uses.
+   * The `name` field is additive; clients read `error` exactly as before.
+   */
+  const BadRequest = Schema.Struct({
+    name: Schema.Literal("BadRequest"),
+    error: Schema.String,
+  }).annotate({ identifier: "MobileBadRequest", httpApiStatus: 400 })
+  const Unauthorized = Schema.Struct({
+    name: Schema.Literal("Unauthorized"),
+    error: Schema.String,
+  }).annotate({ identifier: "MobileUnauthorized", httpApiStatus: 401 })
+  const NotFound = Schema.Struct({
+    name: Schema.Literal("NotFoundError"),
+    error: Schema.String,
+  }).annotate({ identifier: "MobileNotFound", httpApiStatus: 404 })
+
   const SessionIDPath = Schema.Struct({ sessionID: Schema.String })
   const IDPath = Schema.Struct({ id: Schema.String })
 
   // Domain objects reuse the Effect Schemas the services already own, so the
   // generated clients get real types and there is a single definition per
-  // domain object. Every `/mobile/*` endpoint is served through `handleRaw`
-  // (see `mobile-handlers.ts`), so these are contract-only: they shape the
-  // generated SDK without adding response encoding at runtime.
+  // domain object. Every `/mobile/*` endpoint that answers JSON is an encoded
+  // `.handle` (see `mobile-handlers.ts`); SSE, teleport chunk upload and the
+  // pty upgrade stay raw.
   const SessionInfo = Session.InfoSchema
-  const WorktreeInfo = ManagedWorktree.InfoSchema
+  const WorktreeInfo = Worktree.InfoSchema
   const ProjectInfo = Project.InfoSchema
   const WorkspaceInfo = Workspace.InfoSchema
   const PtyInfo = Pty.InfoSchema
@@ -154,12 +178,12 @@ export namespace MobileHttpApi {
   const MobileSessionCreateInputEffect = fromZod(MobileSessionCreateInput).annotate({
     identifier: "MobileSessionCreateInput",
   })
-  const MobileSessionMessageInputEffect = fromZod(MobileSessionMessageInput).annotate({
+  const MobileSessionMessageInputEffect = fromZod(SessionPending.PromptInput.omit({ sessionID: true })).annotate({
     identifier: "MobileSessionMessageInput",
   })
-  const MobilePermissionRespondInputEffect = fromZod(MobilePermissionRespondInput).annotate({
-    identifier: "MobilePermissionRespondInput",
-  })
+  const MobilePermissionRespondInputEffect = Schema.Struct({
+    response: Schema.Literals(["once", "always", "reject"]),
+  }).annotate({ identifier: "MobilePermissionRespondInput" })
   const MobileLoopWriteInputEffect = fromZod(MobileLoopWriteInput).annotate({
     identifier: "MobileLoopWriteInput",
   })
@@ -396,10 +420,13 @@ export namespace MobileHttpApi {
     )
     .add(
       HttpApiEndpoint.post("authTokenCreate", "/auth/token", {
-        payload: Schema.Struct({
-          name: Schema.optional(Schema.String),
-          expiresInDays: Schema.optional(Schema.Number),
-        }),
+        payload: [
+          HttpApiSchema.NoContent,
+          Schema.Struct({
+            name: Schema.optionalKey(Schema.String),
+            expiresInDays: Schema.optionalKey(Schema.Number),
+          }).annotate({ identifier: "MobileAuthTokenCreateInput" }),
+        ],
         success: Schema.Struct({ token: Schema.String, info: PublicToken }),
       }).annotate(OpenApi.Identifier, "mobile.auth.token.create"),
     )
@@ -452,6 +479,7 @@ export namespace MobileHttpApi {
       HttpApiEndpoint.delete("memoryStashDelete", "/memory/stash/:id", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.memory.stash.delete"),
     )
     // --- github ---
@@ -461,12 +489,14 @@ export namespace MobileHttpApi {
         // row would mean restating a third-party schema, which is exactly the
         // drift the open-payload exception is meant to avoid. Justified.
         success: Schema.Array(Schema.Unknown),
+        error: Unauthorized,
       }).annotate(OpenApi.Identifier, "mobile.github.repos"),
     )
     .add(
       HttpApiEndpoint.get("githubBranches", "/github/repos/:owner/:repo/branches", {
         params: Schema.Struct({ owner: Schema.String, repo: Schema.String }),
         success: Schema.Array(MobileGithubBranchEffect),
+        error: Unauthorized,
       }).annotate(OpenApi.Identifier, "mobile.github.branches"),
     )
     .add(
@@ -483,12 +513,14 @@ export namespace MobileHttpApi {
     .add(
       HttpApiEndpoint.post("githubOauthDeviceStart", "/github/oauth/device", {
         success: MobileGithubDeviceAuthStartEffect,
+        error: BadRequest,
       }).annotate(OpenApi.Identifier, "mobile.github.oauth.device.start"),
     )
     .add(
       HttpApiEndpoint.post("githubOauthDevicePoll", "/github/oauth/device/poll", {
         payload: Schema.Struct({ deviceCode: Schema.String }),
         success: MobileGithubDeviceAuthPollResultEffect,
+        error: BadRequest,
       }).annotate(OpenApi.Identifier, "mobile.github.oauth.device.poll"),
     )
     .add(
@@ -506,12 +538,14 @@ export namespace MobileHttpApi {
       HttpApiEndpoint.post("githubImport", "/github/import", {
         payload: MobileGithubImportRequestEffect,
         success: Schema.Struct({ import: MobileGithubImportEffect, project: ProjectInfo }),
+        error: Unauthorized,
       }).annotate(OpenApi.Identifier, "mobile.github.import"),
     )
     .add(
       HttpApiEndpoint.post("githubSessionCreate", "/github/session", {
         payload: MobileGithubSessionCreateInputEffect,
         success: MobileGithubSessionCreateResultEffect,
+        error: Unauthorized,
       }).annotate(OpenApi.Identifier, "mobile.github.session.create"),
     )
     // --- sessions ---
@@ -564,13 +598,15 @@ export namespace MobileHttpApi {
           identifier: "MobileSessionCommandInput",
         }),
         success: MessageV2.WithPartsSchema,
+        error: BadRequest,
       }).annotate(OpenApi.Identifier, "mobile.session.command"),
     )
     .add(
       HttpApiEndpoint.post("sessionMessage", "/session/:sessionID/message", {
         params: SessionIDPath,
         payload: MobileSessionMessageInputEffect,
-        success: Schema.Struct({ accepted: Schema.Literal(true) }),
+        success: Accepted,
+        error: BadRequest,
       }).annotate(OpenApi.Identifier, "mobile.session.message"),
     )
     .add(
@@ -615,12 +651,14 @@ export namespace MobileHttpApi {
         params: SessionIDPath,
         payload: MobileGithubPublishInputEffect,
         success: MobileGithubPublishResultEffect,
+        error: [Unauthorized, BadRequest],
       }).annotate(OpenApi.Identifier, "mobile.github.session.publish"),
     )
     .add(
       HttpApiEndpoint.post("sessionCleanup", "/session/:sessionID/cleanup", {
         params: SessionIDPath,
         success: Success,
+        error: BadRequest,
       }).annotate(OpenApi.Identifier, "mobile.github.session.cleanup"),
     )
     .add(
@@ -637,6 +675,7 @@ export namespace MobileHttpApi {
         params: SessionIDPath,
         payload: Schema.Struct({ title: Schema.String }),
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.session.rename"),
     )
     .add(
@@ -661,6 +700,7 @@ export namespace MobileHttpApi {
       HttpApiEndpoint.post("teleportIn", "/teleport", {
         payload: MobileTeleportInputEffect,
         success: TeleportResult,
+        error: BadRequest,
       }).annotate(OpenApi.Identifier, "mobile.session.teleport"),
     )
     .add(
@@ -668,12 +708,13 @@ export namespace MobileHttpApi {
         params: SessionIDPath,
         payload: MobileTeleportOutInputEffect,
         success: TeleportResult,
+        error: [BadRequest, NotFound],
       }).annotate(OpenApi.Identifier, "mobile.session.teleport.out"),
     )
     // --- worktree ---
     .add(
       HttpApiEndpoint.post("worktreeCreate", "/worktree", {
-        payload: MobileWorktreeCreateInputEffect,
+        payload: [HttpApiSchema.NoContent, MobileWorktreeCreateInputEffect],
         success: WorktreeInfo,
       }).annotate(OpenApi.Identifier, "mobile.worktree.create"),
     )
@@ -726,6 +767,7 @@ export namespace MobileHttpApi {
           stagedOnly: Schema.optional(Schema.Boolean),
         }),
         success: Schema.Struct({ sha: Schema.String, message: Schema.String }),
+        error: BadRequest,
       }).annotate(OpenApi.Identifier, "mobile.git.commit"),
     )
     .add(
@@ -786,6 +828,7 @@ export namespace MobileHttpApi {
       HttpApiEndpoint.post("loopCreate", "/loops", {
         payload: MobileLoopWriteInputEffect,
         success: LoopDefinition,
+        error: BadRequest,
       }).annotate(OpenApi.Identifier, "mobile.loop.create"),
     )
     .add(
@@ -811,12 +854,14 @@ export namespace MobileHttpApi {
       HttpApiEndpoint.get("loopGet", "/loops/:id", {
         params: IDPath,
         success: Schema.Struct({ loop: LoopDefinition, runtime: LoopRuntime }),
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.loop.get"),
     )
     .add(
       HttpApiEndpoint.delete("loopDelete", "/loops/:id", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.loop.delete"),
     )
     .add(
@@ -824,6 +869,7 @@ export namespace MobileHttpApi {
         params: IDPath,
         payload: MobileLoopWriteInputEffect,
         success: LoopDefinition,
+        error: [BadRequest, NotFound],
       }).annotate(OpenApi.Identifier, "mobile.loop.update"),
     )
     .add(
@@ -833,18 +879,21 @@ export namespace MobileHttpApi {
           limit: Schema.optional(Schema.NumberFromString),
         }),
         success: Schema.Struct({ runs: Schema.Array(MobileLoopRunEffect) }),
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.loop.runs"),
     )
     .add(
       HttpApiEndpoint.post("loopRun", "/loops/:id/run", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.loop.run"),
     )
     .add(
       HttpApiEndpoint.post("loopAbort", "/loops/:id/abort", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.loop.abort"),
     )
     .add(
@@ -852,18 +901,21 @@ export namespace MobileHttpApi {
         params: IDPath,
         payload: Schema.Struct({ enabled: Schema.Boolean }),
         success: LoopDefinition,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.loop.toggle"),
     )
     .add(
       HttpApiEndpoint.post("loopPause", "/loops/:id/pause", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.loop.pause"),
     )
     .add(
       HttpApiEndpoint.post("loopResume", "/loops/:id/resume", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.loop.resume"),
     )
     // --- routines ---
@@ -882,12 +934,14 @@ export namespace MobileHttpApi {
       HttpApiEndpoint.get("routineGet", "/routines/:id", {
         params: IDPath,
         success: MobileRoutineEffect,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.routine.get"),
     )
     .add(
       HttpApiEndpoint.delete("routineDelete", "/routines/:id", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.routine.delete"),
     )
     .add(
@@ -895,32 +949,37 @@ export namespace MobileHttpApi {
         params: IDPath,
         payload: MobileRoutineUpdateInputEffect,
         success: MobileRoutineEffect,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.routine.update"),
     )
     .add(
       HttpApiEndpoint.post("routineRun", "/routines/:id/run", {
         params: IDPath,
-        payload: MobileRoutineRunInputEffect,
+        payload: [HttpApiSchema.NoContent, MobileRoutineRunInputEffect],
         success: SessionInfo,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.routine.run"),
     )
     .add(
       HttpApiEndpoint.post("routinePause", "/routines/:id/pause", {
         params: IDPath,
         success: MobileRoutineEffect,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.routine.pause"),
     )
     .add(
       HttpApiEndpoint.post("routineResume", "/routines/:id/resume", {
         params: IDPath,
         success: MobileRoutineEffect,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.routine.resume"),
     )
     .add(
       HttpApiEndpoint.post("routineTrigger", "/routines/trigger/:token", {
         params: Schema.Struct({ token: Schema.String }),
-        payload: MobileRoutineTriggerInputEffect,
+        payload: [HttpApiSchema.NoContent, MobileRoutineTriggerInputEffect],
         success: SessionInfo,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.routine.trigger"),
     )
     // --- pty ---
@@ -982,6 +1041,7 @@ export namespace MobileHttpApi {
       HttpApiEndpoint.post("missionCreate", "/missions", {
         payload: MobileMissionWriteInputEffect,
         success: MobileMissionDefinitionEffect,
+        error: BadRequest,
       }).annotate(OpenApi.Identifier, "mobile.mission.create"),
     )
     .add(
@@ -993,6 +1053,7 @@ export namespace MobileHttpApi {
       HttpApiEndpoint.post("missionGenerate", "/missions/generate", {
         payload: MobileMissionGenerateInputEffect,
         success: MobileMissionDefinitionEffect,
+        error: BadRequest,
       }).annotate(OpenApi.Identifier, "mobile.mission.generate"),
     )
     .add(
@@ -1007,6 +1068,7 @@ export namespace MobileHttpApi {
       HttpApiEndpoint.get("missionGet", "/missions/:id", {
         params: IDPath,
         success: Schema.Struct({ mission: MobileMissionDefinitionEffect, runtime: MobileMissionRuntime }),
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.mission.get"),
     )
     .add(
@@ -1014,12 +1076,14 @@ export namespace MobileHttpApi {
         params: IDPath,
         payload: MobileMissionUpdateInputEffect,
         success: MobileMissionDefinitionEffect,
+        error: [NotFound, BadRequest],
       }).annotate(OpenApi.Identifier, "mobile.mission.update"),
     )
     .add(
       HttpApiEndpoint.delete("missionDelete", "/missions/:id", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.mission.delete"),
     )
     .add(
@@ -1029,24 +1093,28 @@ export namespace MobileHttpApi {
           limit: Schema.optional(Schema.NumberFromString),
         }),
         success: Schema.Struct({ execs: Schema.Array(MobileMissionExecEffect) }),
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.mission.execs"),
     )
     .add(
       HttpApiEndpoint.post("missionStart", "/missions/:id/start", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.mission.start"),
     )
     .add(
       HttpApiEndpoint.post("missionPause", "/missions/:id/pause", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.mission.pause"),
     )
     .add(
       HttpApiEndpoint.post("missionCancel", "/missions/:id/cancel", {
         params: IDPath,
         success: Success,
+        error: NotFound,
       }).annotate(OpenApi.Identifier, "mobile.mission.cancel"),
     )
     .add(
@@ -1054,6 +1122,7 @@ export namespace MobileHttpApi {
         params: Schema.Struct({ id: Schema.String, featureID: Schema.String }),
         payload: MobileMissionFeatureMutateInputEffect,
         success: MobileMissionDefinitionEffect,
+        error: [NotFound, BadRequest],
       }).annotate(OpenApi.Identifier, "mobile.mission.feature.mutate"),
     )
     // --- live host events ---

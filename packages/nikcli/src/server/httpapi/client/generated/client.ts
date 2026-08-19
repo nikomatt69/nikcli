@@ -696,8 +696,8 @@ const Endpoint16_0 = (raw: RawClient["mobile"]) => () => raw["authTokenList"]({}
 
 type Endpoint16_1Request = Parameters<RawClient["mobile"]["authTokenCreate"]>[0]
 type Endpoint16_1Input = {
-  readonly name?: Endpoint16_1Request["payload"]["name"]
-  readonly expiresInDays?: Endpoint16_1Request["payload"]["expiresInDays"]
+  readonly name?: Extract<Endpoint16_1Request["payload"], object>["name"]
+  readonly expiresInDays?: Extract<Endpoint16_1Request["payload"], object>["expiresInDays"]
 }
 const Endpoint16_1 = (raw: RawClient["mobile"]) => (input?: Endpoint16_1Input) =>
   raw["authTokenCreate"]({ payload: { name: input?.["name"], expiresInDays: input?.["expiresInDays"] } }).pipe(
@@ -895,6 +895,7 @@ type Endpoint16_28Request = Parameters<RawClient["mobile"]["sessionMessage"]>[0]
 type Endpoint16_28Input = {
   readonly sessionID: Endpoint16_28Request["params"]["sessionID"]
   readonly messageID?: Endpoint16_28Request["payload"]["messageID"]
+  readonly delivery?: Endpoint16_28Request["payload"]["delivery"]
   readonly model?: Endpoint16_28Request["payload"]["model"]
   readonly agent?: Endpoint16_28Request["payload"]["agent"]
   readonly noReply?: Endpoint16_28Request["payload"]["noReply"]
@@ -903,12 +904,14 @@ type Endpoint16_28Input = {
   readonly system?: Endpoint16_28Request["payload"]["system"]
   readonly variant?: Endpoint16_28Request["payload"]["variant"]
   readonly parts: Endpoint16_28Request["payload"]["parts"]
+  readonly parentSessionID?: Endpoint16_28Request["payload"]["parentSessionID"]
 }
 const Endpoint16_28 = (raw: RawClient["mobile"]) => (input: Endpoint16_28Input) =>
   raw["sessionMessage"]({
     params: { sessionID: input["sessionID"] },
     payload: {
       messageID: input["messageID"],
+      delivery: input["delivery"],
       model: input["model"],
       agent: input["agent"],
       noReply: input["noReply"],
@@ -917,6 +920,7 @@ const Endpoint16_28 = (raw: RawClient["mobile"]) => (input: Endpoint16_28Input) 
       system: input["system"],
       variant: input["variant"],
       parts: input["parts"],
+      parentSessionID: input["parentSessionID"],
     },
   }).pipe(Effect.mapError(mapClientError))
 
@@ -1047,15 +1051,15 @@ const Endpoint16_41 = (raw: RawClient["mobile"]) => (input: Endpoint16_41Input) 
 
 type Endpoint16_42Request = Parameters<RawClient["mobile"]["worktreeCreate"]>[0]
 type Endpoint16_42Input = {
-  readonly name?: Endpoint16_42Request["payload"]["name"]
-  readonly branch?: Endpoint16_42Request["payload"]["branch"]
-  readonly branchPrefix?: Endpoint16_42Request["payload"]["branchPrefix"]
-  readonly baseBranch?: Endpoint16_42Request["payload"]["baseBranch"]
-  readonly remote?: Endpoint16_42Request["payload"]["remote"]
-  readonly startCommand?: Endpoint16_42Request["payload"]["startCommand"]
-  readonly detached?: Endpoint16_42Request["payload"]["detached"]
-  readonly sourceDirectory?: Endpoint16_42Request["payload"]["sourceDirectory"]
-  readonly root?: Endpoint16_42Request["payload"]["root"]
+  readonly name?: Extract<Endpoint16_42Request["payload"], object>["name"]
+  readonly branch?: Extract<Endpoint16_42Request["payload"], object>["branch"]
+  readonly branchPrefix?: Extract<Endpoint16_42Request["payload"], object>["branchPrefix"]
+  readonly baseBranch?: Extract<Endpoint16_42Request["payload"], object>["baseBranch"]
+  readonly remote?: Extract<Endpoint16_42Request["payload"], object>["remote"]
+  readonly startCommand?: Extract<Endpoint16_42Request["payload"], object>["startCommand"]
+  readonly detached?: Extract<Endpoint16_42Request["payload"], object>["detached"]
+  readonly sourceDirectory?: Extract<Endpoint16_42Request["payload"], object>["sourceDirectory"]
+  readonly root?: Extract<Endpoint16_42Request["payload"], object>["root"]
 }
 const Endpoint16_42 = (raw: RawClient["mobile"]) => (input?: Endpoint16_42Input) =>
   raw["worktreeCreate"]({
@@ -1337,7 +1341,7 @@ const Endpoint16_74 = (raw: RawClient["mobile"]) => (input: Endpoint16_74Input) 
 type Endpoint16_75Request = Parameters<RawClient["mobile"]["routineRun"]>[0]
 type Endpoint16_75Input = {
   readonly id: Endpoint16_75Request["params"]["id"]
-  readonly text?: Endpoint16_75Request["payload"]["text"]
+  readonly text?: Extract<Endpoint16_75Request["payload"], object>["text"]
 }
 const Endpoint16_75 = (raw: RawClient["mobile"]) => (input: Endpoint16_75Input) =>
   raw["routineRun"]({ params: { id: input["id"] }, payload: { text: input["text"] } }).pipe(
@@ -1357,7 +1361,7 @@ const Endpoint16_77 = (raw: RawClient["mobile"]) => (input: Endpoint16_77Input) 
 type Endpoint16_78Request = Parameters<RawClient["mobile"]["routineTrigger"]>[0]
 type Endpoint16_78Input = {
   readonly token: Endpoint16_78Request["params"]["token"]
-  readonly text?: Endpoint16_78Request["payload"]["text"]
+  readonly text?: Extract<Endpoint16_78Request["payload"], object>["text"]
 }
 const Endpoint16_78 = (raw: RawClient["mobile"]) => (input: Endpoint16_78Input) =>
   raw["routineTrigger"]({ params: { token: input["token"] }, payload: { text: input["text"] } }).pipe(
