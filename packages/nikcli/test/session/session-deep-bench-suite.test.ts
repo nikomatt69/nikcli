@@ -72,8 +72,8 @@ function createApiError(
     message,
     isRetryable,
     statusCode: 429,
-    responseBody,
-    responseHeaders,
+    ...(responseBody !== undefined && { responseBody }),
+    ...(responseHeaders !== undefined && { responseHeaders }),
   })
 }
 

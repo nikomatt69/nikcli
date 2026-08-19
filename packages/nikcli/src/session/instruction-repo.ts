@@ -115,7 +115,7 @@ export namespace InstructionRepo {
     },
   ): State {
     const current = get(input.sessionID, tx)
-    const values = { ...(current?.data.values ?? {}) }
+    const values = { ...current?.data.values }
     const order = current?.data.order ? [...current.data.order] : []
 
     for (const [key, value] of Object.entries(input.delta)) {

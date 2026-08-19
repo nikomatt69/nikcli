@@ -460,6 +460,16 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
         case "message.updated": {
           const messages = store.message[event.properties.info.sessionID]
+          // A new user turn retires the instruction notices pinned under the
+          // transcript. They announce a change the server folds into the
+          // prompt prefix once it has been delivered, so past the turn that
+          // carried it the chrome is stale and would otherwise never clear.
+          if (
+            event.properties.info.role === "user" &&
+            !messages?.some((message) => message.id === event.properties.info.id)
+          ) {
+            setStore("session_instructions", event.properties.info.sessionID, [])
+          }
           if (!messages) {
             setStore("message", event.properties.info.sessionID, [event.properties.info])
             break

@@ -154,8 +154,9 @@ export namespace SessionHttpApi {
    * `Delegation.JobItem` and the monitor records. Declared here so the
    * generated clients carry real types; these endpoints encode their
    * responses through the Effect handlers, so the shapes must match what the
-   * services return after `jsonSafe` drops `undefined` properties. (These four
-   * still go through `jsonSafe`; only `Session.Info` left it.)
+   * services return. All four are `optionalKey` and their producers omit the
+   * key rather than assign a present `undefined`, so these handlers return the
+   * service object directly (E4, second and third service-side slices).
    */
   const ContextSource = Schema.Struct({
     id: Schema.String,
@@ -302,14 +303,16 @@ export namespace SessionHttpApi {
   // `Schema.optional` puts an absent key on the wire instead of `null`.
   // Returning `T` keeps handler signatures inferable for HttpApi.
   //
-  // `Session.InfoSchema` no longer needs it: its members are
-  // `Schema.optionalKey` and its producers omit rather than assign (E4, first
-  // service-side slice), so the ten handlers returning `Session.Info` return
-  // the service object directly. The remaining callers return `MessageV2.Info`
-  // and the SessionV2 entry/state shapes, whose schemas are still
-  // `Schema.optional` — that is the next slice. Do not delete the helper
-  // before those flip: `httpapi-session.test.ts` and `httpapi-config.test.ts`
-  // pin what happens if you do.
+  // `Session.InfoSchema` and the `MessageV2` message and part schemas no longer
+  // need it: their members are `Schema.optionalKey` and their producers omit
+  // rather than assign, so those handlers return the service object directly.
+  //
+  // The three callers left — `v2Entries`, `v2State`, `v2Events` — keep it for a
+  // reason no producer fix reaches: their payloads are `Schema.Unknown`, which
+  // is `Schema.Json` at the JSON boundary and rejects a present `undefined`
+  // whatever the entry carries. They keep the round-trip until entries stop
+  // carrying `undefined`, which is a separate item. Do not delete the helper:
+  // `httpapi-session.test.ts` and `httpapi-config.test.ts` pin what happens.
   const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
 
   const InstructionList = Schema.Array(Schema.Struct({ path: Schema.String, name: Schema.String })).annotate({
@@ -762,7 +765,7 @@ export namespace SessionHttpApi {
           ...payload,
           sessionID: params.sessionID,
         } as SessionPrompt.CommandInput)
-        return jsonSafe(msg)
+        return msg
       }).pipe(declaredErrors),
     shell: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof ShellPayload.Type }) =>
       Effect.gen(function* () {
@@ -771,7 +774,7 @@ export namespace SessionHttpApi {
           ...payload,
           sessionID: params.sessionID,
         } as SessionPrompt.ShellInput)
-        return jsonSafe(msg)
+        return msg
       }).pipe(declaredErrors),
     permissionRespond: ({
       params,
@@ -850,7 +853,7 @@ export namespace SessionHttpApi {
           sessionID: params.sessionID,
           limit: query.limit,
         })
-        return jsonSafe(msgs)
+        return msgs
       }).pipe(declaredErrors),
     pending: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -868,7 +871,7 @@ export namespace SessionHttpApi {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
         const msg = yield* Effect.promise(() => MessageV2.get(params))
-        return jsonSafe(msg)
+        return msg
       }).pipe(declaredErrors),
     messageRemove: ({ params }: { params: typeof MessagePath.Type }) =>
       Effect.gen(function* () {

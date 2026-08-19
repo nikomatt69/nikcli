@@ -4,7 +4,14 @@ import { SessionRetry } from "@/session/retry"
 import { recordBenchmark } from "../benchmarks/runner"
 
 function apiError(message: string, responseHeaders?: Record<string, string>) {
-  return new MessageV2.APIError({ message, isRetryable: true, statusCode: 429, responseHeaders })
+  // `responseHeaders` is `Schema.optionalKey`, which rejects a present
+  // `undefined` at construction — omit the key instead of passing it through.
+  return new MessageV2.APIError({
+    message,
+    isRetryable: true,
+    statusCode: 429,
+    ...(responseHeaders !== undefined && { responseHeaders }),
+  })
 }
 
 describe("SessionRetry benchmark", () => {

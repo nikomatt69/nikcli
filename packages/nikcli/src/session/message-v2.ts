@@ -1,4 +1,5 @@
 import { BusEvent } from "@/bus/bus-event"
+import { spreadIf } from "@/util/optional-key"
 import { zod, zodObject, zodObjectMode, zodOverride, type DeepMutable } from "@nikcli-ai/util/effect-zod"
 import z from "zod"
 import { EventError } from "./event-error"
@@ -56,8 +57,8 @@ export namespace MessageV2 {
     name: Schema.Literal("MessageContextOverflowError"),
     data: Schema.Struct({
       message: Schema.String,
-      statusCode: Schema.optional(Schema.Number),
-      responseBody: Schema.optional(Schema.String),
+      statusCode: Schema.optionalKey(Schema.Number),
+      responseBody: Schema.optionalKey(Schema.String),
     }).annotate(strip),
   }).annotate({ ...strip, identifier: "MessageContextOverflowError" })
   const AbortedErrorBody = Schema.Struct({
@@ -75,12 +76,12 @@ export namespace MessageV2 {
     name: Schema.Literal("APIError"),
     data: Schema.Struct({
       message: Schema.String,
-      statusCode: Schema.optional(Schema.Number),
+      statusCode: Schema.optionalKey(Schema.Number),
       isRetryable: Schema.Boolean,
-      responseHeaders: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-      responseBody: Schema.optional(Schema.String),
-      metadata: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-      classification: Schema.optional(Schema.Literal("payload-too-large")),
+      responseHeaders: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+      responseBody: Schema.optionalKey(Schema.String),
+      metadata: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+      classification: Schema.optionalKey(Schema.Literal("payload-too-large")),
     }).annotate(strip),
   }).annotate({ ...strip, identifier: "APIError" })
 
@@ -89,8 +90,8 @@ export namespace MessageV2 {
     "MessageContextOverflowError",
     {
       message: Schema.String,
-      statusCode: Schema.optional(Schema.Number),
-      responseBody: Schema.optional(Schema.String),
+      statusCode: Schema.optionalKey(Schema.Number),
+      responseBody: Schema.optionalKey(Schema.String),
     },
   ) {}
   export class AbortedError extends Schema.TaggedErrorClass<AbortedError>()("MessageAbortedError", {
@@ -121,12 +122,12 @@ export namespace MessageV2 {
   }
   export class APIError extends Schema.TaggedErrorClass<APIError>()("APIError", {
     message: Schema.String,
-    statusCode: Schema.optional(Schema.Number),
+    statusCode: Schema.optionalKey(Schema.Number),
     isRetryable: Schema.Boolean,
-    responseHeaders: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-    responseBody: Schema.optional(Schema.String),
-    metadata: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-    classification: Schema.optional(Schema.Literal("payload-too-large")),
+    responseHeaders: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+    responseBody: Schema.optionalKey(Schema.String),
+    metadata: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+    classification: Schema.optionalKey(Schema.Literal("payload-too-large")),
   }) {
     static readonly Schema = zodObject(APIErrorBody)
     static isInstance(error: unknown): error is z.infer<typeof APIError.Schema> {
@@ -203,15 +204,15 @@ export namespace MessageV2 {
     ...PartBaseFields,
     type: Schema.Literal("text"),
     text: Schema.String,
-    synthetic: Schema.optional(Schema.Boolean),
-    ignored: Schema.optional(Schema.Boolean),
-    time: Schema.optional(
+    synthetic: Schema.optionalKey(Schema.Boolean),
+    ignored: Schema.optionalKey(Schema.Boolean),
+    time: Schema.optionalKey(
       Schema.Struct({
         start: Schema.Number,
-        end: Schema.optional(Schema.Number),
+        end: Schema.optionalKey(Schema.Number),
       }).annotate(strip),
     ),
-    metadata: Schema.optional(Schema.Record(Schema.String, Schema.Any)),
+    metadata: Schema.optionalKey(Schema.Record(Schema.String, Schema.Any)),
   }).annotate({ ...strip, identifier: "TextPart" })
   export const TextPart = zodObject(TextPartSchema)
   export type TextPart = DeepMutable<Schema.Schema.Type<typeof TextPartSchema>>
@@ -220,10 +221,10 @@ export namespace MessageV2 {
     ...PartBaseFields,
     type: Schema.Literal("reasoning"),
     text: Schema.String,
-    metadata: Schema.optional(Schema.Record(Schema.String, Schema.Any)),
+    metadata: Schema.optionalKey(Schema.Record(Schema.String, Schema.Any)),
     time: Schema.Struct({
       start: Schema.Number,
-      end: Schema.optional(Schema.Number),
+      end: Schema.optionalKey(Schema.Number),
     }).annotate(strip),
   }).annotate({ ...strip, identifier: "ReasoningPart" })
   export const ReasoningPart = zodObject(ReasoningPartSchema)
@@ -276,9 +277,9 @@ export namespace MessageV2 {
     ...PartBaseFields,
     type: Schema.Literal("file"),
     mime: Schema.String,
-    filename: Schema.optional(Schema.String),
+    filename: Schema.optionalKey(Schema.String),
     url: Schema.String,
-    source: Schema.optional(FilePartSourceSchema),
+    source: Schema.optionalKey(FilePartSourceSchema),
   }).annotate({ ...strip, identifier: "FilePart" })
   export const FilePart = zodObject(FilePartSchema)
   export type FilePart = DeepMutable<Schema.Schema.Type<typeof FilePartSchema>>
@@ -287,7 +288,7 @@ export namespace MessageV2 {
     ...PartBaseFields,
     type: Schema.Literal("agent"),
     name: Schema.String,
-    source: Schema.optional(
+    source: Schema.optionalKey(
       Schema.Struct({
         value: Schema.String,
         start: Schema.Number.check(Schema.isInt()),
@@ -312,14 +313,14 @@ export namespace MessageV2 {
     prompt: Schema.String,
     description: Schema.String,
     agent: Schema.String,
-    model: Schema.optional(
+    model: Schema.optionalKey(
       Schema.Struct({
         providerID: Schema.String,
         modelID: Schema.String,
       }).annotate(strip),
     ),
-    command: Schema.optional(Schema.String),
-    background: Schema.optional(Schema.Boolean),
+    command: Schema.optionalKey(Schema.String),
+    background: Schema.optionalKey(Schema.Boolean),
   }).annotate({ ...strip, identifier: "SubtaskPart" })
   export const SubtaskPart = zodObject(SubtaskPartSchema)
   export type SubtaskPart = DeepMutable<Schema.Schema.Type<typeof SubtaskPartSchema>>
@@ -339,7 +340,7 @@ export namespace MessageV2 {
   export const StepStartPartSchema = Schema.Struct({
     ...PartBaseFields,
     type: Schema.Literal("step-start"),
-    snapshot: Schema.optional(Schema.String),
+    snapshot: Schema.optionalKey(Schema.String),
   }).annotate({ ...strip, identifier: "StepStartPart" })
   export const StepStartPart = zodObject(StepStartPartSchema)
   export type StepStartPart = DeepMutable<Schema.Schema.Type<typeof StepStartPartSchema>>
@@ -348,10 +349,10 @@ export namespace MessageV2 {
     ...PartBaseFields,
     type: Schema.Literal("step-finish"),
     reason: Schema.String,
-    snapshot: Schema.optional(Schema.String),
+    snapshot: Schema.optionalKey(Schema.String),
     cost: Schema.Number,
     tokens: Schema.Struct({
-      total: Schema.optional(Schema.Number),
+      total: Schema.optionalKey(Schema.Number),
       input: Schema.Number,
       output: Schema.Number,
       reasoning: Schema.Number,
@@ -381,7 +382,7 @@ export namespace MessageV2 {
       type: Schema.Literal("file"),
       data: Schema.String,
       mime: Schema.String,
-      name: Schema.optional(Schema.String),
+      name: Schema.optionalKey(Schema.String),
     }).annotate(strip),
   ]).annotate({ discriminator: "type" })
   export const ToolProgressContent = zod(ToolProgressContentSchema)
@@ -390,10 +391,10 @@ export namespace MessageV2 {
   export const ToolStateRunningSchema = Schema.Struct({
     status: Schema.Literal("running"),
     input: Schema.Record(Schema.String, Schema.Any),
-    title: Schema.optional(Schema.String),
-    metadata: Schema.optional(Schema.Record(Schema.String, Schema.Any)),
-    structured: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-    content: Schema.optional(Schema.Array(ToolProgressContentSchema)),
+    title: Schema.optionalKey(Schema.String),
+    metadata: Schema.optionalKey(Schema.Record(Schema.String, Schema.Any)),
+    structured: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
+    content: Schema.optionalKey(Schema.Array(ToolProgressContentSchema)),
     time: Schema.Struct({
       start: Schema.Number,
     }).annotate(strip),
@@ -410,9 +411,9 @@ export namespace MessageV2 {
     time: Schema.Struct({
       start: Schema.Number,
       end: Schema.Number,
-      compacted: Schema.optional(Schema.Number),
+      compacted: Schema.optionalKey(Schema.Number),
     }).annotate(strip),
-    attachments: Schema.optional(Schema.Array(FilePartSchema)),
+    attachments: Schema.optionalKey(Schema.Array(FilePartSchema)),
   }).annotate({ ...strip, identifier: "ToolStateCompleted" })
   export const ToolStateCompleted = zodObject(ToolStateCompletedSchema)
   export type ToolStateCompleted = DeepMutable<Schema.Schema.Type<typeof ToolStateCompletedSchema>>
@@ -421,7 +422,7 @@ export namespace MessageV2 {
     status: Schema.Literal("error"),
     input: Schema.Record(Schema.String, Schema.Any),
     error: Schema.String,
-    metadata: Schema.optional(Schema.Record(Schema.String, Schema.Any)),
+    metadata: Schema.optionalKey(Schema.Record(Schema.String, Schema.Any)),
     time: Schema.Struct({
       start: Schema.Number,
       end: Schema.Number,
@@ -444,7 +445,7 @@ export namespace MessageV2 {
     callID: Schema.String,
     tool: Schema.String,
     state: ToolStateSchema,
-    metadata: Schema.optional(Schema.Record(Schema.String, Schema.Any)),
+    metadata: Schema.optionalKey(Schema.Record(Schema.String, Schema.Any)),
   }).annotate({ ...strip, identifier: "ToolPart" })
   export const ToolPart = zodObject(ToolPartSchema)
   export type ToolPart = DeepMutable<Schema.Schema.Type<typeof ToolPartSchema>>
@@ -460,11 +461,11 @@ export namespace MessageV2 {
     time: Schema.Struct({
       created: Schema.Number,
     }).annotate(strip),
-    format: Schema.optional(FormatSchema),
-    summary: Schema.optional(
+    format: Schema.optionalKey(FormatSchema),
+    summary: Schema.optionalKey(
       Schema.Struct({
-        title: Schema.optional(Schema.String),
-        body: Schema.optional(Schema.String),
+        title: Schema.optionalKey(Schema.String),
+        body: Schema.optionalKey(Schema.String),
         diffs: Schema.Array(Snapshot.FileDiffSchema),
       }).annotate(strip),
     ),
@@ -473,9 +474,9 @@ export namespace MessageV2 {
       providerID: Schema.String,
       modelID: Schema.String,
     }).annotate(strip),
-    system: Schema.optional(Schema.String),
-    tools: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
-    variant: Schema.optional(Schema.String),
+    system: Schema.optionalKey(Schema.String),
+    tools: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
+    variant: Schema.optionalKey(Schema.String),
   }).annotate({ ...strip, identifier: "UserMessage" })
   export const User = zodObject(UserSchema)
   export type User = DeepMutable<Schema.Schema.Type<typeof UserSchema>>
@@ -515,9 +516,9 @@ export namespace MessageV2 {
     role: Schema.Literal("assistant"),
     time: Schema.Struct({
       created: Schema.Number,
-      completed: Schema.optional(Schema.Number),
+      completed: Schema.optionalKey(Schema.Number),
     }).annotate(strip),
-    error: Schema.optional(AssistantErrorSchema),
+    error: Schema.optionalKey(AssistantErrorSchema),
     parentID: Schema.String,
     modelID: Schema.String,
     providerID: Schema.String,
@@ -530,10 +531,10 @@ export namespace MessageV2 {
       cwd: Schema.String,
       root: Schema.String,
     }).annotate(strip),
-    summary: Schema.optional(Schema.Boolean),
+    summary: Schema.optionalKey(Schema.Boolean),
     cost: Schema.Number,
     tokens: Schema.Struct({
-      total: Schema.optional(Schema.Number),
+      total: Schema.optionalKey(Schema.Number),
       input: Schema.Number,
       output: Schema.Number,
       reasoning: Schema.Number,
@@ -542,8 +543,8 @@ export namespace MessageV2 {
         write: Schema.Number,
       }).annotate(strip),
     }).annotate(strip),
-    structured: Schema.optional(Schema.Any),
-    finish: Schema.optional(Schema.String),
+    structured: Schema.optionalKey(Schema.Any),
+    finish: Schema.optionalKey(Schema.String),
   }).annotate({ ...strip, identifier: "AssistantMessage" })
   export const Assistant = zodObject(AssistantSchema)
   export type Assistant = DeepMutable<Schema.Schema.Type<typeof AssistantSchema>>
@@ -573,7 +574,7 @@ export namespace MessageV2 {
       "message.part.updated",
       Schema.Struct({
         part: PartSchema,
-        delta: Schema.optional(Schema.String),
+        delta: Schema.optionalKey(Schema.String),
       }),
     ),
     PartRemoved: BusEvent.schema(
@@ -1146,21 +1147,26 @@ export namespace MessageV2 {
             name: "MessageContextOverflowError" as const,
             data: {
               message: parsed.message,
-              statusCode: parsed.statusCode,
-              responseBody: parsed.responseBody,
+              ...spreadIf("statusCode", parsed.statusCode),
+              ...spreadIf("responseBody", parsed.responseBody),
             },
           }
         }
+        // Every optional member here is `optionalKey`, and an API error is not
+        // a place to be sloppy: `statusCode`, `responseHeaders`, `responseBody`
+        // and `url` are all routinely absent depending on how the provider
+        // failed, and a present `undefined` would fail the encode of the very
+        // message that reports the failure.
         return {
           name: "APIError" as const,
           data: {
             message,
-            statusCode: e.statusCode,
+            ...spreadIf("statusCode", e.statusCode),
             isRetryable: ctx.providerID.startsWith("openai") ? isOpenAiErrorRetryable(e) : e.isRetryable,
-            responseHeaders: e.responseHeaders,
-            responseBody: e.responseBody,
-            metadata,
-            classification: parsed.type === "payload_too_large" ? ("payload-too-large" as const) : undefined,
+            ...spreadIf("responseHeaders", e.responseHeaders),
+            ...spreadIf("responseBody", e.responseBody),
+            ...spreadIf("metadata", metadata),
+            ...(parsed.type === "payload_too_large" && { classification: "payload-too-large" as const }),
           },
         }
       }

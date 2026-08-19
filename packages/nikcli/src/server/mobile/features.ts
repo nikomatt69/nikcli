@@ -150,18 +150,18 @@ export async function handleFeaturesRequest(request: Request): Promise<Response 
     if (isResponse(input)) return input
     const config = await configGet()
     const models = {
-      ...(config.provider?.openrouter?.models ?? {}),
+      ...config.provider?.openrouter?.models,
     }
     const current = (models[FUSION_MODEL_ID] ?? {}) as { variants?: Record<string, { disabled?: boolean }> }
-    const variants = { ...(current.variants ?? {}) }
+    const variants = { ...current.variants }
     const base = variants[input.name] ?? FUSION_BUILTIN_VARIANTS[input.name] ?? {}
     variants[input.name] = { ...base, disabled: input.enabled ? undefined : true }
     models[FUSION_MODEL_ID] = { ...current, variants }
     await configUpdate({
       provider: {
-        ...(config.provider ?? {}),
+        ...config.provider,
         openrouter: {
-          ...(config.provider?.openrouter ?? {}),
+          ...config.provider?.openrouter,
           models,
         },
       },

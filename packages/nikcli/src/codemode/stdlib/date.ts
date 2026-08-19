@@ -21,72 +21,91 @@ export const dateMethods = new Set([
   "getUTCSeconds",
   "getUTCMilliseconds",
   "getTimezoneOffset",
-])
+]);
 
-export const invokeDateStatic = (name: string, args: Array<unknown>, node: AstNode): number => {
+export const invokeDateStatic = (
+  name: string,
+  args: Array<unknown>,
+  node: AstNode,
+): number => {
   switch (name) {
     case "now":
-      return Date.now()
+      return Date.now();
     case "parse":
-      return Date.parse(coerceToString(args[0]))
+      return Date.parse(coerceToString(args[0]));
     case "UTC":
-      return Date.UTC(...(args.map((arg) => coerceToNumber(arg)) as Parameters<typeof Date.UTC>))
+      return Date.UTC(
+        ...(args.map((arg) => coerceToNumber(arg)) as Parameters<
+          typeof Date.UTC
+        >),
+      );
     default:
-      throw new InterpreterRuntimeError(`Date.${name} is not available in CodeMode.`, node)
+      throw new InterpreterRuntimeError(
+        `Date.${name} is not available in CodeMode.`,
+        node,
+      );
   }
-}
+};
 
-export const invokeDateMethod = (value: CodeModeDate, name: string, node: AstNode): unknown => {
-  const hosted = new Date(value.time)
+export const invokeDateMethod = (
+  value: CodeModeDate,
+  name: string,
+  node: AstNode,
+): number | string | null => {
+  const hosted = new Date(value.time);
   switch (name) {
     case "getTime":
     case "valueOf":
-      return value.time
+      return value.time;
     case "toISOString":
-      if (!Number.isFinite(value.time)) throw new InterpreterRuntimeError("Invalid time value.", node)
-      return hosted.toISOString()
+      if (!Number.isFinite(value.time))
+        throw new InterpreterRuntimeError("Invalid time value.", node);
+      return hosted.toISOString();
     case "toJSON":
-      return Number.isFinite(value.time) ? hosted.toISOString() : null
+      return Number.isFinite(value.time) ? hosted.toISOString() : null;
     case "toString":
-      return coerceToString(value)
+      return coerceToString(value);
     case "getFullYear":
-      return hosted.getFullYear()
+      return hosted.getFullYear();
     case "getMonth":
-      return hosted.getMonth()
+      return hosted.getMonth();
     case "getDate":
-      return hosted.getDate()
+      return hosted.getDate();
     case "getDay":
-      return hosted.getDay()
+      return hosted.getDay();
     case "getHours":
-      return hosted.getHours()
+      return hosted.getHours();
     case "getMinutes":
-      return hosted.getMinutes()
+      return hosted.getMinutes();
     case "getSeconds":
-      return hosted.getSeconds()
+      return hosted.getSeconds();
     case "getMilliseconds":
-      return hosted.getMilliseconds()
+      return hosted.getMilliseconds();
     case "getUTCFullYear":
-      return hosted.getUTCFullYear()
+      return hosted.getUTCFullYear();
     case "getUTCMonth":
-      return hosted.getUTCMonth()
+      return hosted.getUTCMonth();
     case "getUTCDate":
-      return hosted.getUTCDate()
+      return hosted.getUTCDate();
     case "getUTCDay":
-      return hosted.getUTCDay()
+      return hosted.getUTCDay();
     case "getUTCHours":
-      return hosted.getUTCHours()
+      return hosted.getUTCHours();
     case "getUTCMinutes":
-      return hosted.getUTCMinutes()
+      return hosted.getUTCMinutes();
     case "getUTCSeconds":
-      return hosted.getUTCSeconds()
+      return hosted.getUTCSeconds();
     case "getUTCMilliseconds":
-      return hosted.getUTCMilliseconds()
+      return hosted.getUTCMilliseconds();
     case "getTimezoneOffset":
-      return hosted.getTimezoneOffset()
+      return hosted.getTimezoneOffset();
     default:
-      throw new InterpreterRuntimeError(`Date method '${name}' is not available in CodeMode.`, node)
+      throw new InterpreterRuntimeError(
+        `Date method '${name}' is not available in CodeMode.`,
+        node,
+      );
   }
-}
-import { type AstNode, InterpreterRuntimeError } from "../interpreter/model"
-import { CodeModeDate } from "../values"
-import { coerceToNumber, coerceToString } from "./value"
+};
+import { type AstNode, InterpreterRuntimeError } from "../interpreter/model";
+import { CodeModeDate } from "../values";
+import { coerceToNumber, coerceToString } from "./value";

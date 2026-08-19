@@ -14,6 +14,8 @@ export namespace TuiHttpApi {
   const BooleanResult = Schema.Boolean.annotate({
     identifier: "TuiBooleanResult",
   })
+  // `body` is relayed verbatim to the terminal; the server never interprets
+  // it. Named as justified in `specs/README.md` §Open payloads.
   const TuiRequest = Schema.Struct({
     path: Schema.String,
     body: Schema.Unknown,
@@ -51,7 +53,8 @@ export namespace TuiHttpApi {
   // on the per-event shape, so the wire contract here is the resolved payload
   // the handler will pass to `Bus.publish`. Use `Schema.Unknown` for `properties`
   // because the runtime check on `type` decides which `TuiEventPayload` to
-  // parse against.
+  // parse against. This is the write side of the SSE `{ type, properties }`
+  // envelope; named as justified in `specs/README.md` §Open payloads.
   const PublishPayload = Schema.Struct({
     type: Schema.String,
     properties: Schema.Unknown,
@@ -59,6 +62,8 @@ export namespace TuiHttpApi {
   const SelectSessionPayload = TuiEventPayload.sessionSelect.annotate({
     identifier: "TuiSelectSessionInput",
   })
+  // `body` is relayed verbatim to the control waiter (`server/tui-control.ts`);
+  // named as justified in `specs/README.md` §Open payloads.
   const ControlResponsePayload = Schema.Struct({
     path: Schema.String,
     body: Schema.Unknown,

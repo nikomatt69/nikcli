@@ -679,6 +679,12 @@ export namespace SessionPrompt {
     await using _ = defer(() => PromptState.finish(sessionID, controller))
     const ctx = await currentContext()
 
+    // Instruction deltas emitted by earlier turns have been delivered by now.
+    // Fold them into the epoch prefix so they stop being replayed, in full, on
+    // every request for the rest of the session. Done before the step loop so
+    // the prefix stays byte-stable across the steps of this turn.
+    InstructionSync.foldDelivered(sessionID)
+
     // Structured output state
     // Note: On session resumption, state is reset but format is preserved
     // on the user message and will be retrieved from lastUser below

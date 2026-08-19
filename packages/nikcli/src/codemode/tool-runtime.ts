@@ -1,5 +1,5 @@
-import { Cause, Effect, Exit, Schema } from "effect"
-import { ToolError, toolError } from "./tool-error"
+import { Cause, Effect, Exit, Schema } from "effect";
+import { ToolError, toolError } from "./tool-error";
 import {
   decodeInput as decodeToolInput,
   decodeOutput as decodeToolOutput,
@@ -7,9 +7,10 @@ import {
   inputProperties,
   inputTypeScript,
   outputTypeScript,
-} from "./tool-schema"
-import { isDefinition as isToolDefinition, type Definition } from "./tool"
+} from "./tool-schema";
+import { isDefinition as isToolDefinition, type Definition } from "./tool";
 import {
+  type CodeModeData,
   CodeModeDate,
   CodeModeMap,
   CodeModePromise,
@@ -17,99 +18,118 @@ import {
   CodeModeSet,
   CodeModeURL,
   CodeModeURLSearchParams,
-} from "./values"
+} from "./values";
+import type { JsonValue } from "../util/json";
 
-const estimateTokens = (input: string) => Math.max(0, Math.round(input.length / 4))
+const estimateTokens = (input: string) =>
+  Math.max(0, Math.round(input.length / 4));
 
-export type HostTool<R = never> = (...args: Array<unknown>) => Effect.Effect<unknown, unknown, R>
+export type HostTool<R = never> = (
+  ...args: Array<unknown>
+) => Effect.Effect<unknown, unknown, R>;
 
 export type HostTools<R = never> = {
-  [name: string]: HostTool<R> | Definition<R> | HostTools<R>
-}
+  [name: string]: HostTool<R> | Definition<R> | HostTools<R>;
+};
 
-export type Services<Tools> = ServicesOf<Tools, []>
+export type Services<Tools> = ServicesOf<Tools, []>;
 
-type ServicesOf<Tools, Depth extends ReadonlyArray<unknown>> = Depth["length"] extends 8
+type ServicesOf<
+  Tools,
+  Depth extends ReadonlyArray<unknown>,
+> = Depth["length"] extends 8
   ? never
-  : Tools extends (...args: Array<unknown>) => Effect.Effect<unknown, unknown, infer R>
+  : Tools extends (
+        ...args: Array<unknown>
+      ) => Effect.Effect<unknown, unknown, infer R>
     ? R
     : Tools extends {
-          readonly _tag: "CodeModeTool"
-          readonly run: (input: unknown) => Effect.Effect<unknown, unknown, infer R>
+          readonly _tag: "CodeModeTool";
+          readonly run: (
+            input: unknown,
+          ) => Effect.Effect<unknown, unknown, infer R>;
         }
       ? R
       : Tools extends object
         ? string extends keyof Tools
           ? ServicesOf<Tools[string], [...Depth, unknown]>
           : ServicesOf<Tools[keyof Tools], [...Depth, unknown]>
-        : never
+        : never;
 
 export type ToolCall = {
-  readonly name: string
-}
+  readonly name: string;
+};
 
 export type ToolCallStarted = {
-  readonly index: number
-  readonly name: string
-  readonly input: unknown
-}
+  readonly index: number;
+  readonly name: string;
+  readonly input: unknown;
+};
 
 export type ToolCallEnded = {
-  readonly index: number
-  readonly name: string
-  readonly input: unknown
-  readonly durationMs: number
-  readonly outcome: "success" | "failure" | "interrupted"
-  readonly message?: string
-}
+  readonly index: number;
+  readonly name: string;
+  readonly input: unknown;
+  readonly durationMs: number;
+  readonly outcome: "success" | "failure" | "interrupted";
+  readonly message?: string;
+};
 
 export type ToolCallHooks<R = never> = {
-  readonly onToolCallStart?: ((call: ToolCallStarted) => Effect.Effect<void, never, R>) | undefined
-  readonly onToolCallEnd?: ((call: ToolCallEnded) => Effect.Effect<void, never, R>) | undefined
-}
+  readonly onToolCallStart?:
+    | ((call: ToolCallStarted) => Effect.Effect<void, never, R>)
+    | undefined;
+  readonly onToolCallEnd?:
+    | ((call: ToolCallEnded) => Effect.Effect<void, never, R>)
+    | undefined;
+};
 
 export type ToolDescription = {
-  readonly path: string
-  readonly description: string
-  readonly signature: string
+  readonly path: string;
+  readonly description: string;
+  readonly signature: string;
   /** See `Definition.pinned`: pinned signatures survive an exhausted catalog budget. */
-  readonly pinned: boolean
-}
+  readonly pinned: boolean;
+};
 
-export type SafeObject = Record<string, unknown>
+export type SafeObject = Record<string, unknown>;
 
-const defaultCatalogBudget = 2_000
-const defaultSearchLimit = 10
-const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
-const NonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+const defaultCatalogBudget = 2_000;
+const defaultSearchLimit = 10;
+const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
+const NonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 const SearchInput = Schema.Struct({
   query: Schema.optionalKey(Schema.String),
   namespace: Schema.optionalKey(Schema.String),
   limit: Schema.optionalKey(PositiveInt),
   offset: Schema.optionalKey(NonNegativeInt),
-})
+});
 const SearchItem = Schema.Struct({
   path: Schema.String,
   description: Schema.String,
   signature: Schema.String,
-})
+});
 const SearchOutput = Schema.Struct({
   items: Schema.Array(SearchItem),
   remaining: NonNegativeInt,
   next: Schema.NullOr(Schema.Struct({ offset: NonNegativeInt })),
-})
+});
 const toolExpression = (path: string) =>
   "tools" +
   path
     .split(".")
-    .map((segment) => (identifierSegment.test(segment) ? `.${segment}` : `[${JSON.stringify(segment)}]`))
-    .join("")
+    .map((segment) =>
+      identifierSegment.test(segment)
+        ? `.${segment}`
+        : `[${JSON.stringify(segment)}]`,
+    )
+    .join("");
 
 export class ToolReference {
   constructor(readonly path: ReadonlyArray<string>) {}
 }
 
-const MAX_VALUE_DEPTH = 32
+const MAX_VALUE_DEPTH = 32;
 
 export class ToolRuntimeError extends Error {
   constructor(
@@ -122,30 +142,57 @@ export class ToolRuntimeError extends Error {
     message: string,
     readonly suggestions: ReadonlyArray<string> = [],
   ) {
-    super(message)
-    this.name = "ToolRuntimeError"
+    super(message);
+    this.name = "ToolRuntimeError";
   }
 }
 
-const isDefinition = <R>(value: HostTool<R> | Definition<R> | HostTools<R>): value is Definition<R> =>
-  isToolDefinition<R>(value)
+const isDefinition = <R>(
+  value: HostTool<R> | Definition<R> | HostTools<R>,
+): value is Definition<R> => isToolDefinition<R>(value);
 
-const runHost = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, ToolError, R> =>
+const runHost = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, ToolError, R> =>
   effect.pipe(
     Effect.catchCause((cause) => {
-      if (Cause.hasInterruptsOnly(cause)) return Effect.interrupt
-      const error = Cause.squash(cause)
-      return Effect.fail(error instanceof ToolError ? error : toolError("Tool execution failed", error))
+      if (Cause.hasInterruptsOnly(cause)) return Effect.interrupt;
+      const error = Cause.squash(cause);
+      return Effect.fail(
+        error instanceof ToolError
+          ? error
+          : toolError("Tool execution failed", error),
+      );
     }),
-  )
+  );
 
-const blockedMemberNames = new Set(["__proto__", "constructor", "prototype"])
+const blockedMemberNames = new Set(["__proto__", "constructor", "prototype"]);
 
-export const isBlockedMember = (name: string): boolean => blockedMemberNames.has(name)
+export const isBlockedMember = (name: string): boolean =>
+  blockedMemberNames.has(name);
 
 // Checkpoint mode preserves CodeMode values; boundary mode JSON-normalizes them.
-export const copyIn = (value: unknown, label: string, preserveCodeModeValues = false): unknown =>
-  copyBounded(value, label, 0, new Set(), preserveCodeModeValues)
+export function copyIn(
+  value: unknown,
+  label: string,
+  preserveCodeModeValues?: false,
+): JsonValue | undefined;
+export function copyIn(
+  value: unknown,
+  label: string,
+  preserveCodeModeValues: true,
+): CodeModeData;
+export function copyIn(
+  value: unknown,
+  label: string,
+  preserveCodeModeValues = false,
+): JsonValue | CodeModeData | undefined {
+  // SAFETY: copyBounded preserves the JSON shape of data values (boundary mode) and the CodeMode class set (checkpoint mode).
+  return copyBounded(value, label, 0, new Set(), preserveCodeModeValues) as
+    | JsonValue
+    | CodeModeData
+    | undefined;
+}
 
 const copyBounded = (
   value: unknown,
@@ -153,9 +200,12 @@ const copyBounded = (
   depth: number,
   seen: Set<object>,
   preserveCodeModeValues: boolean,
-): unknown => {
+): CodeModeData | SafeObject | Array<unknown> | undefined => {
   if (depth > MAX_VALUE_DEPTH) {
-    throw new ToolRuntimeError("InvalidDataValue", `${label} exceeds the maximum value depth of ${MAX_VALUE_DEPTH}.`)
+    throw new ToolRuntimeError(
+      "InvalidDataValue",
+      `${label} exceeds the maximum value depth of ${MAX_VALUE_DEPTH}.`,
+    );
   }
   if (
     value === null ||
@@ -164,18 +214,21 @@ const copyBounded = (
     typeof value === "boolean" ||
     typeof value === "number"
   ) {
-    return value
+    return value;
   }
 
   if (typeof value !== "object") {
-    throw new ToolRuntimeError("InvalidDataValue", `${label} must contain data only.`)
+    throw new ToolRuntimeError(
+      "InvalidDataValue",
+      `${label} must contain data only.`,
+    );
   }
 
   if (value instanceof CodeModePromise) {
     throw new ToolRuntimeError(
       "InvalidDataValue",
       `${label} contains an un-awaited Promise; await tool calls (e.g. \`const result = await tools.ns.tool(...)\`) before using their results.`,
-    )
+    );
   }
 
   if (preserveCodeModeValues) {
@@ -187,34 +240,42 @@ const copyBounded = (
       value instanceof CodeModeURL ||
       value instanceof CodeModeURLSearchParams
     ) {
-      return value
+      return value;
     }
-    if (value instanceof Date) return new CodeModeDate(value.getTime())
-    if (value instanceof RegExp) return new CodeModeRegExp(value.source, value.flags)
+    if (value instanceof Date) return new CodeModeDate(value.getTime());
+    if (value instanceof RegExp)
+      return new CodeModeRegExp(value.source, value.flags);
     if (value instanceof Map) {
-      const wrapped = new CodeModeMap()
+      const wrapped = new CodeModeMap();
       for (const [key, item] of value.entries()) {
-        wrapped.map.set(copyBounded(key, label, depth + 1, seen, true), copyBounded(item, label, depth + 1, seen, true))
+        wrapped.map.set(
+          copyBounded(key, label, depth + 1, seen, true),
+          copyBounded(item, label, depth + 1, seen, true),
+        );
       }
-      return wrapped
+      return wrapped;
     }
     if (value instanceof Set) {
-      const wrapped = new CodeModeSet()
-      for (const item of value.values()) wrapped.set.add(copyBounded(item, label, depth + 1, seen, true))
-      return wrapped
+      const wrapped = new CodeModeSet();
+      for (const item of value.values())
+        wrapped.set.add(copyBounded(item, label, depth + 1, seen, true));
+      return wrapped;
     }
-    if (value instanceof URL) return new CodeModeURL(new URL(value.href))
-    if (value instanceof URLSearchParams) return new CodeModeURLSearchParams(new URLSearchParams(value))
+    if (value instanceof URL) return new CodeModeURL(new URL(value.href));
+    if (value instanceof URLSearchParams)
+      return new CodeModeURLSearchParams(new URLSearchParams(value));
   }
 
   if (value instanceof CodeModeDate) {
-    return Number.isFinite(value.time) ? new Date(value.time).toISOString() : null
+    return Number.isFinite(value.time)
+      ? new Date(value.time).toISOString()
+      : null;
   }
   if (value instanceof Date) {
-    return Number.isFinite(value.getTime()) ? value.toISOString() : null
+    return Number.isFinite(value.getTime()) ? value.toISOString() : null;
   }
-  if (value instanceof CodeModeURL) return value.url.href
-  if (value instanceof URL) return value.href
+  if (value instanceof CodeModeURL) return value.url.href;
+  if (value instanceof URL) return value.href;
   if (
     value instanceof CodeModeRegExp ||
     value instanceof CodeModeMap ||
@@ -225,86 +286,141 @@ const copyBounded = (
     value instanceof Set ||
     value instanceof URLSearchParams
   ) {
-    return Object.create(null) as SafeObject
+    return Object.create(null) as SafeObject;
   }
 
   if (seen.has(value)) {
-    throw new ToolRuntimeError("InvalidDataValue", `${label} contains a circular value.`)
+    throw new ToolRuntimeError(
+      "InvalidDataValue",
+      `${label} contains a circular value.`,
+    );
   }
 
-  seen.add(value)
+  seen.add(value);
 
   if (Array.isArray(value)) {
-    const copied = value.map((item) => copyBounded(item, label, depth + 1, seen, preserveCodeModeValues))
+    const copied = value.map((item) =>
+      copyBounded(item, label, depth + 1, seen, preserveCodeModeValues),
+    );
     if (preserveCodeModeValues) {
       // Checkpoint copies retain array metadata that boundary copies omit.
       for (const [key, item] of Object.entries(value)) {
-        if (Object.hasOwn(copied, key)) continue
+        if (Object.hasOwn(copied, key)) continue;
         if (isBlockedMember(key)) {
-          throw new ToolRuntimeError("InvalidDataValue", `${label} contains blocked property '${key}'.`)
+          throw new ToolRuntimeError(
+            "InvalidDataValue",
+            `${label} contains blocked property '${key}'.`,
+          );
         }
-        Reflect.set(copied, key, copyBounded(item, label, depth + 1, seen, true))
+        Reflect.set(
+          copied,
+          key,
+          copyBounded(item, label, depth + 1, seen, true),
+        );
       }
     }
-    seen.delete(value)
-    return copied
+    seen.delete(value);
+    return copied;
   }
 
-  const prototype = Object.getPrototypeOf(value)
+  const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) {
-    throw new ToolRuntimeError("InvalidDataValue", `${label} must contain plain objects only.`)
+    throw new ToolRuntimeError(
+      "InvalidDataValue",
+      `${label} must contain plain objects only.`,
+    );
   }
 
-  const copied: SafeObject = Object.create(null) as SafeObject
+  const copied: SafeObject = Object.create(null) as SafeObject;
   for (const [key, item] of Object.entries(value)) {
     if (isBlockedMember(key)) {
-      throw new ToolRuntimeError("InvalidDataValue", `${label} contains blocked property '${key}'.`)
+      throw new ToolRuntimeError(
+        "InvalidDataValue",
+        `${label} contains blocked property '${key}'.`,
+      );
     }
-    copied[key] = copyBounded(item, label, depth + 1, seen, preserveCodeModeValues)
+    copied[key] = copyBounded(
+      item,
+      label,
+      depth + 1,
+      seen,
+      preserveCodeModeValues,
+    );
   }
-  seen.delete(value)
-  return copied
-}
+  seen.delete(value);
+  return copied;
+};
 
-export const copyOut = (value: unknown, undefinedAsNull = false): unknown => {
-  if (value === undefined && undefinedAsNull) return null
+/**
+ * What {@link copyOut} yields: JSON data plus the two things this boundary lets
+ * through untouched - tool references, and the `undefined` holes that survive
+ * when `undefinedAsNull` is off.
+ */
+export type CopiedOut =
+  | JsonValue
+  | ToolReference
+  | undefined
+  | Array<CopiedOut>
+  | { readonly [key: string]: CopiedOut };
+
+export const copyOut = (
+  value: unknown,
+  undefinedAsNull = false,
+): CopiedOut => {
+  if (value === undefined && undefinedAsNull) return null;
   if (typeof value === "number" && !Number.isFinite(value)) {
-    return null
+    return null;
   }
   if (Array.isArray(value)) {
-    return value.map((item) => copyOut(item, undefinedAsNull))
+    return value.map((item) => copyOut(item, undefinedAsNull));
   }
 
-  if (value !== null && typeof value === "object" && !(value instanceof ToolReference)) {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, copyOut(item, undefinedAsNull)]))
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    !(value instanceof ToolReference)
+  ) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        copyOut(item, undefinedAsNull),
+      ]),
+    );
   }
 
-  return value
-}
+  // SAFETY: every remaining value is a primitive or a ToolReference - the array
+  // and plain-object cases returned above.
+  return value as CopiedOut;
+};
 
 /**
  * Locale-independent text comparison. `localeCompare` orders differently depending on
  * the host locale, so the same tool set would render different catalog bytes on
  * different machines — exactly the instability the sort exists to remove.
  */
-const comparePaths = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0)
+const comparePaths = (left: string, right: string): number =>
+  left < right ? -1 : left > right ? 1 : 0;
 
 const definitions = <R>(
   tools: HostTools<R>,
   path: ReadonlyArray<string> = [],
 ): Array<{ path: string; definition: Definition<R> }> =>
   Object.entries(tools).flatMap(([name, value]) => {
-    const next = [...path, name]
-    if (isDefinition(value)) return [{ path: next.join("."), definition: value }]
-    return typeof value === "function" ? [] : definitions(value, next)
-  })
+    const next = [...path, name];
+    if (isDefinition(value))
+      return [{ path: next.join("."), definition: value }];
+    return typeof value === "function" ? [] : definitions(value, next);
+  });
 
-const describeDefinition = <R>(path: string, definition: Definition<R>): ToolDescription => ({
+const describeDefinition = <R>(
+  path: string,
+  definition: Definition<R>,
+): ToolDescription => ({
   path,
   description: definition.description,
   signature: `${toolExpression(path)}(input: ${inputTypeScript(definition, true)}): Promise<${outputTypeScript(definition, true)}>`,
   pinned: definition.pinned === true,
-})
+});
 
 const visibleDefinitions = <R>(tools: HostTools<R>) =>
   definitions(tools)
@@ -317,34 +433,36 @@ const visibleDefinitions = <R>(tools: HostTools<R>) =>
       path,
       definition,
       description: describeDefinition(path, definition),
-    }))
+    }));
 
 export type DiscoveryPlan = {
-  readonly catalog: ReadonlyArray<ToolDescription>
-  readonly instructions: string
-  readonly searchIndex: ReadonlyArray<SearchEntry>
-}
+  readonly catalog: ReadonlyArray<ToolDescription>;
+  readonly instructions: string;
+  readonly searchIndex: ReadonlyArray<SearchEntry>;
+};
 
 export type SearchEntry = {
-  readonly description: ToolDescription
-  readonly searchText: string
-}
+  readonly description: ToolDescription;
+  readonly searchText: string;
+};
 
 const tokenize = (query: string): Array<string> =>
   query
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((term) => term.length > 0 && term !== "*")
+    .filter((term) => term.length > 0 && term !== "*");
 
 const termForms = (term: string): Array<string> => {
-  const forms = [term]
-  if (term.endsWith("es") && term.length > 3) forms.push(term.slice(0, -2))
-  if (term.endsWith("s") && term.length > 2) forms.push(term.slice(0, -1))
-  return forms
-}
+  const forms = [term];
+  if (term.endsWith("es") && term.length > 3) forms.push(term.slice(0, -2));
+  if (term.endsWith("s") && term.length > 2) forms.push(term.slice(0, -1));
+  return forms;
+};
 
-const makeSearchTool = (searchIndex: ReadonlyArray<SearchEntry>): Definition => ({
+const makeSearchTool = (
+  searchIndex: ReadonlyArray<SearchEntry>,
+): Definition => ({
   _tag: "CodeModeTool",
   description: "Search available Code Mode tools",
   input: SearchInput,
@@ -353,9 +471,9 @@ const makeSearchTool = (searchIndex: ReadonlyArray<SearchEntry>): Definition => 
   pinned: false,
   run: (input) =>
     Effect.sync(() => {
-      const request = input as typeof SearchInput.Type
-      const query = request.query ?? ""
-      const offset = request.offset ?? 0
+      const request = input as typeof SearchInput.Type;
+      const query = request.query ?? "";
+      const offset = request.offset ?? 0;
       // Match the namespace and everything nested under it. Comparing against
       // only the first path segment made `search({ namespace: "a" })` miss every
       // tool under `a.b.*`, which is exactly where deep catalogs put them.
@@ -366,68 +484,90 @@ const makeSearchTool = (searchIndex: ReadonlyArray<SearchEntry>): Definition => 
               (entry) =>
                 entry.description.path === request.namespace ||
                 entry.description.path.startsWith(`${request.namespace}.`),
-            )
-      const trimmed = query.trim()
-      const pathQuery = trimmed.startsWith("tools.") ? trimmed.slice("tools.".length) : trimmed
+            );
+      const trimmed = query.trim();
+      const pathQuery = trimmed.startsWith("tools.")
+        ? trimmed.slice("tools.".length)
+        : trimmed;
       const exact =
         pathQuery === ""
           ? undefined
           : scoped.find(
-              (entry) => entry.description.path === pathQuery || toolExpression(entry.description.path) === trimmed,
-            )
-      const terms = tokenize(query).map(termForms)
+              (entry) =>
+                entry.description.path === pathQuery ||
+                toolExpression(entry.description.path) === trimmed,
+            );
+      const terms = tokenize(query).map(termForms);
       const ranked =
         exact !== undefined
           ? [exact]
           : scoped
               .map((entry) => {
-                const path = entry.description.path.toLowerCase()
-                const description = entry.description.description.toLowerCase()
+                const path = entry.description.path.toLowerCase();
+                const description = entry.description.description.toLowerCase();
                 const score = terms.reduce(
                   (total, forms) =>
                     total +
-                    (forms.some((form) => path === form || path.endsWith(`.${form}`)) ? 20 : 0) +
+                    (forms.some(
+                      (form) => path === form || path.endsWith(`.${form}`),
+                    )
+                      ? 20
+                      : 0) +
                     (forms.some((form) => path.includes(form)) ? 8 : 0) +
                     (forms.some((form) => description.includes(form)) ? 4 : 0) +
-                    (forms.some((form) => entry.searchText.includes(form)) ? 2 : 0),
+                    (forms.some((form) => entry.searchText.includes(form))
+                      ? 2
+                      : 0),
                   0,
-                )
-                return { entry, score }
+                );
+                return { entry, score };
               })
               .filter(({ score }) => terms.length === 0 || score > 0)
               .sort(
                 (left, right) =>
-                  right.score - left.score || comparePaths(left.entry.description.path, right.entry.description.path),
+                  right.score - left.score ||
+                  comparePaths(
+                    left.entry.description.path,
+                    right.entry.description.path,
+                  ),
               )
-              .map(({ entry }) => entry)
+              .map(({ entry }) => entry);
       // Built field by field: `SearchItem` is the model-facing contract, and internal bookkeeping
       // such as `pinned` must not leak into it.
-      const items = ranked.slice(offset, offset + (request.limit ?? defaultSearchLimit)).map(({ description }) => ({
-        path: toolExpression(description.path),
-        description: description.description,
-        signature: description.signature,
-      }))
-      const remaining = Math.max(0, ranked.length - offset - items.length)
+      const items = ranked
+        .slice(offset, offset + (request.limit ?? defaultSearchLimit))
+        .map(({ description }) => ({
+          path: toolExpression(description.path),
+          description: description.description,
+          signature: description.signature,
+        }));
+      const remaining = Math.max(0, ranked.length - offset - items.length);
       return {
         items,
         remaining,
         next: remaining > 0 ? { offset: offset + items.length } : null,
-      }
+      };
     }),
-})
+});
 
 const searchSignature = (() => {
-  const definition = makeSearchTool([])
-  return `search(input: ${inputTypeScript(definition, true)}): ${outputTypeScript(definition, true)}`
-})()
+  const definition = makeSearchTool([]);
+  return `search(input: ${inputTypeScript(definition, true)}): ${outputTypeScript(definition, true)}`;
+})();
 
 const catalogLine = (tool: ToolDescription) => {
-  const line = tool.description.split("\n", 1)[0]!.trim()
-  const description = line.length > 120 ? line.slice(0, 119) + "..." : line
-  return description === "" ? `  - ${tool.signature}` : `  - ${tool.signature} // ${description}`
-}
+  const line = tool.description.split("\n", 1)[0]!.trim();
+  const description = line.length > 120 ? line.slice(0, 119) + "..." : line;
+  return description === ""
+    ? `  - ${tool.signature}`
+    : `  - ${tool.signature} // ${description}`;
+};
 
-const toSearchEntry = <R>(path: string, definition: Definition<R>, description: ToolDescription): SearchEntry => ({
+const toSearchEntry = <R>(
+  path: string,
+  definition: Definition<R>,
+  description: ToolDescription,
+): SearchEntry => ({
   description,
   searchText: [
     path,
@@ -438,27 +578,38 @@ const toSearchEntry = <R>(path: string, definition: Definition<R>, description: 
   ]
     .join("\n")
     .toLowerCase(),
-})
+});
 
-export const searchIndex = <R>(tools: HostTools<R>): ReadonlyArray<SearchEntry> =>
-  visibleDefinitions(tools).map(({ path, definition, description }) => toSearchEntry(path, definition, description))
+export const searchIndex = <R>(
+  tools: HostTools<R>,
+): ReadonlyArray<SearchEntry> =>
+  visibleDefinitions(tools).map(({ path, definition, description }) =>
+    toSearchEntry(path, definition, description),
+  );
 
 // Budget signatures round-robin so every namespace remains visible.
-export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBudget): DiscoveryPlan => {
+export const prepare = <R>(
+  tools: HostTools<R>,
+  catalogBudget = defaultCatalogBudget,
+): DiscoveryPlan => {
   if (!Number.isSafeInteger(catalogBudget) || catalogBudget < 0) {
-    throw new RangeError("discovery.catalogBudget must be a non-negative safe integer")
+    throw new RangeError(
+      "discovery.catalogBudget must be a non-negative safe integer",
+    );
   }
-  const visible = visibleDefinitions(tools)
-  const described = visible.map(({ description }) => description)
+  const visible = visibleDefinitions(tools);
+  const described = visible.map(({ description }) => description);
 
-  const namespaces = new Map<string, Array<ToolDescription>>()
+  const namespaces = new Map<string, Array<ToolDescription>>();
   for (const tool of described) {
-    const [namespace = tool.path] = tool.path.split(".")
-    const group = namespaces.get(namespace) ?? []
-    group.push(tool)
-    namespaces.set(namespace, group)
+    const [namespace = tool.path] = tool.path.split(".");
+    const group = namespaces.get(namespace) ?? [];
+    group.push(tool);
+    namespaces.set(namespace, group);
   }
-  const ordered = [...namespaces].sort(([left], [right]) => comparePaths(left, right))
+  const ordered = [...namespaces].sort(([left], [right]) =>
+    comparePaths(left, right),
+  );
 
   const selections = ordered.map(([namespace, group]) => ({
     namespace,
@@ -469,32 +620,41 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
       .filter((tool) => !tool.pinned)
       .sort(
         (left, right) =>
-          estimateTokens(catalogLine(left)) - estimateTokens(catalogLine(right)) || comparePaths(left.path, right.path),
+          estimateTokens(catalogLine(left)) -
+            estimateTokens(catalogLine(right)) ||
+          comparePaths(left.path, right.path),
       ),
-  }))
+  }));
   // Charge the pinned cost first; the remaining budget is what the unpinned tools compete for.
-  let used = described.reduce((total, tool) => total + (tool.pinned ? estimateTokens(catalogLine(tool)) : 0), 0)
-  let active = selections.filter((selection) => selection.queue.length > 0)
+  let used = described.reduce(
+    (total, tool) =>
+      total + (tool.pinned ? estimateTokens(catalogLine(tool)) : 0),
+    0,
+  );
+  let active = selections.filter((selection) => selection.queue.length > 0);
   while (active.length > 0) {
-    const stillActive: typeof active = []
+    const stillActive: typeof active = [];
     for (const selection of active) {
-      const tool = selection.queue[0]!
-      const cost = estimateTokens(catalogLine(tool))
-      if (used + cost > catalogBudget) continue
-      selection.queue.shift()
-      selection.picked.add(tool)
-      used += cost
-      if (selection.queue.length > 0) stillActive.push(selection)
+      const tool = selection.queue[0]!;
+      const cost = estimateTokens(catalogLine(tool));
+      if (used + cost > catalogBudget) continue;
+      selection.queue.shift();
+      selection.picked.add(tool);
+      used += cost;
+      if (selection.queue.length > 0) stillActive.push(selection);
     }
-    active = stillActive
+    active = stillActive;
   }
   const shown = new Map<string, ReadonlySet<ToolDescription>>(
     selections.map(({ namespace, picked }) => [namespace, picked]),
-  )
-  const totalShown = selections.reduce((total, { picked }) => total + picked.size, 0)
-  const complete = totalShown === described.length
+  );
+  const totalShown = selections.reduce(
+    (total, { picked }) => total + picked.size,
+    0,
+  );
+  const complete = totalShown === described.length;
 
-  const empty = described.length === 0
+  const empty = described.length === 0;
 
   const intro = [
     empty
@@ -504,8 +664,10 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
         : "This is a restricted JavaScript language for calling tools, not a general-purpose runtime. Inside the confined interpreter, `tools` contains the Code Mode tools listed or searchable below; surrounding agent tools are not available.",
     ...(empty
       ? []
-      : ["Do not infer or normalize tool names; use only exact signatures shown below or returned by search."]),
-  ]
+      : [
+          "Do not infer or normalize tool names; use only exact signatures shown below or returned by search.",
+        ]),
+  ];
 
   const workflow = empty
     ? []
@@ -523,7 +685,7 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
               '1. If needed, discover tools with the built-in search function: `return search({ query: "<intent + key nouns>" })`.',
               "2. In the next execution, copy a returned path exactly, call it, and return only the needed fields.",
             ]),
-      ]
+      ];
 
   const rules = empty
     ? []
@@ -545,7 +707,7 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
               '- Browse one namespace: `search({ query: "", namespace: "<name>" })`.',
               "- If search returns `next`, repeat the same search with `offset: next.offset`.",
             ]),
-      ]
+      ];
 
   const language = [
     "",
@@ -555,9 +717,9 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
     "Modules/imports, classes, generators, timers, fetch, eval, prototype access, and unlisted methods are unavailable. Use Code Mode tools for external operations. Use await with try/catch.",
     "Prefer explicit `return`; otherwise only the final top-level expression becomes the result.",
     "Dates and URLs serialize to strings at data boundaries; Map/Set/RegExp/URLSearchParams serialize to `{}`.",
-  ]
+  ];
 
-  const toolSection: Array<string> = [""]
+  const toolSection: Array<string> = [""];
   if (empty) {
     // Say what to do, not just what is missing: told only that the list is
     // empty, a model still calls `execute` and burns a turn on a program that
@@ -566,41 +728,51 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
       "## Available tools",
       "",
       "No Code Mode tools are currently available. Do not call `execute` until a later system update announces available tools.",
-    )
+    );
   } else {
     toolSection.push(
       complete
         ? "## Available tools (COMPLETE list - every tool is shown below with its full call signature)"
         : `## Available tools (PARTIAL - ${totalShown} of ${described.length} shown; find the rest with search(...))`,
       "",
-    )
+    );
     for (const [namespace, group] of ordered) {
-      const picked = shown.get(namespace)!
-      const count = `${group.length} tool${group.length === 1 ? "" : "s"}`
+      const picked = shown.get(namespace)!;
+      const count = `${group.length} tool${group.length === 1 ? "" : "s"}`;
       const label =
         picked.size === group.length
           ? count
           : picked.size === 0
             ? `${count}, none shown`
-            : `${count}, ${picked.size} shown`
-      toolSection.push(`- ${namespace} (${label})`)
-      for (const tool of group) if (picked.has(tool)) toolSection.push(catalogLine(tool))
+            : `${count}, ${picked.size} shown`;
+      toolSection.push(`- ${namespace} (${label})`);
+      for (const tool of group)
+        if (picked.has(tool)) toolSection.push(catalogLine(tool));
     }
     if (!complete) {
-      toolSection.push("", "Search returns complete callable signatures:", `- ${searchSignature}`)
+      toolSection.push(
+        "",
+        "Search returns complete callable signatures:",
+        `- ${searchSignature}`,
+      );
     }
   }
 
-  const lines = [...intro, ...workflow, ...rules, ...language, ...toolSection]
+  const lines = [...intro, ...workflow, ...rules, ...language, ...toolSection];
   return {
     catalog: described,
     instructions: lines.join("\n"),
-    searchIndex: visible.map(({ path, definition, description }) => toSearchEntry(path, definition, description)),
-  }
-}
+    searchIndex: visible.map(({ path, definition, description }) =>
+      toSearchEntry(path, definition, description),
+    ),
+  };
+};
 
-const namespaceKeys = <R>(tools: HostTools<R>, path: ReadonlyArray<string>): ReadonlyArray<string> => {
-  let value: HostTool<R> | Definition<R> | HostTools<R> = tools
+const namespaceKeys = <R>(
+  tools: HostTools<R>,
+  path: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
+  let value: HostTool<R> | Definition<R> | HostTools<R> = tools;
   for (const segment of path) {
     if (
       isBlockedMember(segment) ||
@@ -608,18 +780,25 @@ const namespaceKeys = <R>(tools: HostTools<R>, path: ReadonlyArray<string>): Rea
       isDefinition(value) ||
       !Object.hasOwn(value, segment)
     ) {
-      throw new ToolRuntimeError("UnknownTool", `Unknown tool namespace '${path.join(".")}'.`, [
-        "Object.keys(tools) lists the available namespaces; search({ query }) finds described tools.",
-      ])
+      throw new ToolRuntimeError(
+        "UnknownTool",
+        `Unknown tool namespace '${path.join(".")}'.`,
+        [
+          "Object.keys(tools) lists the available namespaces; search({ query }) finds described tools.",
+        ],
+      );
     }
-    value = value[segment] as HostTool<R> | Definition<R> | HostTools<R>
+    value = value[segment] as HostTool<R> | Definition<R> | HostTools<R>;
   }
-  if (typeof value === "function" || isDefinition(value)) return []
-  return Object.keys(value)
-}
+  if (typeof value === "function" || isDefinition(value)) return [];
+  return Object.keys(value);
+};
 
-const resolve = <R>(tools: HostTools<R>, path: ReadonlyArray<string>): HostTool<R> | Definition<R> => {
-  let value: HostTool<R> | Definition<R> | HostTools<R> = tools
+const resolve = <R>(
+  tools: HostTools<R>,
+  path: ReadonlyArray<string>,
+): HostTool<R> | Definition<R> => {
+  let value: HostTool<R> | Definition<R> | HostTools<R> = tools;
 
   for (const segment of path) {
     if (
@@ -628,27 +807,35 @@ const resolve = <R>(tools: HostTools<R>, path: ReadonlyArray<string>): HostTool<
       isDefinition(value) ||
       !Object.hasOwn(value, segment)
     ) {
-      throw new ToolRuntimeError("UnknownTool", `Unknown tool '${path.join(".")}'.`, [
-        "Use search({ query }) to find available described tools.",
-      ])
+      throw new ToolRuntimeError(
+        "UnknownTool",
+        `Unknown tool '${path.join(".")}'.`,
+        ["Use search({ query }) to find available described tools."],
+      );
     }
-    value = value[segment] as HostTool<R> | Definition<R> | HostTools<R>
+    value = value[segment] as HostTool<R> | Definition<R> | HostTools<R>;
   }
 
   if (typeof value !== "function" && !isDefinition(value)) {
-    throw new ToolRuntimeError("UnknownTool", `Tool '${path.join(".")}' is not callable.`)
+    throw new ToolRuntimeError(
+      "UnknownTool",
+      `Tool '${path.join(".")}' is not callable.`,
+    );
   }
 
-  return value
-}
+  return value;
+};
 
 export type ToolRuntime<R = never> = {
-  readonly root: ToolReference
-  readonly calls: Array<ToolCall>
-  readonly invoke: (path: ReadonlyArray<string>, args: Array<unknown>) => Effect.Effect<unknown, unknown, R>
-  readonly search: (args: Array<unknown>) => Effect.Effect<unknown, unknown, R>
-  readonly keys: (path: ReadonlyArray<string>) => ReadonlyArray<string>
-}
+  readonly root: ToolReference;
+  readonly calls: Array<ToolCall>;
+  readonly invoke: (
+    path: ReadonlyArray<string>,
+    args: Array<unknown>,
+  ) => Effect.Effect<unknown, unknown, R>;
+  readonly search: (args: Array<unknown>) => Effect.Effect<unknown, unknown, R>;
+  readonly keys: (path: ReadonlyArray<string>) => ReadonlyArray<string>;
+};
 
 export const make = <R>(
   tools: HostTools<R>,
@@ -656,70 +843,103 @@ export const make = <R>(
   searchIndex: ReadonlyArray<SearchEntry>,
   hooks?: ToolCallHooks<R>,
 ): ToolRuntime<R> => {
-  const calls: Array<ToolCall> = []
-  const searchTool = makeSearchTool(searchIndex)
+  const calls: Array<ToolCall> = [];
+  const searchTool = makeSearchTool(searchIndex);
 
   // Observe every way a call can settle. `tap`/`tapError` between them miss
   // interruption, so an aborted run left its in-flight calls with a start event
   // and no end event — indistinguishable from one still running.
-  const observeEnd = <A, E>(effect: Effect.Effect<A, E, R>, call: ToolCallStarted): Effect.Effect<A, E, R> => {
-    const onEnd = hooks?.onToolCallEnd
-    if (onEnd === undefined) return effect
-    const startedAt = Date.now()
+  const observeEnd = <A, E>(
+    effect: Effect.Effect<A, E, R>,
+    call: ToolCallStarted,
+  ): Effect.Effect<A, E, R> => {
+    const onEnd = hooks?.onToolCallEnd;
+    if (onEnd === undefined) return effect;
+    const startedAt = Date.now();
     return effect.pipe(
       Effect.onExit((exit) => {
-        const durationMs = Date.now() - startedAt
-        if (Exit.isSuccess(exit)) return onEnd({ ...call, durationMs, outcome: "success" })
-        if (Cause.hasInterruptsOnly(exit.cause)) return onEnd({ ...call, durationMs, outcome: "interrupted" })
-        const error = Cause.squash(exit.cause)
+        const durationMs = Date.now() - startedAt;
+        if (Exit.isSuccess(exit))
+          return onEnd({ ...call, durationMs, outcome: "success" });
+        if (Cause.hasInterruptsOnly(exit.cause))
+          return onEnd({ ...call, durationMs, outcome: "interrupted" });
+        const error = Cause.squash(exit.cause);
         const message =
-          error instanceof ToolError || error instanceof ToolRuntimeError ? error.message : "Tool execution failed"
-        return onEnd({ ...call, durationMs, outcome: "failure", message })
+          error instanceof ToolError || error instanceof ToolRuntimeError
+            ? error.message
+            : "Tool execution failed";
+        return onEnd({ ...call, durationMs, outcome: "failure", message });
       }),
-    )
-  }
+    );
+  };
 
   const decodeOutput = (value: unknown, name: string) =>
     Effect.try({
       try: () => copyIn(value, `Result from tool '${name}'`),
-      catch: () => new ToolRuntimeError("InvalidToolOutput", `Invalid output from tool '${name}'.`),
-    })
+      catch: () =>
+        new ToolRuntimeError(
+          "InvalidToolOutput",
+          `Invalid output from tool '${name}'.`,
+        ),
+    });
 
   const recordCall = (call: ToolCall): void => {
     if (maxToolCalls !== undefined && calls.length >= maxToolCalls) {
-      throw new ToolRuntimeError("ToolCallLimitExceeded", `Execution exceeded its tool-call limit of ${maxToolCalls}.`)
+      throw new ToolRuntimeError(
+        "ToolCallLimitExceeded",
+        `Execution exceeded its tool-call limit of ${maxToolCalls}.`,
+      );
     }
-    calls.push(call)
-  }
+    calls.push(call);
+  };
 
   const recordAndObserve = (name: string, input: unknown) =>
     Effect.sync(() => {
-      recordCall({ name })
-      return calls.length - 1
-    }).pipe(Effect.tap((index) => hooks?.onToolCallStart?.({ index, name, input }) ?? Effect.void))
+      recordCall({ name });
+      return calls.length - 1;
+    }).pipe(
+      Effect.tap(
+        (index) =>
+          hooks?.onToolCallStart?.({ index, name, input }) ?? Effect.void,
+      ),
+    );
 
-  const invokeDefinition = (name: string, tool: Definition<R>, externalArgs: Array<unknown>) =>
+  const invokeDefinition = (
+    name: string,
+    tool: Definition<R>,
+    externalArgs: Array<unknown>,
+  ) =>
     Effect.gen(function* () {
       if (externalArgs.length !== 1)
-        throw new ToolRuntimeError("InvalidToolInput", `Tool '${name}' expects exactly one input object.`)
+        throw new ToolRuntimeError(
+          "InvalidToolInput",
+          `Tool '${name}' expects exactly one input object.`,
+        );
       const input = yield* Effect.try({
         try: () => decodeToolInput(tool, externalArgs[0]),
         catch: (cause) =>
-          new ToolRuntimeError("InvalidToolInput", `Invalid input for tool '${name}': ${String(cause)}`),
-      })
-      const index = yield* recordAndObserve(name, input)
+          new ToolRuntimeError(
+            "InvalidToolInput",
+            `Invalid input for tool '${name}': ${String(cause)}`,
+          ),
+      });
+      const index = yield* recordAndObserve(name, input);
       return yield* observeEnd(
         Effect.gen(function* () {
-          const raw = yield* runHost(Effect.suspend(() => tool.run(input)))
+          const raw = yield* runHost(Effect.suspend(() => tool.run(input)));
           const result = yield* Effect.try({
             try: () => decodeToolOutput(tool, raw),
-            catch: () => new ToolRuntimeError("InvalidToolOutput", `Invalid output from tool '${name}'.`),
-          })
-          return yield* decodeOutput(result, name)
+            catch: () =>
+              new ToolRuntimeError(
+                "InvalidToolOutput",
+                `Invalid output from tool '${name}'.`,
+              ),
+          });
+          return yield* decodeOutput(result, name);
         }),
         { index, name, input },
-      )
-    })
+      );
+    });
 
   return {
     root: new ToolReference([]),
@@ -730,24 +950,32 @@ export const make = <R>(
         invokeDefinition(
           "search",
           searchTool,
-          args.map((arg) => copyOut(copyIn(arg, "Arguments for tool 'search'"))),
+          args.map((arg) =>
+            copyOut(copyIn(arg, "Arguments for tool 'search'")),
+          ),
         ),
       ),
     invoke: (path, args) =>
       Effect.gen(function* () {
-        const name = path.join(".")
-        const externalArgs = args.map((arg) => copyOut(copyIn(arg, `Arguments for tool '${name}'`)))
-        const tool = resolve(tools, path)
-        if (isDefinition(tool)) return yield* invokeDefinition(name, tool, externalArgs)
-        const index = yield* recordAndObserve(name, externalArgs)
+        const name = path.join(".");
+        const externalArgs = args.map((arg) =>
+          copyOut(copyIn(arg, `Arguments for tool '${name}'`)),
+        );
+        const tool = resolve(tools, path);
+        if (isDefinition(tool))
+          return yield* invokeDefinition(name, tool, externalArgs);
+        const index = yield* recordAndObserve(name, externalArgs);
         return yield* observeEnd(
           Effect.gen(function* () {
-            return yield* decodeOutput(yield* runHost(Effect.suspend(() => tool(...externalArgs))), name)
+            return yield* decodeOutput(
+              yield* runHost(Effect.suspend(() => tool(...externalArgs))),
+              name,
+            );
           }),
           { index, name, input: externalArgs },
-        )
+        );
       }),
-  }
-}
+  };
+};
 
-export * as ToolRuntime from "./tool-runtime"
+export * as ToolRuntime from "./tool-runtime";

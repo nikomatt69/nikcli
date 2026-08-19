@@ -28,22 +28,33 @@ export const stringMethods = new Set([
   "search",
   "localeCompare",
   "normalize",
-])
+]);
 
-export const stringStatics = new Set(["fromCharCode", "fromCodePoint"])
+export const stringStatics = new Set(["fromCharCode", "fromCodePoint"]);
 
-export const invokeStringStatic = (name: string, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeStringStatic = (
+  name: string,
+  args: Array<unknown>,
+  node: AstNode,
+): string => {
   const codes = args.map((arg) => {
-    if (typeof arg !== "number") throw new InterpreterRuntimeError(`String.${name} expects number arguments.`, node)
-    return arg
-  })
+    if (typeof arg !== "number")
+      throw new InterpreterRuntimeError(
+        `String.${name} expects number arguments.`,
+        node,
+      );
+    return arg;
+  });
   switch (name) {
     case "fromCharCode":
-      return String.fromCharCode(...codes)
+      return String.fromCharCode(...codes);
     case "fromCodePoint":
-      return String.fromCodePoint(...codes)
+      return String.fromCodePoint(...codes);
     default:
-      throw new InterpreterRuntimeError(`String.${name} is not available in CodeMode.`, node)
+      throw new InterpreterRuntimeError(
+        `String.${name} is not available in CodeMode.`,
+        node,
+      );
   }
-}
-import { type AstNode, InterpreterRuntimeError } from "../interpreter/model"
+};
+import { type AstNode, InterpreterRuntimeError } from "../interpreter/model";

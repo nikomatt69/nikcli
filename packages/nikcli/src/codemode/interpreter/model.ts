@@ -1,43 +1,43 @@
-import type { SafeObject } from "../tool-runtime"
-import type { CodeModePromise, CodeModeURL } from "../values"
+import type { SafeObject, ToolReference } from "../tool-runtime";
+import type { CodeModeData, CodeModePromise, CodeModeURL } from "../values";
 
 export type SourcePosition = {
-  line: number
-  column: number
-}
+  line: number;
+  column: number;
+};
 
 export type SourceLocation = {
-  start: SourcePosition
-  end: SourcePosition
-}
+  start: SourcePosition;
+  end: SourcePosition;
+};
 
 export type AstNode = {
-  type: string
-  loc?: SourceLocation
-  [key: string]: unknown
-}
+  type: string;
+  loc?: SourceLocation;
+  [key: string]: unknown;
+};
 
 export type ProgramNode = AstNode & {
-  type: "Program"
-  body: Array<AstNode>
-}
+  type: "Program";
+  body: Array<AstNode>;
+};
 
 export type Binding = {
-  mutable: boolean
-  value: unknown
-  initialized?: boolean
-}
+  mutable: boolean;
+  value: CodeModeValue;
+  initialized?: boolean;
+};
 
 export type StatementResult =
   | { kind: "none" }
   | { kind: "return"; value: unknown }
   | { kind: "break" }
-  | { kind: "continue" }
+  | { kind: "continue" };
 
 export type MemberReference = {
-  target: SafeObject | Array<unknown> | CodeModeURL
-  key: string | number
-}
+  target: SafeObject | Array<unknown> | CodeModeURL;
+  key: string | number;
+};
 
 export class CodeModeFunction {
   constructor(
@@ -47,6 +47,28 @@ export class CodeModeFunction {
     readonly async: boolean,
   ) {}
 }
+
+/**
+ * A value a CodeMode program can bind, produce, or throw: interpreter data,
+ * host classes, and the runtime reference objects the interpreter itself owns.
+ */
+export type CodeModeValue =
+  | CodeModeData
+  | CodeModeFunction
+  | CoercionFunction
+  | UriFunction
+  | SearchFunction
+  | GlobalNamespace
+  | PromiseNamespace
+  | ErrorConstructorReference
+  | CodeModePromise
+  | ToolReference
+  | PromiseMethodReference
+  | PromiseInstanceMethodReference
+  | MemberReference
+  | IntrinsicReference
+  | GlobalMethodReference
+  | ComputedValue;
 
 export class IntrinsicReference {
   constructor(
@@ -61,13 +83,19 @@ export class ComputedValue {
 
 export class PromiseNamespace {}
 
-export type PromiseMethodName = "all" | "allSettled" | "race" | "any" | "resolve" | "reject"
+export type PromiseMethodName =
+  | "all"
+  | "allSettled"
+  | "race"
+  | "any"
+  | "resolve"
+  | "reject";
 
 export class PromiseMethodReference {
   constructor(readonly name: PromiseMethodName) {}
 }
 
-export type PromiseInstanceMethodName = "then" | "catch" | "finally"
+export type PromiseInstanceMethodName = "then" | "catch" | "finally";
 
 export class PromiseInstanceMethodReference {
   constructor(
@@ -91,7 +119,7 @@ export type GlobalNamespaceName =
   | "Map"
   | "Set"
   | "URL"
-  | "URLSearchParams"
+  | "URLSearchParams";
 
 export class GlobalNamespace {
   constructor(readonly name: GlobalNamespaceName) {}
@@ -105,11 +133,19 @@ export class GlobalMethodReference {
 }
 
 export class CoercionFunction {
-  constructor(readonly name: "Number" | "String" | "Boolean" | "parseInt" | "parseFloat") {}
+  constructor(
+    readonly name: "Number" | "String" | "Boolean" | "parseInt" | "parseFloat",
+  ) {}
 }
 
 export class UriFunction {
-  constructor(readonly name: "encodeURI" | "encodeURIComponent" | "decodeURI" | "decodeURIComponent") {}
+  constructor(
+    readonly name:
+      | "encodeURI"
+      | "encodeURIComponent"
+      | "decodeURI"
+      | "decodeURIComponent",
+  ) {}
 }
 
 export class SearchFunction {}
@@ -132,16 +168,18 @@ export type DiagnosticKind =
   | "ToolCallLimitExceeded"
   | "TimeoutExceeded"
   | "ToolFailure"
-  | "ExecutionFailure"
+  | "ExecutionFailure";
 
-export const OptionalShortCircuit: unique symbol = Symbol("codemode.optional-short-circuit")
+export const OptionalShortCircuit: unique symbol = Symbol(
+  "codemode.optional-short-circuit",
+);
 
 export const supportedSyntaxMessage =
-  "Supported orchestration syntax: tools.* calls (they return promises - resolve them with await), data literals, destructuring, optional chaining, template literals, conditionals, switch, loops (incl. for...of and for...in over object/array/tools keys), arrow functions, spread, try/catch, array methods (map/filter/find/findIndex/some/every/reduce/flatMap/forEach/sort/slice/concat/indexOf/lastIndexOf/at/flat/reverse/includes/join), string methods (incl. match/matchAll/replace/split with regular expressions), Date/RegExp/Map/Set/URL/URLSearchParams, URI encoding helpers, Object/Math/JSON helpers, captured console.log/warn/error/dir/table, Promise.all/allSettled/race/any/resolve/reject over arrays mixing promises and plain values for parallel tool calls, promise chaining with .then/.catch/.finally, and new Promise((resolve, reject) => ...) construction."
+  "Supported orchestration syntax: tools.* calls (they return promises - resolve them with await), data literals, destructuring, optional chaining, template literals, conditionals, switch, loops (incl. for...of and for...in over object/array/tools keys), arrow functions, spread, try/catch, array methods (map/filter/find/findIndex/some/every/reduce/flatMap/forEach/sort/slice/concat/indexOf/lastIndexOf/at/flat/reverse/includes/join), string methods (incl. match/matchAll/replace/split with regular expressions), Date/RegExp/Map/Set/URL/URLSearchParams, URI encoding helpers, Object/Math/JSON helpers, captured console.log/warn/error/dir/table, Promise.all/allSettled/race/any/resolve/reject over arrays mixing promises and plain values for parallel tool calls, promise chaining with .then/.catch/.finally, and new Promise((resolve, reject) => ...) construction.";
 
 export class InterpreterRuntimeError extends Error {
-  readonly node?: AstNode
-  errorName = "Error"
+  readonly node?: AstNode;
+  errorName = "Error";
 
   constructor(
     message: string,
@@ -149,68 +187,91 @@ export class InterpreterRuntimeError extends Error {
     readonly kind: DiagnosticKind = "ExecutionFailure",
     readonly suggestions?: ReadonlyArray<string>,
   ) {
-    super(message)
-    this.name = "InterpreterRuntimeError"
-    if (node) this.node = node
+    super(message);
+    this.name = "InterpreterRuntimeError";
+    if (node) this.node = node;
   }
 
   as(errorName: string): this {
-    this.errorName = errorName
-    return this
+    this.errorName = errorName;
+    return this;
   }
 }
 
-export const unsupportedSyntax = (kind: string, node: AstNode): InterpreterRuntimeError =>
+export const unsupportedSyntax = (
+  kind: string,
+  node: AstNode,
+): InterpreterRuntimeError =>
   new InterpreterRuntimeError(
     `Syntax '${kind}' is not supported in CodeMode. ${supportedSyntaxMessage}`,
     node,
     "UnsupportedSyntax",
     [supportedSyntaxMessage],
-  )
+  );
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null
+  typeof value === "object" && value !== null;
 
 export const asNode = (value: unknown, context: string): AstNode => {
   if (!isRecord(value) || typeof value.type !== "string") {
-    throw new InterpreterRuntimeError(`Invalid AST node while reading ${context}.`)
+    throw new InterpreterRuntimeError(
+      `Invalid AST node while reading ${context}.`,
+    );
   }
-  return value as AstNode
-}
+  return value as AstNode;
+};
 
 export const getArray = (node: AstNode, key: string): Array<unknown> => {
-  const value = node[key]
-  if (!Array.isArray(value)) throw new InterpreterRuntimeError(`Expected '${key}' to be an array.`, node)
-  return value
-}
+  const value = node[key];
+  if (!Array.isArray(value))
+    throw new InterpreterRuntimeError(
+      `Expected '${key}' to be an array.`,
+      node,
+    );
+  return value;
+};
 
 export const getString = (node: AstNode, key: string): string => {
-  const value = node[key]
-  if (typeof value !== "string") throw new InterpreterRuntimeError(`Expected '${key}' to be a string.`, node)
-  return value
-}
+  const value = node[key];
+  if (typeof value !== "string")
+    throw new InterpreterRuntimeError(
+      `Expected '${key}' to be a string.`,
+      node,
+    );
+  return value;
+};
 
 export const getBoolean = (node: AstNode, key: string): boolean => {
-  const value = node[key]
-  if (typeof value !== "boolean") throw new InterpreterRuntimeError(`Expected '${key}' to be a boolean.`, node)
-  return value
-}
+  const value = node[key];
+  if (typeof value !== "boolean")
+    throw new InterpreterRuntimeError(
+      `Expected '${key}' to be a boolean.`,
+      node,
+    );
+  return value;
+};
 
-export const getOptionalNode = (node: AstNode, key: string): AstNode | undefined => {
-  const value = node[key]
-  if (value === undefined || value === null) return undefined
-  return asNode(value, key)
-}
+export const getOptionalNode = (
+  node: AstNode,
+  key: string,
+): AstNode | undefined => {
+  const value = node[key];
+  if (value === undefined || value === null) return undefined;
+  return asNode(value, key);
+};
 
-export const getNode = (node: AstNode, key: string): AstNode => asNode(node[key], key)
+export const getNode = (node: AstNode, key: string): AstNode =>
+  asNode(node[key], key);
 
-export const sourceLocation = (node: AstNode): { readonly line: number; readonly column: number } => ({
+export const sourceLocation = (
+  node: AstNode,
+): { readonly line: number; readonly column: number } => ({
   line: Math.max(1, (node.loc?.start.line ?? 2) - 1),
   column: Math.max(1, (node.loc?.start.column ?? 4) - 3),
-})
+});
 
 export const formatLocation = (node?: AstNode): string => {
-  if (!node?.loc) return ""
-  const location = sourceLocation(node)
-  return ` (line ${location.line}, col ${location.column})`
-}
+  if (!node?.loc) return "";
+  const location = sourceLocation(node);
+  return ` (line ${location.line}, col ${location.column})`;
+};
