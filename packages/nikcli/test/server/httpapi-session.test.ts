@@ -179,6 +179,115 @@ describe("Session HttpApi bridge", () => {
     }
   })
 
+  /**
+   * A running monitor has no `exitCode`, `signal` or `time.completed` yet, and
+   * no `partID` until a tool part matches. Those are `optionalKey` on
+   * `Monitor.RecordSchema`, and the exit handler used to clear `exitCode` and
+   * `signal` by assigning `undefined` — which is a 400, not an omitted field,
+   * once the handler stops round-tripping through `jsonSafe`.
+   */
+  it("serves a running monitor record with unset optionals omitted", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, {})) as { id: string }
+
+    const { Monitor } = await import("@/monitor/manager")
+    const record = await Instance.provide({
+      directory,
+      fn: () =>
+        Monitor.start({
+          sessionID: created.id,
+          messageID: "msg_monitor_test",
+          callID: "call_monitor_test",
+          title: "sleeper",
+          command: "sleep 30",
+          cwd: directory,
+          agent: "build",
+          wake: false,
+        }),
+    })
+
+    const fetched = (await request(`/session/${created.id}/monitor/${record.id}`, directory)) as Record<string, unknown>
+    expect(fetched.status).toBe("running")
+    expect(typeof fetched.pid).toBe("number")
+    for (const key of ["exitCode", "signal", "partID", "timeoutMs"]) expect(fetched).not.toHaveProperty(key)
+    expect(fetched.time as object).not.toHaveProperty("completed")
+
+    const cancelled = (await post(`/session/${created.id}/monitor/${record.id}/cancel`, directory, {})) as Record<
+      string,
+      unknown
+    >
+    expect(cancelled.status).toBe("cancelled")
+    expect(cancelled).not.toHaveProperty("partID")
+  })
+
+  /**
+   * `SessionGoalState.tokenBudget` is the one optional on the goal state, and
+   * a goal set without a budget must omit the key rather than send `null`.
+   */
+  it("serves a goal without a budget as an absent key", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, {})) as { id: string }
+
+    const empty = await request(`/session/${created.id}/goal`, directory)
+    expect(empty).toBeNull()
+
+    const { Effect } = await import("effect")
+    const { runPromiseWithLayer } = await import("@/effect")
+    const { SessionGoal } = await import("@/session/goal")
+    await Instance.provide({
+      directory,
+      fn: () =>
+        runPromiseWithLayer(
+          SessionGoal.defaultLayer,
+          Effect.gen(function* () {
+            const goal = yield* SessionGoal.Service
+            return yield* goal.set(created.id, "ship the slice")
+          }),
+        ),
+    })
+
+    const state = (await request(`/session/${created.id}/goal`, directory)) as Record<string, unknown>
+    expect(state.objective).toBe("ship the slice")
+    expect(state).not.toHaveProperty("tokenBudget")
+  })
+
+  /**
+   * The queued prompt's `data` carries nine optionals (`agent`, `model`,
+   * `system`, …). A queue entry made from a bare prompt sets none of them, and
+   * the pending routes hand the decoded row straight to the encoder. Only the
+   * list route is exercised: `POST .../steer` promotes the entry and starts a
+   * real prompt loop, which in this environment dies on model resolution and
+   * surfaces as an unhandled error between tests.
+   */
+  it("serves a queued pending input with unset optionals omitted", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, {})) as { id: string }
+
+    const { SessionPending } = await import("@/session/pending")
+    const inserted = await Instance.provide({
+      directory,
+      fn: async () =>
+        SessionPending.insert({
+          sessionID: created.id,
+          messageID: "msg_pending_test",
+          delivery: "queue",
+          data: JSON.stringify({
+            sessionID: created.id,
+            parts: [{ type: "text", text: "queued while busy" }],
+          }),
+        }),
+    })
+
+    const [entry] = (await request(`/session/${created.id}/pending`, directory)) as {
+      id: string
+      data: Record<string, unknown>
+    }[]
+    expect(entry!.id).toBe(inserted.id)
+    for (const key of ["agent", "model", "system", "variant", "noReply", "tools", "format", "delivery"]) {
+      expect(entry!.data).not.toHaveProperty(key)
+    }
+  })
+
   it("creates a session without a request body for legacy SDK compatibility", async () => {
     const directory = await makeProjectDir()
     const created = (await jsonRequest("POST", "/session", directory)) as {

@@ -856,12 +856,12 @@ export namespace SessionHttpApi {
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
-        return jsonSafe(SessionPending.list(params.sessionID))
+        return SessionPending.list(params.sessionID)
       }).pipe(declaredErrors),
     pendingSteer: ({ params }: { params: typeof PendingPath.Type }) =>
       Effect.gen(function* () {
         const prompt = yield* SessionPrompt.Service
-        return jsonSafe(yield* prompt.steerPending(params))
+        return yield* prompt.steerPending(params)
       }).pipe(declaredErrors),
     message: ({ params }: { params: typeof MessagePath.Type }) =>
       Effect.gen(function* () {
@@ -1017,7 +1017,7 @@ export namespace SessionHttpApi {
       Effect.gen(function* () {
         const goal = yield* SessionGoal.Service
         const state = yield* goal.get(params.sessionID)
-        return jsonSafe(state ?? null)
+        return state ?? null
       }).pipe(Effect.orDie),
     background: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -1047,19 +1047,19 @@ export namespace SessionHttpApi {
     monitor: ({ params }: { params: typeof MonitorPath.Type }) =>
       Effect.gen(function* () {
         const record = yield* Effect.promise(() => Monitor.get(params.sessionID, params.monitorID))
-        return jsonSafe(record ?? null)
+        return record ?? null
       }).pipe(declaredErrors),
     monitorLog: ({ params, query }: { params: typeof MonitorPath.Type; query: typeof MonitorLogQuery.Type }) =>
       Effect.gen(function* () {
         const snapshot = yield* Effect.promise(() =>
           Monitor.readLog(params.sessionID, params.monitorID, query.lines ?? 200),
         )
-        return jsonSafe(snapshot ?? null)
+        return snapshot ?? null
       }).pipe(declaredErrors),
     monitorCancel: ({ params }: { params: typeof MonitorPath.Type }) =>
       Effect.gen(function* () {
         const record = yield* Effect.promise(() => Monitor.cancel(params.sessionID, params.monitorID))
-        return jsonSafe(record ?? null)
+        return record ?? null
       }).pipe(declaredErrors),
   }
 

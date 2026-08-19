@@ -1354,7 +1354,7 @@ export type SessionGoalState = {
   goalID: string
   objective: string
   status: "active" | "paused" | "blocked" | "usage_limited" | "budget_limited" | "complete"
-  tokenBudget?: number | undefined
+  tokenBudget?: number
   tokensUsed: number
   timeUsedSeconds: number
   iterationCount: number
@@ -1397,17 +1397,17 @@ export type SessionMonitorOutput2 = {
   sessionID: string
   messageID: string
   callID: string
-  partID?: string | null
+  partID?: string
   title: string
   command: string
   cwd: string
   agent: string
   wake: boolean
-  timeoutMs?: number | "Infinity" | "-Infinity" | "NaN" | null
+  timeoutMs?: number | "Infinity" | "-Infinity" | "NaN"
   status: "running" | "complete" | "error" | "timeout" | "cancelled"
-  pid?: number | "Infinity" | "-Infinity" | "NaN" | null
-  exitCode?: number | "Infinity" | "-Infinity" | "NaN" | null
-  signal?: string | null
+  pid?: number | "Infinity" | "-Infinity" | "NaN"
+  exitCode?: number | "Infinity" | "-Infinity" | "NaN"
+  signal?: string
   logPath: string
   commandPath: string
   pidPath: string
@@ -1417,7 +1417,7 @@ export type SessionMonitorOutput2 = {
   time: {
     created: number | "Infinity" | "-Infinity" | "NaN"
     updated: number | "Infinity" | "-Infinity" | "NaN"
-    completed?: number | "Infinity" | "-Infinity" | "NaN" | null
+    completed?: number | "Infinity" | "-Infinity" | "NaN"
   }
 } | null
 
@@ -1427,17 +1427,17 @@ export type SessionMonitorLogOutput2 = {
     sessionID: string
     messageID: string
     callID: string
-    partID?: string | null
+    partID?: string
     title: string
     command: string
     cwd: string
     agent: string
     wake: boolean
-    timeoutMs?: number | "Infinity" | "-Infinity" | "NaN" | null
+    timeoutMs?: number | "Infinity" | "-Infinity" | "NaN"
     status: "running" | "complete" | "error" | "timeout" | "cancelled"
-    pid?: number | "Infinity" | "-Infinity" | "NaN" | null
-    exitCode?: number | "Infinity" | "-Infinity" | "NaN" | null
-    signal?: string | null
+    pid?: number | "Infinity" | "-Infinity" | "NaN"
+    exitCode?: number | "Infinity" | "-Infinity" | "NaN"
+    signal?: string
     logPath: string
     commandPath: string
     pidPath: string
@@ -1447,7 +1447,7 @@ export type SessionMonitorLogOutput2 = {
     time: {
       created: number | "Infinity" | "-Infinity" | "NaN"
       updated: number | "Infinity" | "-Infinity" | "NaN"
-      completed?: number | "Infinity" | "-Infinity" | "NaN" | null
+      completed?: number | "Infinity" | "-Infinity" | "NaN"
     }
   }
   output: string
@@ -1747,24 +1747,24 @@ export type EventMonitorCreated = {
       sessionID: string
       messageID: string
       callID: string
-      partID?: string | undefined
+      partID?: string
       title: string
       command: string
       cwd: string
       agent: string
       wake: boolean
-      timeoutMs?: number | undefined
+      timeoutMs?: number
       status: "running" | "complete" | "error" | "timeout" | "cancelled"
-      pid?: number | undefined
-      exitCode?: number | undefined
-      signal?: string | undefined
+      pid?: number
+      exitCode?: number
+      signal?: string
       logPath: string
       commandPath: string
       pidPath: string
       exitCodePath: string
       preview?: string | undefined | undefined
       bytes?: number | undefined | undefined
-      time: { created: number; updated: number; completed?: number | undefined }
+      time: { created: number; updated: number; completed?: number }
     }
   }
 }
@@ -1778,24 +1778,24 @@ export type EventMonitorUpdated = {
       sessionID: string
       messageID: string
       callID: string
-      partID?: string | undefined
+      partID?: string
       title: string
       command: string
       cwd: string
       agent: string
       wake: boolean
-      timeoutMs?: number | undefined
+      timeoutMs?: number
       status: "running" | "complete" | "error" | "timeout" | "cancelled"
-      pid?: number | undefined
-      exitCode?: number | undefined
-      signal?: string | undefined
+      pid?: number
+      exitCode?: number
+      signal?: string
       logPath: string
       commandPath: string
       pidPath: string
       exitCodePath: string
       preview?: string | undefined | undefined
       bytes?: number | undefined | undefined
-      time: { created: number; updated: number; completed?: number | undefined }
+      time: { created: number; updated: number; completed?: number }
     }
   }
 }
@@ -2489,6 +2489,8 @@ export type QuestionRequest = {
 }
 
 export type OutputFormat1 = OutputFormatText | OutputFormatJsonSchema1
+
+export type OutputFormat2 = OutputFormatText | OutputFormatJsonSchema1
 
 export type FilePartSource2 = FileSource2 | SymbolSource2 | ResourceSource2
 
@@ -3402,15 +3404,15 @@ export type ToolState1 = ToolStatePending1 | ToolStateRunning1 | ToolStateComple
 
 export type SessionPendingPromptInput = {
   sessionID: string
-  messageID?: string | undefined
-  delivery?: "steer" | "queue" | undefined
-  model?: { providerID: string; modelID: string } | undefined
-  agent?: string | undefined
-  noReply?: boolean | undefined
-  tools?: { [x: string]: boolean } | undefined
-  format?: OutputFormat1 | undefined
-  system?: string | undefined
-  variant?: string | undefined
+  messageID?: string
+  delivery?: "steer" | "queue"
+  model?: { providerID: string; modelID: string }
+  agent?: string
+  noReply?: boolean
+  tools?: { [x: string]: boolean }
+  format?: OutputFormat2
+  system?: string
+  variant?: string
   parts: Array<PromptPartInput>
 }
 
@@ -4933,20 +4935,17 @@ export type ConfigManagementMcpAddPayload = { readonly name: string; readonly co
 export type ConfigManagementProfileCreatePayload = { readonly name: string }
 
 export type SessionPromptPromptPayload = {
-  readonly messageID?: string | undefined
-  readonly delivery?: "steer" | "queue" | undefined
-  readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-  readonly agent?: string | undefined
-  readonly noReply?: boolean | undefined
-  readonly tools?: { readonly [x: string]: boolean } | undefined
+  readonly messageID?: string
+  readonly delivery?: "steer" | "queue"
+  readonly model?: { readonly providerID: string; readonly modelID: string }
+  readonly agent?: string
+  readonly noReply?: boolean
+  readonly tools?: { readonly [x: string]: boolean }
   readonly format?:
-    | (
-        | { readonly type: "text" }
-        | { readonly type: "json_schema"; readonly schema: { readonly [x: string]: any }; readonly retryCount: number }
-      )
-    | undefined
-  readonly system?: string | undefined
-  readonly variant?: string | undefined
+    | { readonly type: "text" }
+    | { readonly type: "json_schema"; readonly schema: { readonly [x: string]: any }; readonly retryCount: number }
+  readonly system?: string
+  readonly variant?: string
   readonly parts: ReadonlyArray<
     | {
         readonly type: "text"
@@ -5010,20 +5009,17 @@ export type SessionPromptPromptPayload = {
 }
 
 export type SessionPromptPromptAsyncPayload = {
-  readonly messageID?: string | undefined
-  readonly delivery?: "steer" | "queue" | undefined
-  readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-  readonly agent?: string | undefined
-  readonly noReply?: boolean | undefined
-  readonly tools?: { readonly [x: string]: boolean } | undefined
+  readonly messageID?: string
+  readonly delivery?: "steer" | "queue"
+  readonly model?: { readonly providerID: string; readonly modelID: string }
+  readonly agent?: string
+  readonly noReply?: boolean
+  readonly tools?: { readonly [x: string]: boolean }
   readonly format?:
-    | (
-        | { readonly type: "text" }
-        | { readonly type: "json_schema"; readonly schema: { readonly [x: string]: any }; readonly retryCount: number }
-      )
-    | undefined
-  readonly system?: string | undefined
-  readonly variant?: string | undefined
+    | { readonly type: "text" }
+    | { readonly type: "json_schema"; readonly schema: { readonly [x: string]: any }; readonly retryCount: number }
+  readonly system?: string
+  readonly variant?: string
   readonly parts: ReadonlyArray<
     | {
         readonly type: "text"
