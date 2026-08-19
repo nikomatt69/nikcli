@@ -96,10 +96,10 @@ Library mode does not bind `HEALTH_PORT` and does not register `SIGTERM`.
 
 Two deployables live in this package, and they are not interchangeable:
 
-| Surface                | Runs on             | Entry                | Reaches Discord via     |
-| ---------------------- | ------------------- | -------------------- | ----------------------- |
-| Gateway bot            | Railway / Fly / Docker | `src/index.ts`    | websocket (discord.js)  |
-| Interactions Worker    | Cloudflare          | `src/worker.ts`      | HTTP webhook            |
+| Surface             | Runs on                | Entry           | Reaches Discord via    |
+| ------------------- | ---------------------- | --------------- | ---------------------- |
+| Gateway bot         | Railway / Fly / Docker | `src/index.ts`  | websocket (discord.js) |
+| Interactions Worker | Cloudflare             | `src/worker.ts` | HTTP webhook           |
 
 The Gateway bot is the full experience — mentions, threads, channel memory,
 follow-ups, voice transcription. It needs a persistent websocket, a git working
