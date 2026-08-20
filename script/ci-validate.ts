@@ -64,8 +64,14 @@ const steps: ValidationStep[] = [
     // suites and the simulation tests that boot a real TUI — with none of the
     // per-package bunfig (preload, timeout) applied. The full matrix is the
     // `test` workflow's job; validation only needs fast feedback on the core.
+    // `--parallel=2`, not the default: --parallel implies --isolate, so each
+    // worker carries its own module registry for a graph that pulls in OpenTUI,
+    // the database and the server. One worker per core on a 4-vCPU runner drove
+    // it out of memory, and the runner answered with a shutdown signal — which
+    // kills the job outright, so `critical: false` below could not absorb it.
+    // Three consecutive runs died ~2m into this step that way (exit 143).
     name: "Run tests",
-    command: ["bun", "run", "test"],
+    command: ["bun", "run", "test", "--", "--parallel=2"],
     cwd: "packages/nikcli",
     timeout: 300_000,
     critical: false,
