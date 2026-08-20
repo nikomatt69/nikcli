@@ -3,8 +3,8 @@
  * a live {@link Screen}. Provides input ({@link Session.send}), synchronization
  * ({@link Session.wait}), screen capture ({@link Session.snapshot}) and lifecycle.
  */
-import { spawn, type IPty } from "bun-pty"
-import stripAnsi from "strip-ansi"
+import { spawnPty, type NativePty } from "@nikcli-ai/util/pty"
+import { stripAnsi } from "@nikcli-ai/util/bun-utils"
 import type { Frame } from "./frame"
 import { Screen } from "./vt/screen"
 import { translateKeys } from "./keys"
@@ -57,7 +57,7 @@ export class Session {
   readonly args: string[]
   readonly cwd: string
 
-  private readonly pty: IPty
+  private readonly pty: NativePty
   private readonly screen: Screen
   private rawLog = ""
   private status: SessionStatus = "running"
@@ -82,12 +82,13 @@ export class Session {
       NIKCLI_TERMINAL: "1",
     } as Record<string, string>
 
-    this.pty = spawn(this.command, this.args, {
-      name: "xterm-256color",
-      cols,
-      rows,
+    this.pty = spawnPty({
+      command: this.command,
+      args: this.args,
       cwd: this.cwd,
       env,
+      cols,
+      rows,
     })
 
     this.pty.onData((data) => {

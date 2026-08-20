@@ -19,7 +19,6 @@ import {
   type RendererKind,
 } from "@nikcli-ai/tui-image"
 import { useTheme } from "@tui/context/theme"
-import { preparePhoton } from "@nikcli-ai/util/photon"
 
 /**
  * Image preview component built on top of `@nikcli-ai/tui-image`.
@@ -374,9 +373,6 @@ async function loadTuiImage(
 ): Promise<TuiImageData> {
   const bytes = await readImageBytes(url, signal)
   if (signal.aborted) throw new Error("aborted")
-  // Point photon at its embedded wasm before any decoder can reach for it:
-  // it is the only backend here that reads WebP.
-  preparePhoton()
   // Env detection over-reports native protocols (TERM=xterm-256color implies
   // sixel almost everywhere); the renderer's negotiated DA1 answer decides.
   const capabilities = applyLiveCapabilities(detectCapabilities(), live)

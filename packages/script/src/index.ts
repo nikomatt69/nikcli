@@ -62,3 +62,35 @@ export const Script = {
   },
 }
 console.log(`nikcli script`, JSON.stringify(Script, null, 2))
+
+/**
+ * bun 1.4.0's `--compile` writes a darwin Mach-O whose ad-hoc signature no longer
+ * matches the executable segment, so the kernel SIGKILLs the binary the moment it
+ * is exec'd ("killed: 9", exit 137) — even for a one-line program. Re-signing
+ * ad-hoc after the compile repairs it. `codesign -v` still reports "invalid
+ * signature" on a bun binary either way: the payload bun appends past __LINKEDIT
+ * is not covered by the CodeDirectory, and that part is benign. Drop this once
+ * upstream fixes the signer.
+ */
+export async function signDarwinBinary(file: string) {
+  // macOS hosts have codesign in the base system.
+  if (process.platform === "darwin") {
+    await $`codesign --force --sign - ${file}`.quiet()
+    return
+  }
+  // Releases cross-compile darwin from ubuntu, where codesign does not exist, so
+  // fall back to whichever ad-hoc Mach-O signer the runner has.
+  const signers = [
+    ["rcodesign", "sign", file],
+    ["ldid", "-S", file],
+  ] as const
+  for (const [tool, ...args] of signers) {
+    if (!Bun.which(tool)) continue
+    await $`${tool} ${args}`.quiet()
+    return
+  }
+  throw new Error(
+    `cannot ad-hoc sign ${file}: no codesign, rcodesign or ldid on PATH. ` +
+      `bun ${Bun.version} emits darwin binaries that macOS kills on exec unless they are re-signed.`,
+  )
+}

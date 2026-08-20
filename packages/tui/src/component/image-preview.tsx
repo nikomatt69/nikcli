@@ -2,7 +2,6 @@ import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Sw
 import { RGBA } from "@opentui/core"
 import { pickDecoder, resize } from "@nikcli-ai/tui-image"
 import { useTheme } from "@tui/context/theme"
-import { preparePhoton } from "@nikcli-ai/util/photon"
 
 const MAX_PREVIEW_BYTES = 10 * 1024 * 1024
 const MAX_PREVIEW_COLUMNS = 60
@@ -276,7 +275,6 @@ async function loadImagePreview(url: string, maxColumns: number, signal: AbortSi
   // Via `pickDecoder` rather than Jimp directly: this Braille path is the
   // fallback for terminals without a graphics protocol — most of Windows —
   // and Jimp cannot read the WebP files `IMAGE_EXTENSIONS` accepts.
-  preparePhoton()
   const decode = await pickDecoder()
   const image = await decode(bytes)
   const sourceWidth = image.width

@@ -4,6 +4,7 @@ import { onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createSimpleContext } from "../../context/helper"
 import { appendFile } from "fs/promises"
+import { parseJsonl } from "@nikcli-ai/util/bun-utils"
 
 function calculateFrecency(entry?: { frequency: number; lastOpen: number }): number {
   if (!entry) return 0
@@ -22,17 +23,14 @@ export const { use: useFrecency, provider: FrecencyProvider } = createSimpleCont
     const frecencyFile = Bun.file(path.join(Global.Path.state, "frecency.jsonl"))
     onMount(async () => {
       const text = await frecencyFile.text().catch(() => "")
-      const lines = text
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => {
-          try {
-            return JSON.parse(line) as { path: string; frequency: number; lastOpen: number }
-          } catch {
-            return null
-          }
-        })
-        .filter((line): line is { path: string; frequency: number; lastOpen: number } => line !== null)
+      const lines = parseJsonl(text).filter(
+        (line): line is { path: string; frequency: number; lastOpen: number } =>
+          !!line &&
+          typeof line === "object" &&
+          typeof (line as { path?: unknown }).path === "string" &&
+          typeof (line as { frequency?: unknown }).frequency === "number" &&
+          typeof (line as { lastOpen?: unknown }).lastOpen === "number",
+      )
 
       const latest = lines.reduce(
         (acc, entry) => {

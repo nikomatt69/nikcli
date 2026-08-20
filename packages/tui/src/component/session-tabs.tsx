@@ -12,6 +12,7 @@ import { Logo } from "@tui/component/logo"
 import { SplitBorder } from "@tui/component/border"
 import { DialogSessionLink } from "@tui/component/dialog-session-link"
 import { sessionLinkOf } from "@tui/util/session-link"
+import { bunUtils } from "@nikcli-ai/util/bun-utils"
 
 const TAB_MIN_WIDTH = 12
 const TAB_MAX_WIDTH = 28
@@ -29,14 +30,9 @@ export type SessionTabLayout = {
 
 export function truncateTabTitle(title: string, width: number) {
   const clean = title.replace(/\s+/g, " ").trim() || "Untitled session"
-  if (Bun.stringWidth(clean) <= width) return clean
+  if (bunUtils.stringWidth(clean) <= width) return clean
   if (width <= 1) return "…"
-  let result = ""
-  for (const character of clean) {
-    if (Bun.stringWidth(result + character) > width - 1) break
-    result += character
-  }
-  return `${result}…`
+  return `${bunUtils.sliceAnsi(clean, 0, width - 1)}…`
 }
 
 export function layoutSessionTabs(

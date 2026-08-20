@@ -1,9 +1,6 @@
 /**
- * Video export — transcode the webm Playwright records for a session into
- * watchable formats via the `ffmpeg` binary. Unlike terminal-control (which
- * synthesizes video from a PNG-frame sequence because a terminal has no native
- * video), a browser session already produces a real video file; this module
- * only needs to convert it.
+ * Video export — transcode a recorded session video (or assemble a PNG
+ * sequence) via the `ffmpeg` binary.
  */
 import { dirname, delimiter } from "node:path"
 import type { SampledFrame } from "../recording"
@@ -43,8 +40,8 @@ async function run(command: readonly string[], env?: Record<string, string | und
   if (code !== 0) throw new Error(`ffmpeg exited with code ${code}: ${errors.trim().slice(-2_000)}`)
 }
 
-/** Transcode a Playwright-recorded webm file into an MP4 or GIF. */
-export async function exportVideo(webmPath: string, options: ExportVideoOptions): Promise<ExportVideoResult> {
+/** Transcode a recorded video file into an MP4 or GIF. */
+export async function exportVideo(inputPath: string, options: ExportVideoOptions): Promise<ExportVideoResult> {
   const ffmpeg = await resolveFfmpegBinary()
   const format = options.format ?? "mp4"
   const env = { ...process.env, PATH: [dirname(ffmpeg), process.env.PATH].filter(Boolean).join(delimiter) }
@@ -57,7 +54,7 @@ export async function exportVideo(webmPath: string, options: ExportVideoOptions)
         "-loglevel",
         "error",
         "-i",
-        webmPath,
+        inputPath,
         "-filter_complex",
         "fps=10,scale=w='min(960,iw)':h=-2:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer",
         "-loop",
@@ -74,7 +71,7 @@ export async function exportVideo(webmPath: string, options: ExportVideoOptions)
         "-loglevel",
         "error",
         "-i",
-        webmPath,
+        inputPath,
         "-c:v",
         "libx264",
         "-pix_fmt",
@@ -109,8 +106,7 @@ export interface ExportFramesResult extends ExportVideoResult {
 /**
  * Assemble a fixed-fps PNG sequence (from {@link Recorder}'s periodic sampling)
  * into an MP4 or GIF — usable at any point, including while the session that
- * produced the frames is still running, unlike Playwright's own webm which
- * only finalizes on context close.
+ * produced the frames is still running.
  */
 export async function exportVideoFromFrames(
   frames: ReadonlyArray<SampledFrame>,

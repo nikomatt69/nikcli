@@ -138,7 +138,7 @@ export const RoutineCreateCommand = cmd({
         const ms = Routine.parseCronInterval(cronStr)
         if (!ms) {
           prompts.log.warn(
-            `Cron pattern "${cronStr}" is not recognised — routine will be created but the schedule will not fire. Supported: @hourly, @daily, @weekly, */N (minutes), 0 */N * * * (hours).`,
+            `Cron pattern "${cronStr}" is not recognised — routine will be created but the schedule will not fire. ${Routine.SUPPORTED_CRON_HELP}`,
           )
         }
         triggers.push({ type: "schedule", cron: cronStr, enabled: true })

@@ -30,7 +30,7 @@ const { PtyEnvironment } = await import("@/pty/environment")
 
 const projectDirs: string[] = []
 
-// The PTY itself works on Windows — `bun-pty` opens a ConPTY there — but
+// The PTY itself works on Windows — Bun.spawn({ terminal }) opens ConPTY there — but
 // `/bin/sleep` and `/bin/sh` do not exist, so a POSIX command line was the only
 // thing failing these cases. Driving the runtime already running the suite
 // keeps one command line for every platform and keeps the assertions intact.

@@ -12,6 +12,7 @@ import { useToast } from "@tui/ui/toast"
 import { useLocal } from "@tui/context/local"
 import { Keybind } from "@tui/util/keybind"
 import { Locale } from "@nikcli-ai/util/locale"
+import { bunUtils } from "@nikcli-ai/util/bun-utils"
 import { randomBytes } from "crypto"
 
 type WizardStep = "starter" | "name" | "prompt" | "model" | "schedule" | "api" | "review"
@@ -80,7 +81,7 @@ type RoutineAction =
   | "delete"
   | "back"
 
-const SUPPORTED_CRON_HELP = "Supported: @hourly, @daily, @weekly, */N, or 0 */N * * *."
+const SUPPORTED_CRON_HELP = "Supported: 5-field cron, @hourly/@daily/@weekly/@monthly/@yearly, or */N minutes."
 
 const SCHEDULE_OPTIONS: DialogSelectOption<ScheduleChoice>[] = [
   { title: "Manual only", value: "", description: "No automatic schedule" },
@@ -129,29 +130,15 @@ function apiTrigger(routine: MobileRoutine) {
   return routine.triggers.find(isApi)
 }
 
-function parseCronInterval(cron: string): number | null {
-  const trimmed = cron.trim()
-  if (trimmed === "@hourly") return 60 * 60 * 1000
-  if (trimmed === "@daily") return 24 * 60 * 60 * 1000
-  if (trimmed === "@weekly") return 7 * 24 * 60 * 60 * 1000
-
-  const everyNMinutes = trimmed.match(/^\*\/(\d+)$/)
-  if (everyNMinutes) {
-    const n = Number.parseInt(everyNMinutes[1], 10)
-    if (n > 0) return n * 60 * 1000
-  }
-
-  const everyNHours = trimmed.match(/^0 \*\/(\d+) \* \* \*$/)
-  if (everyNHours) {
-    const n = Number.parseInt(everyNHours[1], 10)
-    if (n > 0) return n * 60 * 60 * 1000
-  }
-
-  return null
-}
-
 function isValidCron(cron: string) {
-  return Boolean(parseCronInterval(cron))
+  const trimmed = cron.trim()
+  if (!trimmed) return false
+  const expr = /^\*\/\d+$/.test(trimmed) ? `${trimmed} * * * *` : trimmed
+  try {
+    return bunUtils.cron.parse(expr) != null
+  } catch {
+    return false
+  }
 }
 
 function cronDescription(cron: string) {

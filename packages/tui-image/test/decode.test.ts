@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { jimpDecoder, DecodeError, detectFormat, photonDecoder, pickDecoder } from "../src/decode"
+import { jimpDecoder, DecodeError, detectFormat, photonDecoder, pickDecoder, bunDecoder } from "../src/decode"
 import { solidImage } from "./_fixtures"
 import { detectCapabilities, Protocol } from "../src/capabilities"
 
@@ -59,6 +59,16 @@ describe("detectFormat", () => {
   })
 })
 
+describe("bunDecoder", () => {
+  test("decodes a PNG via Bun.Image", async () => {
+    const { Jimp } = await import("jimp")
+    const png = await new Jimp({ width: 4, height: 4, color: 0xc86432ff }).getBuffer("image/png")
+    const decoded = await bunDecoder(new Uint8Array(png))
+    expect(decoded.width).toBe(4)
+    expect(decoded.height).toBe(4)
+  })
+})
+
 describe("pickDecoder", () => {
   test("decodes WebP, which Jimp alone cannot read", async () => {
     await expect(jimpDecoder(WEBP_8X8)).rejects.toBeInstanceOf(DecodeError)
@@ -79,7 +89,7 @@ describe("pickDecoder", () => {
     const error = await Promise.resolve(decode(new Uint8Array([0, 1, 2, 3, 4, 5]))).catch((e: unknown) => e)
     expect(error).toBeInstanceOf(DecodeError)
     expect((error as DecodeError).message).toContain("unrecognized")
-    expect((error as DecodeError).message).toContain("jimp:")
+    expect((error as DecodeError).message).toMatch(/bun:|jimp:/)
   })
 })
 

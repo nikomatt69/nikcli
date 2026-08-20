@@ -13,7 +13,7 @@ import { MessageRepo } from "@/session/message-repo"
 import { SessionEntryProjection } from "@/session/v2/projection"
 import { SessionStatus } from "@/session/status"
 import { withInstance, withInstanceAsync } from "@/effect"
-import { createWorkspaceArchive, uploadWorkspaceArchive } from "@nikcli-ai/util/teleport-archive"
+import { createWorkspaceArchive, extractWorkspaceArchive, uploadWorkspaceArchive } from "@nikcli-ai/util/teleport-archive"
 import { log, runProject, runSession, runSessionForSession } from "./helpers"
 import { MobileHttpError } from "./request"
 
@@ -83,16 +83,7 @@ async function git(args: string[], cwd: string) {
 }
 async function extract(archive: string, destination: string) {
   await mkdir(destination, { recursive: true })
-  const proc = Bun.spawn(["tar", "-xzf", archive, "-C", destination], {
-    stdout: "ignore",
-    stderr: "pipe",
-    windowsHide: true,
-  })
-  const code = await proc.exited
-  if (code)
-    throw new Error(
-      `tar extract failed (${code}): ${(await new Response(proc.stderr).text().catch(() => "")).slice(0, 200)}`,
-    )
+  await extractWorkspaceArchive(archive, destination)
 }
 async function ensureRepo(directory: string) {
   if (await git(["rev-parse", "--is-inside-work-tree"], directory)) return

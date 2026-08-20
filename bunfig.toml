@@ -1,0 +1,4 @@
+# Isolated linker is already the lockfile default (configVersion 1).
+# Windows CI passes `--linker hoisted` and ignores this store.
+[install]
+globalStore = true

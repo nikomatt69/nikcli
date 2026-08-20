@@ -1,9 +1,10 @@
 /**
- * Translate human-friendly key names into Playwright `keyboard.press()` key
- * strings. Mirrors terminal-control's `keys.ts` token syntax (`enter`, `tab`,
- * `ctrl+a`, `alt+shift+x`, ...) but targets DOM `KeyboardEvent.key` names
- * instead of terminal escape sequences.
+ * Translate human-friendly key names into Bun.WebView `press()` chords.
+ * Mirrors terminal-control's `keys.ts` token syntax (`enter`, `tab`,
+ * `ctrl+a`, `alt+shift+x`, ...) but targets WebView named keys + modifiers.
  */
+
+import type { WebViewModifier } from "@nikcli-ai/util/bun-utils"
 
 const NAMED: Record<string, string> = {
   enter: "Enter",
@@ -40,7 +41,7 @@ const NAMED: Record<string, string> = {
   f12: "F12",
 }
 
-const MODIFIERS: Record<string, string> = {
+const MODIFIERS: Record<string, WebViewModifier> = {
   ctrl: "Control",
   control: "Control",
   c: "Control",
@@ -57,28 +58,32 @@ function namedKey(base: string): string {
   return NAMED[base.toLowerCase()] ?? (base.length === 1 ? base : base)
 }
 
-/** Translate a single key token (e.g. `ctrl+a`, `enter`, `x`) to a Playwright key string. */
-export function translateKey(token: string): string {
+export function parseKeyChord(token: string): { key: string; modifiers: WebViewModifier[] } {
   const raw = token.trim()
-  if (raw.length === 0) return raw
+  if (raw.length === 0) return { key: raw, modifiers: [] }
 
   const named = NAMED[raw.toLowerCase()]
-  if (named !== undefined) return named
+  if (named !== undefined) return { key: named, modifiers: [] }
 
   if (raw.includes("+")) {
     const parts = raw.split("+").filter(Boolean)
     if (parts.length >= 2) {
       const base = parts[parts.length - 1]!
-      const mods = parts.slice(0, -1).map((m) => MODIFIERS[m.toLowerCase()] ?? m)
-      return [...mods, namedKey(base)].join("+")
+      const modifiers = parts.slice(0, -1).map((m) => MODIFIERS[m.toLowerCase()] ?? "Control")
+      return { key: namedKey(base), modifiers }
     }
   }
 
-  // Single printable character, or an already-valid Playwright key name.
-  return raw.length === 1 ? raw : raw
+  return { key: raw.length === 1 ? raw : raw, modifiers: [] }
 }
 
-/** Translate a whitespace-separated list of key tokens into individual Playwright key presses. */
+/** Join a chord as `Control+a` / `Enter` — kept for callers that still want a single string. */
+export function translateKey(token: string): string {
+  const { key, modifiers } = parseKeyChord(token)
+  return modifiers.length > 0 ? `${modifiers.join("+")}+${key}` : key
+}
+
+/** Translate a whitespace-separated list of key tokens into individual chords. */
 export function translateKeys(input: string): string[] {
   return input.split(/\s+/).filter(Boolean).map(translateKey)
 }

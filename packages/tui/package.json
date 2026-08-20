@@ -43,13 +43,11 @@
     "opentui-spinner": "0.0.7",
     "remeda": "catalog:",
     "solid-js": "catalog:",
-    "strip-ansi": "7.1.2",
     "turndown": "7.2.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
-    "bun-pty": "0.4.4",
     "@types/turndown": "5.0.5",
     "typescript": "catalog:"
   }

@@ -3,7 +3,7 @@
  *
  * Control, inspect, capture and test real web pages headlessly, in the
  * background — sibling to @nikcli-ai/terminal-control, but driving a
- * Playwright-backed Chromium page instead of a PTY.
+ * Bun.WebView page (WebKit on macOS) instead of a PTY.
  */
 export * from "./frame"
 

@@ -1,15 +1,15 @@
 /**
- * BrowserSurface — a live Chromium page rendered into the OpenTUI grid.
+ * BrowserSurface — a live WebView page rendered into the OpenTUI grid.
  *
- * Chromium screencasts PNG frames to the browser-control daemon; the daemon
- * writes each one to a temp file and streams the path here; the pump turns
- * that into a Kitty virtual placement over the placeholder cells this
- * component renders. See `specs/browser-live-view.md` for why each hop exists.
+ * The browser-control daemon streams PNG frames to a temp file and sends the
+ * path here; the pump turns that into a Kitty virtual placement over the
+ * placeholder cells this component renders. See `specs/browser-live-view.md`
+ * for why each hop exists.
  *
  * The component owns the session for its lifetime: it starts one on mount and
  * removes it on unmount, so closing the dialog never leaves a headless
- * Chromium running. Everything it needs from the daemon is imported lazily —
- * a TUI that never opens a browser must not pay for Playwright's presence in
+ * WebView running. Everything it needs from the daemon is imported lazily —
+ * a TUI that never opens a browser must not pay for WebView startup in
  * the module graph (`specs/startup-performance.md`).
  */
 import { RGBA } from "@opentui/core"
@@ -19,7 +19,6 @@ import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from 
 import { encodeSixel, pickDecoder, resize } from "@nikcli-ai/tui-image"
 import { BrowserFramePump, cellSize, type FrameTransmission, type PumpStats } from "@tui/util/browser-frames"
 import { InputScheduler } from "@tui/util/browser-input"
-import { preparePhoton } from "@nikcli-ai/util/photon"
 import { registerNativeOverlay, type NativeOverlay } from "./tui-image"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
@@ -137,7 +136,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
   /**
    * The page viewport, in pixels: one page pixel per screen pixel, from the
    * terminal's own cell size. Capture is always the same size as the viewport —
-   * Chromium is asked for exactly the pixels the placement can show, so nothing
+   * the WebView is asked for exactly the pixels the placement can show, so nothing
    * is captured to be thrown away and nothing is scaled up to fill.
    */
   const geometry = () => {
@@ -159,7 +158,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
   }
 
   /**
-   * Frames per second to ask Chromium for.
+   * Frames per second to ask the WebView for.
    *
    * A page nobody is looking at still repaints — a carousel, a spinner, an ad —
    * and every one of those frames costs a capture, a transfer and (on Sixel) a
@@ -221,7 +220,6 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
     decoding = true
     try {
       if (!decoder) {
-        preparePhoton()
         decoder = await pickDecoder({ preferWasm: true })
       }
       const image = await decoder(Uint8Array.fromBase64(pngBase64))
@@ -460,11 +458,11 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
         fallback={
           <box paddingLeft={1} paddingTop={1} gap={1}>
             <text fg={status() === "error" ? theme.status.error.fg : theme.foreground.muted} wrapMode="word">
-              {status() === "error" ? `✗ ${error()}` : "Starting Chromium…"}
+              {status() === "error" ? `✗ ${error()}` : "Starting WebView…"}
             </text>
             <Show when={status() === "error"}>
               <text fg={theme.foreground.muted} wrapMode="word">
-                Press ^⇧R for reader mode (no Chromium), or fix the browser-control daemon and reopen.
+                Press ^⇧R for reader mode (no WebView), or fix the browser-control daemon and reopen.
               </text>
             </Show>
           </box>
@@ -499,7 +497,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
 /**
  * Forward a key press to the page. Kept out of the component so the dialog
  * decides which keys are its own (esc, the url bar) before anything reaches
- * Chromium.
+ * the WebView.
  */
 export function browserSurfaceKey(
   controls: BrowserSurfaceControls | undefined,

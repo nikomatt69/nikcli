@@ -9,7 +9,6 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { pickDecoder, type PixelImage } from "@nikcli-ai/tui-image"
-import { preparePhoton } from "@nikcli-ai/util/photon"
 import { IMAGE_EXTENSIONS, isImagePath } from "./settings"
 import { prepare } from "./pixels"
 
@@ -127,7 +126,6 @@ export function loadImage(location: string): Promise<PixelImage> {
     const bytes = await readBytes(location)
     // WebP wallpapers are common and Jimp cannot read them; the fallback to
     // photon only works once its wasm asset has been located.
-    preparePhoton()
     const decoder = await pickDecoder()
     const image = await decoder(bytes)
     if (image.width <= 0 || image.height <= 0) throw new Error("decoder produced a zero-sized image")

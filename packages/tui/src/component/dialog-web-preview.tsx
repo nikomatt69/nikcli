@@ -22,7 +22,7 @@ import {
 type FocusArea = "url" | "content"
 
 /**
- * `live` drives a real Chromium page and paints its pixels (see
+ * `live` drives a real Bun.WebView page and paints its pixels (see
  * `specs/browser-live-view.md`); `reader` is the original fetch + Turndown
  * path. Reader mode is not a degraded fallback so much as a different tool —
  * it is the right rendering on a terminal without graphics, and it is what you
@@ -301,13 +301,13 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
         ? "overlay"
         : undefined
 
-  /** Why Chromium is not on offer here, said once and plainly. */
+  /** Why WebView is not on offer here, said once and plainly. */
   const noGraphicsNote = () =>
-    `▀ ${capabilities.terminal ?? "this terminal"} has no graphics protocol, so pages are read as markdown. Turn on "terminal.integrated.enableImages" in VS Code/Cursor settings, or run nikcli in Ghostty, for the live Chromium view.`
+    `▀ ${capabilities.terminal ?? "this terminal"} has no graphics protocol, so pages are read as markdown. Turn on "terminal.integrated.enableImages" in VS Code/Cursor settings, or run nikcli in Ghostty, for the live WebView.`
 
   // Reader first: fetching a page and rendering its markdown costs one request
-  // and works in every terminal, where live mode starts a headless Chromium and
-  // approximates the picture in whatever the terminal can paint. Chromium is a
+  // and works in every terminal, where live mode starts a headless WebView and
+  // approximates the picture in whatever the terminal can paint. WebView is a
   // click away (the toolbar button, or ^⇧R) for whoever needs the real page.
   const [mode, setMode] = createSignal<PreviewMode>("reader")
   const [surface, setSurface] = createSignal<BrowserSurfaceState | undefined>()
@@ -659,7 +659,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
           onMouseUp={() => toggleMode()}
         >
           <text fg={!liveRenderer ? theme.foreground.muted : live() ? theme.foreground.default : theme.surface.base}>
-            {live() ? "Markdown" : "Chromium"}
+            {live() ? "Markdown" : "WebView"}
           </text>
         </box>
       </box>
@@ -721,7 +721,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
               fallback={
                 <box paddingLeft={1} paddingTop={1}>
                   <text fg={theme.foreground.muted} wrapMode="word">
-                    Enter a URL above and press Go — live mode starts Chromium for that page.
+                    Enter a URL above and press Go — live mode starts a WebView for that page.
                     {"\n"}
                     ^⇧R switches to reader mode (fetch + markdown, no browser).
                   </text>

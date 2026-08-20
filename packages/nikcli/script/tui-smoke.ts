@@ -21,7 +21,7 @@ import { rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { spawn, type IExitEvent } from "bun-pty"
+import { spawnPty, type PtyExitEvent } from "@nikcli-ai/util/pty"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const dir = path.resolve(__dirname, "..")
@@ -73,21 +73,19 @@ console.log(`[tui-smoke] home   ${home}`)
 console.log(`[tui-smoke] pty    ${COLS}x${ROWS}, settling for ${SETTLE_MS}ms`)
 
 let raw = ""
-let exit: IExitEvent | undefined
+let exit: PtyExitEvent | undefined
 
-const pty = spawn(binary, [], {
-  name: "xterm-256color",
+const pty = spawnPty({
+  command: binary,
   cols: COLS,
   rows: ROWS,
   cwd: home,
   env: {
     ...process.env,
-    // Isolate every path the CLI writes to, so the smoke never touches the
-    // developer's (or the runner's) real nikcli state.
     NIKCLI_TEST_HOME: home,
     NIKCLI_DISABLE_AUTOUPDATE: "1",
     TERM: "xterm-256color",
-  } as Record<string, string>,
+  },
 })
 
 pty.onData((data) => {

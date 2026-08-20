@@ -39,7 +39,7 @@ browser-control stop ui-check
 
 Use `wait` after every input instead of fixed sleeps: `--text VALUE` for visible text, `--selector SEL [--state visible|attached|hidden|detached]` for DOM presence, or `--idle` for network idle. Use `snapshot --format text` to read the page's accessibility tree when a screenshot alone won't prove the state (e.g. verifying an aria-live announcement or a form value).
 
-Always `stop` named sessions when done, including after failures — `stop` keeps the session queryable (for the `--record` video, only readable after `stop`) until you `remove` it or the daemon's idle timeout reclaims it. Treat recordings, traces and typed input as potentially sensitive (auth flows, pasted credentials).
+Always `stop` named sessions when done, including after failures — `stop` keeps the session queryable (for the `--record` video, only readable after `stop`) until you `remove` it or the daemon's idle timeout reclaims it. Treat recordings and typed input as potentially sensitive (auth flows, pasted credentials).
 
 ## Produce PR Evidence
 
@@ -56,7 +56,7 @@ browser-control bundle \
   --summary "The tested interaction completed successfully."
 ```
 
-The bundle contains `screenshot.png`, `demo.mp4`, `preview.gif`, an optional `trace.zip` (pass `--include-trace`, and only when it's genuinely needed — traces capture full DOM snapshots and network activity), `manifest.json`, and `pr.md`.
+The bundle contains `screenshot.png`, `demo.mp4`, `preview.gif`, `manifest.json`, and `pr.md`.
 
 Use `pr.md` as the PR section; it embeds the GIF preview and links the full MP4. The bundle command also prints an absolute `file://` preview Markdown line — include that exact line in the final assistant response so nikcli can render the local preview inline, but never paste that `file://` URL into a pull request.
 

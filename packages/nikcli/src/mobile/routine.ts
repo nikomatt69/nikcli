@@ -5,6 +5,7 @@ import { Instance } from "@/project/instance"
 import { Scheduler } from "@/scheduler"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
+import { bunUtils } from "@/bun"
 import { Log } from "@nikcli-ai/util/log"
 import { Provider } from "@/provider/provider"
 import { Effect } from "effect"
@@ -124,35 +125,36 @@ export namespace Routine {
 
   // ── Cron interval parser ───────────────────────────────────────────────────
 
-  export const SUPPORTED_CRON_HELP = "Supported schedules: @hourly, @daily, @weekly, */N minutes, or 0 */N * * * hours."
+  export const SUPPORTED_CRON_HELP =
+    "Supported schedules: standard 5-field cron, @hourly/@daily/@weekly/@monthly/@yearly, or */N minutes."
 
-  export function parseCronInterval(cron: string): number | null {
+  // Expand star-slash-N (minutes) into a 5-field expression Bun.cron accepts.
+  export function normalizeCron(cron: string): string {
     const trimmed = cron.trim()
+    if (/^\*\/\d+$/.test(trimmed)) return `${trimmed} * * * *`
+    return trimmed
+  }
 
-    if (trimmed === "@hourly") return 60 * 60 * 1000
-    if (trimmed === "@daily") return 24 * 60 * 60 * 1000
-    if (trimmed === "@weekly") return 7 * 24 * 60 * 60 * 1000
-
-    // */N (minutes) — e.g. "*/15"
-    const everyNMinutes = trimmed.match(/^\*\/(\d+)$/)
-    if (everyNMinutes) {
-      const n = Number.parseInt(everyNMinutes[1], 10)
-      if (n > 0) return n * 60 * 1000
+  export function parseCron(cron: string): Date | null {
+    const expr = normalizeCron(cron)
+    if (!expr) return null
+    try {
+      return bunUtils.cron.parse(expr) ?? null
+    } catch {
+      return null
     }
+  }
 
-    // 0 */N * * * (hours) — e.g. "0 */2 * * *"
-    const everyNHours = trimmed.match(/^0 \*\/(\d+) \* \* \*$/)
-    if (everyNHours) {
-      const n = Number.parseInt(everyNHours[1], 10)
-      if (n > 0) return n * 60 * 60 * 1000
-    }
-
-    return null
+  /** True when the expression is a valid in-process cron schedule. */
+  export function parseCronInterval(cron: string): number | null {
+    const next = parseCron(cron)
+    if (!next) return null
+    return Math.max(1, next.getTime() - Date.now())
   }
 
   function validateTriggers(triggers: Trigger[]) {
     for (const trigger of triggers) {
-      if (trigger.type === "schedule" && trigger.enabled && !parseCronInterval(trigger.cron)) {
+      if (trigger.type === "schedule" && trigger.enabled && !parseCron(trigger.cron)) {
         throw new Error(`Unsupported cron pattern "${trigger.cron}". ${SUPPORTED_CRON_HELP}`)
       }
     }
@@ -175,8 +177,8 @@ export namespace Routine {
       return
     }
 
-    const intervalMs = parseCronInterval(scheduleTrigger.cron)
-    if (!intervalMs) {
+    const expr = normalizeCron(scheduleTrigger.cron)
+    if (!parseCron(expr)) {
       unregisterScheduler(routine.id)
       log.warn("unrecognized cron pattern, skipping scheduler registration", {
         id: routine.id,
@@ -185,11 +187,11 @@ export namespace Routine {
       return
     }
 
-    log.info("registering scheduler", { id: routine.id, cron: scheduleTrigger.cron, intervalMs })
+    log.info("registering scheduler", { id: routine.id, cron: expr })
 
     Scheduler.register({
       id: schedulerID(routine.id),
-      interval: intervalMs,
+      cron: expr,
       scope: "instance",
       skipInitialRun: true,
       run: async () => {

@@ -18,7 +18,7 @@ import { mkdtempSync, existsSync } from "node:fs"
 import { rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { spawn } from "bun-pty"
+import { spawnPty } from "@nikcli-ai/util/pty"
 
 const BIN = process.argv[2] ?? ""
 if (!BIN || !existsSync(BIN)) throw new Error(`usage: tui-startup.ts <binary>  (got ${BIN || "nothing"})`)
@@ -39,8 +39,8 @@ async function once(): Promise<number> {
   let painted = 0
   let raw = ""
 
-  const pty = spawn(BIN, [], {
-    name: "xterm-256color",
+  const pty = spawnPty({
+    command: BIN,
     cols: 100,
     rows: 30,
     cwd: home,
@@ -49,7 +49,7 @@ async function once(): Promise<number> {
       NIKCLI_TEST_HOME: home,
       NIKCLI_DISABLE_AUTOUPDATE: "1",
       TERM: "xterm-256color",
-    } as Record<string, string>,
+    },
   })
 
   pty.onData((data) => {

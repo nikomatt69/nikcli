@@ -2,6 +2,8 @@ import { Context, Effect, Layer, Schema } from "effect"
 import path from "path"
 import fs from "fs/promises"
 import { Log } from "@nikcli-ai/util/log"
+import { Flag } from "@nikcli-ai/util/flag"
+import { bunUtils } from "@/bun"
 import { Instance } from "../project/instance"
 
 /**
@@ -135,13 +137,16 @@ export namespace Sandbox {
 
             const start = performance.now()
             const env = scrubEnv(input.env)
-            const proc = Bun.spawn(input.command as string[], {
+            const proc = bunUtils.spawn(input.command as string[], {
               windowsHide: true,
               cwd: input.cwd,
               env,
               stdin: input.stdin ? "pipe" : "ignore",
               stdout: "pipe",
               stderr: "pipe",
+              ...(process.platform === "linux" && Flag.NIKCLI_SANDBOX_CGROUP
+                ? { cgroup: Flag.NIKCLI_SANDBOX_CGROUP }
+                : {}),
             })
 
             if (input.stdin && proc.stdin) {

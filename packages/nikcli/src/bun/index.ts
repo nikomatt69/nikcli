@@ -6,6 +6,24 @@ import { Schema } from "effect"
 import { createRequire } from "module"
 import { Lock } from "../util/lock"
 
+export {
+  bunUtils,
+  parseJsonl,
+  stripAnsi,
+  fetchCompressed,
+  createWebView,
+  defaultWebViewBackend,
+  onMemoryPressure,
+} from "@nikcli-ai/util/bun-utils"
+export type {
+  BunUtils,
+  CronJob,
+  FetchInit,
+  FetchCompress,
+  WebViewInstance,
+  WebViewBackend,
+} from "@nikcli-ai/util/bun-utils"
+
 export namespace BunProc {
   const log = Log.create({ service: "bun" })
   const req = createRequire(import.meta.url)

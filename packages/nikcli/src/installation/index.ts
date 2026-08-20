@@ -4,6 +4,7 @@ import { $ } from "bun"
 import { Log } from "@nikcli-ai/util/log"
 import { iife } from "@nikcli-ai/util/iife"
 import { Flag } from "@nikcli-ai/util/flag"
+import { bunUtils } from "@/bun"
 import { zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import * as BuildVersion from "@nikcli-ai/util/version"
@@ -78,6 +79,10 @@ export namespace Installation {
 
   export function isLocal() {
     return CHANNEL === "local"
+  }
+
+  export function isStandaloneExecutable() {
+    return bunUtils.isStandaloneExecutable
   }
 
   async function methodImpl(): Promise<Method> {

@@ -541,7 +541,7 @@ export namespace Provider {
               const token = (await accountAccessToken()) ?? apiKey
               const headers = new Headers(init?.headers)
               headers.set("Authorization", `Bearer ${token}`)
-              return globalThis.fetch(url, { ...init, headers })
+              return globalThis.fetch(url, { ...init, headers, compress: "gzip" } as RequestInit)
             },
           }),
         },
@@ -947,7 +947,7 @@ export namespace Provider {
               }
             }
 
-            return fetch(input, { ...init, headers })
+            return fetch(input, { ...init, headers, compress: "gzip" } as RequestInit)
           },
         },
       }

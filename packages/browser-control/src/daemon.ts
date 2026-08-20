@@ -6,7 +6,7 @@
  * from a compiled native driver process; here it's this daemon.
  *
  * The daemon self-terminates after `IDLE_SHUTDOWN_MS` with zero open sessions,
- * so a forgotten `start` doesn't leave a headless Chromium running forever.
+ * so a forgotten `start` doesn't leave a headless WebView running forever.
  */
 import { mkdir, rm, unlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -211,7 +211,7 @@ function positiveNumber(value: string | null): number | undefined {
  * `GET /screencast?name=&mode=&maxWidth=&maxHeight=&fps=&everyNthFrame=`
  *
  * One live view per request: the screencast starts when the request opens and
- * stops when it closes, so a client that goes away never leaves Chromium
+ * stops when it closes, so a client that goes away never leaves the WebView
  * capturing into the void.
  */
 async function streamScreencast(manager: SessionManager, url: URL, signal: AbortSignal): Promise<Response> {

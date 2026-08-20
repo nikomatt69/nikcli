@@ -46,7 +46,7 @@ async function request(method: string, pathname: string, directory: string, body
  *  - the schema layer accepts the canonical payload shapes and returns a
  *    typed body on success (200) or a 404 body for missing sessions.
  *
- * We do not actually spawn a `bun-pty` process in the unit test — that
+ * We do not actually spawn a PTY process in the unit test — that
  * would couple the schema test to the host's PTY capability. Instead we
  * verify the response envelope: a successful list returns 200 with an
  * array body (typically empty); a missing `get` returns 404 with the

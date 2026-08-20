@@ -9,7 +9,7 @@
  * - **Compiled nikcli binary**: sources live under virtual `/$bunfs/root/`, so
  *   there is no real `daemon.ts` on disk, and re-execing the 200MB+ binary just
  *   to host the socket is killed by the OS (SIGKILL / OOM). Instead, start the
- *   daemon **in-process** — the TUI (or tool) already has Playwright in the
+ *   daemon **in-process** — the TUI (or tool) already has Bun.WebView in the
  *   module graph, and `BrowserSurface` tears the session down on unmount.
  */
 import { createHash } from "node:crypto"

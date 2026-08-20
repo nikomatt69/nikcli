@@ -1,12 +1,9 @@
 /**
- * SessionManager — an in-memory registry of named {@link BrowserSession}s that
- * share one lazily-launched, headless Chromium process. Framework agnostic;
- * the daemon ({@link daemon.ts}) wraps this to expose it over a Unix socket so
- * sessions outlive any single CLI invocation, the way `SessionManager` in
- * terminal-control outlives any single `send`/`wait` call against a PTY.
+ * SessionManager — an in-memory registry of named {@link BrowserSession}s.
+ * Each session owns a Bun.WebView. The daemon wraps this over a Unix socket
+ * so sessions outlive any single CLI invocation.
  */
-import type { Browser } from "playwright"
-import { resolveChromium } from "./playwright-runtime"
+import { bunUtils } from "@nikcli-ai/util/bun-utils"
 import {
   BrowserSession,
   type KeyInput,
@@ -23,24 +20,13 @@ import type { Screencast, ScreencastOptions } from "./screencast"
 
 export class SessionManager {
   private readonly sessions = new Map<string, BrowserSession>()
-  private browser: Browser | null = null
   private counter = 0
 
-  private async ensureBrowser(): Promise<Browser> {
-    if (!this.browser || !this.browser.isConnected()) {
-      const chromium = await resolveChromium()
-      this.browser = await chromium.launch({ headless: true })
-    }
-    return this.browser
-  }
-
-  /** Start a new session. If `name` is omitted, one is generated. Replaces an existing same-named session. */
   async start(options: Omit<SessionOptions, "name"> & { name?: string }): Promise<SessionInfo> {
-    const browser = await this.ensureBrowser()
     const name = options.name && options.name.length > 0 ? options.name : this.generateName()
     const existing = this.sessions.get(name)
     if (existing) await existing.stop()
-    const session = await BrowserSession.create(browser, { ...options, name })
+    const session = await BrowserSession.create({ ...options, name })
     this.sessions.set(name, session)
     return session.info()
   }
@@ -62,7 +48,6 @@ export class SessionManager {
     return this.sessions.size
   }
 
-  /** Sessions still holding a live browser context — used for idle shutdown, since `stop()` retains stopped sessions. */
   get runningCount(): number {
     let count = 0
     for (const session of this.sessions.values()) if (session.isRunning()) count++
@@ -156,9 +141,8 @@ export class SessionManager {
   }
 
   /**
-   * Stop a session but keep it registered so post-mortem artifacts (notably
-   * {@link videoPath}, which Playwright only finalizes on context close) stay
-   * reachable. Call {@link remove} to actually forget it.
+   * Stop a session but keep it registered so post-mortem artifacts
+   * ({@link videoPath}) stay reachable. Call {@link remove} to forget it.
    */
   async stop(name: string): Promise<void> {
     const session = this.sessions.get(name)
@@ -166,7 +150,6 @@ export class SessionManager {
     await session.stop()
   }
 
-  /** Forget a session entirely, stopping it first if still running. */
   async remove(name: string): Promise<void> {
     const session = this.sessions.get(name)
     if (!session) return
@@ -174,7 +157,6 @@ export class SessionManager {
     this.sessions.delete(name)
   }
 
-  /** Restart a session with the same URL/viewport. */
   async restart(name: string): Promise<SessionInfo> {
     const session = this.require(name)
     const prev = session.info()
@@ -182,8 +164,6 @@ export class SessionManager {
     this.sessions.delete(name)
     return this.start({ name, url: prev.url || undefined, viewport: prev.viewport })
   }
-
-  // --- Recording --------------------------------------------------------
 
   startRecording(name: string, options?: StartRecordingOptions): Promise<void> {
     return this.require(name).startRecording(options)
@@ -209,13 +189,9 @@ export class SessionManager {
     return this.require(name).videoPath()
   }
 
-  /** Close every session, the shared browser, and clear the registry. */
   async closeAll(): Promise<void> {
     for (const session of this.sessions.values()) await session.stop()
     this.sessions.clear()
-    if (this.browser) {
-      await this.browser.close().catch(() => {})
-      this.browser = null
-    }
+    bunUtils.WebView?.closeAll()
   }
 }

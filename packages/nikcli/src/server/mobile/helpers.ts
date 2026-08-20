@@ -30,6 +30,7 @@ import { Command } from "@/command"
 import { Workspace } from "@/workspace"
 import { getContainerRuntimeInfo } from "@/workspace/adaptors"
 import { PromptStashStore } from "@nikcli-ai/util/prompt-stash"
+import { parseJsonl } from "@/bun"
 import { Artifact } from "@/artifact"
 import { Log } from "@nikcli-ai/util/log"
 import { Effect } from "effect"
@@ -555,17 +556,7 @@ export async function readJsonLines<T>(filePath: string) {
   const text = await Bun.file(filePath)
     .text()
     .catch(() => "")
-  return text
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      try {
-        return JSON.parse(line) as T
-      } catch {
-        return null
-      }
-    })
-    .filter((item): item is T => item !== null)
+  return parseJsonl(text).filter((item): item is T => item !== null)
 }
 
 export function historyFilePath() {
