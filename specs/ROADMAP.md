@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-20**. H4 / H5 / H1 / H6 / I1 / X2 / **H7** are done and were still sitting in the plan sections; they now live only in landed work. Verified 2026-08-19: `bun run test` 3820 pass / 0 fail, `bun run check:routes --strict` clean at 338 contracts / 315 handlers / 23 raw, `payload: unknown` in the generated SDK types at 0. H7 verified 2026-08-20: `packages/nikcli` and `packages/sdk` typecheck clean, `check:routes --strict` 338/315/23, mobile route tests 11 pass / 0 fail (full suite not re-run). **E4 was re-scoped after measurement — read its section before starting it.**
+Last reconciled against the source: **2026-08-20**. H4 / H5 / H1 / H6 / I1 / X2 / **H7** / **E5** are done and were still sitting in the plan sections; they now live only in landed work. Verified 2026-08-19: `bun run test` 3820 pass / 0 fail, `bun run check:routes --strict` clean at 338 contracts / 315 handlers / 23 raw, `payload: unknown` in the generated SDK types at 0. H7 verified 2026-08-20: `packages/nikcli` and `packages/sdk` typecheck clean, `check:routes --strict` 338/315/23, mobile route tests 11 pass / 0 fail (full suite not re-run). **E4 was re-scoped after measurement — read its section before starting it.**
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -31,7 +31,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | ------- | ------- | ------------------------------------------------------------------------ |
 | **E4**  | Done    | Encode optionals as absent keys — optionality work complete; see section |
 | **H7**  | Done    | JSON `/mobile/*` onto encoded handlers (landed 2026-08-20)               |
-| **E5**  | Later   | Typed Effect failure channel on HttpApi handlers                         |
+| **E5**  | Done    | Typed Effect failure channel on HttpApi handlers (landed 2026-08-20)     |
 | **P2**  | Later   | Request-path cuts (session list SQL, duplicate URL parse)                |
 | **H3**  | Later   | Generate the SDK namespaced view (`compat.ts`)                           |
 | **H8**  | Later   | `HttpApiMiddleware` on encoded groups                                    |
@@ -130,7 +130,7 @@ route tests; corrected below before anyone repeats it.**
 
 These are evidenced leftovers, not product ideas. They wait because a smaller item in current work already covers the same **seam**, or because the leftover is one adapter.
 
-### Typed Effect failure channel (E5)
+### Typed Effect failure channel (E5) — landed 2026-08-20
 
 - **Buys** — Expected 404/409 cannot arrive as defects. Handlers stop wrapping every service in `Effect.promise` + `orDie` + `catchDefect`.
 - **Evidence** — `httpapi/session.ts`: “services still wrap async impls with `Effect.promise`, so expected errors can arrive on either channel” — then `declaredErrors` does `catch` **and** `catchDefect`. `Session.BusyError` is already `Schema.TaggedErrorClass`. Session handlers reinvent `{ name, data }` next to the schema.
@@ -406,6 +406,16 @@ Diagnosing phase 2 took two blind cycles because the 400 had an **empty body and
 - `test/server/mobile-dispatcher.test.ts` was rewritten for the new dispatcher scope; the JSON routes are covered by the encoded router through `mobile-{session,loop,mission}-route` tests.
 
 **Verified.** `bun run typecheck` clean in `packages/nikcli` and `packages/sdk`. `bun run check:routes --strict` ok at 338 contracts / 315 handlers / 23 raw. Mobile route tests 11 pass / 0 fail. `bun run generate:httpapi-clients` re-run and its output committed (sdk `types.ts` / `client.ts` + nikcli `client/`).
+
+### 2026-08-20 — E5 (typed Effect failure channel on session handlers)
+
+**404/409 are typed failures now, never defects.** `httpapi/session.ts`'s `declaredErrors` used `catch` + `catchDefect` because a handful of raw `Effect.promise` sites surfaced domain errors as defects; it is now a single `catch` over the typed channel.
+
+- `httpapi/session.ts` gained two helpers next to `asSessionError`: `trySessionPromise` (a promise whose rejection is a declared `SessionError.NotFoundError` / `Session.BusyError`, left on the typed failure channel for `asSessionError`; anything else re-raised as a defect) and `fromPromise` (`Effect.promise` + `orDie`, for true unknown I/O). Domain-throwing sites (`MessageV2.get` ×2, `SessionContext.breakdown` ×2, `SessionV2.entries`, `Monitor.get/readLog/cancel` ×3) moved to `trySessionPromise`; I/O sites (`Array.fromAsync`, the abort cancels, `collectSystemPaths`, `Delegation.listJobs`) moved to `fromPromise`. `declaredErrors` dropped `catchDefect`.
+- `session/index.ts` exported `Session.asSessionError` (unknown → `Session.Error`) so sibling services stop wrapping their rejects in `Cause.UnknownError`. `SessionRevert.revert/unrevert/cleanup` and `SessionSummary.summarize`/`diff` now use `Effect.tryPromise({ try, catch: Session.asSessionError })`; `SessionRevert`'s interface tightened `unknown` → `Session.Error`. `SessionPrompt` already preserved the typed error (`runInInstanceContext` returns it unchanged when it `instanceof Error`); `Todo.getImpl` returns `[]` (never a session-domain throw); `PermissionNext.reply` only `Bus.publish`es.
+- `test/server/httpapi-session.test.ts` gained two 404 cases — `POST /session/:id/revert` and `GET /session/:id/diff` for a missing session — that fail against the old `UnknownError` wrap.
+
+**Verified.** `bun run typecheck` clean; `bun test test/server/httpapi-session.test.ts` 13 pass / 0 fail (a combined run with the mobile suite showed one environmental `models.dev` refresh timeout in the context-breakdown test, which passes in isolation).
 
 ## Follow working rules
 

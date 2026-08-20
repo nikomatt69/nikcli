@@ -8,7 +8,7 @@
 
 ### Core
 
-- **Bun** 1.3.14 — runtime, package manager
+- **Bun** 1.4.0 — runtime, package manager
 - **TypeScript** 7.0 native (`tsc` via `@typescript/native`) for typecheck; JS-based TypeScript 5.8/5.9 stays for the programmatic API (codemode transpile, Astro tooling)
 - **Turborepo** — monorepo orchestration
 - **Zod** 4.1.8 — validation (with `.meta()` for OpenAPI refs)

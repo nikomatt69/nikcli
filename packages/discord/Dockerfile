@@ -8,7 +8,7 @@
 # With NIKCLI_URL set the bot talks to a remote nikcli server and never spawns
 # one locally; the nikcli source below is what makes the standalone mode (no
 # NIKCLI_URL) work.
-FROM oven/bun:1.3.14-debian
+FROM oven/bun:1.4.0-debian
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl ca-certificates openssh-client \

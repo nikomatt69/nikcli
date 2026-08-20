@@ -555,6 +555,37 @@ describe("Session HttpApi bridge", () => {
     }
     expect(body.name).toBe("NotFoundError")
   })
+
+  it("returns the declared 404 body for a missing session on revert", async () => {
+    const directory = await makeProjectDir()
+    await request("/session", directory)
+
+    const url = new URL("/session/ses_does_not_exist/revert", "http://nikcli.local")
+    url.searchParams.set("directory", directory)
+    const response = await Server.fetch(
+      new Request(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messageID: "msg_does_not_exist" }),
+      }),
+    )
+    expect(response.status).toBe(404)
+    const body = (await response.json()) as { name: string }
+    expect(body.name).toBe("NotFoundError")
+  })
+
+  it("returns the declared 404 body for a missing session on diff", async () => {
+    const directory = await makeProjectDir()
+    await request("/session", directory)
+
+    const url = new URL("/session/ses_does_not_exist/diff", "http://nikcli.local")
+    url.searchParams.set("directory", directory)
+    url.searchParams.set("messageID", "msg_does_not_exist")
+    const response = await Server.fetch(new Request(url))
+    expect(response.status).toBe(404)
+    const body = (await response.json()) as { name: string }
+    expect(body.name).toBe("NotFoundError")
+  })
 })
 
 afterEach(async () => {
