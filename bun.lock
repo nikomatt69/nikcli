@@ -505,6 +505,7 @@
         "ai": "catalog:",
         "aws4fetch": "1.0.20",
         "effect": "4.0.0-beta.83",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@clack/prompts": "1.0.0-alpha.1",
