@@ -295,4 +295,3 @@ async function runCapture(cmd: string[], cwd: string): Promise<Uint8Array> {
 async function runCaptureText(cmd: string[], cwd: string): Promise<string> {
   return new TextDecoder().decode(await runCapture(cmd, cwd))
 }
-

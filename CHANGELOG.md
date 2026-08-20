@@ -3,6 +3,20 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.301.0 (August 2026)
+
+## Core
+
+- Follow the Bun 1.4 drop of the baseline x64 targets (@nikomatt69)
+- Update bun.lock and package.json to remove deprecated packages and add @nikcli-ai/util (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - chore(dependencies): update bun.lock and package.json to remove deprecated packages and add @nikcli-ai/util
+  - fix(build): follow the Bun 1.4 drop of the baseline x64 targets
+  - fix(install): apply the baseline-target fallback to the other two shell copies
+
 ## v1.295.0 (August 2026)
 
 ## Core

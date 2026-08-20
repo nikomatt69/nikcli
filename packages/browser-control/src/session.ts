@@ -363,7 +363,11 @@ export class BrowserSession {
     }
 
     if (condition.type === "selector") {
-      const satisfied = await this.waitSelector(condition.value, condition.state ?? "visible", condition.timeout ?? 10_000)
+      const satisfied = await this.waitSelector(
+        condition.value,
+        condition.state ?? "visible",
+        condition.timeout ?? 10_000,
+      )
       return { satisfied, reason: satisfied ? "matched" : "timeout", frame: await this.snapshot() }
     }
 
@@ -441,9 +445,9 @@ export class BrowserSession {
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
       const quietFor = Number(
-        await this.run(() => this.view.evaluate(`Date.now() - (window.__browserControlLastMutation || Date.now())`)).catch(
-          () => 0,
-        ),
+        await this.run(() =>
+          this.view.evaluate(`Date.now() - (window.__browserControlLastMutation || Date.now())`),
+        ).catch(() => 0),
       )
       if (quietFor >= quietMs) return true
       await delay(Math.min(50, Math.max(10, quietMs - quietFor)))
@@ -453,7 +457,11 @@ export class BrowserSession {
 
   async startRecording(options: StartRecordingOptions = {}): Promise<void> {
     this.assertRunning()
-    this.recorder = new Recorder((path) => this.writePng(path), () => this.view.url, this.viewport)
+    this.recorder = new Recorder(
+      (path) => this.writePng(path),
+      () => this.view.url,
+      this.viewport,
+    )
     await this.recorder.start(options)
   }
 

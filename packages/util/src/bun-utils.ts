@@ -7,7 +7,11 @@ export type ImageFit = "inside" | "fill"
 
 export interface ImagePipeline {
   metadata(): Promise<{ width: number; height: number; format: string }>
-  resize(width: number, height?: number, options?: { fit?: ImageFit; withoutEnlargement?: boolean; filter?: string }): ImagePipeline
+  resize(
+    width: number,
+    height?: number,
+    options?: { fit?: ImageFit; withoutEnlargement?: boolean; filter?: string },
+  ): ImagePipeline
   jpeg(options?: { quality?: number; progressive?: boolean }): ImagePipeline
   png(options?: { compressionLevel?: number; palette?: boolean }): ImagePipeline
   webp(options?: { quality?: number; lossless?: boolean }): ImagePipeline
@@ -35,11 +39,7 @@ export interface ArchiveInstance {
 
 export interface ArchiveConstructor {
   new (
-    data:
-      | Record<string, string | Blob | ArrayBufferView | ArrayBuffer>
-      | Blob
-      | ArrayBufferView
-      | ArrayBuffer,
+    data: Record<string, string | Blob | ArrayBufferView | ArrayBuffer> | Blob | ArrayBufferView | ArrayBuffer,
     options?: { compress?: "gzip"; level?: number },
   ): ArchiveInstance
 }
@@ -112,7 +112,10 @@ export interface WebViewInstance {
   type(text: string): Promise<void>
   press(key: string, options?: { modifiers?: WebViewModifier[] }): Promise<void>
   scroll(dx: number, dy: number): Promise<void>
-  scrollTo(selector: string, options?: { block?: "start" | "center" | "end" | "nearest"; timeout?: number }): Promise<void>
+  scrollTo(
+    selector: string,
+    options?: { block?: "start" | "center" | "end" | "nearest"; timeout?: number },
+  ): Promise<void>
   resize(width: number, height: number): Promise<void>
   goBack(): Promise<void>
   goForward(): Promise<void>

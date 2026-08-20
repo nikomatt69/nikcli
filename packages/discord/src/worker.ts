@@ -355,9 +355,7 @@ async function importEd25519Key(
 
   for (const algorithm of candidates) {
     try {
-      const key = await crypto.subtle.importKey("raw", keyBytes as unknown as ArrayBuffer, algorithm, false, [
-        "verify",
-      ])
+      const key = await crypto.subtle.importKey("raw", keyBytes as unknown as ArrayBuffer, algorithm, false, ["verify"])
       return { key, algorithm }
     } catch {
       // try the next spelling

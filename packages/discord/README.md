@@ -96,10 +96,10 @@ Library mode does not bind `HEALTH_PORT` and does not register `SIGTERM`.
 
 Two deployables live in this package, and they are not interchangeable:
 
-| Surface                | Runs on             | Entry                | Reaches Discord via     |
-| ---------------------- | ------------------- | -------------------- | ----------------------- |
-| Gateway bot            | Railway / Fly / Docker | `src/index.ts`    | websocket (discord.js)  |
-| Interactions Worker    | Cloudflare          | `src/worker.ts`      | HTTP webhook            |
+| Surface             | Runs on                | Entry           | Reaches Discord via    |
+| ------------------- | ---------------------- | --------------- | ---------------------- |
+| Gateway bot         | Railway / Fly / Docker | `src/index.ts`  | websocket (discord.js) |
+| Interactions Worker | Cloudflare             | `src/worker.ts` | HTTP webhook           |
 
 The Gateway bot is the full experience — mentions, threads, channel memory,
 follow-ups, voice transcription. It needs a persistent websocket, a git working
@@ -145,9 +145,9 @@ Worker secrets (`wrangler secret put <NAME>`):
 | `DISCORD_PUBLIC_KEY`       | Yes      | Developer Portal → General Information        |
 | `DISCORD_APPLICATION_ID`   | Yes      | Developer Portal → General Information        |
 | `NIKCLI_URL`               | Yes      | The Worker has no local agent to fall back on |
-| `NIKCLI_TOKEN`             | *        | Bearer, for a `nikcli mobile serve` host      |
-| `NIKCLI_USERNAME`          | *        | Basic Auth username (default `nikcli`)        |
-| `NIKCLI_PASSWORD`          | *        | Basic Auth password                           |
+| `NIKCLI_TOKEN`             | \*       | Bearer, for a `nikcli mobile serve` host      |
+| `NIKCLI_USERNAME`          | \*       | Basic Auth username (default `nikcli`)        |
+| `NIKCLI_PASSWORD`          | \*       | Basic Auth password                           |
 | `DISCORD_ALLOWED_CHANNELS` | No       | Comma-separated channel IDs                   |
 
 \* Which credential you need depends on how the nikcli server was started.

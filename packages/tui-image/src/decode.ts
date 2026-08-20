@@ -175,9 +175,7 @@ function candidates(format: ImageFormat | undefined, preferWasm: boolean) {
     return [{ name: "resvg", decoder: resvgDecoder }, ...(hasBunImage() ? [bun] : []), photon]
   }
   if (hasBunImage()) {
-    return preferWasm || (format !== undefined && !JIMP_FORMATS.has(format))
-      ? [bun, photon, jimp]
-      : [bun, jimp, photon]
+    return preferWasm || (format !== undefined && !JIMP_FORMATS.has(format)) ? [bun, photon, jimp] : [bun, jimp, photon]
   }
   if (preferWasm || (format !== undefined && !JIMP_FORMATS.has(format))) return [photon, jimp]
   return [jimp, photon]
