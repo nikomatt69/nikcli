@@ -91,9 +91,14 @@ describe("release automation", () => {
     const installer = await readRoot("install")
 
     expect(installer).toContain('release_tag="v${requested_version}"')
-    expect(installer).toContain("releases/download/${release_tag}/$filename")
+    // The download URL is assembled in two halves: the base is pinned to the
+    // v-prefixed tag at resolution time, and `$filename` is appended at the
+    // download site, once the baseline/musl target has been picked.
+    expect(installer).toContain("releases/download/${release_tag}")
+    expect(installer).toContain('"$release_url_primary/$filename"')
+    expect(installer).toContain('"$release_url_fallback/$filename"')
     expect(installer).toContain("releases/tag/${release_tag}")
-    expect(installer).not.toContain("releases/download/${requested_version}/$filename")
+    expect(installer).not.toContain("releases/download/${requested_version}")
   })
 
   it("serves the same installer scripts the repo root holds", async () => {

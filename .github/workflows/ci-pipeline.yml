@@ -30,6 +30,24 @@ jobs:
       - name: Run validation
         id: validate
         shell: bash
+        # The suite this step runs is only safe with the same hermetic
+        # environment `test.yml` gives it. Without these, tests fall back to the
+        # runner's real $HOME and are free to download LSP toolchains, fetch
+        # models.dev and start recursive file watchers over the whole monorepo
+        # (node_modules included) — which took the runner itself down with
+        # "the runner has received a shutdown signal" / exit 143.
+        env:
+          NIKCLI_TEST_HOME: ${{ runner.temp }}/nikcli-validate/home
+          XDG_DATA_HOME: ${{ runner.temp }}/nikcli-validate/share
+          XDG_CACHE_HOME: ${{ runner.temp }}/nikcli-validate/cache
+          XDG_CONFIG_HOME: ${{ runner.temp }}/nikcli-validate/config
+          XDG_STATE_HOME: ${{ runner.temp }}/nikcli-validate/state
+          NIKCLI_DISABLE_MODELS_FETCH: "true"
+          NIKCLI_DISABLE_SHARE: "true"
+          NIKCLI_DISABLE_LSP_DOWNLOAD: "true"
+          NIKCLI_DISABLE_DEFAULT_PLUGINS: "true"
+          NIKCLI_DISABLE_AUTOUPDATE: "true"
+          NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER: "true"
         run: |
           set -o pipefail
           bun run script/ci-validate.ts 2>&1 | tee ci-validation-output.txt

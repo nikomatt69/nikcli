@@ -59,15 +59,36 @@ const steps: ValidationStep[] = [
     timeout: 30_000,
   },
   {
-    // The package script, not a bare `bun test` from the root: run from here
+    name: "Formatting",
+    command: ["bun", "run", "format:check"],
+    cwd: "packages/nikcli",
+    timeout: 120_000,
+    critical: false,
+  },
+  {
+    name: "Lint",
+    command: ["bun", "run", "lint"],
+    cwd: "packages/nikcli",
+    timeout: 120_000,
+    critical: false,
+  },
+  {
+    // `test:ci`, not `test`: the `test` script fires a `pretest` hook that runs
+    // format:check and lint first, so a single unformatted file exited the step
+    // in 12s and reported itself as "Run tests" failing. Because the step is
+    // non-critical the pipeline stayed green — for weeks the suite never ran at
+    // all here. Formatting and lint are their own steps above now, and this one
+    // only runs tests.
+    //
+    // The package script, not a bare `bun test` from the root: run from there
     // Bun sweeps all 400+ test files in the monorepo — benchmarks, integration
     // suites and the simulation tests that boot a real TUI — with none of the
     // per-package bunfig (preload, timeout) applied. The full matrix is the
     // `test` workflow's job; validation only needs fast feedback on the core.
     name: "Run tests",
-    command: ["bun", "run", "test"],
+    command: ["bun", "run", "test:ci"],
     cwd: "packages/nikcli",
-    timeout: 300_000,
+    timeout: 900_000,
     critical: false,
   },
   {
@@ -114,6 +135,34 @@ interface StepResult {
 }
 
 const DEFAULT_TIMEOUT = 300_000
+const TAIL_LINES = 20
+/** How long to keep reading a step's pipes after the process itself has exited. */
+const DRAIN_GRACE = 5_000
+
+/**
+ * Drains one of the child's pipes, echoing every chunk to our own stdout the
+ * moment it arrives and appending it to `sink` for the summary tail.
+ *
+ * Echoing is what makes a step diagnosable. Output used to be buffered until
+ * the child exited, so when a step took the runner down with it — no exit, no
+ * summary, no artifact — the job log held nothing but the `▸` line and
+ * `Process completed with exit code 143`. Chunks go out raw and unbuffered
+ * rather than line-prefixed: a hard kill can land mid-line, and whatever
+ * reached us should already be in the log when it does.
+ */
+async function drain(stream: ReadableStream<Uint8Array>, sink: string[]) {
+  const decoder = new TextDecoder()
+  for await (const chunk of stream) {
+    const text = decoder.decode(chunk, { stream: true })
+    if (!text) continue
+    process.stdout.write(text)
+    sink.push(text)
+    // Keep the tail bounded: a full test suite's output is megabytes, and only
+    // the last TAIL_LINES of it ever reach the summary. Pipe chunks cap at
+    // ~64KB, so 64 of them is already far more text than that.
+    if (sink.length > 128) sink.splice(0, sink.length - 64)
+  }
+}
 
 async function runStep(step: ValidationStep): Promise<StepResult> {
   const start = Date.now()
@@ -138,13 +187,26 @@ async function runStep(step: ValidationStep): Promise<StepResult> {
       proc.kill(9)
     }, limit)
 
-    const stdout = await new Response(proc.stdout).text()
-    const stderr = await new Response(proc.stderr).text()
+    // Both pipes are drained concurrently. Read one to completion before
+    // touching the other and a child that fills the idle pipe's buffer blocks
+    // forever writing to it, while we wait on a stream it will never advance —
+    // a deadlock that only ends at the step timeout.
+    const chunks: string[] = []
+    const drained = Promise.all([drain(proc.stdout, chunks), drain(proc.stderr, chunks)])
+    drained.catch(() => {})
+
+    // Stop reading once the child is gone, even if the pipes are still open.
+    // Bun.spawn puts the child in *our* process group, so `proc.kill()` reaches
+    // only the direct child: kill `bun run test:ci` and its parallel test
+    // workers live on, still holding the inherited stdout pipe. Waiting on the
+    // pipe alone therefore ignores the timeout entirely — a 2s limit sat there
+    // for the grandchild's full 30s. The grace period is what lets genuinely
+    // buffered output land before we move on.
+    await Promise.race([drained, proc.exited.then(() => Bun.sleep(DRAIN_GRACE))])
     const exitCode = await proc.exited
     clearTimeout(timer)
 
-    const combined = `${stdout}\n${stderr}`.trim()
-    const tailLines = combined.split("\n").slice(-20).join("\n")
+    const tailLines = chunks.join("").trim().split("\n").slice(-TAIL_LINES).join("\n")
     outputTail = redact(timedOut ? `${tailLines}\n[timed out after ${(limit / 1000).toFixed(0)}s]` : tailLines)
     passed = !timedOut && exitCode === 0
   } catch (err) {
@@ -179,7 +241,11 @@ async function main() {
 
     const icon = result.passed ? "✓" : "✗"
     const duration = (result.durationMs / 1000).toFixed(1)
-    console.log(`  ${icon} ${step.name} (${duration}s)`)
+    // Say which failures block. A bare `✗` reads the same either way, which is
+    // how a permanently failing test step sat in green runs without anyone
+    // noticing it had failed.
+    const note = result.passed ? "" : isCritical ? " — blocking" : " — non-blocking"
+    console.log(`  ${icon} ${step.name} (${duration}s)${note}`)
 
     if (!result.passed && isCritical) {
       hasCriticalFailure = true
@@ -215,12 +281,24 @@ async function main() {
   writeFileSync(SUMMARY_PATH, lines.join("\n"))
   console.log(`\nSummary written to ${SUMMARY_PATH}`)
 
+  const nonBlocking = results.filter((r) => !r.passed).map((r) => r.name)
+
   if (hasCriticalFailure) {
     console.log("\n❌ Validation failed")
     process.exit(1)
   }
 
-  console.log("\n✅ Validation passed")
+  if (nonBlocking.length > 0) {
+    console.log(`\n✅ Validation passed (non-blocking failures: ${nonBlocking.join(", ")})`)
+  } else {
+    console.log("\n✅ Validation passed")
+  }
+
+  // Explicit, because a timed-out step can leave orphaned grandchildren holding
+  // the pipes we abandoned. Falling off the end of main() then keeps the runner
+  // alive until *they* exit — a 2s timeout kept the whole script up for the
+  // grandchild's full minute. The summary is already written synchronously.
+  process.exit(0)
 }
 
 main().catch((err) => {
