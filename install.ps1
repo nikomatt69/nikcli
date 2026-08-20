@@ -70,15 +70,19 @@ function Test-Avx2 {
 $arch = Get-Arch
 if (-not $arch) { Fail "Unsupported architecture: $env:PROCESSOR_ARCHITECTURE" }
 
-$target = "windows-$arch"
+# Bun 1.4 emits one x64 build that is itself baseline (no AVX2 required), so
+# releases from 1.300.0 on ship no `-baseline` asset at all; earlier releases do.
+# When the CPU needs baseline we try the baseline asset first and fall back to
+# the plain target: on an old release the baseline asset exists and wins, and on
+# a new one the plain asset it falls back to runs everywhere. Never the reverse:
+# an AVX2 build on a CPU without AVX2 dies with an illegal instruction.
+$targets = @("windows-$arch")
 if ($arch -eq "x64" -and -not (Test-Avx2)) {
-  $target = "$target-baseline"
-  Step "Detected: windows ($arch, no AVX2 - using baseline build)"
+  $targets = @("windows-$arch-baseline", "windows-$arch")
+  Step "Detected: windows ($arch, no AVX2 - preferring baseline build)"
 } else {
   Step "Detected: windows ($arch)"
 }
-
-$filename = "$AssetPrefix-$target.zip"
 
 # ---------------------------------------------------------------------------
 # Version
@@ -103,10 +107,12 @@ if ($requested) {
 
 # GitHub first: nikcli.store does not proxy release assets today, and the bash
 # installer keeps it only as a legacy primary.
-$urls = @(
-  "https://github.com/$Repo/releases/download/$tag/$filename",
-  "https://nikcli.store/releases/download/$tag/$filename"
-)
+$urls = @()
+foreach ($candidate in $targets) {
+  $candidateFile = "$AssetPrefix-$candidate.zip"
+  $urls += "https://github.com/$Repo/releases/download/$tag/$candidateFile"
+  $urls += "https://nikcli.store/releases/download/$tag/$candidateFile"
+}
 
 # ---------------------------------------------------------------------------
 # Install location
@@ -225,9 +231,10 @@ $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("nikcli_install_" + [System.
 New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 
 try {
-  $archive = Join-Path $tmp $filename
   $downloaded = $false
   foreach ($url in $urls) {
+    $filename = Split-Path -Path $url -Leaf
+    $archive = Join-Path $tmp $filename
     try {
       Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
       if ((Test-Path $archive) -and ((Get-Item $archive).Length -gt 0)) {
@@ -238,7 +245,7 @@ try {
       Remove-Item $archive -Force -ErrorAction SilentlyContinue
     }
   }
-  if (-not $downloaded) { Fail "Failed to download $filename" }
+  if (-not $downloaded) { Fail "Failed to download nikcli for $($targets -join ' or ')" }
   Step "Downloaded $filename"
 
   $extract = Join-Path $tmp "extract"

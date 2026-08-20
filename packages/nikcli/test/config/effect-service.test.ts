@@ -74,8 +74,15 @@ afterEach(async () => {
   await Instance.disposeAll().catch(() => undefined)
 })
 
+// Windows keeps a handle on files under the test home for a moment after the
+// instances are disposed, and `force` only swallows ENOENT — an EBUSY still
+// rejects and fails the suite. Retry, then give up quietly: this is teardown of
+// a temp directory, not an assertion.
+const rmTemp = (dir: string) =>
+  fs.rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }).catch(() => undefined)
+
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
-  await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
-  await fs.rm(testHome, { recursive: true, force: true })
+  await Promise.all(projectDirs.map(rmTemp))
+  await rmTemp(testHome)
 })

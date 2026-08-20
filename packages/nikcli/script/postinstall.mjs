@@ -105,6 +105,10 @@ function isMusl() {
 // Ordered best → worst. A baseline binary runs on an AVX2 machine (just slower),
 // so it stays in the list as a fallback; the reverse is a SIGILL crash, which is
 // why the baseline probe must be right on every platform.
+// Since Bun 1.4 the x64 build is itself baseline and no `-baseline` package is
+// published any more, so those names only ever resolve for releases <= 1.299.0.
+// They stay in the list for exactly that reason — a missing name is skipped, and
+// the plain x64 package the list falls through to is safe on every CPU.
 function packageNames() {
   const baseline = arch === "x64" && !supportsAvx2()
 
