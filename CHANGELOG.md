@@ -3,6 +3,22 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.302.0 (August 2026)
+
+## Core
+
+- Sample memory during validate and cut the suite to one worker (@nikomatt69)
+- Stop validate's test step from taking the runner down with it (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(ci): point the Windows Global.Path invariant at @nikcli-ai/util
+  - fix(ci): cap validate's test parallelism so it stops killing the runner
+  - Revert "fix(ci): cap validate's test parallelism so it stops killing the runner"
+  - fix(ci): stop validate's test step from taking the runner down with it
+  - fix(ci): sample memory during validate and cut the suite to one worker
+
 ## v1.301.0 (August 2026)
 
 ## Core
