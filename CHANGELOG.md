@@ -3,6 +3,20 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.299.0 (August 2026)
+
+## Core
+
+- Update bun and related packages to version 1.4.0 (@nikomatt69)
+- Mobile json routes onto encoded httpapi handlers (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - h7: mobile json routes onto encoded httpapi handlers
+  - chore(dependencies): update bun and related packages to version 1.4.0
+  - chore(dependencies): add zod to bun.lock and package.json
+
 ## v1.295.0 (August 2026)
 
 ## Core
