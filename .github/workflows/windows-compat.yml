@@ -107,7 +107,7 @@ jobs:
         shell: pwsh
         run: |
           $script = @'
-          import { Global } from "@/global"
+          import { Global } from "@nikcli-ai/util/global"
           const data = Global.Path.data
           const cfg = Global.Path.config
           console.log("data:", data, "config:", cfg)
@@ -116,8 +116,9 @@ jobs:
           if (data.includes("/.local/share/")) { console.error("XDG POSIX fallback leaked:", data); process.exit(1) }
           console.log("Global.Path Windows fallback ok")
           '@
-          # Inside packages/nikcli, not RUNNER_TEMP: `@/` is a tsconfig paths
-          # alias, and bun resolves it from the nearest tsconfig to the file.
+          # Inside packages/nikcli, not RUNNER_TEMP: @nikcli-ai/util is a
+          # workspace dependency, so bun only resolves it from a file that sits
+          # inside the package that declares it.
           $tmp = "global-path-check.ts"
           Set-Content -Path $tmp -Value $script -Encoding UTF8
           try { & bun --conditions=browser $tmp } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
