@@ -50,6 +50,20 @@ jobs:
           NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER: "true"
         run: |
           set -o pipefail
+          # Sample memory next to the run. When the host reclaims a runner the
+          # job dies mid-step, so `if: always()` never fires and the summary
+          # artifact is never uploaded — but the job *log* survives. That makes
+          # stdout the only place these numbers can be read back from.
+          (
+            while true; do
+              mem=$(awk '/^MemAvailable|^SwapFree/ {printf "%s=%dMB ", $1, $2/1024}' /proc/meminfo)
+              top=$(ps -eo rss=,comm= --sort=-rss 2>/dev/null | head -4 | awk '{printf "%s:%dMB ", $2, $1/1024}')
+              echo "[mem] $(date -u +%H:%M:%S) ${mem}load=$(cut -d' ' -f1 /proc/loadavg) disk=$(df -Pm . | awk 'NR==2{print $4"MB"}') top=[${top}]"
+              sleep 10
+            done
+          ) &
+          sampler=$!
+          trap 'kill "$sampler" 2>/dev/null || true' EXIT
           bun run script/ci-validate.ts 2>&1 | tee ci-validation-output.txt
 
       - name: Upload validation summary

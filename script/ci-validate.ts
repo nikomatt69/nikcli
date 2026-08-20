@@ -80,6 +80,12 @@ const steps: ValidationStep[] = [
     // all here. Formatting and lint are their own steps above now, and this one
     // only runs tests.
     //
+    // `--parallel=1` is not "no parallelism": it still implies `--isolate`, so
+    // each file gets a fresh global and module registry and its state is
+    // released before the next one starts. Dropping the flag entirely would
+    // pile all 348 files — 300+ nikcli instances and 200+ SQLite databases —
+    // into a single heap, which is the opposite of what this run can afford.
+    //
     // The package script, not a bare `bun test` from the root: run from there
     // Bun sweeps all 400+ test files in the monorepo — benchmarks, integration
     // suites and the simulation tests that boot a real TUI — with none of the
@@ -88,7 +94,7 @@ const steps: ValidationStep[] = [
     name: "Run tests",
     command: ["bun", "run", "test:ci"],
     cwd: "packages/nikcli",
-    timeout: 900_000,
+    timeout: 1_200_000,
     critical: false,
   },
   {
