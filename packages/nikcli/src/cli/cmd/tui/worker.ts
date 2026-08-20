@@ -4,6 +4,7 @@ import { Log } from "@nikcli-ai/util/log"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Rpc } from "@tui/util/rpc"
+import { setMainThreadDaemonHost } from "@nikcli-ai/browser-control/daemon-client"
 import { upgrade, upgradeNow } from "@/cli/upgrade"
 import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
@@ -39,6 +40,12 @@ process.on("uncaughtException", (e) => {
 GlobalBus.on("event", (event) => {
   Rpc.emit("global.event", event)
 })
+
+// Browser sessions live in a Bun.WebView, which cannot be constructed on a
+// worker thread. This is the worker, so the daemon that owns those views has to
+// be bound by the TUI process's main thread instead; it answers on the same
+// socket, so nothing else about the client changes.
+setMainThreadDaemonHost((socket) => Rpc.emit("browser-control.host-daemon", { socket }))
 
 let server: ReturnType<typeof Server.listen> | undefined
 let shuttingDown: Promise<void> | undefined

@@ -73,10 +73,13 @@ export {
 // Background daemon — persists sessions across separate process invocations.
 export {
   ensureDaemon,
+  inprocessHostingPlan,
   openScreencast,
   rpc,
+  setMainThreadDaemonHost,
   shutdownDaemon,
   socketPathFor,
+  type MainThreadDaemonHost,
   type OpenScreencastOptions,
   type ScreencastStreamFrame,
 } from "./daemon-client"

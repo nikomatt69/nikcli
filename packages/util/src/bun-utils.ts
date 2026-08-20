@@ -2,6 +2,7 @@
  * Typed bindings for Bun APIs that `@types/bun` does not declare yet.
  * Call sites go through this module instead of `as any`.
  */
+import { isMainThread } from "node:worker_threads"
 
 export type ImageFit = "inside" | "fill"
 
@@ -238,6 +239,15 @@ export function createWebView(options: {
 }): WebViewInstance {
   if (typeof bunUtils.WebView !== "function") {
     throw new Error("Bun.WebView is not available in this Bun build")
+  }
+  // Bun throws "only available on the main thread" here, naming neither the
+  // caller nor the fix. A view has to be created on the main thread of some
+  // process; the caller's job is to get itself there, not to retry.
+  if (!isMainThread) {
+    throw new Error(
+      `Bun.WebView cannot be created on a worker thread (backend "${defaultWebViewBackend()}"). ` +
+        `Create it on the main thread of this process, or from a separate process.`,
+    )
   }
   return new bunUtils.WebView({
     headless: true,

@@ -11,11 +11,16 @@
  *   to host the socket is killed by the OS (SIGKILL / OOM). Instead, start the
  *   daemon **in-process** — the TUI (or tool) already has Bun.WebView in the
  *   module graph, and `BrowserSurface` tears the session down on unmount.
+ * - **In-process, but called from a worker thread**: hand the binding to the
+ *   host's main thread via {@link setMainThreadDaemonHost}. Bun.WebView cannot
+ *   be constructed off the main thread, so a daemon hosted on a worker would
+ *   answer `list` and fail every `start`.
  */
 import { createHash } from "node:crypto"
 import { access, constants, lstat } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
 import { tmpdir } from "node:os"
+import { isMainThread } from "node:worker_threads"
 
 /** @deprecated Kept for callers/tests that still check the flag name. */
 export const INTERNAL_DAEMON_FLAG = "--browser-control-daemon"
@@ -136,6 +141,45 @@ async function readStderrSnippet(proc: Bun.Subprocess, limit = 800): Promise<str
   }
 }
 
+/**
+ * Ask the host's main thread to bind the daemon for us.
+ *
+ * `Bun.WebView`'s chrome backend — the backend everywhere except macOS —
+ * throws `only available on the main thread` when constructed from a worker,
+ * and it throws at *construction*, so connecting to an already-running Chrome
+ * over a DevTools URL does not dodge it either. A daemon hosted in-process on a
+ * worker therefore answers `list` fine and fails every `start`.
+ *
+ * A host that runs sessions on a worker (nikcli's TUI does) registers this so
+ * the daemon binds on its main thread instead; the worker then talks to it over
+ * the same socket as any other client, and views are created where they are
+ * allowed to exist.
+ */
+export type MainThreadDaemonHost = (socketPath: string) => void
+
+let mainThreadHost: MainThreadDaemonHost | undefined
+
+export function setMainThreadDaemonHost(host: MainThreadDaemonHost | undefined): void {
+  mainThreadHost = host
+}
+
+/**
+ * Who binds an in-process daemon. Pure, and exported, so the rule is checked
+ * without a compiled binary and a browser to hand.
+ *
+ * - `self` — this thread can host: it owns the main thread.
+ * - `delegate` — a worker with a registered host; ask it and wait for the socket.
+ * - `unsupported` — a worker with nowhere to delegate to. Hosting here would
+ *   bind a socket that fails every `start`, which is worse than not binding.
+ */
+export function inprocessHostingPlan(options: {
+  readonly mainThread: boolean
+  readonly hasMainThreadHost: boolean
+}): "self" | "delegate" | "unsupported" {
+  if (options.mainThread) return "self"
+  return options.hasMainThreadHost ? "delegate" : "unsupported"
+}
+
 /** Tracks in-process starts so concurrent ensureDaemon calls share one server. */
 const inprocessStarts = new Map<string, Promise<void>>()
 
@@ -171,6 +215,23 @@ export async function ensureDaemon(socketPath: string): Promise<void> {
   const launch = await resolveDaemonLaunch()
 
   if (launch.mode === "inprocess") {
+    // Hosting here would put every Bun.WebView on this thread. Off the main
+    // thread that is not allowed, so hand the job to whoever owns the main one.
+    const plan = inprocessHostingPlan({ mainThread: isMainThread, hasMainThreadHost: mainThreadHost !== undefined })
+
+    if (plan === "unsupported") {
+      throw new Error(
+        `browser-control cannot host a browser on a worker thread: Bun.WebView is main-thread only. ` +
+          `The host must call setMainThreadDaemonHost() from its main thread.`,
+      )
+    }
+
+    if (plan === "delegate") {
+      mainThreadHost!(socketPath)
+      await waitForDaemon(socketPath)
+      return
+    }
+
     // startDaemon resolves once Bun.serve is listening; no wait loop needed.
     await startInProcess(socketPath)
     if (!(await isDaemonAlive(socketPath))) {
