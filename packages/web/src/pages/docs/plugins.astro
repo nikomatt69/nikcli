@@ -33,8 +33,8 @@ const toc = [
     <p>
       Plugins extend server-side agent behavior and TUI behavior. Server plugin loading is in
       <code>packages/nikcli/src/plugin/index.ts</code>. Plugin installation and config patching are
-      in <code>packages/nikcli/src/plugin/install.ts</code>. TUI plugin runtime lives under
-      <code>packages/nikcli/src/cli/cmd/tui/plugin</code>.
+      in <code>packages/nikcli/src/plugin/installer.ts</code>. TUI plugin runtime lives under
+      <code>packages/tui/src/plugin</code>.
     </p>
     <div class="doc-grid not-prose">
       <DocCard title="Server hooks" eyebrow="Runtime">
@@ -122,7 +122,7 @@ nikcli plugin @scope/my-plugin@1.2.3 --force
   <section id="tui-runtime" class="doc-section">
     <h2>TUI runtime</h2>
     <p>
-      TUI plugin APIs are built in <code>cli/cmd/tui/plugin/api.tsx</code> and loaded by
+      TUI plugin APIs are built in <code>packages/tui/src/plugin/api.tsx</code> and loaded by
       <code>plugin/runtime.ts</code>. Plugins can add routes, commands, dialogs, keybinds, and UI
       surfaces while the TUI app is running.
     </p>
@@ -205,7 +205,7 @@ NIKCLI_DISABLE_DEFAULT_PLUGINS=1 nikcli
     <h3>Internal TUI feature plugins</h3>
     <p>
       Beyond the auth and notification plugins, the TUI ships a set of internal feature plugins
-      that ship inside <code>cli/cmd/tui/feature-plugins/</code>. They run in-process and don't
+      that ship inside <code>packages/tui/src/feature-plugins/</code>. They run in-process and don't
       need to be installed:
     </p>
     <table class="doc-table">
@@ -325,16 +325,16 @@ NIKCLI_DISABLE_DEFAULT_PLUGINS=1 nikcli
       <thead><tr><th>Need</th><th>File</th></tr></thead>
       <tbody>
         <tr><td>Server plugin runtime</td><td><code>packages/nikcli/src/plugin/index.ts</code></td></tr>
-        <tr><td>Plugin install and patching</td><td><code>packages/nikcli/src/plugin/install.ts</code></td></tr>
-        <tr><td>Plugin package parsing</td><td><code>packages/nikcli/src/plugin/shared.ts</code></td></tr>
+        <tr><td>Plugin install and patching</td><td><code>packages/nikcli/src/plugin/installer.ts</code></td></tr>
+        <tr><td>Plugin package parsing</td><td><code>@nikcli-ai/util/plugin-shared</code></td></tr>
         <tr><td>CLI command</td><td><code>packages/nikcli/src/cli/cmd/plug.ts</code></td></tr>
-        <tr><td>TUI plugin API</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/api.tsx</code></td></tr>
-        <tr><td>TUI plugin runtime</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/runtime.ts</code></td></tr>
-        <tr><td>System plugin manager</td><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/system</code></td></tr>
-        <tr><td>Home, sidebar, background, loop, mission, brain, browser, chatbot, computer, connectors and observability plugins</td><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code></td></tr>
-        <tr><td>Internal plugin registry</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/internal.ts</code></td></tr>
-        <tr><td>Island file bridge</td><td><code>packages/nikcli/src/plugin/island/bridge.ts</code></td></tr>
-        <tr><td>Island TUI plugin</td><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/island/index.tsx</code></td></tr>
+        <tr><td>TUI plugin API</td><td><code>packages/tui/src/plugin/api.tsx</code></td></tr>
+        <tr><td>TUI plugin runtime</td><td><code>packages/tui/src/plugin/runtime.ts</code></td></tr>
+        <tr><td>System plugin manager</td><td><code>packages/tui/src/feature-plugins/system</code></td></tr>
+        <tr><td>Home, sidebar, background, loop, mission, brain, browser, chatbot, computer, connectors and observability plugins</td><td><code>packages/tui/src/feature-plugins/</code></td></tr>
+        <tr><td>Internal plugin registry</td><td><code>packages/tui/src/plugin/internal.ts</code></td></tr>
+        <tr><td>Island file bridge</td><td><code>@nikcli-ai/util/island-bridge</code></td></tr>
+        <tr><td>Island TUI plugin</td><td><code>packages/tui/src/feature-plugins/island/index.tsx</code></td></tr>
         <tr><td>Plugin contracts package</td><td><code>packages/plugin</code></td></tr>
         <tr><td>Skills</td><td><code>packages/nikcli/src/skill/skill.ts</code></td></tr>
       </tbody>

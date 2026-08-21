@@ -149,7 +149,7 @@ export const TelemetryRecord = BusEvent.define(
     </DocCode>
     <p>
       The TUI subscribes to this event in
-      <code>packages/nikcli/src/cli/cmd/tui/component/dialog-telemetry-live.tsx</code> and renders a
+      <code>packages/tui/src/component/dialog-telemetry-live.tsx</code> and renders a
       scrolling, searchable list of spans with filter by name, kind, and status.
     </p>
     <DocCallout type="info" title="Cycle-safe">
@@ -165,7 +165,7 @@ export const TelemetryRecord = BusEvent.define(
     <h2>Configuration</h2>
     <p>
       All configuration is read from environment variables in
-      <code>packages/nikcli/src/flag/flag.ts</code> and consumed by
+      <code>@nikcli-ai/util/flag</code> and consumed by
       <code>packages/nikcli/src/observability/otlp.ts</code>. There is no <code>nikcli.json</code>
       field for telemetry — the values are deliberately env-only so container images can be
       reconfigured without rebuilding.
@@ -205,7 +205,7 @@ export const TelemetryRecord = BusEvent.define(
     </table>
     <p>
       The dialogs are registered in
-      <code>packages/nikcli/src/cli/cmd/tui/component/dialog-command.tsx</code> and opened from
+      <code>packages/tui/src/component/dialog-command.tsx</code> and opened from
       the command palette (Ctrl+P) or by their keybind.
     </p>
   </section>
@@ -239,10 +239,10 @@ const program = Effect.gen(function* () &lbrace;
         <tr><td><code>packages/nikcli/src/observability/otlp.ts</code></td><td>OTLP layer built from <code>effect/unstable/observability</code>; reads flags and resource attributes.</td></tr>
         <tr><td><code>packages/nikcli/src/observability/telemetry-bus.ts</code></td><td><code>TelemetryRecord</code> bus event and zod schema.</td></tr>
         <tr><td><code>packages/nikcli/src/effect/runtime.ts</code></td><td>Where the observability layer is merged into the runtime base.</td></tr>
-        <tr><td><code>packages/nikcli/src/flag/flag.ts</code></td><td>OTLP / OTel environment variable definitions.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-telemetry-live.tsx</code></td><td>Live TUI panel.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-opentelemetry.tsx</code></td><td>OTLP configuration dialog.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-advisor-model.tsx</code></td><td>Advisor model picker (drives advisor spans).</td></tr>
+        <tr><td><code>@nikcli-ai/util/flag</code></td><td>OTLP / OTel environment variable definitions.</td></tr>
+        <tr><td><code>packages/tui/src/component/dialog-telemetry-live.tsx</code></td><td>Live TUI panel.</td></tr>
+        <tr><td><code>packages/tui/src/component/dialog-opentelemetry.tsx</code></td><td>OTLP configuration dialog.</td></tr>
+        <tr><td><code>packages/tui/src/component/dialog-advisor-model.tsx</code></td><td>Advisor model picker (drives advisor spans).</td></tr>
       </tbody>
     </table>
   </section>

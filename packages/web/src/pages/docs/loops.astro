@@ -39,7 +39,7 @@ const toc = [
       The headless <code>LoopEngine</code> (<code>packages/nikcli/src/loop/engine.ts</code>) owns the
       interval timers via the core <code>Scheduler</code> with <code>scope: "instance"</code>, so
       scheduled loops keep firing when the TUI is closed. The TUI feature plugin
-      (<code>packages/nikcli/src/cli/cmd/tui/feature-plugins/loops/</code>) is a thin client over
+      (<code>packages/tui/src/feature-plugins/loops/</code>) is a thin client over
       the SDK: it subscribes to bus events for live status, and uses the SDK to create, run, pause,
       resume, and delete loops.
     </p>
@@ -294,7 +294,7 @@ nikcli loop delete lop_abc123 --yes
     <h2>TUI surface</h2>
     <p>
       The TUI loop feature-plugin lives in
-      <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/loops/</code>. It mirrors the mission
+      <code>packages/tui/src/feature-plugins/loops/</code>. It mirrors the mission
       plugin and exposes:
     </p>
     <ul>
@@ -340,7 +340,7 @@ nikcli loop delete lop_abc123 --yes
         <tr><td><code>packages/nikcli/src/loop/manager.ts</code></td><td>CRUD and run-record persistence.</td></tr>
         <tr><td><code>packages/nikcli/src/loop/engine.ts</code></td><td>Headless engine: <code>Scheduler</code> integration, single-flight, concurrency cap, lease/heartbeat, bus events, auto-PR hook.</td></tr>
         <tr><td><code>packages/nikcli/src/loop/pr.ts</code></td><td>Best-effort GitHub PR creation: branch naming, push, <code>gh pr create</code> / <code>gh pr edit</code>.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/loops/</code></td><td>TUI feature plugin: store, SDK, runner, dialogs.</td></tr>
+        <tr><td><code>packages/tui/src/feature-plugins/loops/</code></td><td>TUI feature plugin: store, SDK, runner, dialogs.</td></tr>
         <tr><td><code>packages/mobile/app/(app)/loops/</code></td><td>Mobile Loops tab and detail screen.</td></tr>
         <tr><td><code>specs/10-loops.md</code></td><td>Long-form design document for the loops system.</td></tr>
       </tbody>

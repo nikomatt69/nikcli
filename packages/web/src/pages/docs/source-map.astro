@@ -109,8 +109,8 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
       <thead><tr><th>Need</th><th>Start here</th><th>Then inspect</th></tr></thead>
       <tbody>
         <tr><td>Command registration</td><td><code>src/index.ts</code></td><td><code>src/cli/cmd/*.ts</code></td></tr>
-        <tr><td>Global paths</td><td><code>src/global/index.ts</code></td><td><code>NIKCLI_DATA_DIR</code>, XDG/AppData rules.</td></tr>
-        <tr><td>Logging</td><td><code>src/util/log.ts</code></td><td><code>--print-logs</code>, <code>--log-level</code>.</td></tr>
+        <tr><td>Global paths</td><td><code>src/@nikcli-ai/util/global</code></td><td><code>NIKCLI_DATA_DIR</code>, XDG/AppData rules.</td></tr>
+        <tr><td>Logging</td><td><code>@nikcli-ai/util/log</code></td><td><code>--print-logs</code>, <code>--log-level</code>.</td></tr>
         <tr><td>Error formatting</td><td><code>src/cli/error.ts</code></td><td>Command-specific thrown errors.</td></tr>
       </tbody>
     </table>
@@ -123,7 +123,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
         <p><code>src/cli/cmd</code> contains commands. <code>src/cli/cmd/tui</code> contains the OpenTUI/Solid renderer, worker RPC, routes, dialogs, plugins, and contexts.</p>
       </DocCard>
       <DocCard title="Server" eyebrow="HTTP">
-        <p><code>src/server/server.ts</code> owns middleware and route mounting. <code>src/server/routes</code> owns classic routes. <code>src/server/httpapi</code> owns typed route groups.</p>
+        <p><code>src/server/server.ts</code> owns middleware and route mounting. <code>src/server/httpapi</code> owns classic routes. <code>src/server/httpapi</code> owns typed route groups.</p>
       </DocCard>
       <DocCard title="Sessions" eyebrow="Agent">
         <p><code>src/session</code> owns session lifecycle, prompt execution, LLM normalization, messages, status, revert, compaction, todo, and stats.</p>
@@ -166,16 +166,16 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     <table class="doc-table">
       <thead><tr><th>Feature</th><th>Classic route</th><th>Typed route where present</th></tr></thead>
       <tbody>
-        <tr><td>Session</td><td><code>server/routes/session.ts</code></td><td><code>server/httpapi/session.ts</code></td></tr>
-        <tr><td>File</td><td><code>server/routes/file.ts</code></td><td><code>server/httpapi/file.ts</code></td></tr>
-        <tr><td>Provider</td><td><code>server/routes/provider.ts</code></td><td><code>server/httpapi/provider.ts</code></td></tr>
-        <tr><td>MCP</td><td><code>server/routes/mcp.ts</code></td><td><code>server/httpapi/mcp.ts</code></td></tr>
-        <tr><td>Config</td><td><code>server/routes/config.ts</code></td><td><code>server/httpapi/config.ts</code></td></tr>
-        <tr><td>Workspace</td><td><code>server/routes/workspace.ts</code></td><td><code>server/httpapi/workspace.ts</code></td></tr>
-        <tr><td>Question</td><td><code>server/routes/question.ts</code></td><td><code>server/httpapi/question.ts</code></td></tr>
-        <tr><td>Permission</td><td><code>server/routes/permission.ts</code></td><td><code>server/httpapi/permission.ts</code></td></tr>
-        <tr><td>Mobile</td><td><code>server/routes/mobile.ts</code></td><td>Classic only.</td></tr>
-        <tr><td>Analytics</td><td><code>server/routes/analytics.ts</code></td><td>Classic only.</td></tr>
+        <tr><td>Session</td><td><code>server/httpapi/session.ts</code></td><td><code>server/httpapi/session.ts</code></td></tr>
+        <tr><td>File</td><td><code>server/httpapi/file.ts</code></td><td><code>server/httpapi/file.ts</code></td></tr>
+        <tr><td>Provider</td><td><code>server/httpapi/provider.ts</code></td><td><code>server/httpapi/provider.ts</code></td></tr>
+        <tr><td>MCP</td><td><code>server/httpapi/mcp.ts</code></td><td><code>server/httpapi/mcp.ts</code></td></tr>
+        <tr><td>Config</td><td><code>server/httpapi/config.ts</code></td><td><code>server/httpapi/config.ts</code></td></tr>
+        <tr><td>Workspace</td><td><code>server/httpapi/workspace.ts</code></td><td><code>server/httpapi/workspace.ts</code></td></tr>
+        <tr><td>Question</td><td><code>server/httpapi/question.ts</code></td><td><code>server/httpapi/question.ts</code></td></tr>
+        <tr><td>Permission</td><td><code>server/httpapi/permission.ts</code></td><td><code>server/httpapi/permission.ts</code></td></tr>
+        <tr><td>Mobile</td><td><code>server/httpapi/mobile.ts</code></td><td>Classic only.</td></tr>
+        <tr><td>Analytics</td><td><code>server/httpapi/analytics.ts</code></td><td>Classic only.</td></tr>
       </tbody>
     </table>
   </section>
@@ -208,12 +208,12 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td>Global paths</td><td><code>global/index.ts</code></td><td>XDG/AppData resolution, <code>NIKCLI_DATA_DIR</code>, cache version.</td></tr>
+        <tr><td>Global paths</td><td><code>@nikcli-ai/util/global</code></td><td>XDG/AppData resolution, <code>NIKCLI_DATA_DIR</code>, cache version.</td></tr>
         <tr><td>Config loading</td><td><code>config/config.ts</code></td><td>Merge order, plugin/command/agent loading, legacy tools migration.</td></tr>
         <tr><td>Config paths</td><td><code>config/paths.ts</code></td><td>Project file discovery, directory list, JSONC substitution.</td></tr>
         <tr><td>TUI config</td><td><code>config/tui.ts</code>, <code>config/tui-schema.ts</code></td><td>Keybinds, scroll, mouse, layout config.</td></tr>
-        <tr><td>JSON store</td><td><code>storage/storage.ts</code></td><td>Read/write/update/list/transaction, locks, cache, migrations.</td></tr>
-        <tr><td>SQLite</td><td><code>storage/db.ts</code></td><td>Drizzle client, WAL, migrations, PRAGMAs.</td></tr>
+        <tr><td>JSON store</td><td><code>database/database.ts</code></td><td>Read/write/update/list/transaction, locks, cache, migrations.</td></tr>
+        <tr><td>SQLite</td><td><code>database/database.ts</code></td><td>Drizzle client, WAL, migrations, PRAGMAs.</td></tr>
       </tbody>
     </table>
   </section>
@@ -224,7 +224,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
       <thead><tr><th>Extension type</th><th>Source</th><th>Runtime hook</th></tr></thead>
       <tbody>
         <tr><td>Server plugin</td><td><code>plugin/index.ts</code></td><td>Internal plugins, configured plugins, built-ins, auth hooks, tool hooks, event hooks.</td></tr>
-        <tr><td>TUI plugin</td><td><code>cli/cmd/tui/plugin</code></td><td>Command, route, dialog, sidebar, and keybind registration.</td></tr>
+        <tr><td>TUI plugin</td><td><code>packages/tui/src/plugin</code></td><td>Command, route, dialog, sidebar, and keybind registration.</td></tr>
         <tr><td>MCP</td><td><code>mcp/index.ts</code></td><td>Local stdio and remote HTTP/SSE clients converted into agent tools.</td></tr>
         <tr><td>Connectors</td><td><code>connectors/index.ts</code>, <code>connectors/registry.ts</code></td><td>External service status, health checks, dynamic tools, prompts.</td></tr>
         <tr><td>Skills</td><td><code>skill/skill.ts</code></td><td>Skill discovery from config directories and external skill folders.</td></tr>
@@ -237,19 +237,19 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     <h2>TUI map</h2>
     <p>
       The TUI starts in <code>cli/cmd/tui/thread.ts</code>, creates a worker from
-      <code>cli/cmd/tui/worker.ts</code>, then renders <code>cli/cmd/tui/app.tsx</code>. With no
+      <code>cli/cmd/tui/worker.ts</code>, then renders <code>packages/tui/src/app.tsx</code>. With no
       network options it uses direct RPC fetch and event source. With host/port options it starts a
       real HTTP server and talks through the SDK.
     </p>
     <table class="doc-table">
       <thead><tr><th>Area</th><th>Files</th></tr></thead>
       <tbody>
-        <tr><td>Route state</td><td><code>cli/cmd/tui/context/route.tsx</code></td></tr>
-        <tr><td>Session route</td><td><code>cli/cmd/tui/routes/session/index.tsx</code></td></tr>
-        <tr><td>Workspace route</td><td><code>cli/cmd/tui/routes/workspace</code>, <code>routes/changes</code>, <code>routes/tree</code>, <code>routes/git-graph</code>, <code>routes/github</code></td></tr>
-        <tr><td>Command palette</td><td><code>cli/cmd/tui/component/dialog-command.tsx</code></td></tr>
-        <tr><td>Remote control</td><td><code>server/routes/tui.ts</code>, <code>cli/cmd/tui/event.ts</code></td></tr>
-        <tr><td>Plugin runtime</td><td><code>cli/cmd/tui/plugin/runtime.ts</code>, <code>plugin/api.tsx</code></td></tr>
+        <tr><td>Route state</td><td><code>packages/tui/src/context/route.tsx</code></td></tr>
+        <tr><td>Session route</td><td><code>packages/tui/src/routes/session/index.tsx</code></td></tr>
+        <tr><td>Workspace route</td><td><code>packages/tui/src/routes/workspace</code>, <code>routes/changes</code>, <code>routes/tree</code>, <code>routes/git-graph</code>, <code>routes/github</code></td></tr>
+        <tr><td>Command palette</td><td><code>packages/tui/src/component/dialog-command.tsx</code></td></tr>
+        <tr><td>Remote control</td><td><code>server/httpapi/tui.ts</code>, <code>packages/tui/src/event.ts</code></td></tr>
+        <tr><td>Plugin runtime</td><td><code>packages/tui/src/plugin/runtime.ts</code>, <code>plugin/api.tsx</code></td></tr>
       </tbody>
     </table>
   </section>
@@ -258,7 +258,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     <h2>Mobile map</h2>
     <p>
       The Expo app lives in <code>packages/mobile</code>, while the host API lives in
-      <code>packages/nikcli/src/server/routes/mobile.ts</code> and helpers under
+      <code>packages/nikcli/src/server/httpapi/mobile.ts</code> and helpers under
       <code>packages/nikcli/src/mobile</code>.
     </p>
     <table class="doc-table">
@@ -296,9 +296,9 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     <ol>
       <li>Find the entry: command in <code>src/index.ts</code>, route in <code>server.ts</code>, or UI route in <code>tui/context/route.tsx</code>.</li>
       <li>Read the domain service imported by that entry. Route files usually call services from <code>session</code>, <code>provider</code>, <code>config</code>, <code>mcp</code>, <code>connectors</code>, or <code>workspace</code>.</li>
-      <li>Check config and flags. Many features are enabled by config fields plus environment flags from <code>flag/flag.ts</code>.</li>
+      <li>Check config and flags. Many features are enabled by config fields plus environment flags from <code>@nikcli-ai/util/flag</code>.</li>
       <li>Check storage. Durable behavior usually writes through <code>Storage.Service</code> or a SQLite helper.</li>
-      <li>For client behavior, trace generated SDK types in <code>packages/sdk/js/src/v2/gen</code> and UI code in <code>packages/mobile</code> or TUI route files.</li>
+      <li>For client behavior, trace generated SDK types in <code>packages/sdk/js/src/httpapi/generated</code> and UI code in <code>packages/mobile</code> or TUI route files.</li>
     </ol>
     <DocCode language="bash">
 rg -n "route-or-command-name" packages/nikcli/src

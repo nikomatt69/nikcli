@@ -121,7 +121,8 @@
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "@opentui/core": "0.4.5",
-    "@opentui/solid": "0.4.5"
+    "@opentui/solid": "0.4.5",
+    "wrangler": "4.103.0"
   },
   "patchedDependencies": {
     "@ff-labs/fff-bun@0.9.4": "patches/@ff-labs%2Ffff-bun@0.9.4.patch",

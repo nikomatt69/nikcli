@@ -38,7 +38,7 @@ const toc = [
 
 <DocsLayout
   title="TUI feature plugins"
-  subtitle="Every built-in plugin under cli/cmd/tui/feature-plugins — what it registers, which commands it owns, where its state lives."
+  subtitle="Every built-in plugin under packages/tui/src/feature-plugins — what it registers, which commands it owns, where its state lives."
   description="Reference for nikcli's internal TUI feature plugins: home, sidebar, system, background, loops, mission, brain, browser, computer, connectors, chatbot, observability and island."
   toc={toc}
 >
@@ -49,7 +49,7 @@ const toc = [
       home tips, the sidebar panels, the plugin manager, the wallpaper, the loop and
       mission managers, the connector and chat-bot dashboards — each one is a
       self-contained <strong>feature plugin</strong> under
-      <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code>, loaded through the
+      <code>packages/tui/src/feature-plugins/</code>, loaded through the
       exact same runtime that loads third-party plugins from npm.
     </p>
     <p>
@@ -145,7 +145,7 @@ export default Plugin.define({
       <code>plugin/internal.ts</code> is the whole registry. Order matters only for slot
       ordering ties; the plugin manager sorts its own list.
     </p>
-    <DocCode language="ts" title="cli/cmd/tui/plugin/internal.ts">{`export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
+    <DocCode language="ts" title="packages/tui/src/plugin/internal.ts">{`export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   HomeTips,
   SidebarContext, SidebarMcp, SidebarLsp, SidebarTodo, SidebarFiles, SidebarFooter,
   PluginManager, Fusion,
@@ -624,16 +624,16 @@ export default { id: "my-plugin", tui } satisfies TuiPluginModule & { id: string
     <table class="doc-table">
       <thead><tr><th>Concern</th><th>File</th></tr></thead>
       <tbody>
-        <tr><td>Registry</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/internal.ts</code></td></tr>
-        <tr><td>Host API construction</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/api.tsx</code></td></tr>
-        <tr><td>Lifecycle / activate / deactivate</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/runtime.ts</code></td></tr>
-        <tr><td>Keymap layers &amp; bindings</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/keymap.ts</code></td></tr>
-        <tr><td>Slot registry</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/slots.tsx</code></td></tr>
+        <tr><td>Registry</td><td><code>packages/tui/src/plugin/internal.ts</code></td></tr>
+        <tr><td>Host API construction</td><td><code>packages/tui/src/plugin/api.tsx</code></td></tr>
+        <tr><td>Lifecycle / activate / deactivate</td><td><code>packages/tui/src/plugin/runtime.ts</code></td></tr>
+        <tr><td>Keymap layers &amp; bindings</td><td><code>packages/tui/src/plugin/keymap.ts</code></td></tr>
+        <tr><td>Slot registry</td><td><code>packages/tui/src/plugin/slots.tsx</code></td></tr>
         <tr><td>Public plugin types</td><td><code>packages/plugin/src/tui.ts</code>, <code>packages/plugin/src/v2/tui/plugin.ts</code></td></tr>
-        <tr><td>All feature plugins</td><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code></td></tr>
+        <tr><td>All feature plugins</td><td><code>packages/tui/src/feature-plugins/</code></td></tr>
         <tr><td>Background renderable</td><td><code>feature-plugins/background/renderable.ts</code>, <code>pixels.ts</code>, <code>source.ts</code></td></tr>
-        <tr><td>Background mount point</td><td><code>packages/nikcli/src/cli/cmd/tui/app.tsx</code> → <code>&lt;BackgroundImage /&gt;</code></td></tr>
-        <tr><td>KV store</td><td><code>packages/nikcli/src/cli/cmd/tui/context/kv.tsx</code> → <code>&lt;state&gt;/kv.json</code></td></tr>
+        <tr><td>Background mount point</td><td><code>packages/tui/src/app.tsx</code> → <code>&lt;BackgroundImage /&gt;</code></td></tr>
+        <tr><td>KV store</td><td><code>packages/tui/src/context/kv.tsx</code> → <code>&lt;state&gt;/kv.json</code></td></tr>
       </tbody>
     </table>
   </section>

@@ -231,7 +231,7 @@ const toc = [
           palette. Lets you pick the consolidation model and trigger a forced run.
         </p>
       </DocCard>
-      <DocCard title="Server routes" eyebrow="server/routes/brain.ts">
+      <DocCard title="Server routes" eyebrow="server/httpapi/brain.ts">
         <p>
           <code>GET /brain</code> returns the full status payload (enabled, memory enabled,
           min hours, min sessions, last brain at, hours since, sessions since, should
@@ -276,11 +276,11 @@ const toc = [
         </tr>
         <tr>
           <td>Constants</td>
-          <td><code>packages/nikcli/src/brain/constants.ts</code></td>
+          <td><code>@nikcli-ai/util/brain-constants</code></td>
         </tr>
         <tr>
           <td>Classic routes</td>
-          <td><code>packages/nikcli/src/server/routes/brain.ts</code></td>
+          <td><code>packages/nikcli/src/server/httpapi/brain.ts</code></td>
         </tr>
         <tr>
           <td>Typed HttpApi</td>
@@ -289,12 +289,12 @@ const toc = [
         <tr>
           <td>TUI plugin</td>
           <td>
-            <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/brain/index.tsx</code>
+            <code>packages/tui/src/feature-plugins/brain/index.tsx</code>
           </td>
         </tr>
         <tr>
           <td>TUI dialog</td>
-          <td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-brain.tsx</code></td>
+          <td><code>packages/tui/src/component/dialog-brain.tsx</code></td>
         </tr>
       </tbody>
     </table>

@@ -9,44 +9,93 @@ import DocCard from "../../components/docs/DocCard.astro";
 const toc = [
   { title: "Overview", href: "#overview", depth: 2 },
   { title: "Path roots", href: "#path-roots", depth: 2 },
-  { title: "JSON object store", href: "#json-store", depth: 2 },
-  { title: "Session layout", href: "#session-layout", depth: 2 },
-  { title: "SQLite stores", href: "#sqlite", depth: 2 },
-  { title: "Read and write flow", href: "#flow", depth: 2 },
+  { title: "The database", href: "#database", depth: 2 },
+  { title: "Tables and owners", href: "#tables", depth: 2 },
+  { title: "Repository pattern", href: "#repositories", depth: 2 },
+  { title: "Transactions", href: "#transactions", depth: 2 },
   { title: "Migrations", href: "#migrations", depth: 2 },
-  { title: "Locks and cache", href: "#locks-cache", depth: 2 },
+  { title: "Files outside the database", href: "#files", depth: 2 },
   { title: "Operational checks", href: "#operational-checks", depth: 2 },
   { title: "Failure modes", href: "#failure-modes", depth: 2 },
   { title: "Source anchors", href: "#source-anchors", depth: 2 },
+];
+
+const tables = [
+  { table: "project", owner: "src/project/project.sql.ts", purpose: "Known projects, git roots, and per-project metadata." },
+  { table: "session_info", owner: "src/session/session.sql.ts", purpose: "Session records; indexed columns plus a JSON `data` blob for the rest." },
+  { table: "message_info, message_part", owner: "src/session/message.sql.ts", purpose: "Messages and their parts — text, reasoning, tool calls, files." },
+  { table: "session_entry", owner: "src/session/v2/entry.sql.ts", purpose: "The flat v2 event-sourced session log and its persisted projection." },
+  { table: "session_goal", owner: "src/session/goal.sql.ts", purpose: "Per-session goal state driven by the goal tools." },
+  { table: "session_diff", owner: "src/session/diff.sql.ts", purpose: "File diffs backing summaries, the changes view, and revert." },
+  { table: "session_pending", owner: "src/session/pending.sql.ts", purpose: "Queued prompts and steering messages for a busy session." },
+  { table: "todo_info", owner: "src/session/todo.sql.ts", purpose: "Todo list state written by the todo tools." },
+  { table: "instruction_blob, instruction_state", owner: "src/session/instruction.sql.ts", purpose: "Instruction files and their per-session enable/disable state." },
+  { table: "permission_ruleset", owner: "src/permission/permission.sql.ts", purpose: "Persisted always-approvals and per-agent permission rulesets." },
+  { table: "loop, loop_run", owner: "src/loop/loop.sql.ts", purpose: "Loop definitions and run history. See Loops." },
+  { table: "mission, mission_exec", owner: "src/mission/mission.sql.ts", purpose: "Mission definitions and executions. See Missions." },
+  { table: "routine", owner: "src/mobile/routine.sql.ts", purpose: "Scheduled and API-triggered routines." },
+  { table: "background_run", owner: "src/background/run.sql.ts", purpose: "Background delegation runs and their status." },
+  { table: "monitor", owner: "src/monitor/monitor.sql.ts", purpose: "Long-lived process monitors and their logs." },
+  { table: "artifact", owner: "src/artifact/artifact.sql.ts", purpose: "Session artifacts surfaced in the TUI and mobile viewers." },
+  { table: "session_share, local_share", owner: "src/share/share.sql.ts", purpose: "Share records for public session links." },
+  { table: "sync_event, sync_sequence, sync_snapshot, sync_outbox", owner: "src/sync/sync.sql.ts", purpose: "The sync event journal, sequences, snapshots, and idempotent outbox." },
+  { table: "workspace", owner: "src/workspace/workspace.sql.ts", purpose: "Workspace records, target config, and status." },
+  { table: "users, user_sessions, chat_contacts, chat_messages", owner: "src/user/users.sql.ts", purpose: "Local server accounts and the chat surface." },
+  { table: "account, config", owner: "src/account/account.sql.ts", purpose: "nikcli account records, tokens, and the active account." },
+  { table: "mobile_tokens", owner: "src/mobile/auth.sql.ts", purpose: "Hashed mobile bearer tokens with creation, last-used, and expiry." },
 ];
 ---
 
 <DocsLayout
   title="Storage"
-  subtitle="Persistent data layout, migrations, locks, caches, and SQLite stores used by nikcli."
-  description="Reference for nikcli persistent storage, data roots, SQLite databases, migrations, locks, and caches."
+  subtitle="Where nikcli keeps persistent data: one SQLite database, the repository layer above it, migrations, and the files that stay on disk."
+  description="Reference for nikcli persistent storage — the nikcli.db SQLite database, Drizzle schema, repositories, migrations, and data roots."
   toc={toc}
 >
   <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
-      nikcli storage is split across a JSON object store and several SQLite databases under the
-      global data root. The JSON store is the hot path for project, session, message, part, diff,
-      goal, routine, and similar structured records. SQLite is used where indexes, uniqueness,
-      credentials, or high-frequency authentication lookups are a better fit.
+      All durable runtime state lives in a single SQLite database —
+      <code>nikcli.db</code> under <code>Global.Path.data</code> — accessed through Drizzle.
+      Projects, sessions, messages, parts, diffs, todos, goals, permissions, loops, missions,
+      routines, workspaces, accounts, mobile tokens, and the sync journal are all tables in that one
+      file.
     </p>
+    <DocCallout type="info" title="The JSON object store and the per-domain databases are gone">
+      <p>
+        Earlier releases wrote JSON files under <code>Global.Path.data/storage</code> and kept
+        separate <code>users.db</code>, <code>accounts.db</code>, <code>mobile_auth.db</code>, and
+        <code>workspaces.db</code> files. Both models were consolidated into <code>nikcli.db</code>;
+        the <code>20260611020000_import_legacy_databases</code> and
+        <code>20260611030000_import_json_storage</code> migrations import the old data on first run.
+        There is no <code>Storage.Service</code> and no <code>src/storage/</code> directory any more.
+      </p>
+    </DocCallout>
     <div class="doc-grid not-prose">
       <DocCard title="Data root" eyebrow="Global.Path.data">
-        <p>Primary persistent root. It can be overridden with <code>NIKCLI_DATA_DIR</code> or isolated in tests with <code>NIKCLI_TEST_HOME</code>.</p>
+        <p>
+          Holds <code>nikcli.db</code>, <code>log/</code>, <code>bin/</code>, <code>repos/</code>,
+          and snapshots. Override with <code>NIKCLI_DATA_DIR</code>, or isolate in tests with
+          <code>NIKCLI_TEST_HOME</code>.
+        </p>
       </DocCard>
-      <DocCard title="JSON store" eyebrow="storage">
-        <p>Effect-backed read, write, update, remove, list, and transaction operations over JSON files.</p>
+      <DocCard title="One database" eyebrow="src/database/database.ts">
+        <p>
+          <code>bun:sqlite</code> in WAL mode behind a Drizzle client, opened once per filename and
+          shared by every domain module. <code>NIKCLI_DB</code> overrides the filename.
+        </p>
       </DocCard>
-      <DocCard title="SQLite DBs" eyebrow="Drizzle and bun:sqlite">
-        <p>User accounts, mobile tokens, account credentials, and workspaces use SQLite with WAL and foreign keys.</p>
+      <DocCard title="Repositories" eyebrow="*.sql.ts + *-repo.ts">
+        <p>
+          Each domain declares its tables in a <code>.sql.ts</code> file and its queries in a
+          repository namespace. Domain services never touch Drizzle directly.
+        </p>
       </DocCard>
-      <DocCard title="Locks" eyebrow="Filesystem">
-        <p>Reads and writes use file locks to protect concurrent CLI, server, mobile, and TUI activity.</p>
+      <DocCard title="Migrations" eyebrow="src/database/migration/">
+        <p>
+          Timestamp-named TypeScript migrations run inside a transaction and are recorded in a
+          <code>migration</code> table, so each runs exactly once.
+        </p>
       </DocCard>
     </div>
   </section>
@@ -54,178 +103,203 @@ const toc = [
   <section id="path-roots" class="doc-section">
     <h2>Path roots</h2>
     <p>
-      <code>packages/nikcli/src/global/index.ts</code> owns the global directory model. On startup,
-      <code>initialize</code> creates data, cache, config, state, log, bin, and repos directories.
-      POSIX systems follow XDG-style roots; Windows uses AppData roots instead of POSIX dotfiles.
+      <code>@nikcli-ai/util/global</code> owns the global directory model. On startup,
+      <code>initialize()</code> creates the data, cache, config, state, log, bin, and repos
+      directories. macOS and Linux follow XDG roots; Windows uses the native AppData layout instead
+      of POSIX dotfiles.
     </p>
     <table class="doc-table">
-      <thead><tr><th>Path</th><th>Default role</th><th>Examples</th></tr></thead>
+      <thead><tr><th>Path</th><th>Default role</th><th>Contents</th></tr></thead>
       <tbody>
-        <tr><td><code>Global.Path.data</code></td><td>Long-lived user data</td><td><code>storage</code>, <code>users.db</code>, <code>accounts.db</code>, <code>mobile_auth.db</code>, <code>workspaces.db</code>, <code>auth.json</code>, <code>snapshot</code>, <code>plans</code></td></tr>
-        <tr><td><code>Global.Path.bin</code></td><td>nikcli-managed binaries</td><td>LSP downloads, server support binaries, language-server packages.</td></tr>
-        <tr><td><code>Global.Path.cache</code></td><td>Disposable cache</td><td>Model lists, package cache, file search indexes. Cache version changes clear this directory.</td></tr>
+        <tr><td><code>Global.Path.data</code></td><td>Long-lived user data</td><td><code>nikcli.db</code> (plus its <code>-wal</code>/<code>-shm</code> siblings), <code>auth.json</code>, <code>snapshot/</code>, <code>plans/</code>.</td></tr>
+        <tr><td><code>Global.Path.log</code></td><td>Logs</td><td><code>data/log</code>. Where <code>--print-logs</code> output is also written.</td></tr>
+        <tr><td><code>Global.Path.bin</code></td><td>nikcli-managed binaries</td><td><code>data/bin</code>: LSP downloads, language servers, support binaries.</td></tr>
+        <tr><td><code>Global.Path.repos</code></td><td>Hosted repositories</td><td><code>data/repos</code>: imported or managed repositories.</td></tr>
+        <tr><td><code>Global.Path.cache</code></td><td>Disposable cache</td><td>Model lists, package cache, file search indexes. A cache-version bump clears the directory.</td></tr>
         <tr><td><code>Global.Path.config</code></td><td>User config</td><td><code>nikcli.json</code>, managed config, global themes, global skills.</td></tr>
         <tr><td><code>Global.Path.state</code></td><td>Ephemeral state</td><td>Locks, prompt stash, plugin metadata, brain lock files.</td></tr>
-        <tr><td><code>Global.Path.repos</code></td><td>Hosted repositories</td><td>Imported or managed repositories under the data root.</td></tr>
       </tbody>
     </table>
     <DocCode language="bash">
 NIKCLI_DATA_DIR=/srv/nikcli-data nikcli serve --hostname 0.0.0.0 --port 4096
+NIKCLI_DB=:memory: bun test test/path/file.test.ts
 NIKCLI_TEST_HOME=/tmp/nikcli-test bun test test/path/file.test.ts
     </DocCode>
-  </section>
-
-  <section id="json-store" class="doc-section">
-    <h2>JSON object store</h2>
-    <p>
-      <code>Storage.Service</code> maps a string-key array to a JSON file below
-      <code>Global.Path.data/storage</code>. A key such as
-      <code>session / PROJECT_ID / SESSION_ID</code> becomes a file named
-      <code>storage/session/PROJECT_ID/SESSION_ID.json</code>. The service is exposed as an Effect
-      layer and used through small wrappers in session, mobile, workspace, stats, goals, and summary
-      modules.
-    </p>
-    <table class="doc-table">
-      <thead><tr><th>Operation</th><th>Implementation behavior</th><th>Typical callers</th></tr></thead>
-      <tbody>
-        <tr><td><code>read</code></td><td>Checks the in-memory cache, then takes a read lock and parses JSON.</td><td>Session lookup, message reads, mobile lists, stats aggregation.</td></tr>
-        <tr><td><code>write</code></td><td>Takes a write lock, writes pretty JSON, and updates the cache.</td><td>Session creation, message parts, todos, goals, routine records.</td></tr>
-        <tr><td><code>update</code></td><td>Takes a write lock, clones existing JSON, mutates the draft, writes it back, and caches it.</td><td>Session title, share state, goal state, routine changes.</td></tr>
-        <tr><td><code>remove</code></td><td>Invalidates cache and deletes the JSON file, ignoring only missing-file deletes.</td><td>Session deletion, message deletion, goal cleanup, routine deletion.</td></tr>
-        <tr><td><code>list</code></td><td>Scans all JSON files below a prefix and returns sorted storage keys.</td><td>Session lists, stats, workspace fallback scans, mobile session lists.</td></tr>
-        <tr><td><code>transaction</code></td><td>Invalidates every affected cache key, orders targets, and executes writes or removals under write-lock control.</td><td>Batch storage writes where all operations need to move together.</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section id="session-layout" class="doc-section">
-    <h2>Session layout</h2>
-    <p>
-      Session storage is intentionally normalized. Session metadata lives by project id, messages
-      live by session id, and parts live by message id. This keeps transcript reads and part updates
-      targeted while allowing all sessions for a project to be listed quickly.
-    </p>
-    <table class="doc-table">
-      <thead><tr><th>Storage key</th><th>File pattern</th><th>Written by</th></tr></thead>
-      <tbody>
-        <tr><td><code>session / PROJECT_ID / SESSION_ID</code></td><td><code>storage/session/PROJECT_ID/SESSION_ID.json</code></td><td><code>Session.create</code>, <code>Session.update</code>, mobile session create, workspace restore.</td></tr>
-        <tr><td><code>message / SESSION_ID / MESSAGE_ID</code></td><td><code>storage/message/SESSION_ID/MESSAGE_ID.json</code></td><td><code>Session.message</code> and <code>MessageV2</code>.</td></tr>
-        <tr><td><code>part / MESSAGE_ID / PART_ID</code></td><td><code>storage/part/MESSAGE_ID/PART_ID.json</code></td><td><code>Session.processor</code>, stream deltas, tool output persistence.</td></tr>
-        <tr><td><code>session_diff / SESSION_ID</code></td><td><code>storage/session_diff/SESSION_ID.json</code></td><td><code>SessionSummary</code> and revert flows.</td></tr>
-        <tr><td><code>goal / SESSION_ID</code></td><td><code>storage/goal/SESSION_ID.json</code></td><td><code>SessionGoal</code>.</td></tr>
-        <tr><td><code>todo / SESSION_ID</code></td><td><code>storage/todo/SESSION_ID.json</code></td><td><code>Todo</code> service and todo tool output.</td></tr>
-        <tr><td><code>routine / PROJECT_ID / ROUTINE_ID</code></td><td><code>storage/routine/PROJECT_ID/ROUTINE_ID.json</code></td><td><code>packages/nikcli/src/mobile/routine.ts</code>.</td></tr>
-        <tr><td><code>session_share / SESSION_ID</code></td><td><code>storage/session_share/SESSION_ID.json</code></td><td>Share lookup path for the session layer.</td></tr>
-      </tbody>
-    </table>
-    <DocCallout type="info" title="Plans are separate">
+    <DocCallout type="warn" title="Path holders must re-resolve">
       <p>
-        Plan files are markdown, not JSON storage records. Git-backed projects use
-        <code>.nikcli/plans</code> in the worktree; non-VCS sessions use the global data
-        <code>plans</code> directory.
+        <code>Global.Path.*</code> are getters, and the test suite swaps
+        <code>NIKCLI_TEST_HOME</code> per file. A singleton that captures a path at module load will
+        keep writing to the previous home — resolve paths on access, not at import time.
       </p>
     </DocCallout>
   </section>
 
-  <section id="sqlite" class="doc-section">
-    <h2>SQLite stores</h2>
+  <section id="database" class="doc-section">
+    <h2>The database</h2>
     <p>
-      The SQLite layer uses <code>bun:sqlite</code>, Drizzle schemas, and startup migrations. Generic
-      database opening in <code>packages/nikcli/src/storage/db.ts</code> enables WAL mode,
-      <code>synchronous = NORMAL</code>, a busy timeout, cache sizing, and foreign keys before
-      applying migration journals when present. Several modules also run direct
-      <code>CREATE TABLE IF NOT EXISTS</code> migrations for backward compatibility.
+      <code>Database.path()</code> resolves the filename: <code>NIKCLI_DB</code> when set (absolute,
+      relative to the data root, or the literal <code>:memory:</code>), otherwise
+      <code>&lt;data&gt;/nikcli.db</code>. Opening applies a fixed set of PRAGMAs, runs pending
+      migrations, and checkpoints the WAL.
     </p>
     <table class="doc-table">
-      <thead><tr><th>Database</th><th>Owner</th><th>Purpose</th></tr></thead>
+      <thead><tr><th>PRAGMA</th><th>Value</th><th>Why</th></tr></thead>
       <tbody>
-        <tr><td><code>users.db</code></td><td><code>packages/nikcli/src/db/users.ts</code></td><td>Local users, user sessions, chat contacts, and chat messages.</td></tr>
-        <tr><td><code>accounts.db</code></td><td><code>packages/nikcli/src/account/db.ts</code></td><td>Nikcli account records, access tokens, refresh tokens, and active account config.</td></tr>
-        <tr><td><code>mobile_auth.db</code></td><td><code>packages/nikcli/src/mobile/auth.ts</code></td><td>Hashed mobile bearer tokens with creation, last-used, and expiry timestamps.</td></tr>
-        <tr><td><code>workspaces.db</code></td><td><code>packages/nikcli/src/workspace/db.ts</code></td><td>Workspace records, target config, status, events, and event limits.</td></tr>
+        <tr><td><code>journal_mode</code></td><td><code>WAL</code></td><td>Concurrent readers while a writer holds the file.</td></tr>
+        <tr><td><code>synchronous</code></td><td><code>NORMAL</code></td><td>Durability that matches WAL without an fsync per commit.</td></tr>
+        <tr><td><code>busy_timeout</code></td><td><code>5000</code></td><td>Wait rather than fail when the TUI, server, and CLI write at once.</td></tr>
+        <tr><td><code>cache_size</code></td><td><code>-64000</code> (~64 MB)</td><td>Bounds the page cache explicitly.</td></tr>
+        <tr><td><code>foreign_keys</code></td><td><code>ON</code></td><td>Cascades and referential integrity are enforced, not advisory.</td></tr>
+        <tr><td><code>mmap_size</code></td><td><code>0</code></td><td>Keeps the process footprint from growing with the database file; the latency cost is dwarfed by model round-trips.</td></tr>
       </tbody>
     </table>
     <p>
-      The schema re-export in <code>packages/nikcli/src/storage/schema.ts</code> collects table
-      definitions from user, account, workspace, and mobile-auth modules so shared tooling can refer
-      to the current database surface.
+      The client is a per-filename singleton, so every module in a process shares one connection.
+      A background loop checkpoints the WAL periodically; <code>Database.close()</code> and
+      <code>closeAll()</code> tear it down.
     </p>
+    <table class="doc-table">
+      <thead><tr><th>Entry point</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td><code>Database.syncDb()</code></td><td>The shared Drizzle client. Safe from synchronous code — what repositories call.</td></tr>
+        <tr><td><code>Database.syncNative()</code></td><td>The raw <code>bun:sqlite</code> handle for PRAGMAs and maintenance.</td></tr>
+        <tr><td><code>Database.defaultLayer</code></td><td>The Effect layer for code that resolves the service through a layer instead.</td></tr>
+        <tr><td><code>Database.layerFromPath(file)</code></td><td>Bind a specific database file — used by tests and tooling.</td></tr>
+      </tbody>
+    </table>
   </section>
 
-  <section id="flow" class="doc-section">
-    <h2>Read and write flow</h2>
+  <section id="tables" class="doc-table-section doc-section">
+    <h2>Tables and owners</h2>
     <p>
-      Most runtime modules do not import filesystem helpers directly. They build small wrappers
-      around <code>Storage.defaultLayer</code>, yield <code>Storage.Service</code>, and call the needed
-      operation. That keeps storage behavior consistent across CLI, TUI, server routes, mobile
-      endpoints, and background services.
+      <code>src/database/schema.ts</code> is the single re-export point: every table used by the
+      Drizzle client is listed there, and each one is declared in its own domain module. That is the
+      fastest way to see the current database surface.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Table(s)</th><th>Declared in</th><th>Purpose</th></tr></thead>
+      <tbody>
+        {tables.map((row) => (
+          <tr>
+            <td><code>{row.table}</code></td>
+            <td><code>{row.owner}</code></td>
+            <td>{row.purpose}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section id="repositories" class="doc-section">
+    <h2>Repository pattern</h2>
+    <p>
+      Domain modules do not write SQL inline. Each domain pairs a schema file with a repository
+      namespace — <code>SessionRepo</code>, <code>MessageRepo</code>, <code>LoopRepo</code>,
+      <code>PermissionRepo</code>, and so on — that owns every query against its tables.
     </p>
     <ol>
-      <li><strong>Module builds a key</strong> such as <code>message / SESSION_ID / MESSAGE_ID</code>.</li>
-      <li><strong>Effect layer loads state</strong> and runs pending JSON migrations once for the store directory.</li>
-      <li><strong>Operation acquires a lock</strong> for reads, writes, updates, removes, or batch operations.</li>
-      <li><strong>Cache is checked or invalidated</strong> by exact key or prefix depending on the operation.</li>
-      <li><strong>JSON is read, written, or listed</strong> beneath <code>Global.Path.data/storage</code>.</li>
-      <li><strong>Caller publishes events</strong> when needed, such as <code>session.updated</code> after session updates.</li>
+      <li><strong>Schema</strong> (<code>*.sql.ts</code>) declares the Drizzle table, its columns, and its indexes.</li>
+      <li><strong>Repository</strong> (<code>repo.ts</code> / <code>*-repo.ts</code>) exposes typed synchronous CRUD over <code>Database.syncDb()</code>.</li>
+      <li><strong>Service</strong> (<code>index.ts</code>) adds business logic, publishes bus events, and is what routes and tools call.</li>
     </ol>
+    <DocCallout type="info" title="Hot columns, cold JSON">
+      <p>
+        Records with a large or evolving shape — sessions are the clearest case — promote the fields
+        that get filtered or sorted into real columns and keep the rest in a JSON <code>data</code>
+        column. When a field is later promoted, the column becomes the source of truth and the JSON
+        blob may be stale for older rows; <code>session_info.last_model</code> is the worked example
+        in <code>src/session/repo.ts</code>.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="transactions" class="doc-section">
+    <h2>Transactions</h2>
+    <p>
+      <code>Database.transaction(fn)</code> runs a unit of work against a transaction handle. Nested
+      calls join the outer transaction rather than starting a new one — SQLite has no real nesting —
+      so a projector invoked inside a caller's transaction stays in that transaction.
+    </p>
+    <p>
+      Repository writes accept an executor (<code>Database.TxOrDb</code>) precisely so a sync
+      projector can append its event and update its projection atomically. Reads always use the
+      shared client; they are never part of a projection.
+    </p>
+    <DocCallout type="note" title="Post-commit effects">
+      <p>
+        <code>Database.effect(fn)</code> queues work to run after the current transaction commits —
+        never on rollback. Outside a transaction it runs immediately, because the caller's write has
+        already landed. Publish bus events from there, not from inside the transaction body.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="migrations" class="doc-section">
     <h2>Migrations</h2>
     <p>
-      JSON migrations live in the <code>MIGRATIONS</code> array inside
-      <code>packages/nikcli/src/storage/storage.ts</code>. The store reads a numeric
-      <code>storage/migration</code> file, runs each pending migration in order, and writes the next
-      index only after the migration succeeds. Failed migrations are logged and do not advance the
-      marker.
+      Migrations are TypeScript modules under <code>src/database/migration/</code>, named
+      <code>&lt;timestamp&gt;_&lt;slug&gt;.ts</code>, each exporting an <code>id</code> and an
+      <code>up(database)</code> function. <code>migration.gen.ts</code> imports them in order.
+    </p>
+    <p>
+      <code>DatabaseMigration.apply()</code> creates a <code>migration</code> table, reads the
+      applied ids, and runs each pending migration inside <code>BEGIN IMMEDIATE</code> — committing
+      the migration and its bookkeeping row together, rolling both back on failure. Every open of the
+      database runs this, so a fresh install and an upgrade converge on the same schema.
     </p>
     <table class="doc-table">
-      <thead><tr><th>Migration</th><th>Purpose</th><th>Data touched</th></tr></thead>
+      <thead><tr><th>Migration</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td>Legacy project import</td><td>Moves old per-project storage into global project, session, message, and part records.</td><td>Old project folders, git root commits, session info, messages, parts.</td></tr>
-        <tr><td>Session diff extraction</td><td>Moves detailed diffs out of session summaries into <code>session_diff</code> and replaces summary with counts.</td><td><code>session</code> and <code>session_diff</code>.</td></tr>
+        <tr><td><code>20260610211500_initial</code></td><td>Creates the base schema.</td></tr>
+        <tr><td><code>20260611020000_import_legacy_databases</code></td><td>Imports <code>users.db</code>, <code>accounts.db</code>, <code>mobile_auth.db</code>, and <code>workspaces.db</code> into <code>nikcli.db</code>.</td></tr>
+        <tr><td><code>20260611030000_import_json_storage</code></td><td>Imports the old <code>data/storage</code> JSON object store — projects, sessions, messages, parts, diffs, todos.</td></tr>
+        <tr><td><code>20260611040000_import_sync_json</code></td><td>Imports the pre-SQL sync journal.</td></tr>
+        <tr><td><code>20260805000000_session_entry</code> …</td><td>Introduces the flat v2 session entry log and its id ordering; a later migration drops the interim <code>session_v2_event</code> table.</td></tr>
+        <tr><td><code>202608140*_*_sql</code></td><td>The domain-by-domain move of loops, projects, goals, background runs, routines, diffs, workspaces, pending prompts, and instruction sync into SQL.</td></tr>
       </tbody>
     </table>
-    <DocCallout type="warn" title="Back up before manual edits">
+    <DocCallout type="warn" title="Adding a migration changes the journal list">
       <p>
-        JSON migrations can copy, rewrite, and move session data. Back up the data root before
-        manually editing stored files or replaying migration state.
+        <code>test/database.test.ts</code> asserts the applied migration list. A new migration is
+        expected to change it — update the test in the same commit, and back up the data root before
+        replaying migration state by hand.
       </p>
     </DocCallout>
   </section>
 
-  <section id="locks-cache" class="doc-section">
-    <h2>Locks and cache</h2>
-    <p>
-      The JSON store uses an in-memory read-through cache with a default five-second TTL. Writes and
-      updates refresh the exact cache key. Removes and transactions invalidate affected keys before
-      touching files. The lock layer protects readers and writers that target the same JSON file.
-    </p>
+  <section id="files" class="doc-section">
+    <h2>Files outside the database</h2>
+    <p>Some things are deliberately still files, because a file is the interface.</p>
     <table class="doc-table">
-      <thead><tr><th>Mechanism</th><th>Why it matters</th></tr></thead>
+      <thead><tr><th>Data</th><th>Location</th><th>Why not SQL</th></tr></thead>
       <tbody>
-        <tr><td>Read lock</td><td>Prevents parsing partially written files during concurrent sessions or server requests.</td></tr>
-        <tr><td>Write lock</td><td>Serializes updates to the same JSON record.</td></tr>
-        <tr><td>Cache TTL</td><td>Reduces repeated JSON parsing during list/detail refreshes while keeping recent writes visible.</td></tr>
-        <tr><td>Sorted transaction targets</td><td>Uses stable ordering to reduce deadlock risk when multiple files are touched together.</td></tr>
-        <tr><td><code>NotFoundError</code></td><td>Converts missing-file reads into a typed storage error that server routes can return as HTTP 404.</td></tr>
+        <tr><td>Config</td><td><code>nikcli.json</code> in the config dir and project roots</td><td>Users edit and version-control it. See <a href="/docs/configuration">Configuration</a>.</td></tr>
+        <tr><td>Provider auth</td><td><code>auth.json</code> under the data root</td><td>Credentials with their own read/write path and permissions.</td></tr>
+        <tr><td>Plans</td><td><code>.nikcli/plans</code> in the worktree, or <code>data/plans</code> for non-VCS sessions</td><td>Markdown meant to be read, diffed, and committed.</td></tr>
+        <tr><td>Snapshots</td><td><code>data/snapshot</code></td><td>Content-addressed file trees for revert.</td></tr>
+        <tr><td>Skills, commands, agents, themes</td><td>Config directories and <code>.nikcli/</code></td><td>Authored as files by users and plugins.</td></tr>
+        <tr><td>Brain memory</td><td><code>.github/instructions/memory.instruction.md</code></td><td>An instruction file the model reads. See <a href="/docs/brain">Brain</a>.</td></tr>
+        <tr><td>Logs</td><td><code>data/log</code></td><td>Append-only and read with ordinary tooling.</td></tr>
       </tbody>
     </table>
   </section>
 
   <section id="operational-checks" class="doc-section">
     <h2>Operational checks</h2>
-    <p>Use these checks before deleting data, moving a data root, or debugging missing sessions.</p>
     <DocCode language="bash">
 nikcli debug paths
-find "$HOME/.local/share/nikcli/storage" -maxdepth 3 -type f | sort | head
-sqlite3 "$HOME/.local/share/nikcli/users.db" ".tables"
-sqlite3 "$HOME/.local/share/nikcli/mobile_auth.db" "select id, name, expires_at from mobile_tokens;"
+
+DB="$HOME/.local/share/nikcli/nikcli.db"
+sqlite3 "$DB" ".tables"
+sqlite3 "$DB" "select id, time_completed from migration order by id;"
+sqlite3 "$DB" "select count(*) from session_info;"
+sqlite3 "$DB" "select id, name, expires_at from mobile_tokens;"
+sqlite3 "$DB" "pragma integrity_check;"
     </DocCode>
     <p>
-      On macOS or Linux, the default data root usually follows the XDG data location. If
-      <code>NIKCLI_DATA_DIR</code> is set, inspect that path instead. On Windows, inspect the nikcli
-      directory under AppData Local.
+      On macOS and Linux the default data root follows the XDG data location; on Windows it is the
+      nikcli directory under Local AppData. If <code>NIKCLI_DATA_DIR</code> or <code>NIKCLI_DB</code>
+      is set, inspect that path instead.
     </p>
   </section>
 
@@ -234,12 +308,13 @@ sqlite3 "$HOME/.local/share/nikcli/mobile_auth.db" "select id, name, expires_at 
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
       <tbody>
-        <tr><td>Session list is empty</td><td>Wrong data root, wrong project id, or sessions stored under another worktree project.</td><td>Check <code>nikcli debug paths</code>, inspect <code>storage/session</code>, and verify the active directory.</td></tr>
-        <tr><td>HTTP 404 for a stored object</td><td>Storage read raised <code>NotFoundError</code> for a missing JSON file.</td><td>Confirm the key path exists and that no concurrent cleanup deleted it.</td></tr>
-        <tr><td>Repeated migration logs</td><td>The migration marker did not advance because a migration failed.</td><td>Read the storage logs, fix the failing source file or permissions, then restart.</td></tr>
-        <tr><td>SQLite write waits or fails</td><td>A process holds the database busy longer than the configured timeout, or the filesystem does not support WAL cleanly.</td><td>Close competing processes, check permissions, and verify the database is on a normal local filesystem.</td></tr>
-        <tr><td>Mobile token works once then disappears</td><td>Token expired, was revoked, or the old JSON token file migrated into SQLite and was removed.</td><td>List tokens with <code>nikcli mobile token list</code> and issue a new token when needed.</td></tr>
-        <tr><td>Manual edits do not appear immediately</td><td>The in-memory cache can serve a value for a short TTL.</td><td>Restart the process or wait for cache expiry after manual file changes.</td></tr>
+        <tr><td>Session list is empty</td><td>Wrong data root, or sessions belong to a different project/worktree.</td><td><code>nikcli debug paths</code>, then query <code>session_info</code> for the project id you expect.</td></tr>
+        <tr><td>Sessions vanished after upgrading</td><td>The JSON import migration did not run — usually a different <code>NIKCLI_DATA_DIR</code> than the old install used.</td><td>Point the data root at the old location and restart so the import migration sees <code>data/storage</code>.</td></tr>
+        <tr><td>Startup throws from a migration</td><td>A migration failed and rolled back; it will retry on every open.</td><td>Read the <code>database-migration</code> log lines, fix the source data or permissions, restart.</td></tr>
+        <tr><td>Writes wait or fail</td><td>Another process holds the write lock past <code>busy_timeout</code>, or the file is on a filesystem that does not do WAL cleanly.</td><td>Close competing processes; move the data root to a local filesystem.</td></tr>
+        <tr><td>Database is locked in tests</td><td>A stray <code>nikcli</code> binary is still running against the same file.</td><td>Kill leftover processes, remove <code>dist/</code>, re-run the file alone.</td></tr>
+        <tr><td>Mobile token works once then fails</td><td>Token expired or was revoked.</td><td><code>nikcli mobile token list</code>, then issue a new token.</td></tr>
+        <tr><td>Manual SQL edits are not visible</td><td>The process holds an open connection with its own page cache.</td><td>Restart the process after editing the database out of band.</td></tr>
       </tbody>
     </table>
   </section>
@@ -249,16 +324,17 @@ sqlite3 "$HOME/.local/share/nikcli/mobile_auth.db" "select id, name, expires_at 
     <table class="doc-table">
       <thead><tr><th>File</th><th>What to inspect</th></tr></thead>
       <tbody>
-        <tr><td><code>packages/nikcli/src/storage/storage.ts</code></td><td>JSON object store, migrations, cache, locks, list, transaction, and typed missing-file errors.</td></tr>
-        <tr><td><code>packages/nikcli/src/storage/db.ts</code></td><td>Generic Drizzle database opener, PRAGMAs, and migration journal loading.</td></tr>
-        <tr><td><code>packages/nikcli/src/storage/db.bun.ts</code></td><td>Bun SQLite to Drizzle initializer.</td></tr>
-        <tr><td><code>packages/nikcli/src/storage/schema.ts</code></td><td>Current table re-exports for users, account, workspace, and mobile tokens.</td></tr>
-        <tr><td><code>packages/nikcli/src/global/index.ts</code></td><td>XDG/AppData path resolution, data-dir overrides, cache versioning, and directory creation.</td></tr>
-        <tr><td><code>packages/nikcli/src/session/index.ts</code></td><td>Session metadata keys, plan file path selection, session updates, deletion, and share lookup.</td></tr>
-        <tr><td><code>packages/nikcli/src/session/message-v2.ts</code></td><td>Message and part reads from normalized JSON storage.</td></tr>
-        <tr><td><code>packages/nikcli/src/server/routes/mobile.ts</code></td><td>Mobile list/detail helpers that read sessions across projects through the storage layer.</td></tr>
-        <tr><td><code>packages/nikcli/src/mobile/auth.ts</code></td><td>Mobile token SQLite schema, JSON migration, token hashing, caching, and bearer parsing.</td></tr>
-        <tr><td><code>packages/nikcli/src/workspace/db.ts</code></td><td>Workspace SQLite schema and fallback reads from older JSON workspace data.</td></tr>
+        <tr><td><code>packages/nikcli/src/database/database.ts</code></td><td>Filename resolution, PRAGMAs, singleton client, transactions, post-commit effects, WAL checkpoint loop.</td></tr>
+        <tr><td><code>packages/nikcli/src/database/schema.ts</code></td><td>The complete table surface, re-exported from every domain module.</td></tr>
+        <tr><td><code>packages/nikcli/src/database/migration.ts</code></td><td>Migration table, applied-id set, transactional apply loop.</td></tr>
+        <tr><td><code>packages/nikcli/src/database/migration/</code></td><td>The migrations themselves, including the legacy JSON and per-domain database imports.</td></tr>
+        <tr><td><code>@nikcli-ai/util/global</code></td><td>XDG/AppData path resolution, <code>NIKCLI_DATA_DIR</code>, <code>NIKCLI_TEST_HOME</code>, cache versioning.</td></tr>
+        <tr><td><code>packages/nikcli/src/session/repo.ts</code>, <code>session.sql.ts</code></td><td>The canonical repository + schema pair, including the hot-column/JSON-blob split.</td></tr>
+        <tr><td><code>packages/nikcli/src/session/message-repo.ts</code>, <code>message.sql.ts</code></td><td>Message and part persistence.</td></tr>
+        <tr><td><code>packages/nikcli/src/session/v2/</code></td><td>The event-sourced entry log and its persisted projection. See <a href="/docs/sessions">Sessions</a>.</td></tr>
+        <tr><td><code>packages/nikcli/src/sync/</code></td><td>Event journal, projectors, snapshots, and the idempotent outbox. See <a href="/docs/sync">Sync</a>.</td></tr>
+        <tr><td><code>packages/nikcli/src/mobile/auth.ts</code>, <code>auth.sql.ts</code></td><td>Mobile token hashing, caching, and bearer parsing.</td></tr>
+        <tr><td><code>packages/nikcli/src/workspace/workspace.sql.ts</code></td><td>Workspace records, targets, and status.</td></tr>
       </tbody>
     </table>
   </section>
