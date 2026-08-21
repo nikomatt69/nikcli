@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.305.0 (August 2026)
+
+## TUI
+
+- Improve code consistency and readability in serve.ts and worker.ts (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(cli): improve code consistency and readability in serve.ts and worker.ts
+
 ## v1.304.0 (August 2026)
 
 ## Core

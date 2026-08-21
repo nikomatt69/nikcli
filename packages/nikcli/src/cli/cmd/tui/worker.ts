@@ -1,73 +1,73 @@
-import { Installation } from "@/installation";
-import { Server } from "@/server/server";
-import { Log } from "@nikcli-ai/util/log";
-import { Instance } from "@/project/instance";
-import { InstanceBootstrap } from "@/project/bootstrap";
-import { Rpc } from "@tui/util/rpc";
-import { upgrade, upgradeNow } from "@/cli/upgrade";
-import { GlobalBus } from "@nikcli-ai/util/global-bus";
-import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi";
-import { Flag } from "@nikcli-ai/util/flag";
-import { Process } from "@nikcli-ai/util/process";
-import { IslandBridge } from "@nikcli-ai/util/island-bridge";
-import { MobileAuth } from "@/mobile/auth";
-import { BrowserControl } from "@/browser-control/browser-control";
-import { errorMessage } from "@nikcli-ai/util/error-format";
+import { Installation } from "@/installation"
+import { Server } from "@/server/server"
+import { Log } from "@nikcli-ai/util/log"
+import { Instance } from "@/project/instance"
+import { InstanceBootstrap } from "@/project/bootstrap"
+import { Rpc } from "@tui/util/rpc"
+import { upgrade, upgradeNow } from "@/cli/upgrade"
+import { GlobalBus } from "@nikcli-ai/util/global-bus"
+import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
+import { Flag } from "@nikcli-ai/util/flag"
+import { Process } from "@nikcli-ai/util/process"
+import { IslandBridge } from "@nikcli-ai/util/island-bridge"
+import { MobileAuth } from "@/mobile/auth"
+import { BrowserControl } from "@/browser-control/browser-control"
+import { errorMessage } from "@nikcli-ai/util/error-format"
 
-Process.ensureMetadata("worker");
+Process.ensureMetadata("worker")
 
 await Log.init({
   print: process.argv.includes("--print-logs"),
   dev: Installation.isLocal(),
   level: (() => {
-    if (Installation.isLocal()) return "DEBUG";
-    return "INFO";
+    if (Installation.isLocal()) return "DEBUG"
+    return "INFO"
   })(),
-});
+})
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
     e: e instanceof Error ? e.message : e,
-  });
-});
+  })
+})
 
 process.on("uncaughtException", (e) => {
   Log.Default.error("exception", {
     e: e instanceof Error ? e.message : e,
-  });
-});
+  })
+})
 
 // Subscribe to global events and forward them via RPC
 GlobalBus.on("event", (event) => {
-  Rpc.emit("global.event", event);
-});
+  Rpc.emit("global.event", event)
+})
 
-let server: ReturnType<typeof Server.listen> | undefined;
-let shuttingDown: Promise<void> | undefined;
+let server: ReturnType<typeof Server.listen> | undefined
+let shuttingDown: Promise<void> | undefined
 
-const eventStreams = new Map<string, AbortController>();
+const eventStreams = new Map<string, AbortController>()
 
 function startEventStream(directory: string) {
-  const id = crypto.randomUUID();
-  const abort = new AbortController();
-  eventStreams.set(id, abort);
-  const signal = abort.signal;
+  const id = crypto.randomUUID()
+  const abort = new AbortController()
+  eventStreams.set(id, abort)
+  const signal = abort.signal
 
   const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const request = new Request(input, init);
-    const auth = getAuthorizationHeader();
-    if (auth) request.headers.set("Authorization", auth);
-    return Server.fetch(request);
-  }) as typeof globalThis.fetch;
+    const request = new Request(input, init)
+    const auth = getAuthorizationHeader()
+    if (auth) request.headers.set("Authorization", auth)
+    return Server.fetch(request)
+  }) as typeof globalThis.fetch
 
   const sdk = createNikcliClient({
     baseUrl: "http://nikcli.local",
     directory,
     fetch: fetchFn,
     signal,
-  });
+  })
 
-  (async () => {
+  ;(async () => {
     while (!signal.aborted) {
       const events = await Promise.resolve(
         sdk.event.subscribe(
@@ -76,86 +76,81 @@ function startEventStream(directory: string) {
             signal,
           },
         ),
-      ).catch(() => undefined);
+      ).catch(() => undefined)
 
       if (!events) {
-        await Bun.sleep(250);
-        continue;
+        await Bun.sleep(250)
+        continue
       }
 
       try {
         for await (const event of events.stream) {
-          Rpc.emit("event", { id, event: event as Event });
+          Rpc.emit("event", { id, event: event as Event })
         }
       } catch (error) {
         // A dropped stream must not kill the subscription loop — log and reconnect.
-        if (signal.aborted) return;
+        if (signal.aborted) return
         Log.Default.warn("event stream interrupted, reconnecting", {
           error: error instanceof Error ? error.message : error,
-        });
+        })
       }
 
       if (!signal.aborted) {
-        await Bun.sleep(250);
+        await Bun.sleep(250)
       }
     }
   })().catch((error) => {
-    if (signal.aborted) return;
+    if (signal.aborted) return
     Log.Default.error("event stream error", {
       error: error instanceof Error ? error.message : error,
-    });
-  });
+    })
+  })
 
-  return id;
+  return id
 }
 
 function stopEventStream(id: string) {
-  eventStreams.get(id)?.abort();
-  eventStreams.delete(id);
+  eventStreams.get(id)?.abort()
+  eventStreams.delete(id)
 }
 
 export const rpc = {
-  async fetch(input: {
-    url: string;
-    method: string;
-    headers: Record<string, string>;
-    body?: string;
-  }) {
-    const headers = { ...input.headers };
-    const auth = getAuthorizationHeader();
+  async fetch(input: { url: string; method: string; headers: Record<string, string>; body?: string }) {
+    const headers = { ...input.headers }
+    const auth = getAuthorizationHeader()
     if (auth && !headers["authorization"] && !headers["Authorization"]) {
-      headers["Authorization"] = auth;
+      headers["Authorization"] = auth
     }
     const request = new Request(input.url, {
       method: input.method,
       headers,
       body: input.body,
-    });
-    const response = await Server.fetch(request);
-    const body = await response.text();
+    })
+    const response = await Server.fetch(request)
+    const body = await response.text()
     return {
       status: response.status,
       headers: Object.fromEntries(response.headers.entries()),
       body,
-    };
+    }
   },
   async server(input: {
-    port: number;
-    hostname: string;
-    mdns?: boolean;
-    cors?: string[];
-    mobileAuthRequired?: boolean;
+    port: number
+    hostname: string
+    mdns?: boolean
+    cors?: string[]
+    mobileAuthRequired?: boolean
   }) {
     if (shuttingDown) {
-      await shuttingDown;
-      shuttingDown = undefined;
+      await shuttingDown
+      shuttingDown = undefined
     }
-    if (server) await server.stop(true);
-    server = Server.listen(input);
-    return { url: server.url.toString() };
+    if (server) await server.stop(true)
+    server = Server.listen(input)
+    return { url: server.url.toString() }
   },
   async mobileToken(input: { name?: string; expiresInDays?: number }) {
-    return MobileAuth.create(input);
+    return MobileAuth.create(input)
   },
   async checkUpgrade(input: { directory: string }) {
     await Instance.provide({
@@ -165,38 +160,34 @@ export const rpc = {
         await upgrade().catch((error) => {
           Log.Default.debug("upgrade check failed", {
             error: error instanceof Error ? error.message : String(error),
-          });
-        });
+          })
+        })
       },
-    });
+    })
   },
-  async upgradeNow(input: {
-    directory: string;
-    method: string;
-    version: string;
-  }) {
+  async upgradeNow(input: { directory: string; method: string; version: string }) {
     await Instance.provide({
       directory: input.directory,
       init: InstanceBootstrap,
       fn: async () => {
-        await upgradeNow(input.method as Installation.Method, input.version);
+        await upgradeNow(input.method as Installation.Method, input.version)
       },
-    });
+    })
   },
   async reload() {
-    await Instance.disposeAll();
+    await Instance.disposeAll()
   },
   async subscribe(input: { directory: string | undefined }) {
-    return startEventStream(input.directory || process.cwd());
+    return startEventStream(input.directory || process.cwd())
   },
   async unsubscribe(input: { id: string }) {
-    stopEventStream(input.id);
+    stopEventStream(input.id)
   },
   async shutdown() {
     const shutdown = (shuttingDown ??= (async () => {
-      Log.Default.info("worker shutting down");
+      Log.Default.info("worker shutting down")
       for (const id of [...eventStreams.keys()]) {
-        stopEventStream(id);
+        stopEventStream(id)
       }
       // Stop the browser-control daemon (and any Chromium/WebView children
       // it spawned) before tearing the HTTP server and Instances down.
@@ -207,30 +198,30 @@ export const rpc = {
       await BrowserControl.closeAll().catch((error) => {
         Log.Default.warn("browser-control shutdown failed", {
           error: errorMessage(error),
-        });
-      });
-      await Instance.disposeAll();
+        })
+      })
+      await Instance.disposeAll()
       if (server) {
-        const current = server;
-        server = undefined;
-        current.stop(true);
+        const current = server
+        server = undefined
+        current.stop(true)
       }
       // Explicit, not process.on("exit", ...): this worker's own `process` is
       // shared with the parent thread, so an "exit" listener here would fire
       // on the wrong signal (see IslandBridge.stop()'s doc for how this was
       // found). This IS the real, deterministic end of this worker's life.
-      IslandBridge.stop();
-    })());
-    await shutdown;
-    if (shuttingDown === shutdown) shuttingDown = undefined;
+      IslandBridge.stop()
+    })())
+    await shutdown
+    if (shuttingDown === shutdown) shuttingDown = undefined
   },
-};
+}
 
-Rpc.listen(rpc);
+Rpc.listen(rpc)
 
 function getAuthorizationHeader(): string | undefined {
-  const password = Flag.NIKCLI_SERVER_PASSWORD;
-  if (!password) return undefined;
-  const username = Flag.NIKCLI_SERVER_USERNAME ?? "nikcli";
-  return `Basic ${btoa(`${username}:${password}`)}`;
+  const password = Flag.NIKCLI_SERVER_PASSWORD
+  if (!password) return undefined
+  const username = Flag.NIKCLI_SERVER_USERNAME ?? "nikcli"
+  return `Basic ${btoa(`${username}:${password}`)}`
 }
