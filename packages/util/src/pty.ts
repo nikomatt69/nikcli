@@ -38,22 +38,31 @@ export function spawnPty(options: NativePtyOptions): NativePty {
   const decoder = new TextDecoder("utf-8", { fatal: false })
   const dataListeners = new Set<(data: string) => void>()
   const exitListeners = new Set<(event: PtyExitEvent) => void>()
-  let exited = false
+  const pendingData: string[] = []
+  let exitEvent: PtyExitEvent | undefined
 
   const emitData = (chunk: Uint8Array) => {
     const text = decoder.decode(chunk, { stream: true })
     if (!text) return
+    // Bun can deliver a fast child's first ConPTY frame from inside spawn()
+    // before the caller has received this handle and attached onData. Retain
+    // only that pre-listener window so startup output and errors are not lost.
+    if (dataListeners.size === 0) {
+      pendingData.push(text)
+      return
+    }
     for (const listener of dataListeners) listener(text)
   }
 
   const emitExit = (exitCode: number) => {
-    if (exited) return
-    exited = true
+    if (exitEvent) return
     const flush = decoder.decode()
     if (flush) {
-      for (const listener of dataListeners) listener(flush)
+      if (dataListeners.size === 0) pendingData.push(flush)
+      else for (const listener of dataListeners) listener(flush)
     }
-    for (const listener of exitListeners) listener({ exitCode })
+    exitEvent = { exitCode }
+    for (const listener of exitListeners) listener(exitEvent)
   }
 
   const proc = bunUtils.spawn([options.command, ...(options.args ?? [])], {
@@ -99,9 +108,13 @@ export function spawnPty(options: NativePtyOptions): NativePty {
     },
     onData(callback) {
       dataListeners.add(callback)
+      if (pendingData.length === 0) return
+      const buffered = pendingData.splice(0).join("")
+      callback(buffered)
     },
     onExit(callback) {
       exitListeners.add(callback)
+      if (exitEvent) callback(exitEvent)
     },
   }
 }

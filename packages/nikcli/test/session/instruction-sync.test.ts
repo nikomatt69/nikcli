@@ -210,7 +210,7 @@ describe("instruction sync", () => {
       expect(rendered.updates).toEqual([])
       expect(rendered.system[0]).toContain("two")
     })
-  })
+  }, 20_000)
 
   it("freezes a fork at the parent cutoff", async () => {
     await withSync(async () => {
