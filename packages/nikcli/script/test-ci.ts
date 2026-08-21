@@ -12,12 +12,14 @@ export {} // mark as module so top-level await is allowed
  * then killed, the step exits 143 and the whole job dies — `critical: false` on
  * the step cannot save it, because the runner itself is gone.
  *
- * `--parallel=1` was not the wrong call: it implies `--isolate`, so each file
- * still gets a fresh global and module registry. What it cannot do is hand
- * memory back, because the process never exits. Batching does exactly that —
- * every batch is a short-lived process whose heap the kernel reclaims on exit,
- * which caps peak RSS at roughly batch-size × per-file cost instead of letting
- * it run to the length of the suite.
+ * `--parallel=1` was not the wrong call and is kept on every batch: it implies
+ * `--isolate`, so each file still gets a fresh global and module registry. What
+ * it cannot do is hand memory back, because the process never exits. Batching
+ * does exactly that — every batch is a short-lived process whose heap the kernel
+ * reclaims on exit, which caps peak RSS at roughly batch-size × per-file cost
+ * instead of letting it run to the length of the suite. The two are orthogonal:
+ * isolation per file, memory ceiling per batch. Dropping either brings back a
+ * different bug.
  *
  * File selection is deliberately not reimplemented here: the ignore patterns are
  * matched with Bun.Glob, the same engine `--path-ignore-patterns` uses. Each
@@ -75,7 +77,13 @@ for (const [index, batch] of batches.entries()) {
   const label = `batch ${index + 1}/${batches.length} (${batch.length} files)`
   console.log(`\n──── ${label} ────`)
 
-  const result = await $`bun test --smol --timeout ${TIMEOUT} ${batch}`.nothrow()
+  // `--parallel=1` is load-bearing and must stay: it implies `--isolate`, which
+  // is what gives each file a fresh global and module registry. Without it the
+  // files in a batch share one registry, and a top-level `beforeEach` — e.g.
+  // the one test/helpers/env.ts registers via preserveTestEnv — escapes into
+  // the root scope and runs before every later file's tests too. Batching only
+  // bounds memory; it is not a substitute for isolation.
+  const result = await $`bun test --smol --parallel=1 --timeout ${TIMEOUT} ${batch}`.nothrow()
 
   if (result.exitCode !== 0) {
     failed.push(index + 1)
