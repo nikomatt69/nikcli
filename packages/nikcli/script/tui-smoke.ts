@@ -84,6 +84,10 @@ const pty = spawnPty({
     ...process.env,
     NIKCLI_TEST_HOME: home,
     NIKCLI_DISABLE_AUTOUPDATE: "1",
+    // Bun's native Windows ConPTY currently reports stdin.isTTY=false. Without
+    // the managed-terminal marker the CLI treats stdin as a pipe and waits for
+    // EOF forever, so the renderer never starts and the smoke sees no output.
+    NIKCLI_TERMINAL: "1",
     TERM: "xterm-256color",
   },
 })
