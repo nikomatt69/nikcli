@@ -6,7 +6,7 @@ import * as core from "@actions/core"
 import * as github from "@actions/github"
 import type { Context as GitHubContext } from "@actions/github/lib/context"
 import type { IssueCommentEvent, PullRequestReviewCommentEvent } from "@octokit/webhooks-types"
-import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
+import { createNikcliClient, type Result } from "@nikcli-ai/sdk/httpapi"
 import {
   assertCompleteGitHubTuiEvidence,
   changedGitHubTuiEvidence,
@@ -123,6 +123,12 @@ type IssueQueryResponse = {
   }
 }
 
+async function dataOf<A>(result: Promise<Result<A>>): Promise<A> {
+  const settled = await result
+  if (settled.error !== undefined) throw settled.error
+  return settled.data
+}
+
 let client!: ReturnType<typeof createNikcli>["client"]
 let server: ReturnType<typeof createNikcli>["server"] | undefined
 let accessToken: string
@@ -162,13 +168,13 @@ try {
   // Setup nikcli session
   const repoData = await fetchRepo()
   if (tuiEvidenceRequested) await assertTerminalControlSkillAvailable()
-  session = await client.session.create<true>().then((r) => r.data)
+  session = await dataOf(client.session.create())
   if (tuiEvidenceRequested) await activateTerminalControlSkill()
   await subscribeSessionEvents()
   shareId = await (async () => {
     if (useEnvShare() === false) return
     if (!useEnvShare() && repoData.data.private) return
-    await client.session.share<true>({ path: session })
+    await dataOf(client.session.share({ sessionID: session.id }))
     return session.id.slice(-8)
   })()
   console.log("nikcli session", session.id)
@@ -373,13 +379,13 @@ async function assertNikcliConnected() {
   let connected = false
   do {
     try {
-      await client.app.log<true>({
-        body: {
+      await dataOf(
+        client.app.log({
           service: "github-workflow",
           level: "info",
           message: "Prepare to react to Github Workflow event",
-        },
-      })
+        }),
+      )
       connected = true
       break
     } catch (e) {}
@@ -697,8 +703,8 @@ async function resolveAgent(): Promise<string | undefined> {
   if (!envAgent) return undefined
 
   // Validate the agent exists and is a primary agent
-  const agents = await client.app.agents<true>()
-  const agent = agents.data.find((a) => a.name === envAgent)
+  const agents = await dataOf(client.app.agents())
+  const agent = agents.find((a) => a.name === envAgent)
 
   if (!agent) {
     console.warn(`agent "${envAgent}" not found. Falling back to default agent`)
@@ -718,9 +724,9 @@ async function chat(text: string, files: PromptFiles = []) {
   const { providerID, modelID } = useEnvModel()
   const agent = await resolveAgent()
 
-  const chat = await client.session.prompt<true>({
-    path: session,
-    body: {
+  const chat = await dataOf(
+    client.session.prompt({
+      sessionID: session.id,
       model: {
         providerID,
         modelID,
@@ -749,30 +755,30 @@ async function chat(text: string, files: PromptFiles = []) {
           },
         ]),
       ],
-    },
-  })
+    }),
+  )
 
-  if (chat.data.info.error) {
-    throw new Error(formatAssistantError(chat.data.info.error))
+  if (chat.info.error) {
+    throw new Error(formatAssistantError(chat.info.error))
   }
 
-  const textParts = chat.data.parts.filter((part) => part.type === "text")
+  const textParts = chat.parts.filter((part) => part.type === "text")
   const match = textParts.findLast((part) => part.text.trim())
   if (match) return match.text
 
-  const toolParts = chat.data.parts.filter((part) => part.type === "tool")
+  const toolParts = chat.parts.filter((part) => part.type === "tool")
   const toolError = toolParts.findLast((part) => part.state.status === "error")
   if (toolError?.state.status === "error") {
     throw new Error(`Tool "${toolError.tool}" failed: ${toolError.state.error}`)
   }
 
-  const partTypes = chat.data.parts.map((part) => part.type)
+  const partTypes = chat.parts.map((part) => part.type)
   if (partTypes.length > 0) {
     console.warn(`Nikcli completed without a textual response. Part types: [${partTypes.join(", ")}]`)
     return "Nikcli completed the task without a textual response."
   }
 
-  const finish = chat.data.info.finish ? ` Finish reason: ${chat.data.info.finish}.` : ""
+  const finish = chat.info.finish ? ` Finish reason: ${chat.info.finish}.` : ""
   throw new Error(`Nikcli returned an empty response.${finish}`)
 }
 
