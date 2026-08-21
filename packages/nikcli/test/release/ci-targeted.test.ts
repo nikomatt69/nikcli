@@ -86,9 +86,12 @@ describe("ci-validate.ts step order", () => {
       "Install dependencies",
       "Typecheck",
       "Route coverage gate",
-      "Run tests",
-      "Run release automation tests",
+      "Formatting",
+      "Lint",
       "Shell syntax check (install script)",
+      "Shell syntax check (railway-deploy)",
+      "Docker nikcli version check",
+      "Railway upload context check",
       "PowerShell syntax check (install.ps1)",
     ])
   })
@@ -234,7 +237,50 @@ describe("concurrency safety", () => {
   })
 })
 
-// ─── 8. Railway deploy detail tests ─────────────────────────────────────────
+// ─── 8. Workflow failure regressions ────────────────────────────────────────
+
+describe("workflow failure regressions", () => {
+  it("the GitHub agent rejects failed SDK calls while waiting for its server", async () => {
+    const src = await read("github/index.ts")
+    expect(src).toContain("createNikcliClient({ baseUrl: url, throwOnError: true })")
+  })
+
+  it("the compiled TUI smoke marks Bun ConPTY as an interactive terminal", async () => {
+    const src = await read("packages/nikcli/script/tui-smoke.ts")
+    expect(src).toContain('NIKCLI_TERMINAL: "1"')
+  })
+
+  it("the site deployment only unlocks SST after detecting a persisted lock", async () => {
+    const yml = await read(".github/workflows/deploy.yml")
+    const detection = yml.indexOf("A concurrent update was detected")
+    const unlock = yml.indexOf('bun sst unlock --stage="${{ github.ref_name }}"')
+    expect(detection).toBeGreaterThan(-1)
+    expect(unlock).toBeGreaterThan(detection)
+    expect(yml).toContain('bun sst deploy --stage="${{ github.ref_name }}"')
+  })
+
+  it("the Discord release notification is optional when its webhook is absent", async () => {
+    const yml = await read(".github/workflows/notify-discord.yml")
+    expect(yml).toContain("configured=false")
+    expect(yml).toContain("if: steps.webhook.outputs.configured == 'true'")
+  })
+
+  it("the beta sync uses the workflow token instead of a broken app key", async () => {
+    const yml = await read(".github/workflows/beta.yml")
+    expect(yml).toContain("GH_TOKEN: ${{ github.token }}")
+    expect(yml).not.toContain("setup-git-committer")
+    expect(yml).not.toContain("NIKCLI_APP_SECRET")
+  })
+
+  it("issue triage selects the configured MiniMax provider explicitly", async () => {
+    const yml = await read(".github/workflows/triage.yml")
+    expect(yml).toContain("MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}")
+    expect(yml).toContain("-m minimax-coding-plan/MiniMax-M3")
+    expect(yml).not.toContain("NIKCLI_API_KEY")
+  })
+})
+
+// ─── 9. Railway deploy detail tests ─────────────────────────────────────────
 
 describe("railway-deploy job specifics", () => {
   it("only runs after publish succeeds on live-main from the canonical repo", async () => {
@@ -260,7 +306,7 @@ describe("railway-deploy job specifics", () => {
   })
 })
 
-// ─── 9. Script shebang + invocation portability ─────────────────────────────
+// ─── 10. Script shebang + invocation portability ────────────────────────────
 
 describe("script invocation portability", () => {
   for (const f of ["script/ci-validate.ts", "script/ci-autofix.ts", "script/ci-report-failure.ts"]) {

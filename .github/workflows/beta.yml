@@ -21,11 +21,10 @@ jobs:
         uses: ./.github/actions/setup-bun
 
       - name: Setup Git Committer
-        id: setup-git-committer
-        uses: ./.github/actions/setup-git-committer
-        with:
-          nikcli-app-id: ${{ vars.NIKCLI_APP_ID }}
-          nikcli-app-secret: ${{ secrets.NIKCLI_APP_SECRET }}
+        if: hashFiles('script/beta.ts') != ''
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Install nikcli
         run: bun i -g nikcli@latest || curl -fsSL https://nikcli.store/install | bash || true
@@ -33,6 +32,6 @@ jobs:
       - name: Sync beta branch
         if: hashFiles('script/beta.ts') != ''
         env:
-          GH_TOKEN: ${{ steps.setup-git-committer.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           NIKCLI_API_KEY: ${{ secrets.NIKCLI_API_KEY }}
         run: bun script/beta.ts
