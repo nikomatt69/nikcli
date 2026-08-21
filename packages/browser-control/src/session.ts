@@ -131,6 +131,7 @@ export class BrowserSession {
   private readonly view: WebViewInstance
   private readonly createdAt = Date.now()
   private status: SessionStatus = "running"
+  private lastUsed = Date.now()
   private viewport: Viewport
   private consoleLog: ConsoleEntry[] = []
   private recorder: Recorder | null = null
@@ -197,6 +198,25 @@ export class BrowserSession {
 
   isRunning(): boolean {
     return this.status === "running"
+  }
+
+  /** When this session was last driven. See {@link SessionManager.reapIdle}. */
+  get lastUsedAt(): number {
+    return this.lastUsed
+  }
+
+  /** Mark the session as used right now. Called for every operation on it. */
+  touch(): void {
+    this.lastUsed = Date.now()
+  }
+
+  /**
+   * Doing something on its own, with nobody driving it: a live view is
+   * streaming frames, or a recording is sampling them. Neither shows up as an
+   * operation, and both are reasons not to reap the session.
+   */
+  isBusy(): boolean {
+    return this.isScreencasting() || this.isRecording()
   }
 
   async goto(url: string): Promise<void> {
