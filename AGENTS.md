@@ -64,11 +64,15 @@ the contract and emits `dist`, so running it is safe.
 `ci-pipeline` runs `script/ci-validate.ts`. Two failure modes have bitten this
 repo more than once — check them before changing anything in that file:
 
-- **No workflow runs tests any more — do not add them back.** Not
-  `ci-validate.ts`, not `test.yml`, not `windows-compat.yml`. CI is typecheck,
-  lint, format, route coverage, the Windows runtime invariants and a handful of
-  second-long static guards. Releases gate on typecheck: `publish` needs
-  `validate`, and `railway-deploy` needs `publish`.
+- **The nikcli suite does not run in CI — do not add it back.** Not in
+  `ci-validate.ts`, not in `test.yml`. Releases gate on typecheck: `publish`
+  needs `validate`, and `railway-deploy` needs `publish`.
+
+  This is about the ~350-file suite specifically, not about tests in general.
+  `windows-compat.yml` still runs four targeted suites (double-esc, session,
+  config + worktree, util) on real Windows in ~40s, and they stay: they pass,
+  and a check that passes is signal worth keeping. The rule is only ever to
+  remove what is broken or unaffordable, never what works.
 
   The reason is not taste. The suite leaks roughly 80 MB per test file (each one
   builds nikcli instances and SQLite databases), so all ~350 files in one bun
