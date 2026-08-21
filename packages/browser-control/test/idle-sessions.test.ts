@@ -60,16 +60,38 @@ describe("SessionManager.reapIdle", () => {
     }
   }, 60_000)
 
-  test("using a session keeps it alive", async () => {
+  test("driving a session keeps it alive", async () => {
     const manager = new SessionManager()
     const info = await startedSession(manager)
     if (!info) return
 
     try {
       await Bun.sleep(30)
-      manager.info(info.name) // any operation counts as use
+      await manager.goto(info.name, BLANK)
       expect(await manager.reapIdle(10_000)).toEqual([])
       expect(manager.runningCount).toBe(1)
+    } finally {
+      await manager.closeAll().catch(() => {})
+    }
+  }, 60_000)
+
+  test("watching a session does not keep it alive", async () => {
+    const manager = new SessionManager()
+    const info = await startedSession(manager)
+    if (!info) return
+
+    try {
+      await Bun.sleep(30)
+      // Status reads are how a client watches a session it is not using. If
+      // these counted as use, anything polling on a timer — a live view, a
+      // status bar — would pin a browser forever and the reaper would never
+      // fire, which is the whole point of it.
+      manager.info(info.name)
+      manager.isRecording(info.name)
+      manager.recordingData(info.name)
+      manager.rawConsole(info.name)
+      manager.list()
+      expect(await manager.reapIdle(10)).toEqual([info.name])
     } finally {
       await manager.closeAll().catch(() => {})
     }

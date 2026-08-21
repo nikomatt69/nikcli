@@ -1,5 +1,5 @@
-/**
- * SessionManager — an in-memory registry of named {@link BrowserSession}s.
+﻿/**
+ * SessionManager â€” an in-memory registry of named {@link BrowserSession}s.
  * Each session owns a Bun.WebView. The daemon wraps this over a Unix socket
  * so sessions outlive any single CLI invocation.
  */
@@ -56,8 +56,20 @@ export class SessionManager {
   private require(name: string): BrowserSession {
     const session = this.sessions.get(name)
     if (!session) throw new Error(`No browser session named "${name}". Use action "list" to see active sessions.`)
-    // Every operation on a session routes through here, which makes this the
-    // one place that can tell a session in use from one nobody came back to.
+    return session
+  }
+
+  /**
+   * The session, marked as being used right now.
+   *
+   * Only for calls that actually drive the page. Asking a session what it is
+   * doing â€” {@link info}, {@link isRecording}, {@link recordingData},
+   * {@link videoPath}, {@link rawConsole} â€” must not count, or a client polling
+   * status on a timer would keep a browser alive forever, which is the leak
+   * {@link reapIdle} exists to close.
+   */
+  private drive(name: string): BrowserSession {
+    const session = this.require(name)
     session.touch()
     return session
   }
@@ -65,7 +77,7 @@ export class SessionManager {
   /**
    * Stop sessions nobody has touched for `maxIdleMs`, and report their names.
    *
-   * A running session holds a browser — eleven OS processes on Windows — for as
+   * A running session holds a browser â€” eleven OS processes on Windows â€” for as
    * long as it exists, and the daemon's own idle shutdown cannot help: it waits
    * for zero running sessions, so one forgotten `start` pins the browser
    * indefinitely. Stopping the session is what eventually lets the daemon go.
@@ -94,71 +106,71 @@ export class SessionManager {
   }
 
   goto(name: string, url: string): Promise<void> {
-    return this.require(name).goto(url)
+    return this.drive(name).goto(url)
   }
 
   send(name: string, input: string, mode: SendMode = "text"): Promise<void> {
-    return this.require(name).send(input, mode)
+    return this.drive(name).send(input, mode)
   }
 
   back(name: string): Promise<boolean> {
-    return this.require(name).back()
+    return this.drive(name).back()
   }
 
   forward(name: string): Promise<boolean> {
-    return this.require(name).forward()
+    return this.drive(name).forward()
   }
 
   reload(name: string): Promise<void> {
-    return this.require(name).reload()
+    return this.drive(name).reload()
   }
 
   click(name: string, selector: string): Promise<void> {
-    return this.require(name).click(selector)
+    return this.drive(name).click(selector)
   }
 
   pointer(name: string, input: PointerInput): Promise<void> {
-    return this.require(name).pointer(input)
+    return this.drive(name).pointer(input)
   }
 
   key(name: string, input: KeyInput): Promise<void> {
-    return this.require(name).key(input)
+    return this.drive(name).key(input)
   }
 
   startScreencast(name: string, options?: ScreencastOptions): Promise<Screencast> {
-    return this.require(name).startScreencast(options)
+    return this.drive(name).startScreencast(options)
   }
 
   stopScreencast(name: string): Promise<void> {
-    return this.require(name).stopScreencast()
+    return this.drive(name).stopScreencast()
   }
 
   fill(name: string, selector: string, value: string): Promise<void> {
-    return this.require(name).fill(selector, value)
+    return this.drive(name).fill(selector, value)
   }
 
   hover(name: string, selector: string): Promise<void> {
-    return this.require(name).hover(selector)
+    return this.drive(name).hover(selector)
   }
 
   scroll(name: string, dx: number, dy: number): Promise<void> {
-    return this.require(name).scroll(dx, dy)
+    return this.drive(name).scroll(dx, dy)
   }
 
   wait(name: string, condition: WaitCondition): Promise<WaitResult> {
-    return this.require(name).wait(condition)
+    return this.drive(name).wait(condition)
   }
 
   resize(name: string, width: number, height: number): Promise<SessionInfo> {
-    return this.require(name).resize(width, height)
+    return this.drive(name).resize(width, height)
   }
 
   snapshot(name: string): Promise<BrowserFrame> {
-    return this.require(name).snapshot()
+    return this.drive(name).snapshot()
   }
 
   text(name: string): Promise<string> {
-    return this.require(name).text()
+    return this.drive(name).text()
   }
 
   rawConsole(name: string, lines?: number) {
@@ -191,15 +203,15 @@ export class SessionManager {
   }
 
   startRecording(name: string, options?: StartRecordingOptions): Promise<void> {
-    return this.require(name).startRecording(options)
+    return this.drive(name).startRecording(options)
   }
 
   marker(name: string, markerName: string): Promise<RecordingMarker | undefined> {
-    return this.require(name).marker(markerName)
+    return this.drive(name).marker(markerName)
   }
 
   stopRecording(name: string): Promise<RecordingData | null> {
-    return this.require(name).stopRecording()
+    return this.drive(name).stopRecording()
   }
 
   recordingData(name: string): RecordingData | null {
@@ -221,7 +233,7 @@ export class SessionManager {
    * browser subprocess the whole Bun process shares, and Bun does not recover:
    * every later `new Bun.WebView()` fails with "Chrome process closed the pipe"
    * and then "Failed to spawn Chrome", for the life of the process. In a daemon
-   * — which is the whole nikcli session when it is hosted in-process — one
+   * â€” which is the whole nikcli session when it is hosted in-process â€” one
    * `close-all` would leave the browser tool dead until a restart. Closing each
    * view is enough; the subprocess goes away with its parent.
    */
