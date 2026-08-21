@@ -51,3 +51,30 @@ the contract and emits `dist`, so running it is safe.
 3. **Parallel execution**: Use background tasks for independent work
 4. **Client regeneration**: After changing an HTTP contract in `packages/nikcli/src/server/httpapi/`, run `bun run generate:httpapi-clients` and commit the generated output
 5. **Custom tool autoload**: config-dir `tool/*.ts` requires `NIKCLI_ALLOW_PLUGIN_AUTOLOAD=1` or `tool.allow`/`tool.pin` — see `packages/nikcli/AGENTS.md`
+6. **CI must never be left failing — no exceptions.** `ci-pipeline` going red is
+   never acceptable and is never "someone else's problem". If a change of yours
+   turns it red, fixing it comes before any other work, and a red pipeline is
+   never a reason to stop and wait for review. Never get to green by weakening
+   the signal: do not skip, delete or quarantine a test, do not flip a step to
+   `critical: false` to hide a failure, and do not re-run a job hoping for a
+   different answer. Fix the cause.
+
+## CI
+
+`ci-pipeline` runs `script/ci-validate.ts`. Two failure modes have bitten this
+repo more than once — check them before changing anything in that file:
+
+- **The validate job is memory-bound.** A GitHub runner has ~16 GB, and the
+  nikcli suite leaks roughly 80 MB per test file (each one builds nikcli
+  instances and SQLite databases). Running all ~350 files in one bun process
+  reached 14.5 GB and got the runner killed at file 175, which fails the job
+  with exit 143 no matter how the step is marked — `critical: false` cannot
+  save a step whose runner is gone. `test:ci` therefore shards the suite across
+  short-lived processes via `packages/nikcli/script/test-ci.ts`. Do not collapse
+  it back into a single `bun test` invocation.
+- **A `--detach` deploy reports success before it has built anything.** The
+  Railway step only confirms the upload was accepted, so a broken image looks
+  green here. The guards that stand in for it are
+  `script/check-railway-context.ts`, `script/check-docker-versions.ts` and the
+  preflight inside `script/railway-deploy.sh`. Keep them wired into
+  `ci-validate.ts`.

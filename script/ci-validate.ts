@@ -80,11 +80,12 @@ const steps: ValidationStep[] = [
     // all here. Formatting and lint are their own steps above now, and this one
     // only runs tests.
     //
-    // `--parallel=1` is not "no parallelism": it still implies `--isolate`, so
-    // each file gets a fresh global and module registry and its state is
-    // released before the next one starts. Dropping the flag entirely would
-    // pile all 348 files — 300+ nikcli instances and 200+ SQLite databases —
-    // into a single heap, which is the opposite of what this run can afford.
+    // `test:ci` runs script/test-ci.ts, which shards the suite across
+    // short-lived bun processes. A single `--parallel=1` process gave each file
+    // a fresh global (it implies `--isolate`) but never handed memory back, so
+    // RSS climbed with the length of the run: CI died at file 175 of 348 with
+    // bun at 14.5 GB and MemAvailable at 447 MB. Killing the runner takes the
+    // job with it, which is why `critical: false` below did not contain it.
     //
     // The package script, not a bare `bun test` from the root: run from there
     // Bun sweeps all 400+ test files in the monorepo — benchmarks, integration
