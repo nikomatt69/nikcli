@@ -49,12 +49,7 @@ describe("GithubApi.listRepos", () => {
 
   it("throws GithubApiError when GitHub rejects the request", async () => {
     stubGithub(400, { message: "Bad request" }, "Bad Request")
-    try {
-      await GithubApi.listRepos("token", "all")
-      throw new Error("expected GithubApiError")
-    } catch (error) {
-      expect(error).toBeInstanceOf(GithubApiError)
-      expect((error as GithubApiError).status).toBe(400)
-    }
+    await expect(GithubApi.listRepos("token", "all")).rejects.toBeInstanceOf(GithubApiError)
+    await expect(GithubApi.listRepos("token", "all")).rejects.toHaveProperty("status", 400)
   })
 })
