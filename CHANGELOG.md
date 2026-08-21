@@ -3,6 +3,25 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.303.0 (August 2026)
+
+## Core
+
+- Keep --parallel=1 on each test batch (@claude)
+- Shard the validate suite so it stops OOM-killing the runner (@claude)
+
+**Thank you to 2 community contributors:**
+
+- @nikomatt69:
+  - fix(railway): ship packages/discord in the deploy upload context (#237)
+- @claude:
+  - fix(ci): shard the validate suite so it stops OOM-killing the runner
+  - fix(ci): keep --parallel=1 on each test batch
+  - fix(ci): stop running the nikcli suite in validate
+  - fix(ci): remove test execution from the workflows too
+  - fix(ci): put the four Windows unit suites back
+  - fix(ci): drop the orphaned e2e harness from test.yml
+
 ## v1.302.0 (August 2026)
 
 ## Core

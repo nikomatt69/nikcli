@@ -82,6 +82,7 @@ repo more than once — check them before changing anything in that file:
   the job spending 2.5 minutes to print "Validation passed (non-blocking
   failures: Run tests)", which is worse than not running them: the cost is paid
   and the failures are ignored.
+
 - **To run the whole suite anywhere else**, use `bun run test:ci` in
   `packages/nikcli`. It shards across short-lived bun processes via
   `script/test-ci.ts`, keeping `--parallel=1` (hence `--isolate`) inside each
