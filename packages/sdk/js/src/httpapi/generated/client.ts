@@ -1710,7 +1710,13 @@ export function make(options: ClientOptions) {
         ),
       githubRepos: (requestOptions?: RequestOptions) =>
         request<MobileGithubReposOutput>(
-          { method: "GET", path: `/mobile/github/repos`, successStatus: 200, declaredStatuses: [401], empty: false },
+          {
+            method: "GET",
+            path: `/mobile/github/repos`,
+            successStatus: 200,
+            declaredStatuses: [401, 400],
+            empty: false,
+          },
           requestOptions,
         ),
       githubBranches: (input: MobileGithubBranchesInput, requestOptions?: RequestOptions) =>
@@ -1719,7 +1725,7 @@ export function make(options: ClientOptions) {
             method: "GET",
             path: `/mobile/github/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/branches`,
             successStatus: 200,
-            declaredStatuses: [401],
+            declaredStatuses: [401, 400],
             empty: false,
           },
           requestOptions,

@@ -185,8 +185,17 @@ export namespace GithubApi {
     type: "all" | "owner" | "member" = "owner",
     sort?: "updated" | "pushed" | "full_name",
   ): Promise<any> {
-    let url = `${GITHUB_API_BASE}/user/repos?type=${type}`
-    if (sort) url += `&sort=${sort}`
+    // GitHub Apps and fine-grained PATs reject `type` (422). `affiliation` +
+    // `visibility` cover the same filters and work for every token class.
+    const affiliation =
+      type === "owner"
+        ? "owner"
+        : type === "member"
+          ? "collaborator,organization_member"
+          : "owner,collaborator,organization_member"
+    const params = new URLSearchParams({ affiliation, visibility: "all" })
+    if (sort) params.set("sort", sort)
+    const url = `${GITHUB_API_BASE}/user/repos?${params.toString()}`
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,

@@ -1,9 +1,10 @@
 import { Effect } from "effect"
 import { ConnectorAuth } from "@/connectors/auth"
 import { Connectors } from "@/connectors"
-import { GithubApi } from "@/connectors/api/github"
+import { GithubApi, GithubApiError } from "@/connectors/api/github"
 import { withInstanceAsync } from "@/effect"
 import { MobileGithubRepo } from "@/mobile/github-repo"
+import { spreadIf } from "@/util/optional-key"
 import { Session } from "@/session"
 import { Worktree } from "@/worktree"
 import { Workspace } from "@/workspace"
@@ -32,29 +33,50 @@ import { MobileHttpError } from "./request"
 
 const noToken = () => new MobileHttpError("GitHub token not configured", 401)
 
+function rethrowGithub(error: unknown): never {
+  if (error instanceof GithubApiError) {
+    const status = error.status === 401 || error.status === 403 ? 401 : 400
+    throw new MobileHttpError(error.message, status)
+  }
+  throw error
+}
+
 export async function githubRepos() {
   const token = await githubToken()
   if (!token) throw noToken()
-  const [repos, imports] = await Promise.all([GithubApi.listRepos(token, "all", "updated"), githubImports()])
-  return (
-    // SAFETY: `listRepos` returns the GitHub `/user/repos` body, whose every
-    // element carries `full_name`; only that field is read here.
-    (repos as Array<{ full_name: string }>).map((repo) => {
-      const existing = imports.get(repo.full_name.toLowerCase())
-      return {
-        ...repo,
-        imported: Boolean(existing),
-        imported_directory: existing?.directory,
-        imported_project_id: existing?.projectID,
-      }
-    })
-  )
+  try {
+    const [repos, imports] = await Promise.all([GithubApi.listRepos(token, "all", "updated"), githubImports()])
+    return (
+      // SAFETY: `listRepos` returns the GitHub `/user/repos` body, whose every
+      // element carries `full_name`; only that field is read here.
+      //
+      // Do not assign `imported_*` as `undefined`: `Schema.Unknown` is
+      // `Schema.Json` at the HTTP boundary and a present `undefined` fails
+      // encode with an empty 400 — the mobile Workspaces screen's
+      // "Could not load GitHub repositories" banner.
+      (repos as Array<{ full_name: string }>).map((repo) => {
+        const existing = imports.get(repo.full_name.toLowerCase())
+        return {
+          ...repo,
+          imported: Boolean(existing),
+          ...spreadIf("imported_directory", existing?.directory),
+          ...spreadIf("imported_project_id", existing?.projectID),
+        }
+      })
+    )
+  } catch (error) {
+    rethrowGithub(error)
+  }
 }
 
 export async function githubBranches(owner: string, repo: string) {
   const token = await githubToken()
   if (!token) throw noToken()
-  return GithubApi.listBranches(token, owner, repo)
+  try {
+    return await GithubApi.listBranches(token, owner, repo)
+  } catch (error) {
+    rethrowGithub(error)
+  }
 }
 
 export function githubImportsList() {

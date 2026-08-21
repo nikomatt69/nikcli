@@ -106,9 +106,9 @@ export const MobileHandlersLive = HttpApiBuilder.group(MobileHttpApi.Api, "mobil
     .handle("memoryStashCreate", ({ payload }) => fromPromise(() => memory.stashCreate(payload)))
     .handle("memoryStashDelete", ({ params }) => route(() => memory.stashDelete(params.id), catchNotFound))
     // --- github ---
-    .handle("githubRepos", () => route(() => github.githubRepos(), catchUnauthorized))
+    .handle("githubRepos", () => route(() => github.githubRepos(), catchBadOrUnauthorized))
     .handle("githubBranches", ({ params }) =>
-      route(() => github.githubBranches(params.owner, params.repo), catchUnauthorized),
+      route(() => github.githubBranches(params.owner, params.repo), catchBadOrUnauthorized),
     )
     .handle("githubImports", () => fromPromise(() => github.githubImportsList()))
     .handle("githubOauthClient", ({ payload }) => fromPromise(() => github.githubOauthClient(mutable(payload))))
