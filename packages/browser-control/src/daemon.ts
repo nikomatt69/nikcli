@@ -1,13 +1,13 @@
-﻿/**
- * Daemon â€” runs a {@link SessionManager} behind a Unix-socket HTTP server so
+/**
+ * Daemon — runs a {@link SessionManager} behind a Unix-socket HTTP server so
  * background browser sessions outlive any single CLI invocation. This is what
  * makes browser-control "control it in the background" rather than "control
  * it for the lifetime of one process": terminal-control gets that property
  * from a compiled native driver process; here it's this daemon.
  *
  * Nothing here runs forever on its own account. A session nobody has touched
- * for `SESSION_IDLE_MS` is stopped, and once no session is running the daemon
- * itself exits `IDLE_SHUTDOWN_MS` later â€” so a forgotten `start` does not leave
+ * for {@link idleMinutes} is stopped, and once no session is running the daemon
+ * itself exits `IDLE_SHUTDOWN_MS` later — so a forgotten `start` does not leave
  * a headless browser (eleven OS processes on Windows) alive for the uptime of
  * the machine.
  */
@@ -27,7 +27,7 @@ const IDLE_CHECK_MS = 30_000
  * Generous on purpose: an agent that opens a page, goes away to think, and
  * comes back must find its session, so this is measured in "gave up on it"
  * time rather than "paused" time. A session streaming a live view or recording
- * is never reaped â€” see {@link SessionManager.reapIdle}.
+ * is never reaped — see {@link SessionManager.reapIdle}.
  *
  * `NIKCLI_BROWSER_IDLE_MINUTES` overrides it; `0` disables reaping, restoring
  * the old behavior for anyone who wants a session to outlive their attention.
@@ -38,7 +38,7 @@ const DEFAULT_IDLE_MINUTES = 30
 export function idleMinutes(raw = process.env[ENV_IDLE_MINUTES]): number {
   if (raw === undefined || raw.trim() === "") return DEFAULT_IDLE_MINUTES
   const parsed = Number(raw)
-  // A malformed value must not silently disable the reaper â€” that is the leak
+  // A malformed value must not silently disable the reaper — that is the leak
   // this exists to prevent.
   if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_IDLE_MINUTES
   return parsed
@@ -53,7 +53,7 @@ export function idleMinutes(raw = process.env[ENV_IDLE_MINUTES]): number {
 const FRAME_FILE_SLOTS = 4
 
 /**
- * A screencast is silent whenever the page is static â€” nothing repainted, so
+ * A screencast is silent whenever the page is static — nothing repainted, so
  * there is nothing to send. Perfectly correct, and indistinguishable from a
  * wedged stream to anyone downstream. A periodic ping keeps the connection
  * warm and gives the client a liveness signal it can act on.
@@ -179,7 +179,7 @@ const handlers: Record<string, RpcHandler> = {
 /**
  * How a frame's pixels reach the client.
  *
- * `file` writes the PNG to a temp file and sends only its path â€” the terminal
+ * `file` writes the PNG to a temp file and sends only its path — the terminal
  * reads that same file itself (Kitty `t=t`), so the pixels never cross this
  * socket *or* the PTY. That is the whole point of the mode, and it only works
  * because the daemon, the client and the terminal share a filesystem.
@@ -264,7 +264,11 @@ async function streamScreencast(manager: SessionManager, url: URL, signal: Abort
   const finish = async () => {
     if (closed) return
     closed = true
+    // Stop this view's object, not `manager.stopScreencast(name)`: a replacement
+    // stream may already own the session. Then drop it from the session so
+    // `isBusy` does not keep the browser alive after the client has gone.
     await screencast.stop().catch(() => {})
+    manager.get(name)?.detachScreencast(screencast)
     await files?.dispose()
   }
 
@@ -329,7 +333,7 @@ export type StartDaemonOptions = {
   /**
    * When true (default for a dedicated daemon process), idle/shutdown ends the
    * OS process. When false (in-process host inside the compiled nikcli binary),
-   * only the Unix server and sessions are torn down â€” the host keeps running.
+   * only the Unix server and sessions are torn down — the host keeps running.
    */
   readonly exitProcess?: boolean
 }
@@ -365,7 +369,7 @@ export async function startDaemon(socketPath: string, options: StartDaemonOption
     if (shuttingDown) return
     // Silent on purpose. `ensureDaemon` spawns this process with `stderr: "pipe"`
     // and stops reading once the client is up, so writing here after the client
-    // has gone kills the daemon on a broken pipe â€” taking the sessions it was
+    // has gone kills the daemon on a broken pipe — taking the sessions it was
     // hosting with it. A reaped session already reports itself as "closed".
     await manager.reapIdle(idleMinutes() * 60 * 1000).catch(() => {})
     if (manager.runningCount === 0 && Date.now() - lastActivity > IDLE_SHUTDOWN_MS) void shutdown()

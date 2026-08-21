@@ -117,6 +117,45 @@ describe("SessionManager.reapIdle", () => {
     }
   }, 60_000)
 
+  test("stopping the live view itself, without stopScreencast, lets the session go", async () => {
+    const manager = new SessionManager()
+    const info = await startedSession(manager)
+    if (!info) return
+
+    try {
+      const session = manager.get(info.name)!
+      const live = await manager.startScreencast(info.name, { maxFps: 2 })
+      expect(session.isBusy()).toBe(true)
+      // The HTTP stream path calls Screencast.stop() on this object — not
+      // manager.stopScreencast(name), which would also kill a replacement view.
+      await live.stop()
+      expect(session.isBusy()).toBe(false)
+      const used = session.lastUsedAt
+      await Bun.sleep(20)
+      session.detachScreencast(live)
+      expect(session.lastUsedAt).toBeGreaterThan(used)
+      await Bun.sleep(30)
+      expect(await manager.reapIdle(10)).toEqual([info.name])
+    } finally {
+      await manager.closeAll().catch(() => {})
+    }
+  }, 60_000)
+
+  test("never reaps a session that is recording", async () => {
+    const manager = new SessionManager()
+    const info = await startedSession(manager)
+    if (!info) return
+
+    try {
+      await manager.startRecording(info.name)
+      await Bun.sleep(30)
+      expect(await manager.reapIdle(10)).toEqual([])
+      expect(manager.runningCount).toBe(1)
+    } finally {
+      await manager.closeAll().catch(() => {})
+    }
+  }, 60_000)
+
   test("disabled by a zero window", async () => {
     const manager = new SessionManager()
     const info = await startedSession(manager)

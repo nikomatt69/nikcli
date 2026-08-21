@@ -19,8 +19,9 @@ const HELP = `browser-control COMMAND [options]
 
 Background headless-browser sessions, driven the way terminal-control drives
 PTY sessions — but for web pages. A per-workspace daemon holds Bun.WebView
-sessions (WebKit on macOS); they persist across separate CLI invocations and the
-daemon exits on its own after 10 idle minutes.
+sessions (WebKit on macOS); they persist across separate CLI invocations.
+A session unused for 30 minutes is stopped; the daemon then exits 10 minutes
+later. Set NIKCLI_BROWSER_IDLE_MINUTES to override the session window, or 0 to disable it.
 
 Session commands:
   browser-control start [NAME] --url URL [--viewport WxH] [--record]

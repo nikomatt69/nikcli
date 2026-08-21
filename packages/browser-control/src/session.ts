@@ -205,7 +205,7 @@ export class BrowserSession {
     return this.lastUsed
   }
 
-  /** Mark the session as used right now. Called for every operation on it. */
+  /** Mark the session as used right now. Driving the page calls this; watching it does not. */
   touch(): void {
     this.lastUsed = Date.now()
   }
@@ -365,8 +365,21 @@ export class BrowserSession {
     await screencast.stop()
   }
 
+  /**
+   * Drop `screencast` if it is still this session's live view. The HTTP stream
+   * stops the object directly so a replacement view is not torn down with it;
+   * without this, {@link isBusy} would keep pinning the browser after the
+   * client disconnected. Touching starts the idle window from "stopped watching"
+   * rather than from when the stream began.
+   */
+  detachScreencast(screencast: Screencast): void {
+    if (this.screencast !== screencast) return
+    this.screencast = null
+    this.touch()
+  }
+
   isScreencasting(): boolean {
-    return this.screencast !== null
+    return this.screencast?.active ?? false
   }
 
   rawConsole(lines?: number): ConsoleEntry[] {
