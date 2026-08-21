@@ -329,7 +329,12 @@ function createNikcli() {
       stdio: "inherit",
     },
   )
-  const client = createNikcliClient({ baseUrl: url })
+  // This action is a control-plane caller: a failed request must reject so the
+  // readiness loop below keeps waiting for the child server. The SDK defaults
+  // to resolving transport failures as `{ error }`, which previously made the
+  // first connection-refused response look successful and let execution race
+  // ahead to the SSE subscription before the server had bound its port.
+  const client = createNikcliClient({ baseUrl: url, throwOnError: true })
 
   return {
     server: { url, close: () => proc.kill() },
