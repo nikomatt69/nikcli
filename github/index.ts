@@ -125,7 +125,9 @@ type IssueQueryResponse = {
 
 async function dataOf<A>(result: Promise<Result<A>>): Promise<A> {
   const settled = await result
-  if (settled.error !== undefined) throw settled.error
+  if (settled.data === undefined) {
+    throw settled.error ?? new Error("Nikcli API returned no data")
+  }
   return settled.data
 }
 
@@ -758,8 +760,9 @@ async function chat(text: string, files: PromptFiles = []) {
     }),
   )
 
-  if (chat.info.error) {
-    throw new Error(formatAssistantError(chat.info.error))
+  const assistant = chat.info.role === "assistant" ? chat.info : undefined
+  if (assistant?.error) {
+    throw new Error(formatAssistantError(assistant.error))
   }
 
   const textParts = chat.parts.filter((part) => part.type === "text")
@@ -778,7 +781,7 @@ async function chat(text: string, files: PromptFiles = []) {
     return "Nikcli completed the task without a textual response."
   }
 
-  const finish = chat.info.finish ? ` Finish reason: ${chat.info.finish}.` : ""
+  const finish = assistant?.finish ? ` Finish reason: ${assistant.finish}.` : ""
   throw new Error(`Nikcli returned an empty response.${finish}`)
 }
 
