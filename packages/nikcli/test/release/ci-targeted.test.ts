@@ -243,11 +243,18 @@ describe("workflow failure regressions", () => {
   it("the GitHub agent rejects failed SDK calls while waiting for its server", async () => {
     const src = await read("github/index.ts")
     expect(src).toContain("createNikcliClient({ baseUrl: url, throwOnError: true })")
+    expect(src).toContain('client.app.log({\n          service: "github-workflow"')
+    expect(src).toContain("client.session.share({ sessionID: session.id })")
+    expect(src).toContain("client.session.prompt({\n      sessionID: session.id")
+    expect(src).not.toMatch(/client\.[A-Za-z0-9_.]+<true>/)
+    expect(src).not.toContain("path: session")
   })
 
-  it("the compiled TUI smoke marks Bun ConPTY as an interactive terminal", async () => {
-    const src = await read("packages/nikcli/script/tui-smoke.ts")
-    expect(src).toContain('NIKCLI_TERMINAL: "1"')
+  it("compiled TUI probes mark Bun ConPTY as an interactive terminal", async () => {
+    for (const file of ["packages/nikcli/script/tui-smoke.ts", "packages/nikcli/script/tui-startup.ts"]) {
+      const src = await read(file)
+      expect(src).toContain('NIKCLI_TERMINAL: "1"')
+    }
   })
 
   it("the site deployment only unlocks SST after detecting a persisted lock", async () => {
@@ -257,6 +264,7 @@ describe("workflow failure regressions", () => {
     expect(detection).toBeGreaterThan(-1)
     expect(unlock).toBeGreaterThan(detection)
     expect(yml).toContain('bun sst deploy --stage="${{ github.ref_name }}"')
+    expect(yml).toContain("cancel-in-progress: false")
   })
 
   it("the Discord release notification is optional when its webhook is absent", async () => {

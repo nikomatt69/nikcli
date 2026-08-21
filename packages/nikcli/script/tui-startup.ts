@@ -48,6 +48,7 @@ async function once(): Promise<number> {
       ...process.env,
       NIKCLI_TEST_HOME: home,
       NIKCLI_DISABLE_AUTOUPDATE: "1",
+      NIKCLI_TERMINAL: "1",
       TERM: "xterm-256color",
     },
   })
