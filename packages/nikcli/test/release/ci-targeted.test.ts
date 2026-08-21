@@ -286,6 +286,18 @@ describe("workflow failure regressions", () => {
     expect(yml).toContain("-m minimax-coding-plan/MiniMax-M3")
     expect(yml).not.toContain("NIKCLI_API_KEY")
   })
+
+  it("the typecheck-only test workflow uses an available hosted runner", async () => {
+    const yml = await read(".github/workflows/test.yml")
+    expect(yml).toContain("host: ubuntu-latest")
+    expect(yml).not.toContain("blacksmith-4vcpu-ubuntu-2404")
+    expect(yml).toContain("bun turbo typecheck")
+    const executable = yml
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("#"))
+      .join("\n")
+    expect(executable).not.toMatch(/\bbun (?:run )?test(?::ci)?\b/)
+  })
 })
 
 // ─── 9. Railway deploy detail tests ─────────────────────────────────────────

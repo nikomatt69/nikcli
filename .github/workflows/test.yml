@@ -21,7 +21,7 @@ jobs:
           # "Bun failed to remap this bin"). Run the suite with `bun run test:ci`
           # in packages/nikcli, which shards it so it does not OOM.
           - name: linux
-            host: blacksmith-4vcpu-ubuntu-2404
+            host: ubuntu-latest
             workdir: .
             command: |
               git config --global user.email "bot@nikcli.store"
