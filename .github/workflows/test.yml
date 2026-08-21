@@ -22,7 +22,6 @@ jobs:
           # in packages/nikcli, which shards it so it does not OOM.
           - name: linux
             host: blacksmith-4vcpu-ubuntu-2404
-            playwright: bunx playwright install --with-deps
             workdir: .
             command: |
               git config --global user.email "bot@nikcli.store"
@@ -40,10 +39,6 @@ jobs:
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
-
-      - name: Install Playwright browsers
-        working-directory: packages/app
-        run: ${{ matrix.settings.playwright }}
 
       - name: Set OS-specific paths
         run: |
@@ -68,54 +63,6 @@ jobs:
               printf '%s\n' "MODELS_DEV_API_JSON=${{ github.workspace }}/packages/nikcli/test/tool/fixtures/models-api.json"
             } >> "$GITHUB_ENV"
           fi
-
-      - name: Seed nikcli data
-        if: matrix.settings.name != 'windows'
-        working-directory: packages/nikcli
-        run: bun script/seed-e2e.ts
-        env:
-          MODELS_DEV_API_JSON: ${{ env.MODELS_DEV_API_JSON }}
-          NIKCLI_DISABLE_MODELS_FETCH: "true"
-          NIKCLI_DISABLE_SHARE: "true"
-          NIKCLI_DISABLE_LSP_DOWNLOAD: "true"
-          NIKCLI_DISABLE_DEFAULT_PLUGINS: "true"
-          NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER: "true"
-          NIKCLI_TEST_HOME: ${{ env.NIKCLI_TEST_HOME }}
-          XDG_DATA_HOME: ${{ env.XDG_DATA_HOME }}
-          XDG_CACHE_HOME: ${{ env.XDG_CACHE_HOME }}
-          XDG_CONFIG_HOME: ${{ env.XDG_CONFIG_HOME }}
-          XDG_STATE_HOME: ${{ env.XDG_STATE_HOME }}
-          NIKCLI_E2E_PROJECT_DIR: ${{ github.workspace }}
-          NIKCLI_E2E_SESSION_TITLE: "E2E Session"
-          NIKCLI_E2E_MESSAGE: "Seeded for UI e2e"
-          NIKCLI_E2E_MODEL: "nikcli/gpt-5-nano"
-
-      - name: Run nikcli server
-        if: matrix.settings.name != 'windows'
-        working-directory: packages/nikcli
-        run: bun dev -- --print-logs --log-level WARN serve --port 4096 --hostname 127.0.0.1 &
-        env:
-          MODELS_DEV_API_JSON: ${{ env.MODELS_DEV_API_JSON }}
-          NIKCLI_DISABLE_MODELS_FETCH: "true"
-          NIKCLI_DISABLE_SHARE: "true"
-          NIKCLI_DISABLE_LSP_DOWNLOAD: "true"
-          NIKCLI_DISABLE_DEFAULT_PLUGINS: "true"
-          NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER: "true"
-          NIKCLI_TEST_HOME: ${{ env.NIKCLI_TEST_HOME }}
-          XDG_DATA_HOME: ${{ env.XDG_DATA_HOME }}
-          XDG_CACHE_HOME: ${{ env.XDG_CACHE_HOME }}
-          XDG_CONFIG_HOME: ${{ env.XDG_CONFIG_HOME }}
-          XDG_STATE_HOME: ${{ env.XDG_STATE_HOME }}
-          NIKCLI_CLIENT: "app"
-
-      - name: Wait for nikcli server
-        if: matrix.settings.name != 'windows'
-        run: |
-          for _ in {1..120}; do
-            curl -fsS "http://127.0.0.1:4096/global/health" > /dev/null && exit 0
-            sleep 1
-          done
-          exit 1
 
       - name: run
         working-directory: ${{ matrix.settings.workdir }}
