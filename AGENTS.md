@@ -64,9 +64,11 @@ the contract and emits `dist`, so running it is safe.
 `ci-pipeline` runs `script/ci-validate.ts`. Two failure modes have bitten this
 repo more than once — check them before changing anything in that file:
 
-- **Validation runs no tests — do not add them back.** It is typecheck, lint,
-  format, route coverage and a handful of second-long static guards. The full
-  nikcli suite belongs to the `test` workflow.
+- **No workflow runs tests any more — do not add them back.** Not
+  `ci-validate.ts`, not `test.yml`, not `windows-compat.yml`. CI is typecheck,
+  lint, format, route coverage, the Windows runtime invariants and a handful of
+  second-long static guards. Releases gate on typecheck: `publish` needs
+  `validate`, and `railway-deploy` needs `publish`.
 
   The reason is not taste. The suite leaks roughly 80 MB per test file (each one
   builds nikcli instances and SQLite databases), so all ~350 files in one bun
