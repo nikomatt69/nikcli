@@ -8,7 +8,21 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
+      - name: Check Discord webhook
+        id: webhook
+        shell: bash
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DISCORD_WEBHOOK is not configured; skipping release notification"
+          fi
+
       - name: Send nicely-formatted embed to Discord
+        if: steps.webhook.outputs.configured == 'true'
         uses: SethCohen/github-releases-to-discord@v1
         with:
           webhook_url: ${{ secrets.DISCORD_WEBHOOK }}

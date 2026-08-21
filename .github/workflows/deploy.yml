@@ -24,7 +24,25 @@ jobs:
           node-version: "24"
 
       - name: Deploy nikcli site with SST
-        run: bun sst deploy --stage=${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -o pipefail
+          log="$RUNNER_TEMP/sst-deploy.log"
+
+          if bun sst deploy --stage="${{ github.ref_name }}" 2>&1 | tee "$log"; then
+            exit 0
+          fi
+
+          # SST persists a lock when an update is interrupted. GitHub's
+          # concurrency group serializes deployments for this stage, so a lock
+          # reported after this deployment starts is stale and can be removed.
+          if ! grep -Fq "A concurrent update was detected" "$log"; then
+            exit 1
+          fi
+
+          echo "::warning::Removing stale SST deployment lock and retrying"
+          bun sst unlock --stage="${{ github.ref_name }}"
+          bun sst deploy --stage="${{ github.ref_name }}"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
