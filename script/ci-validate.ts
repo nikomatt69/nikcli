@@ -72,39 +72,18 @@ const steps: ValidationStep[] = [
     timeout: 120_000,
     critical: false,
   },
-  {
-    // `test:ci`, not `test`: the `test` script fires a `pretest` hook that runs
-    // format:check and lint first, so a single unformatted file exited the step
-    // in 12s and reported itself as "Run tests" failing. Because the step is
-    // non-critical the pipeline stayed green — for weeks the suite never ran at
-    // all here. Formatting and lint are their own steps above now, and this one
-    // only runs tests.
-    //
-    // `test:ci` runs script/test-ci.ts, which shards the suite across
-    // short-lived bun processes. A single `--parallel=1` process gave each file
-    // a fresh global (it implies `--isolate`) but never handed memory back, so
-    // RSS climbed with the length of the run: CI died at file 175 of 348 with
-    // bun at 14.5 GB and MemAvailable at 447 MB. Killing the runner takes the
-    // job with it, which is why `critical: false` below did not contain it.
-    //
-    // The package script, not a bare `bun test` from the root: run from there
-    // Bun sweeps all 400+ test files in the monorepo — benchmarks, integration
-    // suites and the simulation tests that boot a real TUI — with none of the
-    // per-package bunfig (preload, timeout) applied. The full matrix is the
-    // `test` workflow's job; validation only needs fast feedback on the core.
-    name: "Run tests",
-    command: ["bun", "run", "test:ci"],
-    cwd: "packages/nikcli",
-    timeout: 1_200_000,
-    critical: false,
-  },
-  {
-    name: "Run release automation tests",
-    command: ["bun", "test", "test/release/automation.test.ts"],
-    cwd: "packages/nikcli",
-    timeout: 60_000,
-    critical: false,
-  },
+  // The full nikcli suite is deliberately NOT run here. It is ~350 files that
+  // cost this job 2.5 minutes at best, and it took the runner down outright at
+  // worst: a single bun process climbed to 14.5 GB and was killed at file 175,
+  // failing the job with exit 143 that `critical: false` could not contain.
+  // Running it as a non-critical step was worse than not running it — it burned
+  // the time and then reported "Validation passed (non-blocking failures: Run
+  // tests)", so real failures were logged and ignored.
+  //
+  // Validation runs no tests at all now: typecheck is the correctness signal
+  // here, and the rest of these steps are static checks that finish in seconds.
+  // The suite belongs to the `test` workflow; `bun run test:ci` in
+  // packages/nikcli runs it anywhere else, sharded so it does not OOM.
   {
     name: "Shell syntax check (install script)",
     command: ["bash", "-n", "install"],

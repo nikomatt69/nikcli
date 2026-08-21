@@ -64,14 +64,23 @@ the contract and emits `dist`, so running it is safe.
 `ci-pipeline` runs `script/ci-validate.ts`. Two failure modes have bitten this
 repo more than once — check them before changing anything in that file:
 
-- **The validate job is memory-bound.** A GitHub runner has ~16 GB, and the
-  nikcli suite leaks roughly 80 MB per test file (each one builds nikcli
-  instances and SQLite databases). Running all ~350 files in one bun process
-  reached 14.5 GB and got the runner killed at file 175, which fails the job
-  with exit 143 no matter how the step is marked — `critical: false` cannot
-  save a step whose runner is gone. `test:ci` therefore shards the suite across
-  short-lived processes via `packages/nikcli/script/test-ci.ts`. Do not collapse
-  it back into a single `bun test` invocation.
+- **Validation runs no tests — do not add them back.** It is typecheck, lint,
+  format, route coverage and a handful of second-long static guards. The full
+  nikcli suite belongs to the `test` workflow.
+
+  The reason is not taste. The suite leaks roughly 80 MB per test file (each one
+  builds nikcli instances and SQLite databases), so all ~350 files in one bun
+  process reached 14.5 GB on a ~16 GB runner and got it killed at file 175. That
+  fails the job with exit 143 however the step is marked — `critical: false`
+  cannot save a step whose runner is gone. Sharding stopped the crash but left
+  the job spending 2.5 minutes to print "Validation passed (non-blocking
+  failures: Run tests)", which is worse than not running them: the cost is paid
+  and the failures are ignored.
+- **To run the whole suite anywhere else**, use `bun run test:ci` in
+  `packages/nikcli`. It shards across short-lived bun processes via
+  `script/test-ci.ts`, keeping `--parallel=1` (hence `--isolate`) inside each
+  batch. Both halves matter: isolation per file, memory ceiling per batch. Do
+  not collapse it back into a single `bun test`.
 - **A `--detach` deploy reports success before it has built anything.** The
   Railway step only confirms the upload was accepted, so a broken image looks
   green here. The guards that stand in for it are
