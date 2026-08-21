@@ -128,6 +128,14 @@ const steps: ValidationStep[] = [
     timeout: 30_000,
   },
   {
+    // .railwayignore filters the repo-root `railway up` upload. A rule that
+    // drops something Dockerfile.serve COPYs fails the Railway build, not CI.
+    name: "Railway upload context check",
+    command: ["bun", "run", "script/check-railway-context.ts"],
+    critical: true,
+    timeout: 30_000,
+  },
+  {
     // GitHub's ubuntu runners ship pwsh; local machines may not, and a missing
     // shell must not turn into a red pipeline.
     //
