@@ -3,6 +3,28 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.306.0 (August 2026)
+
+## Core
+
+- Use available runner for test workflow (@cursoragent)
+- Complete workflow runtime migrations (@cursoragent)
+- Recover recurring workflow failures (@cursoragent)
+- Remove startup races in runtime checks (@cursoragent)
+
+## Extensions
+
+- Narrow generated client responses (@cursoragent)
+
+**Thank you to 1 community contributor:**
+
+- @cursoragent:
+  - fix(ci): remove startup races in runtime checks
+  - fix(ci): recover recurring workflow failures
+  - fix(ci): complete workflow runtime migrations
+  - fix(github): narrow generated client responses
+  - fix(ci): use available runner for test workflow
+
 ## v1.305.0 (August 2026)
 
 ## TUI
