@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.304.0 (August 2026)
+
+## Core
+
+- Stop GET /github/repos answering empty 400 (#239) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(mobile): stop GET /github/repos answering empty 400 (#239)
+
 ## v1.303.0 (August 2026)
 
 ## Core

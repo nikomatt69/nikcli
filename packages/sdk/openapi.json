@@ -5259,6 +5259,16 @@
               }
             }
           },
+          "400": {
+            "description": "MobileBadRequest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobileBadRequest"
+                }
+              }
+            }
+          },
           "401": {
             "description": "MobileUnauthorized",
             "content": {
@@ -5327,6 +5337,16 @@
                   "items": {
                     "$ref": "#/components/schemas/MobileGithubBranch"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MobileBadRequest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobileBadRequest"
                 }
               }
             }
@@ -36909,6 +36929,20 @@
         "required": ["name", "error"],
         "additionalProperties": false
       },
+      "MobileBadRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["BadRequest"]
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": ["name", "error"],
+        "additionalProperties": false
+      },
       "MobileGithubBranch": {
         "type": "object",
         "properties": {
@@ -39850,20 +39884,6 @@
           }
         },
         "required": ["deviceCode", "userCode", "verificationUri", "expiresAt", "interval"],
-        "additionalProperties": false
-      },
-      "MobileBadRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "enum": ["BadRequest"]
-          },
-          "error": {
-            "type": "string"
-          }
-        },
-        "required": ["name", "error"],
         "additionalProperties": false
       },
       "MobileGithubDeviceAuthPollResult": {
