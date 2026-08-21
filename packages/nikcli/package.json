@@ -15,7 +15,7 @@
     "format:check": "bunx prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "pretest": "bun run --parallel format:check lint",
     "test": "bun test --parallel --timeout 30000 --path-ignore-patterns='**/*benchmark*.test.ts' --path-ignore-patterns='**/*integration*.test.ts'",
-    "test:ci": "bun test --smol --parallel=1 --timeout 30000 --path-ignore-patterns='**/*benchmark*.test.ts' --path-ignore-patterns='**/*integration*.test.ts'",
+    "test:ci": "bun run script/test-ci.ts",
     "test:unit": "bun test --parallel --timeout 30000 --path-ignore-patterns='**/*benchmark*.test.ts' --path-ignore-patterns='**/*integration*.test.ts'",
     "test:integration": "bun test --timeout 60000 --path-ignore-patterns='**/*benchmark*.test.ts' test/workspace test/worktree test/session test/database",
     "test:coverage": "bun test --coverage --timeout 30000 --path-ignore-patterns='**/*benchmark*.test.ts' --path-ignore-patterns='**/*integration*.test.ts'",
