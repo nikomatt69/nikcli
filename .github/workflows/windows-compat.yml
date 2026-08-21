@@ -63,27 +63,17 @@ jobs:
           Write-Host "bun:   $(& bun --version)"
           Write-Host "pwsh:  $($PSVersionTable.PSVersion)"
 
-      # --- typecheck + unit suites that exercise the Windows fixes ---
+      # --- typecheck ---
+      #
+      # The four unit suites that used to run here (double-esc, session, config
+      # + worktree, util) were removed along with every other test invocation in
+      # CI. The Windows-specific runtime invariants below are kept: they are not
+      # `bun test` and they are the part that actually exercises the Windows
+      # fixes end to end.
 
       - name: typecheck
         shell: pwsh
         run: bun run typecheck
-
-      - name: tests — double-ESC interrupt state machine
-        shell: pwsh
-        run: bun test test/tui/util/double-esc.test.ts
-
-      - name: tests — session (retry jitter, prompt resolution)
-        shell: pwsh
-        run: bun test test/session
-
-      - name: tests — config + worktree (Effect TaggedError tags)
-        shell: pwsh
-        run: bun test test/config test/worktree
-
-      - name: tests — util (filesystem, lock, wildcard)
-        shell: pwsh
-        run: bun test test/util
 
       # --- Windows-specific runtime invariants ---
 
