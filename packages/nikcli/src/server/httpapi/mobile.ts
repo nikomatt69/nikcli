@@ -489,14 +489,14 @@ export namespace MobileHttpApi {
         // row would mean restating a third-party schema, which is exactly the
         // drift the open-payload exception is meant to avoid. Justified.
         success: Schema.Array(Schema.Unknown),
-        error: Unauthorized,
+        error: [Unauthorized, BadRequest],
       }).annotate(OpenApi.Identifier, "mobile.github.repos"),
     )
     .add(
       HttpApiEndpoint.get("githubBranches", "/github/repos/:owner/:repo/branches", {
         params: Schema.Struct({ owner: Schema.String, repo: Schema.String }),
         success: Schema.Array(MobileGithubBranchEffect),
-        error: Unauthorized,
+        error: [Unauthorized, BadRequest],
       }).annotate(OpenApi.Identifier, "mobile.github.branches"),
     )
     .add(
