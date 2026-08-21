@@ -1,5 +1,5 @@
-﻿/**
- * SessionManager â€” an in-memory registry of named {@link BrowserSession}s.
+/**
+ * SessionManager — an in-memory registry of named {@link BrowserSession}s.
  * Each session owns a Bun.WebView. The daemon wraps this over a Unix socket
  * so sessions outlive any single CLI invocation.
  */
@@ -63,8 +63,8 @@ export class SessionManager {
    * The session, marked as being used right now.
    *
    * Only for calls that actually drive the page. Asking a session what it is
-   * doing â€” {@link info}, {@link isRecording}, {@link recordingData},
-   * {@link videoPath}, {@link rawConsole} â€” must not count, or a client polling
+   * doing — {@link info}, {@link isRecording}, {@link recordingData},
+   * {@link videoPath}, {@link rawConsole} — must not count, or a client polling
    * status on a timer would keep a browser alive forever, which is the leak
    * {@link reapIdle} exists to close.
    */
@@ -77,7 +77,7 @@ export class SessionManager {
   /**
    * Stop sessions nobody has touched for `maxIdleMs`, and report their names.
    *
-   * A running session holds a browser â€” eleven OS processes on Windows â€” for as
+   * A running session holds a browser — eleven OS processes on Windows — for as
    * long as it exists, and the daemon's own idle shutdown cannot help: it waits
    * for zero running sessions, so one forgotten `start` pins the browser
    * indefinitely. Stopping the session is what eventually lets the daemon go.
@@ -233,7 +233,7 @@ export class SessionManager {
    * browser subprocess the whole Bun process shares, and Bun does not recover:
    * every later `new Bun.WebView()` fails with "Chrome process closed the pipe"
    * and then "Failed to spawn Chrome", for the life of the process. In a daemon
-   * â€” which is the whole nikcli session when it is hosted in-process â€” one
+   * — which is the whole nikcli session when it is hosted in-process — one
    * `close-all` would leave the browser tool dead until a restart. Closing each
    * view is enough; the subprocess goes away with its parent.
    */

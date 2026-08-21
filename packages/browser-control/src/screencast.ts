@@ -68,6 +68,11 @@ export class Screencast {
     return new Screencast(capture, viewport, options)
   }
 
+  /** False once {@link stop} has been called. */
+  get active(): boolean {
+    return !this.stopped
+  }
+
   private async loop(): Promise<void> {
     while (!this.stopped) {
       const started = Date.now()
