@@ -111,6 +111,31 @@ const steps: ValidationStep[] = [
     timeout: 10_000,
   },
   {
+    // The Railway deploy step runs this script with `--detach`, so a syntax
+    // error in it surfaces as a failed deploy nobody is watching rather than a
+    // red pipeline. Parse it here instead.
+    name: "Shell syntax check (railway-deploy)",
+    command: ["bash", "-n", "script/railway-deploy.sh"],
+    critical: true,
+    timeout: 10_000,
+  },
+  {
+    // A literal NIKCLI_VERSION in a Dockerfile goes stale silently — the image
+    // keeps reporting an old release and no build ever fails over it.
+    name: "Docker nikcli version check",
+    command: ["bun", "run", "script/check-docker-versions.ts"],
+    critical: true,
+    timeout: 30_000,
+  },
+  {
+    // .railwayignore filters the repo-root `railway up` upload. A rule that
+    // drops something Dockerfile.serve COPYs fails the Railway build, not CI.
+    name: "Railway upload context check",
+    command: ["bun", "run", "script/check-railway-context.ts"],
+    critical: true,
+    timeout: 30_000,
+  },
+  {
     // GitHub's ubuntu runners ship pwsh; local machines may not, and a missing
     // shell must not turn into a red pipeline.
     //

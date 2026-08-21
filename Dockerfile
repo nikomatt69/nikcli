@@ -75,12 +75,19 @@ COPY github github
 # Build nikcli binary for the current platform (linux-x64)
 # NIKCLI_CHANNEL avoids git branch lookup in build script (no .git in Docker context)
 ENV NIKCLI_CHANNEL=latest
-ENV NIKCLI_VERSION=1.216.0
 ENV XDG_DATA_HOME=/data
 ENV XDG_CACHE_HOME=/data/cache
 ENV XDG_CONFIG_HOME=/data/config
 ENV XDG_STATE_HOME=/data/state
-RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install && \
+# NIKCLI_VERSION must not be a literal here: pinned to 1.216.0 it kept stamping
+# that version long after the repo moved on. `release: vX.Y.Z` rewrites every
+# package.json before tagging, so packages/nikcli/package.json is always the
+# latest release — read it off the manifest already in this layer. Leaving the
+# variable unset is not an option either: build.ts would then query npm for
+# nikcli-ai@latest and stamp *patch + 1*, i.e. a version that does not exist yet.
+RUN cd /app/packages/nikcli && \
+    NIKCLI_VERSION="$(bun -e 'console.log(require("./package.json").version)')" \
+    bun run script/build.ts --single --skip-install && \
     set -- dist/*-linux-*/bin/nikcli && cp "$1" /usr/local/bin/nikcli && chmod +x /usr/local/bin/nikcli
 
 COPY packages/nikcli/scripts/railway-entrypoint.sh /usr/local/bin/nikcli-railway-entrypoint

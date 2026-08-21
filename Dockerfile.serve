@@ -111,9 +111,14 @@ COPY packages/browser-control /app/packages/browser-control
 COPY packages/computer-use /app/packages/computer-use
 
 ENV NIKCLI_CHANNEL=latest
-ENV NIKCLI_VERSION=1.216.0
 RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.4.5 @effect/platform-bun@4.0.0-beta.83
-RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install
+# NIKCLI_VERSION was pinned here as a literal and went stale (the image kept
+# stamping 1.216.0 long after the repo moved on). Read it off the manifest that
+# is already in the layer instead: deterministic, and no npm lookup at build
+# time, which is what the pin was there to avoid.
+RUN cd /app/packages/nikcli && \
+    NIKCLI_VERSION="$(bun -e 'console.log(require("./package.json").version)')" \
+    bun run script/build.ts --single --skip-install
 
 FROM base AS runtime
 
