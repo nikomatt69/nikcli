@@ -3,7 +3,6 @@
  * Each session owns a Bun.WebView. The daemon wraps this over a Unix socket
  * so sessions outlive any single CLI invocation.
  */
-import { bunUtils } from "@nikcli-ai/util/bun-utils"
 import {
   BrowserSession,
   type KeyInput,
@@ -57,7 +56,33 @@ export class SessionManager {
   private require(name: string): BrowserSession {
     const session = this.sessions.get(name)
     if (!session) throw new Error(`No browser session named "${name}". Use action "list" to see active sessions.`)
+    // Every operation on a session routes through here, which makes this the
+    // one place that can tell a session in use from one nobody came back to.
+    session.touch()
     return session
+  }
+
+  /**
+   * Stop sessions nobody has touched for `maxIdleMs`, and report their names.
+   *
+   * A running session holds a browser — eleven OS processes on Windows — for as
+   * long as it exists, and the daemon's own idle shutdown cannot help: it waits
+   * for zero running sessions, so one forgotten `start` pins the browser
+   * indefinitely. Stopping the session is what eventually lets the daemon go.
+   *
+   * Sessions are stopped, not removed, matching {@link stop}: post-mortem
+   * artifacts stay reachable, and `restart` still works on the name.
+   */
+  async reapIdle(maxIdleMs: number): Promise<string[]> {
+    if (maxIdleMs <= 0) return []
+    const cutoff = Date.now() - maxIdleMs
+    const reaped: string[] = []
+    for (const [name, session] of this.sessions) {
+      if (!session.isRunning() || session.isBusy() || session.lastUsedAt > cutoff) continue
+      await session.stop().catch(() => {})
+      reaped.push(name)
+    }
+    return reaped
   }
 
   list(): SessionInfo[] {
@@ -189,9 +214,19 @@ export class SessionManager {
     return this.require(name).videoPath()
   }
 
+  /**
+   * Close every session and forget them.
+   *
+   * Deliberately does *not* call `Bun.WebView.closeAll()`. That SIGKILLs the
+   * browser subprocess the whole Bun process shares, and Bun does not recover:
+   * every later `new Bun.WebView()` fails with "Chrome process closed the pipe"
+   * and then "Failed to spawn Chrome", for the life of the process. In a daemon
+   * — which is the whole nikcli session when it is hosted in-process — one
+   * `close-all` would leave the browser tool dead until a restart. Closing each
+   * view is enough; the subprocess goes away with its parent.
+   */
   async closeAll(): Promise<void> {
     for (const session of this.sessions.values()) await session.stop()
     this.sessions.clear()
-    bunUtils.WebView?.closeAll()
   }
 }
