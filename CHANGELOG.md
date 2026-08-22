@@ -3,6 +3,10 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.308.0 (August 2026)
+
+- No notable changes
+
 ## v1.305.0 (August 2026)
 
 ## TUI
