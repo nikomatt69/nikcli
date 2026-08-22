@@ -95,7 +95,7 @@ CompanionWsRoutes.get(
             if (session) {
               session.messages = session.messages || []
               session.messages.push(msg)
-              sessions.set(sessionId ?? ""          , session)
+              sessions.set(sessionId ?? "", session)
 
               if (msg.type === "system" && msg.subtype === "init") {
                 session.status = "running"
