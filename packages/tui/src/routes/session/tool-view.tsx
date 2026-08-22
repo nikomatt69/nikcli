@@ -141,9 +141,8 @@ export function ToolPartView(props: { last: boolean; streaming: boolean; entry: 
   /** v1 parts name it `tool`, v2 entries name it `name`. */
   const toolName = createMemo(() => props.entry.tool ?? props.entry.name ?? "")
   const sync = useSync()
-  const terminalDimensions = useTerminalDimensions()
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
-  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
+  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(ctx.height / 3)))
   const imagePreviewUrls = createMemo(() => {
     if (props.entry.state.status !== "completed") return []
     return (props.entry.state.attachments ?? [])

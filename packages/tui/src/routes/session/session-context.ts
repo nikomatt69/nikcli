@@ -11,6 +11,14 @@ import type { useSync } from "@tui/context/sync"
  */
 export type SessionViewContext = {
   width: number
+  /**
+   * Terminal height. Shared here rather than read from `useTerminalDimensions`
+   * per component: every subscriber is one `resize` listener on the renderer,
+   * and the message components below are instantiated once per rendered part —
+   * a long session blew past the emitter's cap and printed a
+   * MaxListenersExceededWarning over the first frame.
+   */
+  height: number
   sessionID: string
   conceal: () => boolean
   showThinking: () => boolean
