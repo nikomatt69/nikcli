@@ -13,7 +13,7 @@ const toc = [
   { title: "Engine lifecycle", href: "#lifecycle", depth: 2 },
   { title: "Triggers and stages", href: "#triggers-stages", depth: 2 },
   { title: "Auto-PR on completion", href: "#auto-pr", depth: 2 },
-  { title: "CLI subcommands", href: "#cli", depth: 2 },
+  { title: "HTTP and SDK operations", href: "#api", depth: 2 },
   { title: "Bus events", href: "#bus-events", depth: 2 },
   { title: "TUI surface", href: "#tui", depth: 2 },
   { title: "Mobile surface", href: "#mobile", depth: 2 },
@@ -53,7 +53,7 @@ const toc = [
       </DocCard>
       <DocCard title="Headless by design" eyebrow="No TUI required">
         <p>
-          Definitions are persisted in <code>Storage</code>; timers live in the server process.
+          Definitions are persisted in SQLite through <code>LoopRepo</code>; timers live in the server process.
           Loops fire on schedule regardless of whether a TUI is connected. A TUI that connects
           later syncs the live state through bus events.
         </p>
@@ -162,7 +162,7 @@ export const LoopTriggerSchema = z.discriminatedUnion("kind", [
   <section id="lifecycle" class="doc-section">
     <h2>Engine lifecycle</h2>
     <ol>
-      <li><strong>Register</strong> — the TUI/CLI calls <code>LoopEngine.upsert(def)</code> which persists the definition in <code>Storage</code> and arms (or re-arms) the interval timer in the core <code>Scheduler</code>.</li>
+      <li><strong>Register</strong> — the TUI or HTTP/SDK client calls <code>LoopEngine.upsert(def)</code>, which persists the definition through <code>LoopRepo</code> and arms (or re-arms) the interval timer in the core <code>Scheduler</code>.</li>
       <li><strong>Fire</strong> — the <code>Scheduler</code> calls the engine's <code>run</code> callback. The engine claims the per-loop single-flight slot and a slot in the global <code>MAX_CONCURRENT_RUNS = 3</code> pool.</li>
       <li><strong>Drive</strong> — the engine runs the stages in order. Each stage is a single <code>SessionPrompt.command(&lbrace; command: "goal" &rbrace;)</code> call. The agent's own goal loop (<code>src/session/goal.ts</code>) does the until-done iteration.</li>
       <li><strong>Persist</strong> — every stage transition renews the lease/heartbeat and writes a <code>LoopRun</code> record. Status flips to <code>complete</code>, <code>error</code>, or <code>timeout</code> when the run ends.</li>
@@ -182,7 +182,7 @@ export const LoopTriggerSchema = z.discriminatedUnion("kind", [
     <h3>Manual trigger</h3>
     <p>
       Manual loops never fire on a timer. They are started by the user through
-      <code>nikcli loop run &lt;id&gt;</code>, the TUI loop dialog, or the SDK. Use a manual loop
+      the TUI loop dialog or the HTTP/SDK interface. Use a manual loop
       when the work is infrequent or you want the user to opt in every time.
     </p>
     <h3>Interval trigger</h3>
@@ -240,35 +240,30 @@ stages:
     </p>
   </section>
 
-  <section id="cli" class="doc-section">
-    <h2>CLI subcommands</h2>
+  <section id="api" class="doc-section">
+    <h2>HTTP and SDK operations</h2>
     <p>
-      The CLI surface is part of the same headless engine and is the recommended way to manage
-      loops from a script or cron.
+      There is no top-level <code>nikcli loop</code> command. Manage loops through the TUI or the
+      generated SDK, which calls the Effect HttpApi routes below.
     </p>
     <table class="doc-table">
-      <thead><tr><th>Subcommand</th><th>Purpose</th></tr></thead>
+      <thead><tr><th>Route</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td><code>nikcli loop list</code></td><td>List all loops for the current project.</td></tr>
-        <tr><td><code>nikcli loop create</code></td><td>Create a loop interactively or with flags.</td></tr>
-        <tr><td><code>nikcli loop get &lt;id&gt;</code></td><td>Show full definition, runtime status, and the last few runs.</td></tr>
-        <tr><td><code>nikcli loop run &lt;id&gt;</code></td><td>Trigger an immediate run (manual or interval loops).</td></tr>
-        <tr><td><code>nikcli loop pause &lt;id&gt;</code></td><td>Stop firing triggers. In-flight runs are not aborted.</td></tr>
-        <tr><td><code>nikcli loop resume &lt;id&gt;</code></td><td>Re-enable the loop's triggers.</td></tr>
-        <tr><td><code>nikcli loop cancel &lt;run-id&gt;</code></td><td>Cancel an in-flight run.</td></tr>
-        <tr><td><code>nikcli loop delete &lt;id&gt;</code></td><td>Delete the loop and its run history. Prompts for confirmation unless <code>--yes</code> is passed.</td></tr>
+        <tr><td><code>GET /loop</code></td><td>List loops and their current runtime state.</td></tr>
+        <tr><td><code>PUT /loop</code></td><td>Create a loop from a definition.</td></tr>
+        <tr><td><code>GET /loop/:id</code></td><td>Read a loop and its runtime state.</td></tr>
+        <tr><td><code>POST /loop/:id/run</code></td><td>Trigger an immediate run.</td></tr>
+        <tr><td><code>POST /loop/:id/pause</code></td><td>Stop firing triggers without aborting an in-flight run.</td></tr>
+        <tr><td><code>POST /loop/:id/resume</code></td><td>Re-enable the loop's triggers.</td></tr>
+        <tr><td><code>POST /loop/:id/abort</code></td><td>Abort the loop's in-flight run.</td></tr>
+        <tr><td><code>DELETE /loop/:id</code></td><td>Delete the loop and its run history.</td></tr>
       </tbody>
     </table>
     <DocCode language="bash">
-nikcli loop create --name "triage-and-fix" \
-  --stage "triage:plan:Triage open issues and rank by impact" \
-  --stage "draft-fix:build:Open a draft PR for the top issue" \
-  --every 30m
-
-nikcli loop run lop_abc123
-nikcli loop pause lop_abc123
-nikcli loop resume lop_abc123
-nikcli loop delete lop_abc123 --yes
+curl http://127.0.0.1:4096/loop
+curl -X POST http://127.0.0.1:4096/loop/lop_abc123/run
+curl -X POST http://127.0.0.1:4096/loop/lop_abc123/pause
+curl -X POST http://127.0.0.1:4096/loop/lop_abc123/resume
     </DocCode>
   </section>
 

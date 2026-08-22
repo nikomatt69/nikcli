@@ -10,7 +10,7 @@ This fork is maintained by **nikomatt69**. On top of the OpenCode base, nikcli a
 
 - **Upstream project**: OpenCode — [github.com/anomalyco/opencode](https://github.com/anomalyco/opencode)
 - **Maintainer of this fork**: nikomatt69 — [GitHub](https://github.com/nikomatt69) · [X](https://x.com/nikomatt69)
-- **Version**: `1.149.0` · Package manager: `bun@1.4.0`
+- **Release**: see [GitHub Releases](https://github.com/nikomatt69/nikcli/releases/latest) · Package manager: `bun@1.4.0`
 - **License**: MIT — see `LICENSE`, which retains the upstream OpenCode copyright.
 
 ---
@@ -54,7 +54,7 @@ Nikcli is not just a CLI to chat with a model: it is a **complete agentic platfo
 - **Plugin runtime** — plugin installation with hot-reload for TUI, agents and tools (`nikcli plug install <mod>`).
 - **ACP server** — implements the [Agent Client Protocol](https://github.com/zed-industries/acp) to integrate with external editors and IDEs (`nikcli acp`).
 - **Missions** — high-altitude workflows that decompose a goal into milestones, each holding a DAG of features with a validation checkpoint per milestone (`nikcli mission`). Headless, server-side orchestrator.
-- **Loops** — named, persisted workflows that run an ordered list of stages, each driven by a single `goal` command (`nikcli loop`). The headless LoopEngine keeps firing on schedule even when the TUI is closed.
+- **Loops** — named, persisted workflows that run an ordered list of stages, each driven by a single `goal` command. Manage them through the TUI or HTTP/SDK; the headless LoopEngine keeps firing on schedule when the TUI is closed.
 - **Observability** — OpenTelemetry (OTLP) trace export and a live in-process telemetry panel (configurable through `OTEL_EXPORTER_OTLP_ENDPOINT` and `NIKCLI_DISABLE_OTEL_LIVE`).
 
 Everything is orchestrated by an internal **event bus**, a **SQLite/Drizzle persistence** layer, and a service architecture built with `Effect` (typed schema validation, dependency injection, layer composition).
@@ -112,15 +112,15 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts
 
 Useful development scripts:
 
-| Script                                         | Description                                                                          |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `bun run dev`                                  | Start the nikcli CLI/TUI from source                                                 |
-| `bun run typecheck`                            | `bun turbo typecheck` across the whole workspace                                     |
-| `bun run build`                                | Build all packages                                                                   |
-| `bun run web:dev`                              | Dev server for the `packages/web` site                                               |
-| `cd packages/sdk/js && bun script/build.ts`    | Regenerate the JavaScript SDK after modifying `packages/nikcli/src/server/server.ts` |
-| `cd packages/nikcli && bun run bench`          | TUI bench (`test/bench/viz.tsx`)                                                     |
-| `cd packages/nikcli && bun run sandbox:vercel` | Vercel sandbox smoke test                                                            |
+| Script                                                   | Description                                                    |
+| -------------------------------------------------------- | -------------------------------------------------------------- |
+| `bun run dev`                                            | Start the nikcli CLI/TUI from source                           |
+| `bun run typecheck`                                      | `bun turbo typecheck` across the whole workspace               |
+| `bun run build`                                          | Build all packages                                             |
+| `bun run web:dev`                                        | Dev server for the `packages/web` site                         |
+| `bun run --cwd packages/nikcli generate:httpapi-clients` | Regenerate clients after modifying the Effect HttpApi contract |
+| `cd packages/nikcli && bun run bench`                    | TUI bench (`test/bench/viz.tsx`)                               |
+| `cd packages/nikcli && bun run sandbox:vercel`           | Vercel sandbox smoke test                                      |
 
 ---
 
@@ -244,7 +244,7 @@ worktree/       # git worktree management
 
 ## CLI: all commands
 
-All main commands (registered in `packages/nikcli/src/index.ts`):
+All main commands (registered in `packages/nikcli/src/cli-main.ts`):
 
 | Command                                                                       | Purpose                                                                                               |
 | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------- | ------------------------------------ |
@@ -252,7 +252,6 @@ All main commands (registered in `packages/nikcli/src/index.ts`):
 | `nikcli run [message..]`                                                      | Runs a one-shot prompt non-interactively; supports model variants, agent, session, fork, attachments. |
 | `nikcli goal [condition..]`                                                   | Works autonomously until a verifiable condition holds (Goal engine with budget and persistent state). |
 | `nikcli mission`                                                              | Headless Mission orchestrator: new, start, pause, resume, cancel, get, list.                          |
-| `nikcli loop`                                                                 | Headless Loop engine: create, list, get, run, pause, resume, cancel, delete.                          |
 | `nikcli routine`                                                              | Create / list / get / run / pause / resume / delete routines (cron + API trigger).                    |
 | `nikcli generate`                                                             | Prints the server OpenAPI spec with JS SDK samples.                                                   |
 | `nikcli acp`                                                                  | Starts an ACP (Agent Client Protocol) server for external editors.                                    |

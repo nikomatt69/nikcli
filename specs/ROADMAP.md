@@ -409,6 +409,11 @@ Diagnosing phase 2 took two blind cycles because the 400 had an **empty body and
 
 ### 2026-08-20 — E5 (typed Effect failure channel on session handlers)
 
+> **Status correction (2026-08-22): reopened.** The current tree still routes session handler
+> failures through `Effect.catchDefect(asSessionError)`, and `SessionRevert` still uses the
+> untyped `Effect.tryPromise(() => ...)` form. The intended implementation below remains the E5
+> completion target, not a description of the current source.
+
 **404/409 are typed failures now, never defects.** `httpapi/session.ts`'s `declaredErrors` used `catch` + `catchDefect` because a handful of raw `Effect.promise` sites surfaced domain errors as defects; it is now a single `catch` over the typed channel.
 
 - `httpapi/session.ts` gained two helpers next to `asSessionError`: `trySessionPromise` (a promise whose rejection is a declared `SessionError.NotFoundError` / `Session.BusyError`, left on the typed failure channel for `asSessionError`; anything else re-raised as a defect) and `fromPromise` (`Effect.promise` + `orDie`, for true unknown I/O). Domain-throwing sites (`MessageV2.get` ×2, `SessionContext.breakdown` ×2, `SessionV2.entries`, `Monitor.get/readLog/cancel` ×3) moved to `trySessionPromise`; I/O sites (`Array.fromAsync`, the abort cancels, `collectSystemPaths`, `Delegation.listJobs`) moved to `fromPromise`. `declaredErrors` dropped `catchDefect`.
