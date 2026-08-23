@@ -34,6 +34,7 @@ import { getContainerRuntimeInfo } from "@/workspace/adaptors"
 import { PromptStashStore } from "@nikcli-ai/util/prompt-stash"
 import { parseJsonl } from "@/bun"
 import { Artifact } from "@/artifact"
+import { Snapshot } from "@/snapshot"
 import { Log } from "@nikcli-ai/util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstance, withInstanceAsync } from "@/effect"
@@ -104,7 +105,7 @@ export function runSessionForSession<A, E>(
   )
 }
 
-export function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service>) {
+export function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service | Snapshot.Service | Session.Service>) {
   return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
 }
 

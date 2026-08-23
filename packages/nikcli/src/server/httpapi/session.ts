@@ -870,7 +870,12 @@ export namespace SessionHttpApi {
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
-        const msg = yield* Effect.promise(() => MessageV2.get(params))
+        // `MessageV2.get` rejects with `SessionNotFoundError` for a missing
+        // message; preserve that domain rejection on the typed channel (E5.3).
+        const msg = yield* Effect.tryPromise({
+          try: () => MessageV2.get(params),
+          catch: Session.asSessionError,
+        })
         return msg
       }).pipe(declaredErrors),
     messageRemove: ({ params }: { params: typeof MessagePath.Type }) =>
@@ -904,12 +909,16 @@ export namespace SessionHttpApi {
             `Part mismatch: body.id='${part.id}' vs partID='${params.partID}', body.messageID='${part.messageID}' vs messageID='${params.messageID}', body.sessionID='${part.sessionID}' vs sessionID='${params.sessionID}'`,
           )
         }
-        yield* Effect.promise(() =>
-          MessageV2.get({
-            sessionID: params.sessionID,
-            messageID: params.messageID,
-          }),
-        )
+        // `MessageV2.get` rejects with `SessionNotFoundError` for a missing
+        // message; preserve that domain rejection on the typed channel (E5.3).
+        yield* Effect.tryPromise({
+          try: () =>
+            MessageV2.get({
+              sessionID: params.sessionID,
+              messageID: params.messageID,
+            }),
+          catch: Session.asSessionError,
+        })
         // The zod union's input is `MessageV2.Part | { part, delta }`. The
         // schema member matches what the wire sends (a full Part); the cast
         // is the boundary between the zod-style union and an Effect-side
@@ -920,7 +929,13 @@ export namespace SessionHttpApi {
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
-        const entries = yield* Effect.promise(() => SessionV2.entries(params.sessionID))
+        // `SessionV2.entries` rejects with `SessionNotFoundError` for a
+        // missing session; preserve the domain rejection on the typed
+        // channel (E5.3).
+        const entries = yield* Effect.tryPromise({
+          try: () => SessionV2.entries(params.sessionID),
+          catch: Session.asSessionError,
+        })
         return jsonSafe(entries)
       }).pipe(declaredErrors),
     v2State: ({ params }: { params: typeof SessionIDPath.Type }) =>
@@ -952,7 +967,13 @@ export namespace SessionHttpApi {
       }).pipe(declaredErrors),
     contextBreakdown: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
-        const result = yield* Effect.promise(() => SessionContext.breakdown(params.sessionID))
+        // `SessionContext.breakdown` rejects with `SessionNotFoundError`
+        // for a missing session; preserve the domain rejection on the
+        // typed channel (E5.3).
+        const result = yield* Effect.tryPromise({
+          try: () => SessionContext.breakdown(params.sessionID),
+          catch: Session.asSessionError,
+        })
         return result
       }).pipe(declaredErrors),
     contextToggle: ({
@@ -1013,7 +1034,13 @@ export namespace SessionHttpApi {
             draft.disabledInstructions = [...set]
           })
         }
-        const result = yield* Effect.promise(() => SessionContext.breakdown(params.sessionID))
+        // `SessionContext.breakdown` rejects with `SessionNotFoundError`
+        // for a missing session; preserve the domain rejection on the
+        // typed channel (E5.3).
+        const result = yield* Effect.tryPromise({
+          try: () => SessionContext.breakdown(params.sessionID),
+          catch: Session.asSessionError,
+        })
         return result
       }).pipe(declaredErrors),
     goal: ({ params }: { params: typeof SessionIDPath.Type }) =>
@@ -1049,19 +1076,30 @@ export namespace SessionHttpApi {
       Effect.promise(() => Delegation.cancelJobForSession(params.sessionID, params.delegationID)).pipe(Effect.orDie),
     monitor: ({ params }: { params: typeof MonitorPath.Type }) =>
       Effect.gen(function* () {
-        const record = yield* Effect.promise(() => Monitor.get(params.sessionID, params.monitorID))
+        // `Monitor.get` rejects with `SessionNotFoundError` for a missing
+        // session; preserve the domain rejection on the typed channel
+        // (E5.3).
+        const record = yield* Effect.tryPromise({
+          try: () => Monitor.get(params.sessionID, params.monitorID),
+          catch: Session.asSessionError,
+        })
         return record ?? null
       }).pipe(declaredErrors),
     monitorLog: ({ params, query }: { params: typeof MonitorPath.Type; query: typeof MonitorLogQuery.Type }) =>
       Effect.gen(function* () {
-        const snapshot = yield* Effect.promise(() =>
-          Monitor.readLog(params.sessionID, params.monitorID, query.lines ?? 200),
-        )
+        const snapshot = yield* Effect.tryPromise({
+          try: () =>
+            Monitor.readLog(params.sessionID, params.monitorID, query.lines ?? 200),
+          catch: Session.asSessionError,
+        })
         return snapshot ?? null
       }).pipe(declaredErrors),
     monitorCancel: ({ params }: { params: typeof MonitorPath.Type }) =>
       Effect.gen(function* () {
-        const record = yield* Effect.promise(() => Monitor.cancel(params.sessionID, params.monitorID))
+        const record = yield* Effect.tryPromise({
+          try: () => Monitor.cancel(params.sessionID, params.monitorID),
+          catch: Session.asSessionError,
+        })
         return record ?? null
       }).pipe(declaredErrors),
   }

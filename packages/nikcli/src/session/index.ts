@@ -909,8 +909,13 @@ export namespace Session {
    *
    * Session rows and derived state are SQL. Keep implementation failures in
    * the closed session-domain error union exposed by the service.
+   *
+   * Exported (E5.2) so the cross-service adapters in `session/revert.ts` and
+   * `session/summary.ts` can normalize their Promise rejections onto the
+   * same channel instead of falling through `Effect.tryPromise`'s default
+   * `UnknownError` wrapping.
    */
-  function asSessionError(e: unknown): Error {
+  export function asSessionError(e: unknown): Error {
     if (e instanceof BusyError) return e
     if (e instanceof SessionError.NotFoundError) return e
     if (e instanceof SessionError.IOError) return e

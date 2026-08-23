@@ -5,8 +5,12 @@ import os from "os"
 import path from "path"
 import { removeTestDir } from "../helpers/fs"
 import type { MessageV2 as MessageV2Types } from "../../src/session/message-v2"
-import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
+import { Cause, Effect, Layer } from "effect"
+import {
+  runPromiseExitWithLayer,
+  runPromiseWithLayer,
+  withCurrentInstance,
+} from "../../src/effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -40,6 +44,10 @@ const projectDirs: string[] = []
 
 function runRevert<A, E>(effect: Effect.Effect<A, E, any>) {
   return runPromiseWithLayer(SessionRevert.defaultLayer, withCurrentInstance(effect))
+}
+
+function runRevertExit<A, E>(effect: Effect.Effect<A, E, any>) {
+  return runPromiseExitWithLayer(SessionRevert.defaultLayer, withCurrentInstance(effect))
 }
 
 function runSession<A, E>(effect: Effect.Effect<A, E, any>) {
@@ -343,6 +351,73 @@ describe("session lifecycle", () => {
       )
 
       expect(unarchived.time.archived).toBeUndefined()
+    })
+  })
+
+  // E5.1 — pin the channel before changing it. The revert / summary adapters
+  // currently wrap their implementations in `Effect.tryPromise(() => …)` with
+  // no rejection mapping. A missing session therefore surfaces as a generic
+  // defect, not as the typed `Session.NotFoundError` the service exposes.
+  // These assertions inspect `Exit` / `Cause` to prove whether the failure
+  // is a typed fail or an untyped die. They fail today against the untyped
+  // adapters and go green after E5.2 supplies an explicit `catch`.
+  describe("E5.1 typed failure channel", () => {
+    it("SessionRevert.revert rejects with SessionNotFoundError on a typed failure channel", async () => {
+      await withProject(async () => {
+        const missingID = Identifier.descending("session")
+        const exit = await runRevertExit(
+          Effect.gen(function* () {
+            const revert = yield* SessionRevert.Service
+            return yield* revert.revert({
+              sessionID: missingID,
+              messageID: "msg_does_not_exist",
+            })
+          }),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        const error = Cause.squash(exit.cause)
+        expect(error).toBeInstanceOf(SessionError.NotFoundError)
+      })
+    })
+
+    it("SessionRevert.unrevert rejects with SessionNotFoundError on a typed failure channel", async () => {
+      await withProject(async () => {
+        const missingID = Identifier.descending("session")
+        const exit = await runRevertExit(
+          Effect.gen(function* () {
+            const revert = yield* SessionRevert.Service
+            return yield* revert.unrevert({ sessionID: missingID })
+          }),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        const error = Cause.squash(exit.cause)
+        expect(error).toBeInstanceOf(SessionError.NotFoundError)
+      })
+    })
+
+    it("SessionSummary.diff rejects with SessionNotFoundError on a typed failure channel", async () => {
+      await withProject(async () => {
+        const { SessionSummary } = await import("../../src/session/summary")
+        const missingID = Identifier.descending("session")
+        // SessionSummary.defaultLayer provides SessionSummary.Service only;
+        // Session.Service must be in the same layer stack for `diff` to
+        // resolve a missing session on the typed channel.
+        const exit = await runPromiseExitWithLayer(
+          Layer.merge(SessionSummary.defaultLayer, Session.defaultLayer),
+          withCurrentInstance(
+            Effect.gen(function* () {
+              const summary = yield* SessionSummary.Service
+              return yield* summary.diff({ sessionID: missingID })
+            }),
+          ),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        const error = Cause.squash(exit.cause)
+        expect(error).toBeInstanceOf(SessionError.NotFoundError)
+      })
     })
   })
 })

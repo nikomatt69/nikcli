@@ -26,6 +26,7 @@ import { Command } from "../command"
 import { fileURLToPath } from "bun"
 import { Config } from "../config/config"
 import { SessionSummary } from "./summary"
+import { Snapshot } from "@/snapshot"
 import { SessionGoal } from "./goal"
 import { EventError } from "./event-error"
 import { fn } from "@/util/fn"
@@ -145,7 +146,7 @@ export namespace SessionPrompt {
     )
   }
 
-  function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service>) {
+  function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service | Session.Service | Snapshot.Service>) {
     return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
   }
 
