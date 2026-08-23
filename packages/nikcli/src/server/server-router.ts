@@ -185,7 +185,7 @@ export namespace ServerRouter {
         name: "Unknown",
         data: {
           message: isError ? error.message : String(error),
-          ...(process.env.NIKCLI_DEBUG === "1" && isError ? { stack: error.stack } : {}),
+          ...(process.env.NIKCLI_DEBUG === "1" && isError ? { stack: error.stack } : undefined),
         },
       },
       { status: 500 },

@@ -26,8 +26,8 @@ function makeSource(input: {
     tool_call: true,
     limit: { context: 200_000, output: input.output },
     options: {},
-    ...(input.npm ? { provider: { npm: input.npm, api: "https://example.com" } } : {}),
-    ...(input.reasoning_options ? { reasoning_options: input.reasoning_options } : {}),
+    ...(input.npm ? { provider: { npm: input.npm, api: "https://example.com" } } : undefined),
+    ...(input.reasoning_options ? { reasoning_options: input.reasoning_options } : undefined),
   } as unknown as ModelsDev.Model
 }
 

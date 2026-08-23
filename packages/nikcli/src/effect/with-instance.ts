@@ -42,7 +42,7 @@ export function withInstance<A, E, R>(input: WithInput, effect: Effect.Effect<A,
  * scoped runtime replaces the promise cache.
  */
 export function withInstanceAsync<R>(
-  input: WithInput & { init?: () => Promise<unknown> },
+  input: WithInput & { init?: () => Promise<void> },
   fn: () => Promise<R>,
 ): Promise<R> {
   if (input.init) {

@@ -120,7 +120,7 @@ const RemoteStartCommand = cmd({
           session = await remoteService.startSession({
             name: args.name as string | undefined,
             timeout: parseInt(args.timeout as string, 10) * 1000,
-            ...(cloud ? { cloud } : {}),
+            ...(cloud ? { cloud } : undefined),
           })
           terminalStarted = true
 
@@ -333,8 +333,8 @@ function resolveCloudOptions(args: Record<string, unknown>): SessionOptions["clo
     url: cloudUrl,
     token: cloudToken,
     deviceID: cloudDeviceID,
-    ...(cloudSessionID ? { sessionID: cloudSessionID } : {}),
-    ...(cloudPublicKey ? { publicKey: cloudPublicKey } : {}),
+    ...(cloudSessionID ? { sessionID: cloudSessionID } : undefined),
+    ...(cloudPublicKey ? { publicKey: cloudPublicKey } : undefined),
   }
 }
 

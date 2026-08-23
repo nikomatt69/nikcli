@@ -147,7 +147,7 @@ export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_
             calls[index] = {
               tool: name,
               status: "running",
-              ...(shown && Object.keys(shown).length > 0 ? { input: shown } : {}),
+              ...(shown && Object.keys(shown).length > 0 ? { input: shown } : undefined),
             }
             publish()
           }),
@@ -226,7 +226,9 @@ export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_
           truncated: result.truncated ?? false,
           toolCalls: calls,
           durationMs,
-          ...(result.warnings && result.warnings.length > 0 ? { warnings: result.warnings.map((w) => w.message) } : {}),
+          ...(result.warnings && result.warnings.length > 0
+            ? { warnings: result.warnings.map((w) => w.message) }
+            : undefined),
         },
       }
     },

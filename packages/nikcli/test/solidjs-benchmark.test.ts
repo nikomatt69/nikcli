@@ -8,7 +8,7 @@ describe("SolidJS Effects Performance Benchmark", () => {
       const iterations = 10000
 
       const [trigger, setTrigger] = createSignal(0)
-      const [unused, setUnused] = createSignal(0)
+      const [_unused, _setUnused] = createSignal(0)
 
       let bareEffectRuns = 0
       let onEffectRuns = 0
@@ -65,9 +65,9 @@ describe("SolidJS Effects Performance Benchmark", () => {
       const iterations = 5000
 
       const [trigger, setTrigger] = createSignal(0)
-      const [unused1, setUnused1] = createSignal(0)
-      const [unused2, setUnused2] = createSignal(0)
-      const [unused3, setUnused3] = createSignal(0)
+      const [unused1, _setUnused1] = createSignal(0)
+      const [unused2, _setUnused2] = createSignal(0)
+      const [unused3, _setUnused3] = createSignal(0)
 
       let bareRuns = 0
       let onRuns = 0
@@ -220,7 +220,6 @@ describe("SolidJS Effects Performance Benchmark", () => {
       const iterations = 5000
 
       const [props, setProps] = createSignal({ a: 0, b: 0, c: 0 })
-
       let objectRuns = 0
       let arrayRuns = 0
 

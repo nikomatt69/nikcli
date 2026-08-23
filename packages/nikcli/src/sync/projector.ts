@@ -14,6 +14,7 @@
  * needs to reconstruct the row. Anything else (full messages, snapshots)
  * lives in its own table and is fetched on demand.
  */
+import z from "zod"
 import type { SyncEventRecord } from "./index"
 
 export type WorkspaceState = {
@@ -75,22 +76,44 @@ const PERMISSION_EVENT_TYPES = new Set(["permission.asked", "permission.replied"
 
 const QUESTION_EVENT_TYPES = new Set(["question.asked", "question.replied", "question.rejected"])
 
+const WorkspacePayload = z.object({
+  type: z.string().optional(),
+  name: z.string().optional(),
+  branch: z.string().nullish(),
+  config: z.unknown().optional(),
+  timeUsed: z.number().optional(),
+  status: z.string().optional(),
+})
+
+const SessionEnvelope = z.object({
+  info: z.unknown().optional(),
+  properties: z.unknown().optional(),
+})
+
+const SessionPayload = z.object({
+  workspaceID: z.string().nullish(),
+  title: z.string().optional(),
+  parentID: z.string().optional(),
+})
+
+const IdentifiedPayload = z.object({ id: z.string().optional() })
+
 export const SyncProjector = {
   workspace: (state: WorkspaceState, event: SyncEventRecord): WorkspaceState => {
-    if (!event.data || typeof event.data !== "object") return state
-    const data = event.data as Record<string, any>
-    const type = data.type
-    switch (type) {
+    const parsed = WorkspacePayload.safeParse(event.data)
+    if (!parsed.success) return state
+    const data = parsed.data
+    switch (data.type) {
       case "workspace.created": {
         return {
           ...state,
           id: event.aggregate,
           projectID: event.projectId,
-          name: typeof data.name === "string" ? data.name : state.name,
+          name: data.name ?? state.name,
           branch: data.branch !== undefined ? data.branch : (state.branch ?? null),
           config: data.config ?? state.config,
           removed: false,
-          timeUsed: typeof data.timeUsed === "number" ? data.timeUsed : state.timeUsed,
+          timeUsed: data.timeUsed ?? state.timeUsed,
           lastTouchedAt: event.timestamp,
         }
       }
@@ -107,7 +130,7 @@ export const SyncProjector = {
       case "workspace.statusChanged": {
         return {
           ...state,
-          status: typeof data.status === "string" ? data.status : state.status,
+          status: data.status ?? state.status,
           lastTouchedAt: event.timestamp,
         }
       }
@@ -120,12 +143,14 @@ export const SyncProjector = {
   },
 
   session: (state: SessionState, event: SyncEventRecord): SessionState => {
-    if (!event.data || typeof event.data !== "object") return state
     if (!SESSION_EVENT_TYPES.has(baseType(event.type))) return state
-    const data = event.data as Record<string, any>
+    const envelope = SessionEnvelope.safeParse(event.data)
+    if (!envelope.success) return state
     // Three shapes reach here: the flat legacy payload, the bridge's
     // `{ type, properties }` envelope, and `SyncEvent`'s `{ sessionID, info }`.
-    const source = data.info ?? data.properties ?? data
+    const parsed = SessionPayload.safeParse(envelope.data.info ?? envelope.data.properties ?? event.data)
+    if (!parsed.success) return state
+    const source = parsed.data
     return {
       ...state,
       id: event.aggregate,
@@ -139,8 +164,7 @@ export const SyncProjector = {
 
   permission: (state: PermissionState, event: SyncEventRecord): PermissionState => {
     if (!PERMISSION_EVENT_TYPES.has(baseType(event.type))) return state
-    const data = event.data as Record<string, any>
-    const id = (data.id as string | undefined) ?? event.aggregate
+    const id = IdentifiedPayload.safeParse(event.data).data?.id ?? event.aggregate
     return {
       ...state,
       id,
@@ -152,8 +176,7 @@ export const SyncProjector = {
 
   question: (state: QuestionState, event: SyncEventRecord): QuestionState => {
     if (!QUESTION_EVENT_TYPES.has(baseType(event.type))) return state
-    const data = event.data as Record<string, any>
-    const id = (data.id as string | undefined) ?? event.aggregate
+    const id = IdentifiedPayload.safeParse(event.data).data?.id ?? event.aggregate
     return {
       ...state,
       id,

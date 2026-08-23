@@ -21,7 +21,6 @@ import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
-  const COMMAND_PREFIX = SKILL_COMMAND_PREFIX
 
   const InfoSchema = Schema.Struct({
     name: Schema.String,
@@ -105,8 +104,6 @@ export namespace Skill {
   const EXTERNAL_SKILL_GLOB = new Bun.Glob("skills/**/SKILL.md")
 
   const NIKCLI_SKILL_GLOB = new Bun.Glob("{skill,skills}/**/SKILL.md")
-  const CLAUDE_SKILL_GLOB = new Bun.Glob("skills/**/SKILL.md")
-  const SKILL_GLOB = new Bun.Glob("**/SKILL.md")
 
   function normalizeName(input: string) {
     return input.toLowerCase().replace(/[^a-z0-9]+/g, "")

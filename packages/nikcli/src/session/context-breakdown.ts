@@ -361,7 +361,7 @@ export namespace SessionContext {
           label: tool.id,
           // `detail` is `optionalKey` on the route: a present `undefined`
           // fails the response encode instead of omitting the field.
-          ...(firstLine ? { detail: firstLine.slice(0, 80) } : {}),
+          ...(firstLine ? { detail: firstLine.slice(0, 80) } : undefined),
           tokens: toolTokens(tool.description, schema),
           enabled: ToolRegistry.enabled(tool.id, disabledTools),
           togglable: true,
@@ -419,7 +419,7 @@ export namespace SessionContext {
               contextLimit: model.limit.input ?? model.limit.context,
             },
           }
-        : {}),
+        : undefined),
       reported,
       sources,
       estimatedTotal,

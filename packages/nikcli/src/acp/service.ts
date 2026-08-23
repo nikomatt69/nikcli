@@ -195,15 +195,7 @@ export function make(options: ACPServiceOptions): ACPAgentInterface {
     const variant = selectVariant(snapshot, selected)
     const modeId = snapshot.availableModes.length > 0 ? snapshot.defaultModeID : undefined
 
-    const created = await sdk.session
-      .create(
-        {
-          directory: params.cwd,
-          ...(modeId ? { agent: modeId } : {}),
-        },
-        { throwOnError: true },
-      )
-      .then((x) => x.data!)
+    const created = await sdk.session.create({ directory: params.cwd }, { throwOnError: true }).then((x) => x.data!)
 
     const sessionId: SessionId = created.id
     sessions.create({
@@ -221,7 +213,6 @@ export function make(options: ACPServiceOptions): ACPAgentInterface {
 
     return {
       sessionId,
-      ...(modeId ? {} : {}),
       configOptions: buildConfigOptions({
         providers: Object.values(snapshot.providers),
         currentModel: selected,
@@ -281,17 +272,10 @@ export function make(options: ACPServiceOptions): ACPAgentInterface {
     const cursor = params.cursor ? Number(params.cursor) : undefined
     const limit = 100
 
-    const serverEntries = (
-      await sdk.session
-        .list(
-          {
-            ...(params.cwd ? { directory: params.cwd } : {}),
-            roots: true,
-          },
-          { throwOnError: true },
-        )
-        .then((x) => x.data ?? [])
-    ).map((entry) => serverSessionToInfo(entry))
+    const listInput = { roots: true, ...(params.cwd ? { directory: params.cwd } : undefined) }
+    const serverEntries = (await sdk.session.list(listInput, { throwOnError: true }).then((x) => x.data ?? [])).map(
+      (entry) => serverSessionToInfo(entry),
+    )
 
     const liveEntries = sessions
       .list()
@@ -311,11 +295,14 @@ export function make(options: ACPServiceOptions): ACPAgentInterface {
     const page = filtered.slice(0, limit)
     const last = page.at(-1)
 
-    return {
+    const response: ListSessionsResponse = {
       sessions: page,
-      ...(filtered.length > limit && last ? { nextCursor: String(new Date(last.updatedAt ?? 0).getTime()) } : {}),
       _meta: {},
     }
+    if (filtered.length > limit && last) {
+      response.nextCursor = String(new Date(last.updatedAt ?? 0).getTime())
+    }
+    return response
   }
 
   // ───────────────────────── resumeSession ─────────────────────────
@@ -526,9 +513,9 @@ export function make(options: ACPServiceOptions): ACPAgentInterface {
         {
           sessionID: current.id,
           model: { providerID: selected.providerID, modelID: selected.modelID },
-          ...(variant ? { variant } : {}),
+          variant,
           parts: parts as Parameters<typeof sdk.session.prompt>[0]["parts"],
-          ...(modeId ? { agent: modeId } : {}),
+          agent: modeId,
           directory: current.cwd,
         },
         { throwOnError: true },
@@ -553,8 +540,8 @@ export function make(options: ACPServiceOptions): ACPAgentInterface {
           command: known.name,
           arguments: command.args,
           model: `${selected.providerID}/${selected.modelID}`,
-          ...(variant ? { variant } : {}),
-          ...(modeId ? { agent: modeId } : {}),
+          variant,
+          agent: modeId,
           directory: current.cwd,
         },
         { throwOnError: true },
@@ -763,12 +750,13 @@ function serverSessionToInfo(entry: {
   time?: { updated?: number; created?: number }
 }): ACPSessionInfo {
   const updatedAt = entry.time?.updated ?? entry.time?.created
-  return {
+  const info: ACPSessionInfo = {
     sessionId: entry.id,
     cwd: entry.directory,
-    ...(entry.title ? { title: entry.title } : {}),
-    ...(updatedAt ? { updatedAt: new Date(updatedAt).toISOString() } : {}),
   }
+  if (entry.title) info.title = entry.title
+  if (updatedAt) info.updatedAt = new Date(updatedAt).toISOString()
+  return info
 }
 
 function storeSessionToInfo(session: SessionInfo): ACPSessionInfo {

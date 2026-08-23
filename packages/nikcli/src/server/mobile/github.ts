@@ -33,12 +33,9 @@ import { MobileHttpError } from "./request"
 
 const noToken = () => new MobileHttpError("GitHub token not configured", 401)
 
-function rethrowGithub(error: unknown): never {
-  if (error instanceof GithubApiError) {
-    const status = error.status === 401 || error.status === 403 ? 401 : 400
-    throw new MobileHttpError(error.message, status)
-  }
-  throw error
+function githubHttpError(error: GithubApiError): MobileHttpError {
+  const status = error.status === 401 || error.status === 403 ? 401 : 400
+  return new MobileHttpError(error.message, status)
 }
 
 export async function githubRepos() {
@@ -65,7 +62,8 @@ export async function githubRepos() {
       })
     )
   } catch (error) {
-    rethrowGithub(error)
+    if (error instanceof GithubApiError) throw githubHttpError(error)
+    throw error
   }
 }
 
@@ -75,7 +73,8 @@ export async function githubBranches(owner: string, repo: string) {
   try {
     return await GithubApi.listBranches(token, owner, repo)
   } catch (error) {
-    rethrowGithub(error)
+    if (error instanceof GithubApiError) throw githubHttpError(error)
+    throw error
   }
 }
 
@@ -110,7 +109,7 @@ export async function githubOauthDevicePoll(input: typeof MobileGithubDeviceAuth
 }
 
 export async function githubAuthSet(input: typeof GithubAuthInput._output) {
-  await storeGithubToken(input.token)
+  await storeGithubToken({ accessToken: input.token })
   return { success: true as const }
 }
 

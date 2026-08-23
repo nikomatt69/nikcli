@@ -9,8 +9,7 @@ import { Instance } from "@/project/instance"
 import { Project } from "@/project/project"
 import { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
-import { MessageRepo } from "@/session/message-repo"
-import { SessionEntryProjection } from "@/session/v2/projection"
+import { SessionV2Write } from "@/session/v2/write"
 import { SessionStatus } from "@/session/status"
 import { withInstance, withInstanceAsync } from "@/effect"
 import {
@@ -108,7 +107,10 @@ async function register(directory: string, name?: string) {
     if (name && project.id !== "global")
       await runProject(
         Effect.gen(function* () {
-          yield* (yield* Project.Service).update({ projectID: project.id, name })
+          yield* (yield* Project.Service).update({
+            projectID: project.id,
+            name,
+          })
         }),
       ).catch(() => undefined)
   } catch (error) {
@@ -134,11 +136,15 @@ async function importSession(input: z.infer<typeof TeleportInput>, directory: st
   const imported = input.messages.map((message) => {
     const info = { ...message.info, sessionID: session.id } as MessageV2.Info
     const parts = message.parts.map((part) => ({ ...part, sessionID: session.id }) as MessageV2.Part)
-    MessageRepo.upsertMessage(info)
-    for (const part of parts) MessageRepo.upsertPart(part)
+    // Entry-first persist: a projection throw cannot commit v1 rows the
+    // entry table cannot represent.
+    SessionV2Write.persist({
+      prepared: { info, parts },
+      promptData: "",
+      projectID: session.projectID,
+    })
     return { info, parts }
   })
-  SessionEntryProjection.rebuild(session.id, imported)
   await withInstance(
     { directory },
     Effect.gen(function* () {
@@ -220,12 +226,16 @@ export async function teleportOut(sessionID: string, input: z.infer<typeof Telep
   )
   let uploadID: string | undefined
   if (input.content !== false) {
-    const archive = await createWorkspaceArchive(info.directory, { includeGit: Boolean(input.includeGit) }).catch(
-      () => null,
-    )
+    const archive = await createWorkspaceArchive(info.directory, {
+      includeGit: Boolean(input.includeGit),
+    }).catch(() => null)
     if (archive)
       try {
-        uploadID = await uploadWorkspaceArchive({ base, token, archivePath: archive.path })
+        uploadID = await uploadWorkspaceArchive({
+          base,
+          token,
+          archivePath: archive.path,
+        })
       } catch (error) {
         throw new MobileHttpError(
           `Workspace upload failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -237,7 +247,10 @@ export async function teleportOut(sessionID: string, input: z.infer<typeof Telep
   }
   const response = await fetch(`${base}/mobile/teleport`, {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({
       title: info.title,
       name: path.basename(info.directory),

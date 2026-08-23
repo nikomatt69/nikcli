@@ -946,7 +946,7 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
             {
               thinking: {
                 type: "adaptive",
-                ...(adaptiveOpus ? { display: "summarized" } : {}),
+                ...(adaptiveOpus ? { display: "summarized" } : undefined),
               },
               effort,
             },
@@ -983,7 +983,7 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
               reasoningConfig: {
                 type: "adaptive",
                 maxReasoningEffort: effort,
-                ...(adaptiveOpus ? { display: "summarized" } : {}),
+                ...(adaptiveOpus ? { display: "summarized" } : undefined),
               },
             },
           ]),

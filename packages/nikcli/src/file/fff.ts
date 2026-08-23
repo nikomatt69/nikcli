@@ -288,7 +288,6 @@ export namespace FFF {
    */
   export function allowed(input: AllowedInput): boolean {
     const rel = input.rel.replaceAll("\\", "/")
-    const file = input.file ?? rel.split("/").at(-1) ?? rel
     if (input.hidden === false) {
       const isHidden = rel.split("/").some((part) => part.startsWith(".") && part.length > 1)
       if (isHidden) return false

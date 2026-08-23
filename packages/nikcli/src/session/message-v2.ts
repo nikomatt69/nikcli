@@ -1,4 +1,5 @@
 import { BusEvent } from "@/bus/bus-event"
+import type { JsonValue } from "@/util/json"
 import { spreadIf } from "@/util/optional-key"
 import { zod, zodObject, zodObjectMode, zodOverride, type DeepMutable } from "@nikcli-ai/util/effect-zod"
 import z from "zod"
@@ -28,6 +29,9 @@ import { workMap } from "@/util/queue"
 import { MessageRepo } from "./message-repo"
 
 export namespace MessageV2 {
+  const TextValue = z.string()
+  const NamedErrorEnvelope = z.looseObject({ name: z.string() })
+
   // Legacy callers depend on z.object's default "strip" behavior (extra keys on
   // persisted messages from older schema versions are dropped, not rejected), so
   // every struct opts out of the walker's default `.strict()` mode.
@@ -99,7 +103,7 @@ export namespace MessageV2 {
   }) {
     static readonly Schema = zodObject(AbortedErrorBody)
     static isInstance(error: unknown): error is z.infer<typeof AbortedError.Schema> {
-      return typeof error === "object" && error !== null && (error as any).name === "MessageAbortedError"
+      return NamedErrorEnvelope.safeParse(error).data?.name === "MessageAbortedError"
     }
   }
   export class StructuredOutputError extends Schema.TaggedErrorClass<StructuredOutputError>()("StructuredOutputError", {
@@ -108,7 +112,7 @@ export namespace MessageV2 {
   }) {
     static readonly Schema = zodObject(StructuredOutputErrorBody)
     static isInstance(error: unknown): error is z.infer<typeof StructuredOutputError.Schema> {
-      return typeof error === "object" && error !== null && (error as any).name === "StructuredOutputError"
+      return NamedErrorEnvelope.safeParse(error).data?.name === "StructuredOutputError"
     }
   }
   export class AuthError extends Schema.TaggedErrorClass<AuthError>()("ProviderAuthError", {
@@ -117,7 +121,7 @@ export namespace MessageV2 {
   }) {
     static readonly Schema = zodObject(AuthErrorBody)
     static isInstance(error: unknown): error is z.infer<typeof AuthError.Schema> {
-      return typeof error === "object" && error !== null && (error as any).name === "ProviderAuthError"
+      return NamedErrorEnvelope.safeParse(error).data?.name === "ProviderAuthError"
     }
   }
   export class APIError extends Schema.TaggedErrorClass<APIError>()("APIError", {
@@ -131,9 +135,8 @@ export namespace MessageV2 {
   }) {
     static readonly Schema = zodObject(APIErrorBody)
     static isInstance(error: unknown): error is z.infer<typeof APIError.Schema> {
-      return (
-        typeof error === "object" && error !== null && (error as any).name === "APIError" && "data" in (error as any)
-      )
+      const parsed = NamedErrorEnvelope.safeParse(error)
+      return parsed.success && parsed.data.name === "APIError" && "data" in parsed.data
     }
     toObject() {
       return {
@@ -612,7 +615,7 @@ export namespace MessageV2 {
 
   function wrapQueuedUserText(text: string, wrap: QueuedMessageWrap | undefined): string {
     if (wrap === false || wrap === null) return text
-    if (wrap && typeof wrap === "object") {
+    if (wrap !== undefined && wrap !== true && wrap !== "default") {
       return `${wrap.header}\n${text}\n\n${wrap.footer}`
     }
     // Default template (matches opencode upstream).
@@ -626,32 +629,56 @@ export namespace MessageV2 {
     ].join("\n")
   }
 
+  const ToolOutputAttachment = z
+    .object({ mime: z.string().catch(""), url: z.string().catch("") })
+    .catch({ mime: "", url: "" })
+
+  const StructuredToolOutput = z.looseObject({
+    text: z.string().catch(""),
+    attachments: z.array(ToolOutputAttachment).optional().catch(undefined),
+  })
+
   const IMAGE_BYTES_TRIGGER = 25 * 1024 * 1024
   const IMAGE_BYTES_TARGET = 15 * 1024 * 1024
   const IMAGE_REMOVED =
     "[This image was removed to reduce the request size and is no longer visible. Do not make claims about its contents from memory. If needed, retrieve it again with an available tool or ask the user to attach it again.]"
 
-  function imagePayloadSize(value: unknown): number {
-    if (value instanceof Uint8Array) return Math.ceil(value.byteLength / 3) * 4
-    if (value instanceof URL) return value.protocol === "data:" ? Buffer.byteLength(value.href) : 0
-    if (typeof value !== "string") return 0
-    if (/^(https?|file):/i.test(value)) return 0
-    return Buffer.byteLength(value)
+  type ImagePayloadValue = JsonValue | Uint8Array | URL | ModelMessage | ImagePayloadNode | readonly ImagePayloadValue[]
+
+  interface ImagePayloadNode {
+    [key: string]: ImagePayloadValue
   }
 
-  function imageNodeSize(value: unknown): number {
-    if (!value || typeof value !== "object") return 0
-    const node = value as Record<string, unknown>
-    const dataUri = [node.image, node.data, node.url, node.uri].find(
-      (item) => typeof item === "string" && item.toLowerCase().startsWith("data:image/"),
-    )
+  const ImagePayloadRecord = z.record(z.string(), z.unknown())
+
+  function imagePayloadSize(value: ImagePayloadValue): number {
+    if (value instanceof Uint8Array) return Math.ceil(value.byteLength / 3) * 4
+    if (value instanceof URL) return value.protocol === "data:" ? Buffer.byteLength(value.href) : 0
+    const text = TextValue.safeParse(value)
+    if (!text.success) return 0
+    if (/^(https?|file):/i.test(text.data)) return 0
+    return Buffer.byteLength(text.data)
+  }
+
+  function imageNodeSize(value: ImagePayloadValue): number {
+    if (value instanceof Uint8Array || value instanceof URL) return 0
+    if (!ImagePayloadRecord.safeParse(value).success) return 0
+    const node = value as ImagePayloadNode
+    const dataUri = [node.image, node.data, node.url, node.uri].find((item) => {
+      const text = TextValue.safeParse(item)
+      return text.success && text.data.toLowerCase().startsWith("data:image/")
+    })
     const mediaType = String(node.mediaType ?? node.mimeType ?? node.mime ?? "").toLowerCase()
     const isImage = mediaType.startsWith("image/") || dataUri !== undefined
     if (!isImage || !["image", "file", "media"].includes(String(node.type))) return 0
     return imagePayloadSize(node.image ?? node.data ?? node.url ?? node.uri)
   }
 
-  function walkImagePayload(value: unknown, replace: boolean, state: { total: number; removed: number }): unknown {
+  function walkImagePayload(
+    value: ImagePayloadValue,
+    replace: boolean,
+    state: { total: number; removed: number },
+  ): ImagePayloadValue {
     const size = imageNodeSize(value)
     if (size > 0) {
       if (replace && state.total - state.removed > IMAGE_BYTES_TARGET) {
@@ -670,11 +697,12 @@ export namespace MessageV2 {
       })
       return changed ? next : value
     }
-    if (!value || typeof value !== "object" || value instanceof URL || value instanceof Uint8Array) return value
+    if (value instanceof URL || value instanceof Uint8Array) return value
+    if (!ImagePayloadRecord.safeParse(value).success) return value
 
-    const node = value as Record<string, unknown>
+    const node = value as ImagePayloadNode
     let changed = false
-    const next: Record<string, unknown> = { ...node }
+    const next: ImagePayloadNode = { ...node }
     for (const key of ["content", "output", "result", "value"]) {
       if (!(key in node)) continue
       const mapped = walkImagePayload(node[key], replace, state)
@@ -712,16 +740,15 @@ export namespace MessageV2 {
     // otherwise there's no point extracting images.
     const supportsMediaInToolResults = ProviderTransform.supportsMediaInToolResults(model)
 
-    const toModelOutput = (output: unknown) => {
-      if (typeof output === "string") {
-        return { type: "text", value: output }
+    const toModelOutput = (output: JsonValue) => {
+      const text = TextValue.safeParse(output)
+      if (text.success) {
+        return { type: "text", value: text.data }
       }
 
-      if (typeof output === "object") {
-        const outputObject = output as {
-          text: string
-          attachments?: Array<{ mime: string; url: string }>
-        }
+      const structured = StructuredToolOutput.safeParse(output)
+      if (structured.success) {
+        const outputObject = structured.data
         const attachments = (outputObject.attachments ?? []).filter((attachment) => {
           return attachment.url.startsWith("data:") && attachment.url.includes(",")
         })
@@ -812,7 +839,7 @@ export namespace MessageV2 {
             assistantMessage.parts.push({
               type: "text",
               text: part.text,
-              ...(differentModel ? {} : { providerMetadata: part.metadata }),
+              ...(differentModel ? undefined : { providerMetadata: part.metadata }),
             })
           if (part.type === "step-start")
             assistantMessage.parts.push({
@@ -849,7 +876,7 @@ export namespace MessageV2 {
                 toolCallId: part.callID,
                 input: part.state.input,
                 output,
-                ...(differentModel ? {} : { callProviderMetadata: part.metadata }),
+                ...(differentModel ? undefined : { callProviderMetadata: part.metadata }),
               })
             }
             if (part.state.status === "error")
@@ -859,7 +886,7 @@ export namespace MessageV2 {
                 toolCallId: part.callID,
                 input: part.state.input,
                 errorText: part.state.error,
-                ...(differentModel ? {} : { callProviderMetadata: part.metadata }),
+                ...(differentModel ? undefined : { callProviderMetadata: part.metadata }),
               })
             // Handle pending/running tool calls to prevent dangling tool_use blocks
             // Anthropic/Claude APIs require every tool_use to have a corresponding tool_result
@@ -870,7 +897,7 @@ export namespace MessageV2 {
                 toolCallId: part.callID,
                 input: part.state.input,
                 errorText: "[Tool execution was interrupted]",
-                ...(differentModel ? {} : { callProviderMetadata: part.metadata }),
+                ...(differentModel ? undefined : { callProviderMetadata: part.metadata }),
               })
           }
           if (part.type === "reasoning") {
@@ -1081,7 +1108,7 @@ export namespace MessageV2 {
         }
       case (e as SystemError)?.code === "ECONNRESET": {
         const sysErr = e as SystemError
-        const metadata: Record<string, string> = {
+        const metadata = {
           code: sysErr.code ?? "",
           syscall: sysErr.syscall ?? "",
           message: sysErr.message ?? "",
@@ -1131,9 +1158,9 @@ export namespace MessageV2 {
           try {
             const body = JSON.parse(e.responseBody)
             // try to extract common error message fields
-            const errMsg = body.message || body.error || body.error?.message
-            if (errMsg && typeof errMsg === "string") {
-              return `${msg}: ${errMsg}`
+            const errMsg = TextValue.safeParse(body.message || body.error || body.error?.message)
+            if (errMsg.success && errMsg.data.length > 0) {
+              return `${msg}: ${errMsg.data}`
             }
           } catch {}
 

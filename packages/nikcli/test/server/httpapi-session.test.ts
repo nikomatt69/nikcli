@@ -1,3 +1,6 @@
+import type { JsonValue } from "@/util/json"
+import type { Session } from "@/session"
+import type { SessionStatus } from "@/session/status"
 import { preserveTestEnv } from "../helpers/env"
 import { removeTestDir } from "../helpers/fs"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
@@ -29,6 +32,28 @@ const { MessageRepo } = await import("@/session/message-repo")
 
 const projectDirs: string[] = []
 
+type MonitorResponse = {
+  id: string
+  status: string
+  pid: number
+  time: { created: number; completed?: number }
+}
+
+type GoalStateResponse = {
+  objective: string
+  tokenBudget?: number
+}
+
+type PendingEntryResponse = {
+  id: string
+  data: { sessionID: string; parts: { type: string; text?: string }[] }
+}
+
+type NotFoundBody = {
+  name: string
+  data: { message: string }
+}
+
 async function git(directory: string, ...args: string[]) {
   const process = Bun.spawn(["git", ...args], { cwd: directory, stdout: "pipe", stderr: "pipe" })
   const [code, stderr] = await Promise.all([process.exited, new Response(process.stderr).text()])
@@ -55,11 +80,11 @@ async function request(pathname: string, directory: string, params: Record<strin
   return response.json()
 }
 
-async function post(pathname: string, directory: string, body: unknown) {
+async function post(pathname: string, directory: string, body: JsonValue) {
   return jsonRequest("POST", pathname, directory, body)
 }
 
-async function patch(pathname: string, directory: string, body: unknown) {
+async function patch(pathname: string, directory: string, body: JsonValue) {
   return jsonRequest("PATCH", pathname, directory, body)
 }
 
@@ -85,7 +110,7 @@ async function listByInstance(directory: string, params: Record<string, string> 
   return (await response.json()) as { id: string; title: string; directory: string }[]
 }
 
-async function jsonRequest(method: string, pathname: string, directory: string, body?: unknown) {
+async function jsonRequest(method: string, pathname: string, directory: string, body?: JsonValue) {
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
   const headers = new Headers()
@@ -129,28 +154,25 @@ describe("Session HttpApi bridge", () => {
       "lastModel",
     ]
 
-    const created = (await post("/session", directory, {})) as Record<string, unknown>
+    const created = (await post("/session", directory, {})) as Session.Info
     expect(Object.keys(created)).not.toContain("parentID")
     for (const key of optionals) expect(created).not.toHaveProperty(key)
-    expect(Object.keys(created.time as object)).not.toContain("archived")
+    expect(Object.keys(created.time)).not.toContain("archived")
 
-    const fetched = (await request(`/session/${created.id as string}`, directory)) as Record<string, unknown>
+    const fetched = (await request(`/session/${created.id}`, directory)) as Session.Info
     for (const key of optionals) expect(fetched).not.toHaveProperty(key)
 
-    const [listed] = (await request("/session", directory)) as Record<string, unknown>[]
+    const [listed] = (await request("/session", directory)) as Session.Info[]
     for (const key of optionals) expect(listed).not.toHaveProperty(key)
 
     // Renaming touches the session through the update path, which clones the
     // stored object before the editor runs.
-    const updated = (await patch(`/session/${created.id as string}`, directory, { title: "renamed" })) as Record<
-      string,
-      unknown
-    >
+    const updated = (await patch(`/session/${created.id}`, directory, { title: "renamed" })) as Session.Info
     expect(updated.title).toBe("renamed")
     for (const key of optionals) expect(updated).not.toHaveProperty(key)
 
     // A child session sets parentID and nothing else.
-    const child = (await post("/session", directory, { parentID: created.id })) as Record<string, unknown>
+    const child = (await post("/session", directory, { parentID: created.id })) as Session.Info
     expect(child.parentID).toBe(created.id)
     for (const key of optionals.filter((k) => k !== "parentID")) expect(child).not.toHaveProperty(key)
   })
@@ -172,7 +194,7 @@ describe("Session HttpApi bridge", () => {
     }
 
     expect(Array.isArray(breakdown.sources)).toBe(true)
-    expect(typeof breakdown.estimatedTotal).toBe("number")
+    expect(Number.isFinite(breakdown.estimatedTotal)).toBe(true)
     if (!("model" in breakdown)) expect(breakdown.model).toBeUndefined()
     for (const source of breakdown.sources) {
       if ("detail" in source) expect(source.detail).not.toBeNull()
@@ -206,16 +228,17 @@ describe("Session HttpApi bridge", () => {
         }),
     })
 
-    const fetched = (await request(`/session/${created.id}/monitor/${record.id}`, directory)) as Record<string, unknown>
+    const fetched = (await request(`/session/${created.id}/monitor/${record.id}`, directory)) as MonitorResponse
     expect(fetched.status).toBe("running")
-    expect(typeof fetched.pid).toBe("number")
+    expect(Number.isFinite(fetched.pid)).toBe(true)
     for (const key of ["exitCode", "signal", "partID", "timeoutMs"]) expect(fetched).not.toHaveProperty(key)
-    expect(fetched.time as object).not.toHaveProperty("completed")
+    expect(fetched.time).not.toHaveProperty("completed")
 
-    const cancelled = (await post(`/session/${created.id}/monitor/${record.id}/cancel`, directory, {})) as Record<
-      string,
-      unknown
-    >
+    const cancelled = (await post(
+      `/session/${created.id}/monitor/${record.id}/cancel`,
+      directory,
+      {},
+    )) as MonitorResponse
     expect(cancelled.status).toBe("cancelled")
     expect(cancelled).not.toHaveProperty("partID")
   })
@@ -246,7 +269,7 @@ describe("Session HttpApi bridge", () => {
         ),
     })
 
-    const state = (await request(`/session/${created.id}/goal`, directory)) as Record<string, unknown>
+    const state = (await request(`/session/${created.id}/goal`, directory)) as GoalStateResponse
     expect(state.objective).toBe("ship the slice")
     expect(state).not.toHaveProperty("tokenBudget")
   })
@@ -278,10 +301,7 @@ describe("Session HttpApi bridge", () => {
         }),
     })
 
-    const [entry] = (await request(`/session/${created.id}/pending`, directory)) as {
-      id: string
-      data: Record<string, unknown>
-    }[]
+    const [entry] = (await request(`/session/${created.id}/pending`, directory)) as PendingEntryResponse[]
     expect(entry!.id).toBe(inserted.id)
     for (const key of ["agent", "model", "system", "variant", "noReply", "tools", "format", "delivery"]) {
       expect(entry!.data).not.toHaveProperty(key)
@@ -351,7 +371,7 @@ describe("Session HttpApi bridge", () => {
     })) as unknown[]
     expect(sessions).toContainEqual(expect.objectContaining({ id: created.id, title: "Bridge session" }))
 
-    const statuses = (await request("/session/status", directory)) as Record<string, unknown>
+    const statuses = (await request("/session/status", directory)) as Record<string, SessionStatus.Info>
     expect(statuses).toEqual({})
 
     const session = (await request(`/session/${created.id}`, directory)) as {
@@ -508,10 +528,7 @@ describe("Session HttpApi bridge", () => {
     url.searchParams.set("directory", directory)
     const response = await Server.fetch(new Request(url))
     expect(response.status).toBe(404)
-    const body = (await response.json()) as {
-      name: string
-      data: Record<string, unknown>
-    }
+    const body = (await response.json()) as NotFoundBody
     expect(body.name).toBe("NotFoundError")
     expect(String(body.data.message)).toContain("ses_does_not_exist")
   })
@@ -549,10 +566,7 @@ describe("Session HttpApi bridge", () => {
     url.searchParams.set("directory", directory)
     const response = await Server.fetch(new Request(url))
     expect(response.status).toBe(404)
-    const body = (await response.json()) as {
-      name: string
-      data: Record<string, unknown>
-    }
+    const body = (await response.json()) as NotFoundBody
     expect(body.name).toBe("NotFoundError")
   })
 

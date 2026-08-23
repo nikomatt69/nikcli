@@ -50,11 +50,13 @@ describe("Effect PublicApi OpenAPI components", () => {
     "preserves the SDK baseline paths and operation IDs",
     async () => {
       const { PublicApi } = await import("@/server/httpapi/public")
-      const current = OpenApi.fromApi(PublicApi) as Record<string, any>
+      const current = OpenApi.fromApi(PublicApi)
       const methods = ["get", "post", "put", "delete", "patch"] as const
-      const contracts = (spec: Record<string, any>) =>
+      type SpecOperation = { operationId?: string; responses?: object }
+      type SpecPathItem = Partial<Record<(typeof methods)[number], SpecOperation>>
+      const contracts = (spec: { paths?: { [path: string]: SpecPathItem } }) =>
         new Map(
-          Object.entries((spec.paths ?? {}) as Record<string, any>).flatMap(([path, item]) =>
+          Object.entries(spec.paths ?? {}).flatMap(([path, item]) =>
             methods.flatMap((method) => {
               const operation = item?.[method]
               if (!operation) return []
@@ -71,7 +73,7 @@ describe("Effect PublicApi OpenAPI components", () => {
           ),
         )
 
-      const expected = contracts(baseline as Record<string, any>)
+      const expected = contracts(baseline)
       const actual = contracts(current)
       const missing = [...expected].flatMap(([key, contract]) => {
         const emitted = actual.get(key)

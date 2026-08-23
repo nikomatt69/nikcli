@@ -89,7 +89,7 @@ describe("computeActivityStats", () => {
 
   it("supports a custom metric (e.g. cost-based activity)", () => {
     const values = [0, 5, 0, 10, 0, 0, 7]
-    const s = computeActivityStats(days("2026-01-01", values), (d) => d.cost)
+    computeActivityStats(days("2026-01-01", values), (d) => d.cost)
     // We're passing tokens in `values` but querying cost, so cost is always 0.
     // Re-run with explicit cost: build days with cost field directly.
     const daysWithCost: DayStats[] = values.map((c, i) => ({

@@ -1,3 +1,4 @@
+import type { JsonValue } from "@/util/json"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
@@ -411,10 +412,10 @@ export namespace ContractExtraHttpApi {
     return Response.json(body, { status })
   }
 
-  async function body(request: Request): Promise<Record<string, unknown> | undefined> {
+  async function body(request: Request): Promise<Record<string, JsonValue> | undefined> {
     const value = await request.json().catch(() => undefined)
     return value !== null && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
+      ? (value as Record<string, JsonValue>)
       : undefined
   }
 

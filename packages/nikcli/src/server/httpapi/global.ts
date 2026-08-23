@@ -1,6 +1,5 @@
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
-import z from "zod"
 import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { Installation } from "@/installation"

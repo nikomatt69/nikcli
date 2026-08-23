@@ -507,7 +507,7 @@ export namespace Worktree {
       const base = path.basename(directory).toLowerCase()
       const name = base === primaryName ? path.basename(path.dirname(directory)) : base
       const branch = entry.branch?.replace(/^refs\/heads\//, "")
-      result.push(Info.parse({ name, directory, ...(branch ? { branch } : {}) }))
+      result.push(Info.parse({ name, directory, ...(branch ? { branch } : undefined) }))
     }
     return result
   }
@@ -526,7 +526,7 @@ export namespace Worktree {
       result.push({
         directory: await canonicalPath(entry.path),
         kind: entry.kind ?? "linked",
-        ...(branch ? { branch } : {}),
+        ...(branch ? { branch } : undefined),
       })
     }
     return result
@@ -595,7 +595,7 @@ export namespace Worktree {
         if (branchCheck.exitCode === 0) continue
       }
 
-      return Info.parse({ name, directory, ...(branch ? { branch } : {}) })
+      return Info.parse({ name, directory, ...(branch ? { branch } : undefined) })
     }
 
     throw new NameGenerationFailedError({

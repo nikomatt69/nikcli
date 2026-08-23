@@ -132,15 +132,14 @@ describe("effect-zod walker", () => {
     expect(s.description).toBe("user name")
   })
 
-  it("zodObject returns a ZodObject for shape access", () => {
+  it("zodObject returns a ZodObject exposing every struct field", () => {
     const s = zodObject(
       Schema.Struct({
         a: Schema.String,
         b: Schema.Number,
       }),
     )
-    expect(s.shape.a).toBeDefined()
-    expect(s.shape.b).toBeDefined()
+    expect(s.keyof().options.sort()).toEqual(["a", "b"])
   })
 
   it("object mode annotation preserves legacy strip behavior", () => {

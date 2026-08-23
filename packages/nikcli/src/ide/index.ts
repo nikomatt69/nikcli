@@ -1,6 +1,5 @@
 import { BusEvent } from "@/bus/bus-event"
 import { spawn } from "bun"
-import z from "zod"
 import { Schema } from "effect"
 import { Log } from "@nikcli-ai/util/log"
 

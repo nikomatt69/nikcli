@@ -61,9 +61,9 @@ export function buildUsage(message: AssistantTokenCost): Usage {
     inputTokens: message.tokens.input,
     outputTokens: message.tokens.output,
     totalTokens: message.tokens.input + message.tokens.output + thoughtTokens + cachedReadTokens + cachedWriteTokens,
-    ...(thoughtTokens > 0 ? { thoughtTokens } : {}),
-    ...(cachedReadTokens > 0 ? { cachedReadTokens } : {}),
-    ...(cachedWriteTokens > 0 ? { cachedWriteTokens } : {}),
+    ...(thoughtTokens > 0 ? { thoughtTokens } : undefined),
+    ...(cachedReadTokens > 0 ? { cachedReadTokens } : undefined),
+    ...(cachedWriteTokens > 0 ? { cachedWriteTokens } : undefined),
   }
 }
 

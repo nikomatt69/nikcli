@@ -11,12 +11,10 @@ import {
   type InitializeRequest,
   type InitializeResponse,
   type ListSessionsRequest,
-  type ListSessionsResponse,
   type LoadSessionRequest,
   type NewSessionRequest,
   type PromptRequest,
   type ResumeSessionRequest,
-  type ResumeSessionResponse,
   type SetSessionConfigOptionRequest,
   type SetSessionConfigOptionResponse,
   type SetSessionModelRequest,
@@ -69,7 +67,7 @@ export namespace ACP {
     private readonly service: ACPAgentInterface
     private readonly connection: AgentSideConnection
 
-    constructor(sdk: NikcliClient, connection: AgentSideConnection, config: ACPConfig) {
+    constructor(sdk: NikcliClient, connection: AgentSideConnection, _config: ACPConfig) {
       this.connection = connection
       this.service = make({
         sdk,

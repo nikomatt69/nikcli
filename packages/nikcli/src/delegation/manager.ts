@@ -10,6 +10,7 @@ import { Instance } from "@/project/instance"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { Log } from "@nikcli-ai/util/log"
+import { formatDuration } from "@nikcli-ai/util/loop-validation"
 import { Effect, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
@@ -72,11 +73,51 @@ export namespace Delegation {
     metadata?: { [key: string]: unknown }
   }
 
-  const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000 // 15 min default (aligned with TIMEOUTS.default)
+  const MINUTE = 60 * 1000
+
+  /**
+   * How long a running delegation is given before it is declared dead.
+   *
+   * A single fixed deadline cannot tell "still working" from "leaked": it kills
+   * a healthy long task at the same minute it kills a hung one. So a delegation
+   * is judged on three numbers instead:
+   *
+   * - `min` — floor. Never expired before this, even with zero output.
+   * - `idle` — after `min`, this much silence means stuck, not slow.
+   * - `max` — ceiling. Expired even while it is actively streaming.
+   *
+   * "Activity" is a progress signal ({@link updateProgress}, fed by the
+   * subagent's own parts) — deliberately NOT the lease heartbeat, which only
+   * proves the owning process is alive and would keep a leaked delegation on
+   * life support forever.
+   */
+  interface TimeoutPolicy {
+    min: number
+    idle: number
+    max: number
+  }
+
+  const TIMEOUT_POLICIES: { [key: string]: TimeoutPolicy } = {
+    default: { min: 15 * MINUTE, idle: 5 * MINUTE, max: 60 * MINUTE },
+    task: { min: 30 * MINUTE, idle: 10 * MINUTE, max: 120 * MINUTE },
+    "model-subtask": { min: 10 * MINUTE, idle: 3 * MINUTE, max: 40 * MINUTE },
+    research: { min: 20 * MINUTE, idle: 5 * MINUTE, max: 80 * MINUTE },
+    advisor: { min: 5 * MINUTE, idle: 2 * MINUTE, max: 20 * MINUTE },
+    ultrareview: { min: 15 * MINUTE, idle: 5 * MINUTE, max: 60 * MINUTE },
+    delegator: { min: 10 * MINUTE, idle: 3 * MINUTE, max: 40 * MINUTE },
+    "delegator-followup": { min: 10 * MINUTE, idle: 3 * MINUTE, max: 40 * MINUTE },
+    other: { min: 10 * MINUTE, idle: 3 * MINUTE, max: 40 * MINUTE },
+  }
+
+  /** The longest any delegation can run, so waiters outlive the work they wait on. */
+  const WAIT_SETTLED_TIMEOUT_MS = Math.max(...Object.values(TIMEOUT_POLICIES).map((policy) => policy.max))
 
   // Configuration constants
   const FORCE_FINALIZE_DELAY_MS = 1000
   const MIN_HEARTBEAT_INTERVAL_MS = 1000
+  /** Upper bound on the watchdog poll; short policies (tests, overrides) tick faster. */
+  const MAX_WATCHDOG_TICK_MS = 15_000
+  const MIN_WATCHDOG_TICK_MS = 100
   const Source = z.enum([
     "task",
     "model-subtask",
@@ -111,24 +152,25 @@ export namespace Delegation {
     rootDelegationID: z.string().optional(),
     parentDelegationID: z.string().optional(),
     role: Role.optional(),
+    /** Per-delegation override of the source's {@link TimeoutPolicy}. */
+    timeout: z
+      .object({
+        minMs: z.number().int().positive().optional(),
+        idleMs: z.number().int().positive().optional(),
+        maxMs: z.number().int().positive().optional(),
+      })
+      .optional(),
   })
   type CreateParams = z.infer<typeof CreateParamsSchema>
+  type TimeoutOverride = NonNullable<CreateParams["timeout"]>
 
-  // Configurable timeout per delegation type (in ms)
-  const TIMEOUTS: { [key: string]: number } = {
-    default: 15 * 60 * 1000, // 15 min default
-    task: 15 * 60 * 1000,
-    "model-subtask": 10 * 60 * 1000,
-    research: 20 * 60 * 1000, // Research gets more time
-    advisor: 5 * 60 * 1000,
-    ultrareview: 15 * 60 * 1000,
-    delegator: 10 * 60 * 1000,
-    "delegator-followup": 10 * 60 * 1000,
-    other: 10 * 60 * 1000,
-  }
-
-  function getTimeoutForSource(source?: string): number {
-    return source ? (TIMEOUTS[source] ?? TIMEOUTS.default) : TIMEOUTS.default
+  function resolvePolicy(source: string | undefined, override: TimeoutOverride | undefined): TimeoutPolicy {
+    const base = (source ? TIMEOUT_POLICIES[source] : undefined) ?? TIMEOUT_POLICIES.default!
+    const min = Math.max(1, override?.minMs ?? base.min)
+    const idle = Math.max(1, override?.idleMs ?? base.idle)
+    // A `max` below `min` would defeat the floor, so the floor wins.
+    const max = Math.max(min, override?.maxMs ?? base.max)
+    return { min, idle, max }
   }
 
   export function buildParentWakePromptInput(
@@ -186,11 +228,22 @@ export namespace Delegation {
     error?: string
   }
 
+  /** Live supervision state for one running delegation. See {@link TimeoutPolicy}. */
+  interface Watchdog {
+    policy: TimeoutPolicy
+    startedAt: number
+    lastActivityAt: number
+    /** When the current silent stretch began; unset while the delegation is producing output. */
+    stalledSince?: number
+    timer: NodeJS.Timeout
+  }
+
   interface ManagerState {
     activeDelegations: Map<string, Record>
     sessionToDelegation: Map<string, string>
     timers: Map<string, NodeJS.Timeout>
     heartbeats: Map<string, NodeJS.Timeout>
+    watchdogs: Map<string, Watchdog>
     requestedFinalizations: Map<string, { status: Exclude<Status, "running" | "orphaned">; error?: string }>
     reconcileTimer?: NodeJS.Timeout
   }
@@ -201,6 +254,7 @@ export namespace Delegation {
       sessionToDelegation: new Map<string, string>(),
       timers: new Map<string, NodeJS.Timeout>(),
       heartbeats: new Map<string, NodeJS.Timeout>(),
+      watchdogs: new Map<string, Watchdog>(),
       requestedFinalizations: new Map<string, { status: Exclude<Status, "running" | "orphaned">; error?: string }>(),
       reconcileTimer: undefined,
     }),
@@ -211,6 +265,9 @@ export namespace Delegation {
       for (const timer of entry.heartbeats.values()) {
         clearInterval(timer)
       }
+      for (const watchdog of entry.watchdogs.values()) {
+        clearInterval(watchdog.timer)
+      }
       if (entry.reconcileTimer) {
         clearInterval(entry.reconcileTimer)
       }
@@ -218,6 +275,7 @@ export namespace Delegation {
       entry.sessionToDelegation.clear()
       entry.timers.clear()
       entry.heartbeats.clear()
+      entry.watchdogs.clear()
       entry.requestedFinalizations.clear()
       entry.reconcileTimer = undefined
     },
@@ -335,6 +393,7 @@ export namespace Delegation {
     const entry = current()
     clearTimer(record.id)
     clearHeartbeat(record.id)
+    clearWatchdog(record.id)
     entry.requestedFinalizations.delete(record.id)
     entry.activeDelegations.delete(record.id)
     if (record.sessionID && entry.sessionToDelegation.get(record.sessionID) === record.id) {
@@ -399,29 +458,106 @@ export namespace Delegation {
     entry.timers.set(delegationID, timer)
   }
 
-  function setTimer(delegationID: string, timeoutMs: number = DEFAULT_TIMEOUT_MS): void {
+  function clearWatchdog(delegationID: string): void {
     const entry = current()
-    clearTimer(delegationID)
-    const timer = setTimeout(async () => {
-      try {
-        const record = entry.activeDelegations.get(delegationID)
-        requestFinalization(delegationID, "timeout", "Timed out")
-        if (record?.sessionID) {
-          void runSessionPrompt(
-            Effect.gen(function* () {
-              const sessionPrompt = yield* SessionPrompt.Service
-              yield* sessionPrompt.cancel(record.sessionID!)
-            }),
-          ).catch((error) => {
-            log.warn("failed to cancel session for timed out delegation", { delegationID, error })
-          })
-        }
-        scheduleForcedFinalize(delegationID, "timeout", "Timed out")
-      } catch (err) {
-        log.error(`Failed to finalize delegation ${delegationID} on timeout: ${err}`)
+    const watchdog = entry.watchdogs.get(delegationID)
+    if (!watchdog) return
+    clearInterval(watchdog.timer)
+    entry.watchdogs.delete(delegationID)
+  }
+
+  /**
+   * Records that a delegation produced output. Resets the idle clock, which is
+   * the only thing separating a slow delegation from a leaked one.
+   */
+  function touchActivity(delegationID: string): void {
+    const watchdog = current().watchdogs.get(delegationID)
+    if (!watchdog) return
+    watchdog.lastActivityAt = Date.now()
+    if (watchdog.stalledSince) {
+      log.info("delegation resumed producing output", {
+        delegationID,
+        stalledFor: formatDuration(Date.now() - watchdog.stalledSince),
+      })
+      watchdog.stalledSince = undefined
+    }
+  }
+
+  function setWatchdog(delegationID: string, policy: TimeoutPolicy): void {
+    const entry = current()
+    clearWatchdog(delegationID)
+    const now = Date.now()
+    const tick = Math.min(
+      MAX_WATCHDOG_TICK_MS,
+      Math.max(MIN_WATCHDOG_TICK_MS, Math.floor(Math.min(policy.idle, policy.max) / 4)),
+    )
+    const timer = setInterval(() => checkWatchdog(delegationID), tick)
+    timer.unref?.()
+    entry.watchdogs.set(delegationID, {
+      policy,
+      startedAt: now,
+      lastActivityAt: now,
+      timer,
+    })
+  }
+
+  function checkWatchdog(delegationID: string): void {
+    const entry = current()
+    const watchdog = entry.watchdogs.get(delegationID)
+    if (!watchdog) return
+    if (!entry.activeDelegations.has(delegationID)) {
+      clearWatchdog(delegationID)
+      return
+    }
+
+    const now = Date.now()
+    const elapsed = now - watchdog.startedAt
+    const idleFor = now - watchdog.lastActivityAt
+    const { policy } = watchdog
+
+    if (idleFor >= policy.idle && !watchdog.stalledSince) {
+      watchdog.stalledSince = watchdog.lastActivityAt
+      log.warn("delegation stalled", {
+        delegationID,
+        idleFor: formatDuration(idleFor),
+        elapsed: formatDuration(elapsed),
+        // Not fatal yet: the floor still has to pass before we call it dead.
+        expiresIn: formatDuration(Math.max(0, policy.min - elapsed)),
+      })
+    }
+
+    // The floor is unconditional — a delegation always gets `min` wall clock,
+    // silent or not. Past it, silence is what kills; output only buys time up
+    // to the ceiling.
+    if (elapsed >= policy.max) {
+      expire(delegationID, `Timed out after ${formatDuration(elapsed)} (hard cap ${formatDuration(policy.max)})`)
+      return
+    }
+    if (elapsed >= policy.min && idleFor >= policy.idle) {
+      expire(delegationID, `Timed out after ${formatDuration(elapsed)}: no output for ${formatDuration(idleFor)}`)
+    }
+  }
+
+  function expire(delegationID: string, reason: string): void {
+    clearWatchdog(delegationID)
+    try {
+      const record = current().activeDelegations.get(delegationID)
+      log.warn("delegation timed out", { delegationID, reason })
+      requestFinalization(delegationID, "timeout", reason)
+      if (record?.sessionID) {
+        void runSessionPrompt(
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            yield* sessionPrompt.cancel(record.sessionID!)
+          }),
+        ).catch((error) => {
+          log.warn("failed to cancel session for timed out delegation", { delegationID, error })
+        })
       }
-    }, timeoutMs)
-    entry.timers.set(delegationID, timer)
+      scheduleForcedFinalize(delegationID, "timeout", reason)
+    } catch (err) {
+      log.error(`Failed to finalize delegation ${delegationID} on timeout: ${err}`)
+    }
   }
 
   export async function init() {
@@ -461,10 +597,14 @@ export namespace Delegation {
     })
 
     entry.activeDelegations.set(record.id, record)
-    setTimer(record.id, getTimeoutForSource(validated.source))
+    const policy = resolvePolicy(validated.source, validated.timeout)
+    setWatchdog(record.id, policy)
     setHeartbeat(record.id)
 
-    log.info(`Created delegation ${record.id} for agent ${params.agent}`)
+    log.info(`Created delegation ${record.id} for agent ${params.agent}`, {
+      timeout: `${formatDuration(policy.min)}..${formatDuration(policy.max)}`,
+      idle: formatDuration(policy.idle),
+    })
     return record
   }
 
@@ -475,6 +615,7 @@ export namespace Delegation {
       record.sessionID = sessionID
       entry.sessionToDelegation.set(sessionID, delegationID)
     }
+    touchActivity(delegationID)
 
     void runSession(
       Effect.gen(function* () {
@@ -555,9 +696,22 @@ export namespace Delegation {
     }
   }
 
+  /**
+   * Cheap in-memory liveness ping: "this delegation is still producing".
+   * Callers that already throttle their durable {@link updateProgress} writes
+   * use this on every event so the idle clock stays accurate without extra IO.
+   */
+  export function touch(delegationID: string): void {
+    touchActivity(delegationID)
+  }
+
   export async function updateProgress(delegationID: string, progressSummary?: string): Promise<void> {
     const active = current().activeDelegations.get(delegationID)
-    if (active) active.progressSummary = progressSummary
+    if (active) {
+      active.progressSummary = progressSummary
+      active.lastActivityAt = Date.now()
+    }
+    touchActivity(delegationID)
     await BackgroundRun.updateProgress(delegationID, progressSummary)
   }
 
@@ -769,7 +923,7 @@ export namespace Delegation {
       }))
   }
 
-  export async function waitForSettled(parentSessionID: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<void> {
+  export async function waitForSettled(parentSessionID: string, timeoutMs = WAIT_SETTLED_TIMEOUT_MS): Promise<void> {
     const hasRunningDelegations = async () => {
       const records = await BackgroundRun.listForParent(parentSessionID)
       return records.some((record) => record.source !== "delegator" && record.status === "running")
@@ -819,7 +973,7 @@ export namespace Delegation {
     await BackgroundRun.reconcileInterrupted(active)
   }
 
-  export async function waitForSettledJob(identifier: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<void> {
+  export async function waitForSettledJob(identifier: string, timeoutMs = WAIT_SETTLED_TIMEOUT_MS): Promise<void> {
     const jobID = await resolveJobID(identifier)
     if (!jobID) return
 

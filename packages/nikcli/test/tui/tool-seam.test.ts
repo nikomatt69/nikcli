@@ -40,8 +40,8 @@ describe("tool rendering seam", () => {
   it("keeps every rendered field optional", async () => {
     // The view draws half-streamed arguments and payloads from servers of other versions. A
     // required field here would be a lie the renderer cannot check.
-    const shapes = await code("util/tool-shapes.ts")
-    const fields = [...shapes.matchAll(/^\s{2}(\w+)(\??):/gm)]
+    const source = await code("util/tool-shapes.ts")
+    const fields = [...source.matchAll(/^\s{2}(\w+)(\??):/gm)]
     const required = fields.filter(([, name, optional]) => optional !== "?" && name !== "range")
 
     // The exceptions are entries that only exist once a tool finished (`PatchedFile`,

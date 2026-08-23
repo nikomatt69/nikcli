@@ -1,4 +1,5 @@
 import { Effect } from "effect"
+import type { JsonValue } from "@/util/json"
 import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { GithubApi } from "@/connectors/api/github"
 import { withInstanceAsync } from "@/effect"
@@ -19,6 +20,11 @@ import {
 } from "./helpers"
 import { MobileHttpError } from "./request"
 
+type SessionStreamEvent = {
+  type?: string
+  properties?: JsonValue
+}
+
 function sessionEventStream(request: Request, sessionID: string): Response {
   let close: (() => void) | undefined
   const abort = () => close?.()
@@ -29,7 +35,7 @@ function sessionEventStream(request: Request, sessionID: string): Response {
     start(controller) {
       const encoder = new TextEncoder()
       let closed = false
-      const send = (data: unknown) => {
+      const send = (data: SessionStreamEvent) => {
         if (closed) return
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
@@ -38,10 +44,10 @@ function sessionEventStream(request: Request, sessionID: string): Response {
         }
       }
       send({ type: "server.connected", properties: { sessionID } })
-      const onEvent = (event: { payload?: { type?: unknown; properties?: unknown } }) => {
+      const onEvent = (event: { payload?: SessionStreamEvent }) => {
         const payload = event?.payload
         if (!payload?.type) return
-        const ids = extractSessionIDs(payload.properties)
+        const ids = extractSessionIDs(payload.properties ?? null)
         if (!ids.includes(sessionID)) return
         send(payload)
       }

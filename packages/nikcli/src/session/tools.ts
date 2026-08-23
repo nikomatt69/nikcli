@@ -570,7 +570,7 @@ export function createStructuredOutputTool(input: {
   schema: Record<string, unknown>
   onSuccess: (output: unknown) => void
 }): AITool {
-  const { $schema, ...toolSchema } = input.schema
+  const { $schema: _$schema, ...toolSchema } = input.schema
 
   return tool({
     id: "StructuredOutput" as `${string}.${string}`,

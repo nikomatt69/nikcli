@@ -491,7 +491,6 @@ describe("workflow YAML integration", () => {
 
   it("publish.yml does NOT push to live-main directly (only via workflow_call)", async () => {
     const content = await readRoot(".github/workflows/publish.yml")
-    const pushBlockMatch = content.match(/push:\s*\n\s*branches:\s*\n[\s-]*/)
     // live-main must not appear in the push branches
     const lines = content.split("\n")
     let inPushBlock = false

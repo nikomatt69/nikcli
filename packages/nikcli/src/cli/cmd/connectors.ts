@@ -65,32 +65,6 @@ function connectorAuthUpdateBotToken(name: string, botToken: string) {
   )
 }
 
-function getConnectorIcon(status: Connectors.Status): string {
-  switch (status.status) {
-    case "connected":
-      return "✓"
-    case "disabled":
-      return "○"
-    case "needs_auth":
-      return "⚠"
-    case "failed":
-      return "✗"
-  }
-}
-
-function getConnectorText(status: Connectors.Status): string {
-  switch (status.status) {
-    case "connected":
-      return "connected"
-    case "disabled":
-      return "disabled"
-    case "needs_auth":
-      return "needs authentication"
-    case "failed":
-      return "failed"
-  }
-}
-
 export const ConnectorsCommand = cmd({
   command: "connectors",
   describe: "manage external service connectors (Figma, Slack, GitHub, Lovable)",

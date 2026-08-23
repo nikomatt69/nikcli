@@ -22,7 +22,7 @@ import { Effect } from "effect"
  * The user-supplied `content` string is checked for a BOM and the dominant line
  * ending; both are restored after the diff/patch pipeline normalizes to LF.
  */
-export function preserveOriginalShape(original: string, written: string): string {
+export function preserveLineEndingsAndBom(original: string, written: string): string {
   if (!original) return written
   const hasCRLF = original.includes("\r\n")
   const hasLF = original.includes("\n") && !hasCRLF
@@ -92,7 +92,7 @@ export const WriteTool = Tool.define("write", {
     })
 
     const writtenBom = original.bom || contentBom
-    const written = Bom.join(preserveOriginalShape(contentOld, contentText), writtenBom)
+    const written = Bom.join(preserveLineEndingsAndBom(contentOld, contentText), writtenBom)
     await Bun.write(filepath, written)
     await Format.formatFile(filepath, writtenBom)
     await Bus.publish(File.Event.Edited, {

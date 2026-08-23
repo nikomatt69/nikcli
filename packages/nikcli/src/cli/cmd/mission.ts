@@ -168,8 +168,8 @@ const MissionNewCommand = cmd({
         UI.println(UI.Style.TEXT_INFO_BOLD + "▶" + UI.Style.TEXT_DIM, "Generating mission plan from description…")
         const { generateFromDescription } = await import("../../mission/generate")
         draft = await generateFromDescription(String(args.fromDescription), {
-          ...(args.model ? { model: String(args.model) } : {}),
-          ...(args.agent ? { agent: String(args.agent) } : {}),
+          ...(args.model ? { model: String(args.model) } : undefined),
+          ...(args.agent ? { agent: String(args.agent) } : undefined),
         })
         // If the user passed a brief file too, prefer the user's brief.
         if (args.file || args.brief) {

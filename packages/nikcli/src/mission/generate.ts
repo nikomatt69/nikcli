@@ -61,7 +61,7 @@ export async function generateFromDescription(
         // Parent the drafting session to the one that asked for it, so the
         // model inheritance chain in `SessionPrompt` has something to walk
         // even when the reference below resolves to nothing.
-        ...(opts.sessionID ? { parentID: opts.sessionID } : {}),
+        ...(opts.sessionID ? { parentID: opts.sessionID } : undefined),
       })
     }),
   )
@@ -83,7 +83,7 @@ export async function generateFromDescription(
           command: "goal",
           arguments: userMessage,
           agent,
-          ...(modelID ? { model: modelID } : {}),
+          ...(modelID ? { model: modelID } : undefined),
         })
       }),
     )

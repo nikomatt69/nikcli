@@ -1,3 +1,4 @@
+import type { JsonValue } from "@/util/json"
 import z from "zod"
 import { UserDB } from "@/user/users"
 import { Flag } from "@nikcli-ai/util/flag"
@@ -62,7 +63,7 @@ export namespace UsersHttp {
     return principal?.type === "user" ? principal.session : null
   }
 
-  async function readJson(request: Request): Promise<unknown> {
+  async function readJson(request: Request): Promise<JsonValue | undefined> {
     try {
       return await request.json()
     } catch {

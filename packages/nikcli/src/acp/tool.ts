@@ -218,7 +218,7 @@ export function runningToolUpdate(input: {
     title: toolTitle(input.toolName, input.state.input, input.state.title),
     locations: toLocations(input.toolName, input.state.input, input.cwd),
     rawInput: rawInput(input.toolName, input.state.input, input.cwd),
-    ...(content ? { content } : {}),
+    ...(content ? { content } : undefined),
   }
 }
 
@@ -336,8 +336,8 @@ export function completedToolContent(toolName: string, state: CompletedToolState
 export function completedToolRawOutput(state: CompletedToolState) {
   return {
     output: state.output,
-    ...(state.metadata !== undefined ? { metadata: state.metadata } : {}),
-    ...(state.attachments?.length ? { attachments: state.attachments } : {}),
+    ...(state.metadata !== undefined ? { metadata: state.metadata } : undefined),
+    ...(state.attachments?.length ? { attachments: state.attachments } : undefined),
   }
 }
 

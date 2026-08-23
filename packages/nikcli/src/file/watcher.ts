@@ -1,10 +1,8 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
-import z from "zod"
 import { Log } from "@nikcli-ai/util/log"
 import { FileIgnore } from "./ignore"
 import { Config } from "../config/config"
-import path from "path"
 // @ts-ignore
 import { createWrapper } from "@parcel/watcher/wrapper"
 import { lazy } from "@nikcli-ai/util/lazy"

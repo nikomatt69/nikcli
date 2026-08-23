@@ -2,8 +2,6 @@ import { describe, expect, it } from "bun:test"
 import { randomBytes } from "crypto"
 import { recordBenchmark } from "./benchmarks/runner"
 
-const LENGTH = 26
-
 function randomBase62Old(length: number): string {
   const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
   let result = ""

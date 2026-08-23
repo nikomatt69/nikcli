@@ -119,7 +119,7 @@ function settingsForEffort(npm: string, modelID: string, effort: string): Record
     if (modelID.includes("anthropic")) {
       return {
         reasoningConfig: {
-          ...(anthropicManualThinking(modelID) ? {} : { type: "adaptive", display: "summarized" }),
+          ...(anthropicManualThinking(modelID) ? undefined : { type: "adaptive", display: "summarized" }),
           maxReasoningEffort: effort,
         },
       }
@@ -152,7 +152,9 @@ function settingsForEffort(npm: string, modelID: string, effort: string): Record
       return {
         modelParams: {
           additionalModelRequestFields: {
-            ...(anthropicManualThinking(modelID) ? {} : { thinking: { type: "adaptive", display: "summarized" } }),
+            ...(anthropicManualThinking(modelID)
+              ? undefined
+              : { thinking: { type: "adaptive", display: "summarized" } }),
             output_config: { effort },
           },
         },

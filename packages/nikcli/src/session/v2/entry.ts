@@ -1,4 +1,5 @@
 import z from "zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import { Identifier } from "@nikcli-ai/util/id"
 import { MessageV2 } from "../message-v2"
 
@@ -38,6 +39,19 @@ export namespace SessionEntry {
   }
   const EMPTY_MODEL = { providerID: "", modelID: "" }
 
+  // Reused v1 message field schemas, converted from MessageV2's own Effect
+  // structs with the same walker `zodObject` applies per field, so embedded
+  // entry fields stay compatible with the messages they project.
+  const assistantTokens = zod(MessageV2.AssistantSchema.fields.tokens)
+  const assistantStructured = zod(MessageV2.AssistantSchema.fields.structured).optional()
+  const userAgent = zod(MessageV2.UserSchema.fields.agent)
+  const userModel = zod(MessageV2.UserSchema.fields.model)
+  const userSystem = zod(MessageV2.UserSchema.fields.system).optional()
+  const userFormat = zod(MessageV2.UserSchema.fields.format).optional()
+  const userTools = zod(MessageV2.UserSchema.fields.tools).optional()
+  const userVariant = zod(MessageV2.UserSchema.fields.variant).optional()
+  const userSummary = zod(MessageV2.UserSchema.fields.summary).optional()
+
   // ============================================================================
   // Derived identity
   // ============================================================================
@@ -50,13 +64,13 @@ export namespace SessionEntry {
    * first, then the parts, then the sealing `complete`, then any trailer.
    * One digit, so it compares lexicographically.
    */
-  const RANK: Record<MessageKind | "part", number> = {
+  const RANK = {
     user: 0,
     start: 0,
     part: 1,
     complete: 2,
     compaction: 3,
-  }
+  } satisfies Record<MessageKind | "part", number>
 
   function body(id: string) {
     const underscore = id.indexOf("_")
@@ -136,13 +150,13 @@ export namespace SessionEntry {
       files: MessageV2.FilePart.array().default([]),
       agents: MessageV2.AgentPart.array().default([]),
       texts: MessageV2.TextPart.array().default([]),
-      agent: MessageV2.User.shape.agent.default(""),
-      model: MessageV2.User.shape.model.default(EMPTY_MODEL),
-      system: MessageV2.User.shape.system,
-      format: MessageV2.User.shape.format,
-      tools: MessageV2.User.shape.tools,
-      variant: MessageV2.User.shape.variant,
-      summary: MessageV2.User.shape.summary,
+      agent: userAgent.default(""),
+      model: userModel.default(EMPTY_MODEL),
+      system: userSystem,
+      format: userFormat,
+      tools: userTools,
+      variant: userVariant,
+      summary: userSummary,
     })
     .meta({ ref: "SessionEntry.User" })
   export type User = z.infer<typeof User>
@@ -194,10 +208,10 @@ export namespace SessionEntry {
       variant: z.string().optional(),
       snapshot: z.string().optional(),
       cost: z.number().optional(),
-      tokens: MessageV2.Assistant.shape.tokens.optional(),
+      tokens: assistantTokens.optional(),
       finish: z.string().optional(),
       error: MessageV2.AssistantError.optional(),
-      structured: MessageV2.Assistant.shape.structured,
+      structured: assistantStructured,
     })
     .meta({ ref: "SessionEntry.Request" })
   export type Request = z.infer<typeof Request>
@@ -214,11 +228,11 @@ export namespace SessionEntry {
       type: z.literal("complete"),
       reason: z.string(),
       cost: z.number().default(0),
-      tokens: MessageV2.Assistant.shape.tokens,
+      tokens: assistantTokens,
       finish: z.string().optional(),
       error: MessageV2.AssistantError.optional(),
       completed: z.number().optional(),
-      structured: MessageV2.Assistant.shape.structured,
+      structured: assistantStructured,
     })
     .meta({ ref: "SessionEntry.Complete" })
   export type Complete = z.infer<typeof Complete>
@@ -363,7 +377,7 @@ export namespace SessionEntry {
       reason: z.string(),
       snapshot: z.string().optional(),
       cost: z.number(),
-      tokens: MessageV2.Assistant.shape.tokens,
+      tokens: assistantTokens,
       ref: Ref,
     })
     .meta({ ref: "SessionEntry.StepFinish" })
@@ -842,14 +856,11 @@ export namespace SessionEntry {
     summary?: boolean,
   ): MessageV2.Assistant | undefined {
     if (!start.messageID) return
-    return {
+    const message: MessageV2.Assistant = {
       id: start.messageID,
       sessionID: start.sessionID,
       role: "assistant",
-      time: {
-        created: start.timestamp,
-        ...(complete?.completed !== undefined ? { completed: complete.completed } : {}),
-      },
+      time: { created: start.timestamp },
       parentID: start.parentID,
       modelID: start.modelID,
       providerID: start.providerID,
@@ -861,8 +872,10 @@ export namespace SessionEntry {
       finish: complete?.finish ?? start.finish,
       error: complete?.error ?? start.error,
       structured: complete?.structured ?? start.structured,
-      ...(summary ? { summary: true } : {}),
     }
+    if (complete?.completed !== undefined) message.time.completed = complete.completed
+    if (summary) message.summary = true
+    return message
   }
 
   /**
@@ -899,6 +912,7 @@ export namespace SessionEntry {
 
   /** Create an entry, filling in a generated id and timestamp. */
   export function create<T extends Entry>(input: Omit<T, "id" | "timestamp"> & { id?: string; timestamp?: number }): T {
+    // SAFETY: Entry.parse validates the payload against the entry schema, so the parsed result conforms to T extends Entry
     return Entry.parse({
       ...input,
       id: input.id ?? Identifier.ascending("event"),

@@ -35,18 +35,6 @@ async function findMonorepoRoot(startDir: string): Promise<string | null> {
   }
 }
 
-async function isMonorepo(dir: string): Promise<boolean> {
-  if (hasFile(dir, "turbo.json") || hasFile(dir, "nx.json") || hasFile(dir, "lerna.json")) return true
-  if (hasFile(dir, "pnpm-workspace.yaml")) return true
-  const pkg = await readJsonSafe(dir, "package.json")
-  if (pkg && Array.isArray(pkg.workspaces) && (pkg.workspaces as unknown[]).length > 0) return true
-  if (pkg && typeof pkg.workspaces === "object" && !Array.isArray(pkg.workspaces)) {
-    const ws = pkg.workspaces as Record<string, unknown>
-    if (Array.isArray(ws.packages) && (ws.packages as unknown[]).length > 0) return true
-  }
-  return false
-}
-
 async function workspaceGlobs(dir: string): Promise<string[]> {
   const globs: string[] = []
 

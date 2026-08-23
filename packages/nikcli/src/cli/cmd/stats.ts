@@ -26,31 +26,6 @@ const ModelUsageSchema = z.object({
   cost: z.number(),
 })
 
-const SessionStatsSchema = z.object({
-  totalSessions: z.number(),
-  totalMessages: z.number(),
-  totalCost: z.number(),
-  totalTokens: z.object({
-    input: z.number(),
-    output: z.number(),
-    reasoning: z.number(),
-    cache: z.object({
-      read: z.number(),
-      write: z.number(),
-    }),
-  }),
-  toolUsage: z.record(z.string(), z.number()),
-  modelUsage: z.record(z.string(), ModelUsageSchema),
-  dateRange: z.object({
-    earliest: z.number(),
-    latest: z.number(),
-  }),
-  days: z.number(),
-  costPerDay: z.number(),
-  tokensPerSession: z.number(),
-  medianTokensPerSession: z.number(),
-})
-
 interface SessionStats {
   totalSessions: number
   totalMessages: number

@@ -85,7 +85,7 @@ export namespace BotHandlers {
   async function generateResponse(
     userMessage: string,
     customPrompt?: string,
-    customTools?: Record<string, any>,
+    _customTools?: Record<string, any>,
   ): Promise<string> {
     const { model, language } = await runProvider(
       Effect.gen(function* () {

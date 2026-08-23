@@ -206,7 +206,7 @@ describe("CodeMode tool-call observation", () => {
             index: call.index,
             name: call.name,
             outcome: call.outcome,
-            ...(call.message === undefined ? {} : { message: call.message }),
+            ...(call.message === undefined ? undefined : { message: call.message }),
           })
         }),
     })

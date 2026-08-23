@@ -7,6 +7,7 @@ import { existsSync, realpathSync } from "fs"
 import { spawn, spawnSync } from "child_process"
 import { OAUTH_DUMMY_KEY } from "../auth"
 import { Log } from "@nikcli-ai/util/log"
+import { z } from "zod"
 
 const log = Log.create({ service: "plugin.cursor" })
 
@@ -421,24 +422,124 @@ async function startCursorOAuth(): Promise<{
   })
 }
 
+const CursorToolArgsSchema = z.looseObject({
+  command: z.string().optional().catch(undefined),
+  path: z.string().optional().catch(undefined),
+  pattern: z.string().optional().catch(undefined),
+  query: z.string().optional().catch(undefined),
+  file_path: z.string().optional().catch(undefined),
+  url: z.string().optional().catch(undefined),
+  content: z.string().optional().catch(undefined),
+})
+export type CursorToolArgs = {
+  command?: string
+  path?: string
+  pattern?: string
+  query?: string
+  file_path?: string
+  url?: string
+  content?: string
+}
+
+const CursorToolCallResultSchema = z.looseObject({
+  error: z.unknown(),
+  success: z.unknown(),
+  content: z.string().optional().catch(undefined),
+})
+export type CursorToolCallResult = {
+  error?: unknown
+  success?: unknown
+  content?: string
+}
+
+const CursorToolCallEntrySchema = z
+  .looseObject({
+    args: CursorToolArgsSchema.optional().catch(undefined),
+    result: CursorToolCallResultSchema.optional().catch(undefined),
+  })
+  .catch({ args: undefined, result: undefined })
+export type CursorToolCallEntry = {
+  args?: CursorToolArgs
+  result?: CursorToolCallResult
+}
+
+const CursorStringListSchema = z
+  .array(z.string().nullable().catch(null))
+  .transform((entries) => entries.filter((entry): entry is string => entry !== null))
+
+const CursorResultTextSchema = z
+  .string()
+  .transform((value) => value.trim())
+  .catch("")
+
+const CursorSuccessTextSchema = z
+  .union([z.string(), z.object({ content: z.string() }).transform((payload) => payload.content)])
+  .nullable()
+  .catch(null)
+
+const StreamJsonEventSchema = z.looseObject({
+  type: z.string().catch(""),
+  subtype: z.string().optional().catch(undefined),
+  session_id: z.string().optional().catch(undefined),
+  timestamp: z.number().optional().catch(undefined),
+  timestamp_ms: z.number().optional().catch(undefined),
+  // Buffered flush of a prior partial — same text already streamed via
+  // timestamp_ms deltas. Must be skipped to avoid duplicating assistant text
+  // (cursor stream-json: events with both timestamp_ms and model_call_id).
+  model_call_id: z.string().optional().catch(undefined),
+  message: z
+    .looseObject({
+      role: z.string().catch(""),
+      content: z
+        .array(
+          z.looseObject({
+            type: z.string().catch(""),
+            text: z.string().optional().catch(undefined),
+            thinking: z.string().optional().catch(undefined),
+          }),
+        )
+        .catch([]),
+    })
+    .optional()
+    .catch(undefined),
+  text: z.string().optional().catch(undefined),
+  tool_call: z.record(z.string(), CursorToolCallEntrySchema).optional().catch(undefined),
+  call_id: z.string().optional().catch(undefined),
+  is_error: z.boolean().optional().catch(undefined),
+  // Terminal `result` events put the final assistant text (or error prose) here.
+  result: z.unknown(),
+  errors: CursorStringListSchema.optional().catch(undefined),
+  error: z
+    .looseObject({ message: z.string().optional().catch(undefined) })
+    .optional()
+    .catch(undefined),
+  usage: z
+    .looseObject({
+      inputTokens: z.number().optional().catch(undefined),
+      outputTokens: z.number().optional().catch(undefined),
+      cacheReadTokens: z.number().optional().catch(undefined),
+      input_tokens: z.number().optional().catch(undefined),
+      output_tokens: z.number().optional().catch(undefined),
+      cache_read_tokens: z.number().optional().catch(undefined),
+    })
+    .optional()
+    .catch(undefined),
+})
+
 export type StreamJsonEvent = {
   type: string
   subtype?: string
   session_id?: string
   timestamp?: number
   timestamp_ms?: number
-  // Buffered flush of a prior partial — same text already streamed via
-  // timestamp_ms deltas. Must be skipped to avoid duplicating assistant text
-  // (cursor stream-json: events with both timestamp_ms and model_call_id).
   model_call_id?: string
   message?: { role: string; content: Array<{ type: string; text?: string; thinking?: string }> }
   text?: string
-  tool_call?: Record<string, { args?: Record<string, unknown> }>
+  tool_call?: Record<string, CursorToolCallEntry>
   call_id?: string
   is_error?: boolean
-  // Terminal `result` events put the final assistant text (or error prose) here.
   result?: unknown
-  errors?: unknown[]
+  errors?: string[]
   error?: { message?: string }
   usage?: {
     inputTokens?: number
@@ -452,43 +553,40 @@ export type StreamJsonEvent = {
 
 /** True for the buffered duplicate flush that re-emits already-streamed partials. */
 function isBufferedFlush(event: StreamJsonEvent): boolean {
-  return typeof event.timestamp_ms === "number" && typeof event.model_call_id === "string"
+  return event.timestamp_ms !== undefined && event.model_call_id !== undefined
 }
 
 // cursor-agent tool keys -> nikcli-style labels, so its native tool activity
 // reads like the other providers' tool cards in the TUI.
-const CURSOR_TOOL_LABELS: Record<string, string> = {
-  readToolCall: "read",
-  writeToolCall: "write",
-  editToolCall: "edit",
-  shellToolCall: "bash",
-  bashToolCall: "bash",
-  lsToolCall: "ls",
-  listToolCall: "ls",
-  globToolCall: "glob",
-  grepToolCall: "grep",
-  searchToolCall: "search",
-  deleteToolCall: "delete",
-  fetchToolCall: "webfetch",
-  updateTodosToolCall: "todos",
-  taskToolCall: "task",
-}
+const CURSOR_TOOL_LABELS = new Map([
+  ["readToolCall", "read"],
+  ["writeToolCall", "write"],
+  ["editToolCall", "edit"],
+  ["shellToolCall", "bash"],
+  ["bashToolCall", "bash"],
+  ["lsToolCall", "ls"],
+  ["listToolCall", "ls"],
+  ["globToolCall", "glob"],
+  ["grepToolCall", "grep"],
+  ["searchToolCall", "search"],
+  ["deleteToolCall", "delete"],
+  ["fetchToolCall", "webfetch"],
+  ["updateTodosToolCall", "todos"],
+  ["taskToolCall", "task"],
+])
 
 function cursorToolLabel(key: string): string {
-  if (CURSOR_TOOL_LABELS[key]) return CURSOR_TOOL_LABELS[key]
+  const known = CURSOR_TOOL_LABELS.get(key)
+  if (known) return known
   return key.endsWith("ToolCall") ? key.slice(0, -"ToolCall".length) : key
 }
 
-function cursorToolSummary(args: Record<string, unknown> | undefined): string {
+function cursorToolSummary(args: CursorToolArgs | undefined): string {
   if (!args) return ""
-  const first = (...keys: string[]) => {
-    for (const k of keys) {
-      const v = args[k]
-      if (typeof v === "string" && v.trim()) return v.trim()
-    }
-    return ""
+  for (const value of [args.command, args.path, args.pattern, args.query, args.file_path, args.url, args.content]) {
+    if (value && value.trim()) return value.trim()
   }
-  return first("command", "path", "pattern", "query", "file_path", "url", "content")
+  return ""
 }
 
 // The tool_call payload nests the tool object next to bookkeeping keys
@@ -508,9 +606,9 @@ function parseStreamJsonLine(line: string): StreamJsonEvent | null {
   const trimmed = line.trim()
   if (!trimmed) return null
   try {
-    const parsed = JSON.parse(trimmed)
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null
-    return parsed as StreamJsonEvent
+    const parsed = StreamJsonEventSchema.safeParse(JSON.parse(trimmed))
+    if (!parsed.success) return null
+    return parsed.data
   } catch {
     return null
   }
@@ -519,16 +617,16 @@ function parseStreamJsonLine(line: string): StreamJsonEvent | null {
 function extractText(event: StreamJsonEvent): string {
   if (!event.message?.content) return ""
   return event.message.content
-    .filter((c) => c.type === "text" && typeof c.text === "string")
-    .map((c) => c.text as string)
+    .filter((c) => c.type === "text" && c.text !== undefined)
+    .map((c) => c.text ?? "")
     .join("")
 }
 
 function extractThinkingFromAssistant(event: StreamJsonEvent): string {
   if (!event.message?.content) return ""
   return event.message.content
-    .filter((c) => c.type === "thinking" && typeof c.thinking === "string")
-    .map((c) => c.thinking as string)
+    .filter((c) => c.type === "thinking" && c.thinking !== undefined)
+    .map((c) => c.thinking ?? "")
     .join("")
 }
 
@@ -536,7 +634,7 @@ class LineBuffer {
   private buffer = ""
   private decoder = new TextDecoder()
   push(chunk: string | Uint8Array): string[] {
-    const text = typeof chunk === "string" ? chunk : this.decoder.decode(chunk)
+    const text = chunk instanceof Uint8Array ? this.decoder.decode(chunk) : chunk
     if (!text) return []
     this.buffer += text
     const lines = this.buffer.split("\n")
@@ -603,7 +701,7 @@ class StreamToSseConverter {
   handleEvent(event: StreamJsonEvent): string[] {
     if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "text")) {
       if (isBufferedFlush(event)) return []
-      const isPartial = typeof event.timestamp_ms === "number"
+      const isPartial = event.timestamp_ms !== undefined
       if (isPartial) {
         const text = extractText(event)
         if (text) {
@@ -620,7 +718,7 @@ class StreamToSseConverter {
     if (event.type === "thinking") {
       if (isBufferedFlush(event)) return []
       const text = event.text ?? ""
-      if (typeof event.timestamp_ms === "number") {
+      if (event.timestamp_ms !== undefined) {
         if (text) {
           this.sawThinkingPartials = true
           return [this.chunkWith({ reasoning_content: text })]
@@ -634,7 +732,7 @@ class StreamToSseConverter {
 
     if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "thinking")) {
       if (isBufferedFlush(event)) return []
-      const isPartial = typeof event.timestamp_ms === "number"
+      const isPartial = event.timestamp_ms !== undefined
       const text = extractThinkingFromAssistant(event)
       if (isPartial) {
         if (text) {
@@ -688,18 +786,33 @@ function formatSseStart(model: string, options?: { id?: string; created?: number
   })}\n\n`
 }
 
+const CursorChatPartSchema = z
+  .looseObject({
+    type: z.string().catch(""),
+    text: z.string().optional().catch(undefined),
+  })
+  .catch({ type: "", text: undefined })
+
+const CursorChatMessageSchema = z.looseObject({
+  role: z.string().catch("user"),
+  content: z
+    .union([z.string(), z.array(CursorChatPartSchema)])
+    .optional()
+    .catch(undefined),
+})
+
 function messageText(message: any): string {
-  const content = message?.content
-  if (typeof content === "string") return content
+  const parsed = CursorChatMessageSchema.safeParse(message)
+  if (!parsed.success) return ""
+  const content = parsed.data.content
+  if (content === undefined) return ""
   if (Array.isArray(content)) {
     return content
-      .map((part: any) =>
-        part && typeof part === "object" && part.type === "text" && typeof part.text === "string" ? part.text : "",
-      )
+      .map((part) => (part.type === "text" ? (part.text ?? "") : ""))
       .filter(Boolean)
       .join("\n")
   }
-  return ""
+  return content
 }
 
 // Passthrough mode: cursor-agent IS the agent and runs its own tools, so we send
@@ -708,7 +821,8 @@ function messageText(message: any): string {
 function buildPromptFromMessages(messages: Array<any>): string {
   const lines: string[] = []
   for (const message of messages) {
-    const role = typeof message?.role === "string" ? message.role : "user"
+    const parsedMessage = CursorChatMessageSchema.safeParse(message)
+    const role = parsedMessage.success ? parsedMessage.data.role : "user"
     if (role === "tool") continue // tool results belong to nikcli's loop, not cursor's
     const text = messageText(message)
     if (text) lines.push(`${role.toUpperCase()}: ${text}`)
@@ -874,7 +988,7 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
         if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "text")) {
           const text = extractText(event)
           if (!text) continue
-          const isPartial = typeof event.timestamp_ms === "number"
+          const isPartial = event.timestamp_ms !== undefined
           if (isPartial) {
             assistantText += text
             sawPartials = true
@@ -882,7 +996,7 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
             assistantText = text
           }
         }
-        if (event.type === "thinking" && typeof event.text === "string") reasoningText += event.text
+        if (event.type === "thinking" && event.text !== undefined) reasoningText += event.text
         if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "thinking")) {
           reasoningText += extractThinkingFromAssistant(event)
         }
@@ -1074,15 +1188,21 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
   }
 }
 
-function extractCursorToolResult(toolObj: any): { type: "text" | "json" | "error"; value: unknown } {
+type CursorToolOutcome = {
+  type: "text" | "json" | "error"
+  value: unknown
+}
+
+function extractCursorToolResult(toolObj: CursorToolCallEntry | undefined): CursorToolOutcome {
   const result = toolObj?.result
   if (!result) return { type: "text", value: "" }
   if (result.error) {
-    return { type: "error", value: typeof result.error === "string" ? result.error : JSON.stringify(result.error) }
+    const asText = z.string().safeParse(result.error)
+    return { type: "error", value: asText.success ? asText.data : JSON.stringify(result.error) }
   }
   const success = result.success ?? result
-  if (typeof success?.content === "string") return { type: "text", value: success.content }
-  if (typeof success === "string") return { type: "text", value: success }
+  const text = CursorSuccessTextSchema.parse(success)
+  if (text !== null) return { type: "text", value: text }
   return { type: "json", value: success }
 }
 
@@ -1099,7 +1219,7 @@ export class CursorEventToLLM {
   handle(event: StreamJsonEvent): LLMEvent[] {
     if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "text")) {
       if (isBufferedFlush(event)) return []
-      const isPartial = typeof event.timestamp_ms === "number"
+      const isPartial = event.timestamp_ms !== undefined
       if (isPartial) {
         const text = extractText(event)
         if (!text) return []
@@ -1114,7 +1234,7 @@ export class CursorEventToLLM {
     if (event.type === "thinking") {
       if (isBufferedFlush(event)) return []
       const text = event.text ?? ""
-      if (typeof event.timestamp_ms === "number") {
+      if (event.timestamp_ms !== undefined) {
         if (!text) return []
         this.sawThinkingPartials = true
         return [{ type: "reasoning-delta", text } as LLMEvent]
@@ -1126,7 +1246,7 @@ export class CursorEventToLLM {
 
     if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "thinking")) {
       if (isBufferedFlush(event)) return []
-      const isPartial = typeof event.timestamp_ms === "number"
+      const isPartial = event.timestamp_ms !== undefined
       const text = extractThinkingFromAssistant(event)
       if (isPartial) {
         if (!text) return []
@@ -1139,7 +1259,7 @@ export class CursorEventToLLM {
     }
 
     if (event.type === "tool_call") {
-      const entry = event.tool_call as Record<string, any> | undefined
+      const entry = event.tool_call
       if (!entry) return []
       const key = Object.keys(entry).find((k) => k.endsWith("ToolCall") && k !== "toolCallId")
       if (!key) return []
@@ -1263,10 +1383,8 @@ export async function* streamCursorLLMEvents(input: CursorStreamInput): AsyncIte
       if (event.is_error) {
         // Prefer the human-readable `result` string over subtype ("success" can
         // still appear with is_error=true when the protocol session closed cleanly).
-        const fromResult = typeof event.result === "string" ? event.result.trim() : ""
-        const fromErrors = Array.isArray(event.errors)
-          ? event.errors.filter((e): e is string => typeof e === "string").join("; ")
-          : ""
+        const fromResult = CursorResultTextSchema.parse(event.result)
+        const fromErrors = event.errors?.join("; ") ?? ""
         resultError = fromResult || fromErrors || event.error?.message || "cursor-agent reported an error"
       }
       const u = event.usage
@@ -1339,7 +1457,7 @@ export async function* streamCursorLLMEvents(input: CursorStreamInput): AsyncIte
               cacheReadInputTokens: usage.cacheReadTokens,
             },
           }
-        : {}),
+        : undefined),
     } as LLMEvent
   } finally {
     input.abort.removeEventListener("abort", onAbort)
@@ -1349,17 +1467,16 @@ export async function* streamCursorLLMEvents(input: CursorStreamInput): AsyncIte
   }
 }
 
-const CURSOR_MODELS: Record<
-  string,
-  {
-    name: string
-    family: string
-    context: number
-    output: number
-    reasoning?: boolean
-    image?: boolean
-  }
-> = {
+type CursorModelInfo = {
+  name: string
+  family: string
+  context: number
+  output: number
+  reasoning?: boolean
+  image?: boolean
+}
+
+const CURSOR_MODELS = {
   "claude-sonnet-4-5": { name: "Claude Sonnet 4.5", family: "claude", context: 200_000, output: 32_000, image: true },
   "claude-sonnet-4-5-thinking": {
     name: "Claude Sonnet 4.5 (Thinking)",
@@ -1408,7 +1525,7 @@ const CURSOR_MODELS: Record<
   "composer-2.5": { name: "Cursor Composer 2.5", family: "cursor", context: 200_000, output: 32_000 },
   composer: { name: "Cursor Composer", family: "cursor", context: 200_000, output: 32_000 },
   auto: { name: "Auto (cursor-agent)", family: "cursor", context: 200_000, output: 32_000 },
-}
+} satisfies Record<string, CursorModelInfo>
 
 function inferFamilyFromModelId(id: string): string {
   const s = id.toLowerCase()
@@ -1444,7 +1561,12 @@ function supportsImage(id: string): boolean {
   return s.includes("claude") || s.includes("gpt-") || s.includes("gemini") || s.includes("vision")
 }
 
-function getContextWindow(id: string): { context: number; output: number } {
+type CursorContextWindow = {
+  context: number
+  output: number
+}
+
+function getContextWindow(id: string): CursorContextWindow {
   const s = id.toLowerCase()
   if (s.includes("gemini-2.5") || s.includes("gemini-1.5")) return { context: 1_048_576, output: 65_000 }
   if (s.includes("gpt-4.1")) return { context: 1_047_576, output: 32_000 }
@@ -1507,14 +1629,8 @@ function parseCursorModelsOutput(output: string): Array<{ id: string; name: stri
   return models
 }
 
-function discoverCursorModelsSync(): Record<
-  string,
-  { name: string; family: string; context: number; output: number; reasoning: boolean; image: boolean }
-> {
-  const result: Record<
-    string,
-    { name: string; family: string; context: number; output: number; reasoning: boolean; image: boolean }
-  > = {}
+function discoverCursorModelsSync(): Map<string, CursorModelInfo> {
+  const result = new Map<string, CursorModelInfo>()
   try {
     const runner = resolveCursorAgentRunner()
     const out = spawnSync(runner.command, [...runner.args, "models"], {
@@ -1528,61 +1644,50 @@ function discoverCursorModelsSync(): Record<
     if (isCursorAuthError(out.stdout) || isCursorAuthError(out.stderr)) return result
     for (const { id, name } of parseCursorModelsOutput(out.stdout)) {
       const ctx = getContextWindow(id)
-      result[id] = {
+      result.set(id, {
         name,
         family: inferFamilyFromModelId(id),
         context: ctx.context,
         output: ctx.output,
         reasoning: supportsReasoning(id),
         image: supportsImage(id),
-      }
+      })
     }
   } catch {}
   return result
 }
 
-export function cursorModelsDevProvider(): {
-  id: string
-  name: string
-  env: string[]
-  api: string
-  npm: string
-  models: Record<string, any>
-} {
+function toCursorModelsDevModel(id: string, info: CursorModelInfo) {
+  return {
+    id,
+    name: info.name,
+    family: info.family,
+    release_date: "2025-01-01",
+    attachment: info.image ?? false,
+    reasoning: info.reasoning ?? false,
+    tool_call: true,
+    temperature: true,
+    cost: { input: 0, output: 0 },
+    limit: { context: info.context, output: info.output },
+    modalities: {
+      input: info.image ? ["text", "image"] : ["text"],
+      output: ["text"],
+    },
+    options: {},
+  }
+}
+
+export function cursorModelsDevProvider() {
   const discovered = discoverCursorModelsSync()
-  const combined: Record<
-    string,
-    { name: string; family: string; context: number; output: number; reasoning?: boolean; image?: boolean }
-  > = {
-    ...CURSOR_MODELS,
+  const combined = new Map<string, CursorModelInfo>(Object.entries(CURSOR_MODELS))
+  for (const [id, info] of discovered) {
+    combined.set(id, info)
   }
-  for (const [id, info] of Object.entries(discovered)) {
-    combined[id] = info
-  }
-  if (!combined["auto"]) {
-    combined["auto"] = { name: "Auto (cursor-agent)", family: "cursor", context: 200_000, output: 32_000 }
+  if (!combined.has("auto")) {
+    combined.set("auto", { name: "Auto (cursor-agent)", family: "cursor", context: 200_000, output: 32_000 })
   }
 
-  const models: Record<string, any> = {}
-  for (const [id, info] of Object.entries(combined)) {
-    models[id] = {
-      id,
-      name: info.name,
-      family: info.family,
-      release_date: "2025-01-01",
-      attachment: info.image ?? false,
-      reasoning: info.reasoning ?? false,
-      tool_call: true,
-      temperature: true,
-      cost: { input: 0, output: 0 },
-      limit: { context: info.context, output: info.output },
-      modalities: {
-        input: info.image ? ["text", "image"] : ["text"],
-        output: ["text"],
-      },
-      options: {},
-    }
-  }
+  const models = Object.fromEntries([...combined].map(([id, info]) => [id, toCursorModelsDevModel(id, info)] as const))
   return {
     id: "cursor",
     name: "Cursor",
@@ -1594,10 +1699,7 @@ export function cursorModelsDevProvider(): {
 }
 
 export async function CursorAuthPlugin(input: PluginInput): Promise<Hooks> {
-  const workspaceDirectory =
-    process.env.CURSOR_ACP_WORKSPACE?.trim() ||
-    (typeof input.directory === "string" ? input.directory : undefined) ||
-    process.cwd()
+  const workspaceDirectory = process.env.CURSOR_ACP_WORKSPACE?.trim() || input.directory || process.cwd()
 
   return {
     auth: {

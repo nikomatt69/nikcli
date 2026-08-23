@@ -1,3 +1,4 @@
+import z from "zod"
 import { locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { Instance } from "@/project/instance"
 import { Session } from "@/session"
@@ -26,6 +27,7 @@ export namespace HttpApiPrompt {
   const log = Log.create({ service: "httpapi.prompt" })
 
   const PromptBody = SessionV2.PromptInput.omit({ sessionID: true })
+  type PromptBody = z.infer<typeof PromptBody>
 
   function captureContext(): InstanceContext {
     return {
@@ -35,29 +37,17 @@ export namespace HttpApiPrompt {
     }
   }
 
-  function run(ctx: InstanceContext, sessionID: string, body: Record<string, unknown>) {
+  function run(ctx: InstanceContext, sessionID: string, body: PromptBody) {
     return runPromiseWithLayer(
       SessionPrompt.defaultLayer,
-      locallyInstance(
-        ctx,
-        SessionV2.promptEffect({
-          ...body,
-          sessionID,
-        } as SessionV2.PromptInput),
-      ),
+      locallyInstance(ctx, SessionV2.promptEffect({ ...body, sessionID })),
     )
   }
 
-  function admit(ctx: InstanceContext, sessionID: string, body: Record<string, unknown>) {
+  function admit(ctx: InstanceContext, sessionID: string, body: PromptBody) {
     return runPromiseWithLayer(
       SessionPrompt.defaultLayer,
-      locallyInstance(
-        ctx,
-        SessionV2.admitEffect({
-          ...body,
-          sessionID,
-        } as SessionV2.PromptInput),
-      ),
+      locallyInstance(ctx, SessionV2.admitEffect({ ...body, sessionID })),
     )
   }
 
@@ -74,9 +64,7 @@ export namespace HttpApiPrompt {
     )
   }
 
-  async function parse(
-    request: Request,
-  ): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; response: Response }> {
+  async function parse(request: Request): Promise<{ ok: true; body: PromptBody } | { ok: false; response: Response }> {
     const raw = await request.json().catch(() => undefined)
     const parsed = PromptBody.safeParse(raw)
     if (!parsed.success) {
@@ -85,7 +73,7 @@ export namespace HttpApiPrompt {
         response: Response.json({ data: raw, error: parsed.error.issues, success: false }, { status: 400 }),
       }
     }
-    return { ok: true, body: parsed.data as Record<string, unknown> }
+    return { ok: true, body: parsed.data }
   }
 
   function errorBody(error: unknown): {

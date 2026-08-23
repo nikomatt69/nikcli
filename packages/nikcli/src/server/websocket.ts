@@ -1,3 +1,4 @@
+import z from "zod"
 import { Effect } from "effect"
 import { Pty } from "@/pty"
 import { PluginPtyEnvironment } from "@/plugin/pty-environment"
@@ -35,6 +36,12 @@ function textFromMessage(message: string | ArrayBuffer | Uint8Array) {
   return new TextDecoder().decode(message)
 }
 
+const PtyResizeMessage = z.object({
+  type: z.literal("resize"),
+  cols: z.number(),
+  rows: z.number(),
+})
+
 async function handlePtyMessage(
   data: Extract<WebSocketData, { type: "pty" }>,
   handler: Pty.Connection | undefined,
@@ -42,13 +49,14 @@ async function handlePtyMessage(
 ) {
   if (text.charCodeAt(0) === 123 /* { */) {
     try {
-      const msg = JSON.parse(text) as Record<string, unknown>
-      if (msg.type === "resize" && typeof msg.cols === "number" && typeof msg.rows === "number") {
+      const resize = PtyResizeMessage.safeParse(JSON.parse(text))
+      if (resize.success) {
+        const { cols, rows } = resize.data
         await withPtyInstance(data, () =>
           runPty(
             Effect.gen(function* () {
               const pty = yield* Pty.Service
-              yield* pty.resize(data.ptyID, msg.cols as number, msg.rows as number)
+              yield* pty.resize(data.ptyID, cols, rows)
             }),
           ),
         ).catch((error) => {

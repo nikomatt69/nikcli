@@ -20,7 +20,7 @@ export abstract class BaseApiClient<AuthConfig extends Record<string, string>> {
       url += separator + params.toString()
     }
 
-    const { query, auth, ...fetchOptions } = options
+    const { query: _query, auth, ...fetchOptions } = options
     const authHeaders = auth ? this.getAuth(auth) : {}
 
     const response = await fetch(url, {

@@ -13,8 +13,6 @@ function getChanges(result: void | RunResult): number {
 }
 
 export namespace AccountDB {
-  const log = Log.create({ service: "account-db" })
-
   /**
    * Get the shared Drizzle database instance from the central Database.Service.
    */

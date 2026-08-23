@@ -107,7 +107,7 @@ export function releaseWorkerWithoutTermination(worker: WorkerHandle): void {
 }
 
 export async function shutdownWorker(input: {
-  shutdown: () => Promise<unknown>
+  shutdown: () => Promise<void>
   terminate: () => void
   release: () => void
   platform?: typeof process.platform
@@ -271,7 +271,9 @@ export const TuiThreadCommand = cmd({
       // Bound shutdown on every platform. Windows releases the worker without
       // terminating it so MCP subprocess teardown cannot detach the console.
       await shutdownWorker({
-        shutdown: () => client.call("shutdown", undefined),
+        shutdown: async () => {
+          await client.call("shutdown", undefined)
+        },
         terminate: () => worker.terminate(),
         release: () => releaseWorkerWithoutTermination(worker),
       }).catch((error) => {

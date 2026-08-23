@@ -640,7 +640,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
             const providerMetadata: SharedV2ProviderMetadata = {
               [providerOptionsName]: {},
               // Include reasoning_opaque for Copilot multi-turn reasoning
-              ...(reasoningOpaque ? { copilot: { reasoningOpaque } } : {}),
+              ...(reasoningOpaque ? { copilot: { reasoningOpaque } } : undefined),
               ...metadataExtractor?.buildMetadata(),
             }
             if (usage.completionTokensDetails.acceptedPredictionTokens != null) {

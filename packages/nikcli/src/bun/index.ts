@@ -26,7 +26,6 @@ export type {
 
 export namespace BunProc {
   const log = Log.create({ service: "bun" })
-  const req = createRequire(import.meta.url)
 
   export async function run(cmd: string[], options?: Bun.SpawnOptions.OptionsObject<any, any, any>) {
     log.info("running", {

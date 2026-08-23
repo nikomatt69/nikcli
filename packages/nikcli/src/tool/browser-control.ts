@@ -108,21 +108,21 @@ function parseViewport(value: string): { width: number; height: number } {
 function waitCondition(params: Params): Record<string, unknown> {
   switch (params.wait_for) {
     case "text":
-      return { type: "text", value: params.text, ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}) }
+      return { type: "text", value: params.text, ...(params.timeout_ms ? { timeout: params.timeout_ms } : undefined) }
     case "selector":
       return {
         type: "selector",
         value: params.selector,
-        ...(params.state ? { state: params.state } : {}),
-        ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}),
+        ...(params.state ? { state: params.state } : undefined),
+        ...(params.timeout_ms ? { timeout: params.timeout_ms } : undefined),
       }
     case "idle":
-      return { type: "idle", ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}) }
+      return { type: "idle", ...(params.timeout_ms ? { timeout: params.timeout_ms } : undefined) }
     case "stable":
       return {
         type: "stable",
-        ...(params.stable_ms ? { ms: params.stable_ms } : {}),
-        ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}),
+        ...(params.stable_ms ? { ms: params.stable_ms } : undefined),
+        ...(params.timeout_ms ? { timeout: params.timeout_ms } : undefined),
       }
     default:
       return { type: "timeout", ms: params.timeout_ms ?? 1000 }

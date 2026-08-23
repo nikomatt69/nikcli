@@ -31,7 +31,7 @@ function pushRequest(projectID: string, bearer?: string) {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
+      ...(bearer ? { authorization: `Bearer ${bearer}` } : undefined),
     },
     body: JSON.stringify({
       event: {

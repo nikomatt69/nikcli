@@ -35,7 +35,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | **H3**  | Done    | Generate the exhaustive SDK namespaced compatibility view                 |
 | **E5**  | Now     | Keep expected session failures on Effect's typed channel                  |
 | **H8**  | Next    | Declare auth/security with `HttpApiMiddleware` after E5                   |
-| **S4r** | Next    | Import / teleport / run write through SessionV2                           |
+| **S4r** | Done    | Import / teleport / run write through SessionV2                           |
 | **P2**  | Next    | Measured request-path cuts, beginning with session-list SQL               |
 | **R1**  | Later   | Keyed scoped instance runtime after lifecycle coverage                    |
 | **T3**  | Later   | Output codecs on structured built-ins                                     |
@@ -180,12 +180,12 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 - **Depends on** — nothing. Later because T2 called this additive; do not add a CI rule that every tool must have a codec.
 - **Done when** — Tools that already emit JSON declare a codec and return `value`. Model-facing `output` stays a string. A malformed `value` fails that call only. Tools that emit prose are unchanged.
 
-### Import / teleport / run write through SessionV2 (S4 remainder)
+### Import / teleport / run write through SessionV2 (S4 remainder) — landed 2026-08-23
 
 - **Buys** — One conversation write. A share import or teleport cannot commit v1 rows the entry table cannot represent.
-- **Evidence** — S4 inverted HTTP create/prompt ([v2/session-v2-write-path.md](./v2/session-v2-write-path.md)). Three callers still write `MessageRepo` first and then `SessionEntryProjection.rebuild`: `cli/cmd/run.ts`, `cli/cmd/import.ts`, `server/mobile/teleport.ts`.
-- **Depends on** — nothing. Later because the HTTP path already uses `SessionV2Write.persist`.
-- **Done when** — Those three callers persist through `SessionV2` / `SessionV2Write.persist`. `rebuild` after a direct `MessageRepo` write is gone from production. Token coalescing in `SessionProcessor.updatePartCoalesced` may still publish ahead of the projector — that path is documented and is not this item. Do not delete `SessionV2Write` or `SessionEntryProjection` as part of this; they earn their keep. `SessionV2.prompt` / `admit` / `loop` / `create` remaining as thin wrappers over `SessionPrompt` / `Session.createNext` is a later naming cleanup, not this item.
+- **Evidence** — S4 inverted HTTP create/prompt ([v2/session-v2-write-path.md](./v2/session-v2-write-path.md)). Three callers still wrote `MessageRepo` first and then `SessionEntryProjection.rebuild`: `cli/cmd/run.ts`, `cli/cmd/import.ts`, `server/mobile/teleport.ts`.
+- **Implementation** — Those three callers persist each imported message through `SessionV2Write.persist`. Session create stays `Session.create` / `SessionRepo.upsert`. `rebuild` after a direct `MessageRepo` write is gone from production; tests may still call it. Token coalescing in `SessionProcessor.updatePartCoalesced` may still publish ahead of the projector — that path is documented and is not this item.
+- **Done when** — Those three callers persist through `SessionV2` / `SessionV2Write.persist`. `rebuild` after a direct `MessageRepo` write is gone from production. Do not delete `SessionV2Write` or `SessionEntryProjection` as part of this; they earn their keep. `SessionV2.prompt` / `admit` / `loop` / `create` remaining as thin wrappers over `SessionPrompt` / `Session.createNext` is a later naming cleanup, not this item.
 
 ### `normalizeMessages` on the LLM turn path (P3)
 
@@ -293,7 +293,7 @@ Recorded at phase boundaries so the next pass does not redo work.
 
 - H6 polish: emit input schemas into `structuralTypes` so flattened payloads can be `payload: LoopCreateInput`.
 - E4 service-side `jsonSafe` in `session.ts` (`Session.Info` / `MessageV2.Info`).
-- H7 / E5 / H8 / H3 / R1 / T3 / S4r / P3.
+- H7 / E5 / H8 / H3 / R1 / T3 / P3.
 
 ### 2026-08-18 (later) — E4 correction / E5 slice / session-model inheritance / route-table repairs
 

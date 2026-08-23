@@ -31,7 +31,7 @@ import {
   type InstanceContext,
 } from "@/effect"
 import { Context, Effect, Layer, Schema } from "effect"
-import { zodObject, zodObjectMode, type DeepMutable } from "@nikcli-ai/util/effect-zod"
+import { zod, zodObject, zodObjectMode, type DeepMutable } from "@nikcli-ai/util/effect-zod"
 import { Analytics } from "../analytics/analytics"
 import { SessionRepo } from "./repo"
 import { GoalRepo } from "./goal-repo"
@@ -214,13 +214,13 @@ export namespace Session {
     .object({
       parentID: ID.optional(),
       title: z.string().optional(),
-      permission: Info.shape.permission,
+      permission: zod(InfoSchema.fields.permission).optional(),
       skills: z.array(z.string()).optional(),
       disabledInstructions: z.array(z.string()).optional(),
       disabledTools: z.record(z.string(), z.boolean()).optional(),
       github: GithubInfo.optional(),
       worktree: WorktreeInfo.optional(),
-      workspaceID: Info.shape.workspaceID,
+      workspaceID: zod(InfoSchema.fields.workspaceID).optional(),
     })
     .optional()
   export type CreateInput = z.infer<typeof CreateInput>

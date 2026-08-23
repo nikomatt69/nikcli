@@ -3,7 +3,7 @@ import { Config } from "@/config/config"
 
 describe("Config.LSP min_severity (opencode #17877)", () => {
   it("accepts a per-server min_severity integer 1-4", () => {
-    const parsed = Config.Info.shape.lsp?.parse({
+    const parsed = Config.LspField.parse({
       markdownlint: {
         command: ["markdownlint-lsp"],
         extensions: [".md"],
@@ -15,7 +15,7 @@ describe("Config.LSP min_severity (opencode #17877)", () => {
 
   it("rejects min_severity outside 1..4", () => {
     expect(() =>
-      Config.Info.shape.lsp?.parse({
+      Config.LspField.parse({
         markdownlint: {
           command: ["markdownlint-lsp"],
           extensions: [".md"],
@@ -24,7 +24,7 @@ describe("Config.LSP min_severity (opencode #17877)", () => {
       }),
     ).toThrow()
     expect(() =>
-      Config.Info.shape.lsp?.parse({
+      Config.LspField.parse({
         markdownlint: {
           command: ["markdownlint-lsp"],
           extensions: [".md"],
@@ -35,7 +35,7 @@ describe("Config.LSP min_severity (opencode #17877)", () => {
   })
 
   it("omits min_severity when unset (default = Error)", () => {
-    const parsed = Config.Info.shape.lsp?.parse({
+    const parsed = Config.LspField.parse({
       markdownlint: {
         command: ["markdownlint-lsp"],
         extensions: [".md"],
@@ -48,7 +48,7 @@ describe("Config.LSP min_severity (opencode #17877)", () => {
 describe("Config.small_model empty string (opencode #21184)", () => {
   it("accepts empty string as an explicit disabled value", () => {
     // The Zod string schema accepts "" without error; semantics: disabled.
-    const parsed = Config.Info.shape.small_model?.parse("")
+    const parsed = Config.SmallModelField.parse("")
     expect(parsed).toBe("")
   })
 })

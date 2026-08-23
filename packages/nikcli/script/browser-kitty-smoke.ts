@@ -21,101 +21,129 @@
  *
  * Keys: q / ctrl-c quit · arrows and j/k scroll · r reload.
  */
-import { encodeKittyVirtualFile, encodeKittyVirtualPng, kittyIdColor, kittyPlaceholderGrid } from "@nikcli-ai/tui-image"
-import { ensureDaemon, openScreencast, rpc, socketPathFor } from "@nikcli-ai/browser-control/daemon-client"
+import {
+  encodeKittyVirtualFile,
+  encodeKittyVirtualPng,
+  kittyIdColor,
+  kittyPlaceholderGrid,
+} from "@nikcli-ai/tui-image";
+import {
+  ensureDaemon,
+  openScreencast,
+  rpc,
+  socketPathFor,
+} from "@nikcli-ai/browser-control/daemon-client";
 
-const DEFAULT_CELL_WIDTH = 10
-const DEFAULT_CELL_HEIGHT = 20
-const IMAGE_ID = 0x515157
-const STATUS_ROWS = 1
+const DEFAULT_CELL_WIDTH = 10;
+const DEFAULT_CELL_HEIGHT = 20;
+const IMAGE_ID = 0x515157;
+const STATUS_ROWS = 1;
 
-const argv = Bun.argv.slice(2)
-const inline = argv.includes("--inline")
-const fpsIndex = argv.indexOf("--fps")
-const fps = fpsIndex === -1 ? 12 : Number(argv[fpsIndex + 1]) || 12
-const url = argv.find((arg) => !arg.startsWith("--") && arg !== String(fps)) ?? "https://example.com"
+const argv = Bun.argv.slice(2);
+const inline = argv.includes("--inline");
+const fpsIndex = argv.indexOf("--fps");
+const fps = fpsIndex === -1 ? 12 : Number(argv[fpsIndex + 1]) || 12;
+const url =
+  argv.find((arg) => !arg.startsWith("--") && arg !== String(fps)) ??
+  "https://example.com";
 
-const out = (value: string) => process.stdout.write(value)
+const out = (value: string) => process.stdout.write(value);
 
 /**
  * Ask the terminal for its cell size in pixels (CSI 16 t → CSI 6 ; h ; w t).
  * Every mapping in the live view — viewport size, click coordinates — is
  * derived from this, so guessing is a last resort rather than the plan.
  */
-async function cellSize(): Promise<{ width: number; height: number; measured: boolean }> {
-  if (!process.stdin.isTTY) return { width: DEFAULT_CELL_WIDTH, height: DEFAULT_CELL_HEIGHT, measured: false }
-  process.stdin.setRawMode(true)
-  process.stdin.resume()
-  out("\x1b[16t")
+async function cellSize(): Promise<{
+  width: number;
+  height: number;
+  measured: boolean;
+}> {
+  if (!process.stdin.isTTY)
+    return {
+      width: DEFAULT_CELL_WIDTH,
+      height: DEFAULT_CELL_HEIGHT,
+      measured: false,
+    };
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  out("\x1b[16t");
   const answer = await new Promise<string>((resolve) => {
-    let buffer = ""
+    let buffer = "";
     const timer = setTimeout(() => {
-      process.stdin.off("data", onData)
-      resolve("")
-    }, 300)
+      process.stdin.off("data", onData);
+      resolve("");
+    }, 300);
     const onData = (chunk: Buffer) => {
-      buffer += chunk.toString("latin1")
-      if (!buffer.includes("t")) return
-      clearTimeout(timer)
-      process.stdin.off("data", onData)
-      resolve(buffer)
-    }
-    process.stdin.on("data", onData)
-  })
-  const match = /\x1b\[6;(\d+);(\d+)t/.exec(answer)
-  if (!match) return { width: DEFAULT_CELL_WIDTH, height: DEFAULT_CELL_HEIGHT, measured: false }
-  return { width: Number(match[2]), height: Number(match[1]), measured: true }
+      buffer += chunk.toString("latin1");
+      if (!buffer.includes("t")) return;
+      clearTimeout(timer);
+      process.stdin.off("data", onData);
+      resolve(buffer);
+    };
+    process.stdin.on("data", onData);
+  });
+  const match = new RegExp(
+    `${String.fromCharCode(27)}\\[6;(\\d+);(\\d+)t`,
+  ).exec(answer);
+  if (!match)
+    return {
+      width: DEFAULT_CELL_WIDTH,
+      height: DEFAULT_CELL_HEIGHT,
+      measured: false,
+    };
+  return { width: Number(match[2]), height: Number(match[1]), measured: true };
 }
 
-const cell = await cellSize()
-const columns = process.stdout.columns ?? 80
-const rows = Math.max(1, (process.stdout.rows ?? 24) - STATUS_ROWS)
-const viewport = { width: columns * cell.width, height: rows * cell.height }
+const cell = await cellSize();
+const columns = process.stdout.columns ?? 80;
+const rows = Math.max(1, (process.stdout.rows ?? 24) - STATUS_ROWS);
+const viewport = { width: columns * cell.width, height: rows * cell.height };
 
-const socket = await socketPathFor(process.cwd())
-await ensureDaemon(socket)
-const name = `kitty-smoke-${process.pid}`
-await rpc(socket, "start", { name, url, viewport })
+const socket = await socketPathFor(process.cwd());
+await ensureDaemon(socket);
+const name = `kitty-smoke-${process.pid}`;
+await rpc(socket, "start", { name, url, viewport });
 
-const abort = new AbortController()
-let frames = 0
-let dropped = 0
-let bytes = 0
-let lastError = ""
+const abort = new AbortController();
+let frames = 0;
+let dropped = 0;
+let bytes = 0;
+let lastError = "";
 
 const status = (message: string) => {
-  const line = message.slice(0, columns).padEnd(columns)
-  out(`\x1b[${rows + 1};1H\x1b[7m${line}\x1b[0m`)
-}
+  const line = message.slice(0, columns).padEnd(columns);
+  out(`\x1b[${rows + 1};1H\x1b[7m${line}\x1b[0m`);
+};
 
 function enterFullScreen() {
-  out("\x1b[?1049h") // alternate screen
-  out("\x1b[?25l") // hide cursor
-  out("\x1b[2J") // clear
+  out("\x1b[?1049h"); // alternate screen
+  out("\x1b[?25l"); // hide cursor
+  out("\x1b[2J"); // clear
   // The placeholder grid is written once: the cells never change, only the
   // image behind them does. That is the whole reason this scales to video.
-  const color = kittyIdColor(IMAGE_ID)
-  const grid = kittyPlaceholderGrid(columns, rows)
-  out("\x1b[1;1H")
-  out(`\x1b[38;2;${color.r};${color.g};${color.b}m`)
-  for (let i = 0; i < grid.length; i++) out(`\x1b[${i + 1};1H${grid[i]}`)
-  out("\x1b[0m")
+  const color = kittyIdColor(IMAGE_ID);
+  const grid = kittyPlaceholderGrid(columns, rows);
+  out("\x1b[1;1H");
+  out(`\x1b[38;2;${color.r};${color.g};${color.b}m`);
+  for (let i = 0; i < grid.length; i++) out(`\x1b[${i + 1};1H${grid[i]}`);
+  out("\x1b[0m");
 }
 
 function leaveFullScreen() {
-  out(`\x1b_Ga=d,d=I,i=${IMAGE_ID},q=2\x1b\\`)
-  out("\x1b[?25h")
-  out("\x1b[?1049l")
+  out(`\x1b_Ga=d,d=I,i=${IMAGE_ID},q=2\x1b\\`);
+  out("\x1b[?25h");
+  out("\x1b[?1049l");
 }
 
-let closing = false
+let closing = false;
 async function shutdown(reason: string) {
-  if (closing) return
-  closing = true
-  abort.abort()
-  await rpc(socket, "remove", { name }).catch(() => {})
-  leaveFullScreen()
-  if (process.stdin.isTTY) process.stdin.setRawMode(false)
+  if (closing) return;
+  closing = true;
+  abort.abort();
+  await rpc(socket, "remove", { name }).catch(() => {});
+  leaveFullScreen();
+  if (process.stdin.isTTY) process.stdin.setRawMode(false);
   process.stdout.write(
     `\n${reason}\n` +
       `  transmission : ${inline ? "inline (t=d)" : "temporary file (t=t)"}\n` +
@@ -124,32 +152,46 @@ async function shutdown(reason: string) {
       `  frames       : ${frames} shown, ${dropped} dropped, ${(bytes / 1024).toFixed(0)}KiB through the PTY\n` +
       (lastError ? `  last error   : ${lastError}\n` : "") +
       `\nIf the page rendered and moved, the assumption holds.\n`,
-  )
-  process.exit(0)
+  );
+  process.exit(0);
 }
 
 if (process.stdin.isTTY) {
-  process.stdin.setRawMode(true)
-  process.stdin.resume()
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
   process.stdin.on("data", (chunk: Buffer) => {
-    const key = chunk.toString("latin1")
-    if (key === "q" || key === "\x03") return void shutdown("Stopped.")
-    if (key === "r") return void rpc(socket, "reload", { name }).catch(() => {})
+    const key = chunk.toString("latin1");
+    if (key === "q" || key === "\x03") return void shutdown("Stopped.");
+    if (key === "r")
+      return void rpc(socket, "reload", { name }).catch(() => {});
     const scroll =
-      key === "\x1b[B" || key === "j" ? 120 : key === "\x1b[A" || key === "k" ? -120 : key === " " ? 400 : 0
+      key === "\x1b[B" || key === "j"
+        ? 120
+        : key === "\x1b[A" || key === "k"
+          ? -120
+          : key === " "
+            ? 400
+            : 0;
     if (scroll !== 0) {
       void rpc(socket, "pointer", {
         name,
-        input: { type: "wheel", x: viewport.width / 2, y: viewport.height / 2, deltaY: scroll },
-      }).catch(() => {})
+        input: {
+          type: "wheel",
+          x: viewport.width / 2,
+          y: viewport.height / 2,
+          deltaY: scroll,
+        },
+      }).catch(() => {});
     }
-  })
+  });
 }
-process.on("SIGINT", () => void shutdown("Interrupted."))
-process.on("SIGTERM", () => void shutdown("Terminated."))
+process.on("SIGINT", () => void shutdown("Interrupted."));
+process.on("SIGTERM", () => void shutdown("Terminated."));
 
-enterFullScreen()
-status(` ${inline ? "inline" : "t=t"} · ${columns}x${rows} cells · waiting for first frame… · q to quit `)
+enterFullScreen();
+status(
+  ` ${inline ? "inline" : "t=t"} · ${columns}x${rows} cells · waiting for first frame… · q to quit `,
+);
 
 try {
   for await (const frame of openScreencast(socket, {
@@ -160,22 +202,27 @@ try {
     fps,
     signal: abort.signal,
   })) {
-    if (closing) break
-    dropped += Math.max(0, frame.seq - frames - dropped - 1)
-    frames++
+    if (closing) break;
+    dropped += Math.max(0, frame.seq - frames - dropped - 1);
+    frames++;
 
     const command =
       inline || !frame.path
-        ? encodeKittyVirtualPng(Uint8Array.fromBase64(frame.pngBase64 ?? ""), { id: IMAGE_ID, columns, rows })
-        : encodeKittyVirtualFile(frame.path, { id: IMAGE_ID, columns, rows })
-    bytes += command.length
-    out(command)
+        ? encodeKittyVirtualPng(Uint8Array.fromBase64(frame.pngBase64 ?? ""), {
+            id: IMAGE_ID,
+            columns,
+            rows,
+          })
+        : encodeKittyVirtualFile(frame.path, { id: IMAGE_ID, columns, rows });
+    bytes += command.length;
+    out(command);
     status(
       ` ${inline ? "inline" : "t=t"} · ${frame.width}x${frame.height}px · frame ${frames} (${dropped} dropped) · ${(bytes / 1024).toFixed(0)}KiB PTY · q quit `,
-    )
+    );
   }
 } catch (error) {
-  if (!abort.signal.aborted) lastError = error instanceof Error ? error.message : String(error)
+  if (!abort.signal.aborted)
+    lastError = error instanceof Error ? error.message : String(error);
 }
 
-await shutdown(lastError ? "Stream failed." : "Stream ended.")
+await shutdown(lastError ? "Stream failed." : "Stream ended.");

@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, inArray, isNotNull } from "drizzle-orm"
+import { eq, desc, asc, inArray, isNotNull } from "drizzle-orm"
 import { parseModel, stringifyModel } from "@nikcli-ai/util/model"
 import { Database } from "@/database/database"
 import { sessionInfo } from "./session.sql"

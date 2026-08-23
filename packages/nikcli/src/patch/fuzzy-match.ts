@@ -98,7 +98,6 @@ export function fuzzyMatch(
   newEnd: number
 } {
   const context = options.context ?? 3
-  const maxAttempts = options.maxAttempts ?? 10
 
   let bestMatch: {
     index: number
@@ -140,8 +139,6 @@ export function fuzzyMatch(
   }
 
   const { index: startIndex, strategy } = bestMatch
-  const contextStart = Math.max(0, startIndex - context)
-  const contextEnd = Math.min(originalLines.length, startIndex + oldLines.length + context)
 
   const beforeContext = originalLines.slice(0, startIndex)
   const afterContext = originalLines.slice(startIndex + oldLines.length)

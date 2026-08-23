@@ -201,9 +201,9 @@ export namespace Workspace {
   export const create = fn(
     z.object({
       id: Identifier.schema("workspace").optional(),
-      projectID: Info.shape.projectID,
-      branch: Info.shape.branch,
-      config: Info.shape.config,
+      projectID: zod(InfoSchema.fields.projectID),
+      branch: zod(InfoSchema.fields.branch),
+      config: zod(InfoSchema.fields.config),
     }),
     async (input) => {
       const id = Identifier.ascending("workspace", input.id)

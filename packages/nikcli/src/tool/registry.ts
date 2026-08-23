@@ -234,16 +234,6 @@ export namespace ToolRegistry {
     return isToolPathAllowed(filePath, [...allowlist])
   }
 
-  function truncateOutput(text: string, options: Truncate.Options = {}, agent?: Agent.Info) {
-    return runPromiseWithLayer(
-      Truncate.defaultLayer,
-      Effect.gen(function* () {
-        const truncate = yield* Truncate.Service
-        return yield* truncate.output(text, options, agent)
-      }),
-    )
-  }
-
   function fromPlugin(id: string, def: ToolDefinition): Tool.Info {
     return Tool.define(id, async () => ({
       parameters: z.object(def.args),

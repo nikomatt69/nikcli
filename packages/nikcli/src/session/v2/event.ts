@@ -1,4 +1,5 @@
 import z from "zod"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import { Identifier } from "@nikcli-ai/util/id"
 import { MessageV2 } from "../message-v2"
 
@@ -71,7 +72,7 @@ export namespace SessionEvent {
     messageID: z.string(),
     reason: z.string(),
     cost: z.number().default(0),
-    tokens: MessageV2.Assistant.shape.tokens,
+    tokens: zod(MessageV2.AssistantSchema.fields.tokens),
     finish: z.string().optional(),
     /** Terminal message error (abort, auth, overflow, ...) — kept on the
      * sealing event so the reduction stays lossless. */

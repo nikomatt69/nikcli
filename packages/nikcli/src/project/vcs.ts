@@ -1,6 +1,5 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
-import z from "zod"
 import { Log } from "@nikcli-ai/util/log"
 import { FileWatcher } from "@/file/watcher"
 import { Git } from "@/git"

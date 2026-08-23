@@ -243,10 +243,8 @@ async function detectRemote(cwd: string): Promise<string | undefined> {
   return "origin"
 }
 
-type GhJsonOptions = { cwd?: string }
-
 /** Run `gh <args> --json <fields>` and parse the first element. */
-async function ghJson<T>(args: string[], cwd: string): Promise<T | undefined> {
+async function ghJson<T>(args: string[], _cwd: string): Promise<T | undefined> {
   if (!(await hasGh())) return undefined
   const result = await $`gh ${args}`.nothrow()
   if (result.exitCode !== 0) {

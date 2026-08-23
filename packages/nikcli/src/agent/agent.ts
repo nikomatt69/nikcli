@@ -374,7 +374,7 @@ Produce a clear, step-by-step plan with file paths.`,
               native: true,
             },
           }
-        : {}),
+        : undefined),
       researcher: {
         name: "researcher",
         description:
@@ -807,7 +807,7 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
                       [localPath]: "allow",
                       [path.join(localPath, "*")]: "allow",
                     }
-                  : {}),
+                  : undefined),
                 [Truncate.DIR]: "allow",
                 [Truncate.GLOB]: "allow",
               },

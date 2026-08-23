@@ -1,3 +1,4 @@
+import type { JsonValue } from "@/util/json"
 import { and, eq, gt, sql } from "drizzle-orm"
 import { Effect, Schema } from "effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
@@ -524,7 +525,7 @@ export namespace SyncHttpApi {
     }
   }
 
-  function safeJson(value: string): unknown {
+  function safeJson(value: string): JsonValue {
     try {
       return JSON.parse(value)
     } catch {

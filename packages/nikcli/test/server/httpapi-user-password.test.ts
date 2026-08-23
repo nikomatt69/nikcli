@@ -32,7 +32,7 @@ function post(pathname: string, token: string | undefined, body: unknown) {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(token ? { authorization: `Bearer ${token}` } : undefined),
       },
       body: JSON.stringify(body),
     }),

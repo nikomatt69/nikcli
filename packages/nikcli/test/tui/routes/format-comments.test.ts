@@ -135,7 +135,7 @@ describe("formatCommentsForAI", () => {
         ["src/a.ts", makeMap(comments.slice(0, 2))],
         ["src/b.ts", makeMap(comments.slice(2, 5))],
       ])
-      const r = recordBenchmark({
+      recordBenchmark({
         suite: "tui-comments",
         module: "formatCommentsForAI",
         scenario: "throughput",

@@ -1,5 +1,5 @@
-import { BusEvent } from "@/bus/bus-event"
-import { Log } from "@nikcli-ai/util/log"
+import { BusEvent } from "@/bus/bus-event";
+import { Log } from "@nikcli-ai/util/log";
 
 /**
  * One encoded frame per event, one bounded queue per connection.
@@ -18,9 +18,9 @@ import { Log } from "@nikcli-ai/util/log"
  * See `specs/v2/event-stream-architecture.md`.
  */
 export namespace EventFeed {
-  const log = Log.create({ service: "event.feed" })
+  const log = Log.create({ service: "event.feed" });
 
-  const encoder = new TextEncoder()
+  const encoder = new TextEncoder();
 
   /**
    * Frames a connection may fall behind by before it is evicted.
@@ -30,10 +30,13 @@ export namespace EventFeed {
    * observed burst sizes and overflow frequency. A larger budget retains
    * stale clients longer.
    */
-  export const LAG_BUDGET = 4096
+  export const LAG_BUDGET = 4096;
 
   /** A connection-local frame: the greeting, a heartbeat, or a failure reason. */
-  export type LocalEvent = { type: string; properties: Record<string, unknown> }
+  export type LocalEvent = {
+    type: string;
+    properties: Record<string, unknown>;
+  };
 
   /**
    * Wraps a connection-local event in the route's wire shape.
@@ -44,7 +47,7 @@ export namespace EventFeed {
    * `envelope.payload.type` on the other, so serving the wrong shape silently
    * drops every event client-side.
    */
-  export type Envelope = (event: LocalEvent) => unknown
+  export type Envelope = (event: LocalEvent) => unknown;
 
   /**
    * Reads the event type out of whatever shape this feed broadcasts.
@@ -56,17 +59,17 @@ export namespace EventFeed {
    * So the visibility filter needs the same per-feed knowledge the envelope
    * carries, rather than assuming a `type` at the top level.
    */
-  export type TypeOf = (event: unknown) => string | undefined
+  export type TypeOf = (event: unknown) => string | undefined;
 
   export function frame(value: unknown): Uint8Array {
-    return encoder.encode(`data: ${JSON.stringify(value)}\n\n`)
+    return encoder.encode(`data: ${JSON.stringify(value)}\n\n`);
   }
 
-  export type CloseReason = { name: string; message: string }
+  export type CloseReason = { name: string; message: string };
 
   /** A single SSE connection and its lag budget. */
   export class Connection {
-    private closed = false
+    private closed = false;
 
     constructor(
       private readonly controller: ReadableStreamDefaultController<Uint8Array>,
@@ -80,7 +83,7 @@ export namespace EventFeed {
      * so they must not be the thing that evicts it.
      */
     local(event: LocalEvent) {
-      this.write(frame(this.envelope(event)))
+      this.write(frame(this.envelope(event)));
     }
 
     /**
@@ -88,12 +91,12 @@ export namespace EventFeed {
      * rather than written to.
      */
     offer(encoded: Uint8Array): boolean {
-      if (this.closed) return false
+      if (this.closed) return false;
       // `desiredSize` is the queuing strategy's high-water mark minus what
       // the reader has not consumed, so it reaches zero exactly when the
       // connection is LAG_BUDGET frames behind. It is null once the stream
       // has closed or errored, which `write` handles.
-      const desired = this.controller.desiredSize
+      const desired = this.controller.desiredSize;
       if (desired !== null && desired <= 0) {
         // The budget belongs to the stream's queuing strategy, not to this
         // object, so the message states the condition rather than a number
@@ -101,10 +104,10 @@ export namespace EventFeed {
         this.fail({
           name: "SubscriberOverflowError",
           message: "subscriber exceeded its lag budget",
-        })
-        return false
+        });
+        return false;
       }
-      return this.write(encoded)
+      return this.write(encoded);
     }
 
     /**
@@ -115,18 +118,22 @@ export namespace EventFeed {
      * silent close that looked identical to a network failure.
      */
     fail(reason: CloseReason) {
-      if (this.closed) return
-      log.info("connection failed", reason)
-      this.write(frame(this.envelope({ type: "server.error", properties: { ...reason } })))
-      this.close()
+      if (this.closed) return;
+      log.info("connection failed", reason);
+      this.write(
+        frame(
+          this.envelope({ type: "server.error", properties: { ...reason } }),
+        ),
+      );
+      this.close();
     }
 
     close() {
-      if (this.closed) return
-      this.closed = true
-      this.onClosed()
+      if (this.closed) return;
+      this.closed = true;
+      this.onClosed();
       try {
-        this.controller.close()
+        this.controller.close();
       } catch {
         // Already closed by the client.
       }
@@ -134,48 +141,56 @@ export namespace EventFeed {
 
     /** Mark closed without touching the controller (the client hung up). */
     abandon() {
-      if (this.closed) return
-      this.closed = true
-      this.onClosed()
+      if (this.closed) return;
+      this.closed = true;
+      this.onClosed();
     }
 
     private write(encoded: Uint8Array): boolean {
-      if (this.closed) return false
+      if (this.closed) return false;
       try {
-        this.controller.enqueue(encoded)
-        return true
+        this.controller.enqueue(encoded);
+        return true;
       } catch (error) {
-        log.debug("sse write failed", { error })
-        this.abandon()
-        return false
+        log.debug("sse write failed", { error });
+        this.abandon();
+        return false;
       }
     }
   }
 
   /** A fan-out group: one encode per event, shared by every connection in it. */
   export class Feed {
-    private readonly connections = new Set<Connection>()
+    private readonly connections = new Set<Connection>();
 
     constructor(
       private readonly envelope: Envelope,
-      private readonly typeOf: TypeOf = (event) => (event as { type?: string } | undefined)?.type,
+      private readonly typeOf: TypeOf = (event) =>
+        (event as { type?: string } | undefined)?.type,
     ) {}
 
     get size() {
-      return this.connections.size
+      return this.connections.size;
     }
 
     /**
      * Attach a connection. The caller owns the `ReadableStream`; the feed only
      * needs its controller and a way to learn that it is gone.
      */
-    attach(controller: ReadableStreamDefaultController<Uint8Array>, onClosed?: () => void): Connection {
-      const connection: Connection = new Connection(controller, this.envelope, () => {
-        this.connections.delete(connection)
-        onClosed?.()
-      })
-      this.connections.add(connection)
-      return connection
+    attach(
+      controller: ReadableStreamDefaultController<Uint8Array>,
+      onClosed?: () => void,
+    ): Connection {
+      const connection: Connection = new Connection(
+        controller,
+        this.envelope,
+        () => {
+          this.connections.delete(connection);
+          onClosed?.();
+        },
+      );
+      this.connections.add(connection);
+      return connection;
     }
 
     /**
@@ -192,28 +207,31 @@ export namespace EventFeed {
      * `specs/v2/public-event-filter.md`.
      */
     broadcast(event: unknown) {
-      if (this.connections.size === 0) return
-      if (BusEvent.isInternal(this.typeOf(event))) return
-      let encoded: Uint8Array
+      if (this.connections.size === 0) return;
+      if (BusEvent.isInternal(this.typeOf(event))) return;
+      let encoded: Uint8Array;
       try {
-        encoded = frame(event)
+        encoded = frame(event);
       } catch (error) {
         // Skip the malformed event and drop the clients that would otherwise
         // see a silent gap, but keep the feed usable for later connections.
-        const type = (event as { type?: unknown } | undefined)?.type
-        log.error("event encoding failed", { type, error })
-        this.failAll({ name: "EncodingError", message: "an event could not be encoded" })
-        return
+        const type = (event as { type?: unknown } | undefined)?.type;
+        log.error("event encoding failed", { type, error });
+        this.failAll({
+          name: "EncodingError",
+          message: "an event could not be encoded",
+        });
+        return;
       }
-      for (const connection of [...this.connections]) connection.offer(encoded)
+      for (const connection of this.connections) connection.offer(encoded);
     }
 
     closeAll() {
-      for (const connection of [...this.connections]) connection.close()
+      for (const connection of this.connections) connection.close();
     }
 
     failAll(reason: CloseReason) {
-      for (const connection of [...this.connections]) connection.fail(reason)
+      for (const connection of this.connections) connection.fail(reason);
     }
   }
 
@@ -221,13 +239,18 @@ export namespace EventFeed {
    * Build the `ReadableStream` for one connection with the lag budget as its
    * queuing strategy, so `desiredSize` measures exactly the budget.
    */
-  export function stream(source: UnderlyingDefaultSource<Uint8Array>): ReadableStream<Uint8Array> {
-    return new ReadableStream<Uint8Array>(source, new CountQueuingStrategy({ highWaterMark: LAG_BUDGET }))
+  export function stream(
+    source: UnderlyingDefaultSource<Uint8Array>,
+  ): ReadableStream<Uint8Array> {
+    return new ReadableStream<Uint8Array>(
+      source,
+      new CountQueuingStrategy({ highWaterMark: LAG_BUDGET }),
+    );
   }
 
   export const HEADERS = {
     "content-type": "text/event-stream",
     "cache-control": "no-cache",
     connection: "keep-alive",
-  } as const
+  } as const;
 }

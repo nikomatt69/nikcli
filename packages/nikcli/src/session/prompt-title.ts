@@ -25,7 +25,7 @@ export namespace PromptTitle {
       sessionID: string,
       editor: (session: Session.Info) => void,
       options?: { touch?: boolean },
-    ): Promise<unknown>
+    ): Promise<Session.Info>
   }
 
   export interface Input {
@@ -43,7 +43,7 @@ export namespace PromptTitle {
    * left alone. The re-check inside `sessionUpdate` also lets a rename
    * that landed during the title stream win.
    */
-  export async function ensure(deps: Deps, input: Input): Promise<unknown> {
+  export async function ensure(deps: Deps, input: Input): Promise<void> {
     if (input.session.parentID) return
     if (!Session.isDefaultTitle(input.session.title)) return
 
@@ -98,7 +98,7 @@ export namespace PromptTitle {
     })
     const text = await result.text.catch((err) => log.error("failed to generate title", { error: err }))
     if (text)
-      return deps.sessionUpdate(
+      await deps.sessionUpdate(
         input.session.id,
         (draft) => {
           // Re-checked inside the update: a rename that landed while the title
@@ -117,6 +117,5 @@ export namespace PromptTitle {
         },
         { touch: false },
       )
-    return undefined
   }
 }

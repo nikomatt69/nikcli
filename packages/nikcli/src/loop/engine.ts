@@ -38,7 +38,6 @@ import {
   DEFAULT_RUN_TIMEOUT_MS,
   LOOP_RUN_LEASE_MS,
   LoopRunStatusEffect,
-  LoopRunStatusSchema,
   MAX_CONCURRENT_RUNS,
   MAX_RUN_TIMEOUT_MS,
   MIN_RUN_TIMEOUT_MS,
@@ -184,12 +183,14 @@ function patch(id: string, next: (prev: Runtime) => Runtime): void {
   void Bus.publish(LoopEvent.RuntimeChanged, { loopID: id })
 }
 
-function describeError(error: unknown): string {
+// Errors surfaced to users arrive as arbitrary thrown values from Effect/catch boundaries;
+// decode the `{ message }` shape once here instead of sniffing representations at call sites.
+const errorWithMessage = z.object({ message: z.string() })
+
+function describeError<E>(error: E): string {
   if (error instanceof Error) return error.message
-  if (typeof error === "object" && error !== null) {
-    const msg = (error as { message?: unknown }).message
-    if (typeof msg === "string") return msg
-  }
+  const parsed = errorWithMessage.safeParse(error)
+  if (parsed.success) return parsed.data.message
   return String(error)
 }
 
@@ -227,12 +228,13 @@ function inSandbox<T>(directory: string | undefined, fn: () => Promise<T>): Prom
  */
 async function ensureSandbox(def: LoopDefinition): Promise<RunSandbox.Info | undefined> {
   if (!isSandboxed(def)) return undefined
-  const sandbox = await RunSandbox.ensure({
+  const sandboxInput: RunSandbox.EnsureInput = {
     hostDirectory: Instance.directory,
     name: `loop-${def.name}`,
     branchPrefix: "nikcli/loop",
-    ...(def.worktree ? { existing: def.worktree } : {}),
-  })
+  }
+  if (def.worktree) sandboxInput.existing = def.worktree
+  const sandbox = await RunSandbox.ensure(sandboxInput)
   if (sandbox && sandbox.directory !== def.worktree?.directory) {
     await Manager.setWorktree(def.id, sandbox).catch((error) =>
       log.warn("failed to persist sandbox worktree", {
@@ -261,9 +263,9 @@ async function executeStage(
       command: "goal",
       arguments: args,
       agent: stage.agent || DEFAULT_LOOP_AGENT,
-      ...(stage.model ? { model: stage.model } : {}),
-      ...(parentSessionID ? { parentSessionID } : {}),
     }
+    if (stage.model) input.model = stage.model
+    if (parentSessionID) input.parentSessionID = parentSessionID
     await inSandbox(directory, () =>
       runSessionPrompt(
         Effect.gen(function* () {
@@ -286,13 +288,12 @@ async function ensureSession(title: string, sandboxed: boolean, directory?: stri
     runSession(
       Effect.gen(function* () {
         const service = yield* Session.Service
-        return yield* service.create({
-          title,
-          // A loop has nobody to answer a permission prompt. Granting full
-          // access is only defensible because the run is confined to its own
-          // worktree; un-sandboxed loops keep the ordinary rules.
-          ...(sandboxed ? { permission: PermissionNext.fullAccess() } : {}),
-        })
+        // A loop has nobody to answer a permission prompt. Granting full
+        // access is only defensible because the run is confined to its own
+        // worktree; un-sandboxed loops keep the ordinary rules.
+        const input: Session.CreateInput = { title }
+        if (sandboxed) input.permission = PermissionNext.fullAccess()
+        return yield* service.create(input)
       }),
     ),
   )
@@ -447,12 +448,13 @@ async function executeRun(
   if (timedOut) firstError = "Run timed out"
   const ok = firstError === undefined && !signal.aborted
   const finalStatus: LoopRunStatus = timedOut ? "timeout" : signal.aborted ? "cancelled" : ok ? "complete" : "error"
-  await Manager.finishRun(def.id, run.id, {
+  const finishPatch: Parameters<typeof Manager.finishRun>[2] = {
     status: finalStatus,
     ok,
     endedAt,
-    ...(firstError !== undefined ? { error: firstError } : {}),
-  })
+  }
+  if (firstError !== undefined) finishPatch.error = firstError
+  await Manager.finishRun(def.id, run.id, finishPatch)
 
   // Best-effort auto-PR: when the run completed cleanly and the definition
   // opted in, push the worktree to a stable loop branch and create/update a
@@ -472,11 +474,15 @@ async function executeRun(
       const hook = prHookOverride ?? PR.createLoopPullRequest
       // Push from wherever the work actually happened: the sandbox worktree
       // when there is one, the host checkout otherwise.
-      pullRequest = await hook({
+      const hookOptions: PR.CreatePullRequestOptions = {
         def,
         run: completedRun,
-        ...(sandbox ? { directory: sandbox.directory, branch: sandbox.branch } : {}),
-      })
+      }
+      if (sandbox) {
+        hookOptions.directory = sandbox.directory
+        hookOptions.branch = sandbox.branch
+      }
+      pullRequest = await hook(hookOptions)
     } catch (error) {
       log.warn("auto PR hook threw", {
         loopID: def.id,
@@ -495,7 +501,7 @@ async function executeRun(
     sessionID,
     status: finalStatus,
     ok,
-    ...(firstError !== undefined ? { error: firstError } : {}),
+    ...(firstError !== undefined ? { error: firstError } : undefined),
   })
 
   if (ok) {
@@ -514,12 +520,15 @@ async function executeRun(
   } else {
     // "error" and "timeout" both surface as an error runtime. Keep the
     // session on timeout so the user can inspect the partial work.
-    patch(def.id, (prev) => ({
-      ...prev,
-      status: "error",
-      lastError: firstError,
-      ...(timedOut ? {} : { sessionID: undefined }),
-    }))
+    patch(def.id, (prev) => {
+      const next: Runtime = {
+        ...prev,
+        status: "error",
+        lastError: firstError,
+      }
+      if (!timedOut) next.sessionID = undefined
+      return next
+    })
   }
   return { ok, firstError, sessionID }
 }
@@ -548,8 +557,8 @@ export async function runOnce(id: string, options?: { callerSessionID?: string }
   const slot: InFlightRun = {
     controller: ctrl,
     promise: Promise.resolve(),
-    ...(callerSessionID ? { callerSessionID } : {}),
   }
+  if (callerSessionID) slot.callerSessionID = callerSessionID
   inFlight.set(id, slot)
   let timeout: ReturnType<typeof setTimeout> | undefined
   let heartbeat: ReturnType<typeof setInterval> | undefined
@@ -698,7 +707,7 @@ export async function cancelRun(id: string): Promise<void> {
   }
   void Bus.publish(LoopEvent.Aborted, {
     loopID: id,
-    ...(runID ? { runID } : {}),
+    ...(runID ? { runID } : undefined),
     reason: "user-cancel",
   })
   // Wait for the in-flight promise to settle.
@@ -757,9 +766,9 @@ export async function restore(): Promise<void> {
         status,
         runs: await Manager.countRuns(def.id),
         lastRunAt: last.endedAt ?? last.startedAt,
-        ...(last.error ? { lastError: last.error } : {}),
-        ...(last.sessionID ? { sessionID: last.sessionID } : {}),
       }
+      if (last.error) rehydrated.lastError = last.error
+      if (last.sessionID) rehydrated.sessionID = last.sessionID
       instanceState().live.set(def.id, rehydrated)
     } else if (def.paused) {
       patch(def.id, (prev) => ({ ...prev, status: "paused" }))
@@ -835,10 +844,7 @@ export function setRuntimeStatus(id: string, status: RuntimeStatus): void {
 }
 
 /** Test/debug helper: snapshot the engine state for assertions. */
-export function _internalSnapshot(): {
-  live: Array<[string, Runtime]>
-  inFlight: string[]
-} {
+export function _internalSnapshot() {
   const { live, inFlight } = instanceState()
   return {
     live: Array.from(live.entries()),

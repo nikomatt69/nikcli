@@ -71,9 +71,17 @@ describe("live v2 entry stream", () => {
         SessionProjector.init()
         const sessionID = Identifier.descending("session")
 
-        const updates: Array<{ sessionID: string; entry: SessionEntryTypes.Entry }> = []
+        const updates: Array<{
+          sessionID: string
+          entry: SessionEntryTypes.Entry
+        }> = []
         const unsubscribe = Bus.subscribe(SessionProjector.Event.EntryUpdated, (event) => {
-          updates.push(event.properties as { sessionID: string; entry: SessionEntryTypes.Entry })
+          updates.push(
+            event.properties as {
+              sessionID: string
+              entry: SessionEntryTypes.Entry
+            },
+          )
         })
 
         const info = assistantInfo(sessionID)
@@ -87,8 +95,12 @@ describe("live v2 entry stream", () => {
           text: "partial",
         }
         await Bus.publish(MessageV2.Event.PartUpdated, { part: textPart })
-        await Bus.publish(MessageV2.Event.PartUpdated, { part: { ...textPart, text: "partial answer" } })
-        await Bus.publish(MessageV2.Event.PartUpdated, { part: { ...textPart, text: "partial answer, final" } })
+        await Bus.publish(MessageV2.Event.PartUpdated, {
+          part: { ...textPart, text: "partial answer" },
+        })
+        await Bus.publish(MessageV2.Event.PartUpdated, {
+          part: { ...textPart, text: "partial answer, final" },
+        })
 
         // the step opened with a `start` entry, then every delta republished
         // the same text entry — same id, never a new one
@@ -135,9 +147,19 @@ describe("live v2 entry stream", () => {
         await Bus.publish(MessageV2.Event.Updated, { info })
         const partID = Identifier.ascending("part")
         await Bus.publish(MessageV2.Event.PartUpdated, {
-          part: { id: partID, sessionID, messageID: info.id, type: "text" as const, text: "gone" },
+          part: {
+            id: partID,
+            sessionID,
+            messageID: info.id,
+            type: "text" as const,
+            text: "gone",
+          },
         })
-        await Bus.publish(MessageV2.Event.PartRemoved, { sessionID, messageID: info.id, partID })
+        await Bus.publish(MessageV2.Event.PartRemoved, {
+          sessionID,
+          messageID: info.id,
+          partID,
+        })
 
         expect(removed).toEqual([SessionEntry.idForPart(info.id, partID)])
         unsubscribe()
@@ -207,6 +229,15 @@ describe("SessionV2 write API", () => {
     expect(prompt).toContain("SessionV2.loopEffect")
     expect(session).toContain("SessionV2.createEffect")
     expect(engine).toContain("SessionV2Write.persist")
+    const run = await Bun.file(root + "cli/cmd/run.ts").text()
+    const imported = await Bun.file(root + "cli/cmd/import.ts").text()
+    const teleport = await Bun.file(root + "server/mobile/teleport.ts").text()
+    expect(run).toContain("SessionV2Write.persist")
+    expect(imported).toContain("SessionV2Write.persist")
+    expect(teleport).toContain("SessionV2Write.persist")
+    expect(run).not.toContain("SessionEntryProjection.rebuild")
+    expect(imported).not.toContain("SessionEntryProjection.rebuild")
+    expect(teleport).not.toContain("SessionEntryProjection.rebuild")
   })
 
   it("create uses the instance directory", async () => {
@@ -251,7 +282,10 @@ describe("SessionV2 write API", () => {
             },
           ],
         }
-        const promptData = JSON.stringify({ sessionID: session.id, parts: [{ type: "text", text: "from persist" }] })
+        const promptData = JSON.stringify({
+          sessionID: session.id,
+          parts: [{ type: "text", text: "from persist" }],
+        })
         SessionV2.persist({
           prepared,
           promptData,

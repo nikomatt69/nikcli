@@ -22,6 +22,7 @@ import { Schema } from "effect"
 import { zod } from "@nikcli-ai/util/effect-zod"
 import { Log } from "@nikcli-ai/util/log"
 import { DEFAULT_LOOP_AGENT, isValidModel } from "../loop/schema"
+import type { JsonValue } from "@/util/json"
 
 export const HISTORY_LIMIT = 100
 
@@ -248,7 +249,7 @@ export function validateDefinition(def: MissionDefinition): string | undefined {
 
 // ── Sanitizers ──────────────────────────────────────────────────────────────
 
-export function sanitizeDefinition(value: unknown): MissionDefinition | undefined {
+export function sanitizeDefinition(value: JsonValue | MissionDefinition): MissionDefinition | undefined {
   const parsed = MissionDefinitionSchema.safeParse(value)
   if (!parsed.success) {
     log.debug("discarded corrupt mission definition", { issues: parsed.error.issues.slice(0, 3) })
@@ -263,7 +264,7 @@ export function sanitizeDefinition(value: unknown): MissionDefinition | undefine
   return def
 }
 
-export function sanitizeExec(value: unknown): MissionExec | undefined {
+export function sanitizeExec(value: JsonValue | MissionExec): MissionExec | undefined {
   const parsed = MissionExecSchema.safeParse(value)
   return parsed.success ? parsed.data : undefined
 }
@@ -404,7 +405,7 @@ export function definitionFromGenerated(input: GeneratedMission): MissionDefinit
         name: f.name?.trim() || deriveName(objective),
         objective,
         agent: f.agent?.trim() || DEFAULT_LOOP_AGENT,
-        dependsOn: Array.isArray(f.dependsOn) ? f.dependsOn.filter((d) => typeof d === "string") : [],
+        dependsOn: f.dependsOn ?? [],
         status: "pending",
       }
       if (f.model && isValidModel(f.model)) feature.model = f.model
@@ -449,62 +450,82 @@ function deriveName(text: string): string {
  * Expects `{ name?, brief, milestones: [{ name?, validation?, features: [...] }], models? }`,
  * optionally wrapped in prose/code fences. Throws with a clear message on failure.
  */
+const GeneratedFeatureDraft = z.looseObject({
+  name: z.string().optional().catch(undefined),
+  objective: z.string().catch(""),
+  agent: z.string().optional().catch(undefined),
+  model: z.string().optional().catch(undefined),
+  tokenBudget: z.number().optional().catch(undefined),
+  dependsOn: z.array(z.string().nullable().catch(null)).optional().catch(undefined),
+})
+
+const GeneratedMilestoneDraft = z.looseObject({
+  name: z.string().optional().catch(undefined),
+  validation: ValidationPolicySchema.optional().catch(undefined),
+  features: z.array(GeneratedFeatureDraft.nullable().catch(null)).optional().catch(undefined),
+})
+
+const GeneratedMissionDraft = z.looseObject({
+  name: z.string().optional().catch(undefined),
+  brief: z.string().catch(""),
+  milestones: z.array(GeneratedMilestoneDraft.nullable().catch(null)).optional().catch(undefined),
+  models: z
+    .looseObject({
+      worker: z.string().optional().catch(undefined),
+      validation: z.string().optional().catch(undefined),
+      orchestrator: z.string().optional().catch(undefined),
+    })
+    .optional()
+    .catch(undefined),
+})
+
 export function definitionFromGeneratedText(text: string): MissionDefinition {
   const json = extractJsonObject(text)
   if (!json) throw new Error("The model did not return a JSON plan")
-  let parsed: unknown
+  let raw: JsonValue
   try {
-    parsed = JSON.parse(json)
+    raw = JSON.parse(json)
   } catch {
     throw new Error("The model's response was not valid JSON")
   }
-  if (typeof parsed !== "object" || parsed === null) throw new Error("Generated plan is not an object")
-  const v = parsed as Record<string, unknown>
-  const rawMilestones = Array.isArray(v.milestones) ? v.milestones : []
-  const milestones: GeneratedMilestone[] = rawMilestones
-    .filter((m): m is Record<string, unknown> => typeof m === "object" && m !== null)
+  const draft = GeneratedMissionDraft.safeParse(raw)
+  if (!draft.success) throw new Error("Generated plan is not an object")
+  const v = draft.data
+  const milestones: GeneratedMilestone[] = (v.milestones ?? [])
+    .filter((m) => m !== null)
     .map((m) => {
-      const rawFeatures = Array.isArray(m.features) ? m.features : []
-      const features: GeneratedFeature[] = rawFeatures
-        .filter((f): f is Record<string, unknown> => typeof f === "object" && f !== null)
+      const features: GeneratedFeature[] = (m.features ?? [])
+        .filter((f) => f !== null)
         .map((f) => {
           // Fields are assigned only when the draft carries a usable value, so a
           // key the model omitted stays absent rather than becoming undefined.
           const feature: GeneratedFeature = {
-            objective: typeof f.objective === "string" ? f.objective : "",
+            objective: f.objective,
           }
-          if (typeof f.name === "string" && f.name.trim()) feature.name = f.name
-          if (typeof f.agent === "string" && f.agent.trim()) feature.agent = f.agent
-          if (typeof f.model === "string" && isValidModel(f.model)) feature.model = f.model
-          if (typeof f.tokenBudget === "number") feature.tokenBudget = f.tokenBudget
-          if (Array.isArray(f.dependsOn)) {
-            feature.dependsOn = f.dependsOn.filter((d): d is string => typeof d === "string")
+          if (f.name && f.name.trim()) feature.name = f.name
+          if (f.agent && f.agent.trim()) feature.agent = f.agent
+          if (f.model && isValidModel(f.model)) feature.model = f.model
+          if (f.tokenBudget !== undefined) feature.tokenBudget = f.tokenBudget
+          if (f.dependsOn) {
+            feature.dependsOn = f.dependsOn.filter((d): d is string => d !== null)
           }
           return feature
         })
       const milestone: GeneratedMilestone = { features }
-      if (typeof m.name === "string" && m.name.trim()) milestone.name = m.name
-      if (typeof m.validation === "string") {
-        const validation = ValidationPolicySchema.safeParse(m.validation)
-        if (validation.success) milestone.validation = validation.data
-      }
+      if (m.name && m.name.trim()) milestone.name = m.name
+      if (m.validation) milestone.validation = m.validation
       return milestone
     })
-  const rawModels = typeof v.models === "object" && v.models !== null ? v.models : undefined
   const mission: GeneratedMission = {
-    brief: typeof v.brief === "string" ? v.brief : "",
+    brief: v.brief,
     milestones,
   }
-  if (typeof v.name === "string" && v.name.trim()) mission.name = v.name
-  if (rawModels) {
+  if (v.name && v.name.trim()) mission.name = v.name
+  if (v.models) {
     const models: NonNullable<GeneratedMission["models"]> = {}
-    if ("worker" in rawModels && typeof rawModels.worker === "string") models.worker = rawModels.worker
-    if ("validation" in rawModels && typeof rawModels.validation === "string") {
-      models.validation = rawModels.validation
-    }
-    if ("orchestrator" in rawModels && typeof rawModels.orchestrator === "string") {
-      models.orchestrator = rawModels.orchestrator
-    }
+    if (v.models.worker !== undefined) models.worker = v.models.worker
+    if (v.models.validation !== undefined) models.validation = v.models.validation
+    if (v.models.orchestrator !== undefined) models.orchestrator = v.models.orchestrator
     mission.models = models
   }
   return definitionFromGenerated(mission)

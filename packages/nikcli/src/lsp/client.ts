@@ -6,7 +6,6 @@ import { createMessageConnection, StreamMessageReader, StreamMessageWriter } fro
 import type { Diagnostic as VSCodeDiagnostic } from "vscode-languageserver-types"
 import { Log } from "@nikcli-ai/util/log"
 import { LANGUAGE_EXTENSIONS } from "@nikcli-ai/util/language"
-import z from "zod"
 import type { LSPServer } from "./server"
 import { withTimeout } from "../util/timeout"
 import { Schema } from "effect"

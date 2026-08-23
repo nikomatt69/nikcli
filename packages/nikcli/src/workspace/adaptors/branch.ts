@@ -2,7 +2,6 @@ import { Git } from "@/git"
 import { Log } from "@nikcli-ai/util/log"
 import { runPromiseWithLayer, withCurrentInstance, InstanceState } from "@/effect"
 import { Worktree } from "@/worktree"
-import { Effect } from "effect"
 import type { Config } from "../config"
 import type { Adaptor } from "./types"
 

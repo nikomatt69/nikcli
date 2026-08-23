@@ -103,7 +103,7 @@ export namespace DiscordHttpApi {
           return {
             configured: hasToken,
             running: false,
-            ...(loaded.error ? { error: loaded.error } : {}),
+            ...(loaded.error ? { error: loaded.error } : undefined),
           } satisfies StatusBody
         }
         const botStatus = loaded.bot.getDiscordBotStatus()
@@ -111,8 +111,8 @@ export namespace DiscordHttpApi {
         return {
           configured: hasToken || botStatus.running,
           running: botStatus.running,
-          ...(botStatus.username ? { username: botStatus.username } : {}),
-          ...(clientId ? { clientId, inviteUrl: loaded.invite.inviteUrl(clientId) } : {}),
+          ...(botStatus.username ? { username: botStatus.username } : undefined),
+          ...(clientId ? { clientId, inviteUrl: loaded.invite.inviteUrl(clientId) } : undefined),
         } satisfies StatusBody
       }),
 
@@ -170,7 +170,7 @@ export namespace DiscordHttpApi {
             })
             return {
               running: status.running,
-              ...(!status.running ? { error: "Discord Gateway did not report running" } : {}),
+              ...(!status.running ? { error: "Discord Gateway did not report running" } : undefined),
             } satisfies StartBody
           } catch (cause) {
             return { running: false, error: causeMessage(cause) }

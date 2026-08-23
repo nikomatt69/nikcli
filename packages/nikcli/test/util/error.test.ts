@@ -126,7 +126,7 @@ describe("errorData", () => {
     it("errorMessage throughput", () => {
       const inputs = [new Error("err"), { message: "msg" }, "string", 42, null]
       let i = 0
-      const r = recordBenchmark({
+      recordBenchmark({
         suite: "util-error",
         module: "errorMessage",
         scenario: "throughput",
@@ -138,7 +138,7 @@ describe("errorData", () => {
 
     it("errorData throughput", () => {
       const err = new Error("test")
-      const r = recordBenchmark({
+      recordBenchmark({
         suite: "util-error",
         module: "errorData(Error)",
         scenario: "throughput",

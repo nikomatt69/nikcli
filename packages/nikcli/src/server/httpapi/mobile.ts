@@ -112,7 +112,6 @@ export namespace MobileHttpApi {
   const SessionInfo = Session.InfoSchema
   const WorktreeInfo = Worktree.InfoSchema
   const ProjectInfo = Project.InfoSchema
-  const WorkspaceInfo = Workspace.InfoSchema
   const PtyInfo = Pty.InfoSchema
   const LoopDefinition = Domain.LoopDefinition
   /**
@@ -305,8 +304,6 @@ export namespace MobileHttpApi {
       }),
     ),
   }).annotate({ identifier: "MobileBootstrap" })
-
-  const ExecutionTarget = Schema.Literals(["local", "container"])
 
   const TeleportResult = Schema.Struct({
     sessionID: Schema.String,

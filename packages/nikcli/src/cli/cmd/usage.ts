@@ -30,24 +30,6 @@ const TokenBreakdownSchema = z.object({
   }),
 })
 
-const MessageSchema = z.object({
-  id: z.string(),
-  sessionID: z.string(),
-  time: z.object({
-    created: z.number(),
-    updated: z.number(),
-  }),
-  info: z.object({
-    role: z.enum(["user", "assistant", "system"]),
-    tokens: TokenBreakdownSchema.optional(),
-    cost: z.number().optional(),
-    providerID: z.string().optional(),
-    modelID: z.string().optional(),
-    finishReason: z.string().optional(),
-  }),
-  parts: z.array(z.any()),
-})
-
 const SessionSchema = z.object({
   id: z.string(),
   projectID: z.string(),

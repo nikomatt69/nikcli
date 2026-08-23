@@ -211,7 +211,7 @@ function cloneOption(option: ReasoningOption): NonNullable<ModelsDev.Model["reas
   }
   return {
     type: "budget_tokens",
-    ...(option.min !== undefined ? { min: option.min } : {}),
-    ...(option.max !== undefined ? { max: option.max } : {}),
+    ...(option.min !== undefined ? { min: option.min } : undefined),
+    ...(option.max !== undefined ? { max: option.max } : undefined),
   }
 }

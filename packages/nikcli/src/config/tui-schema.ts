@@ -3,14 +3,16 @@ import { Config } from "./config"
 
 const KeybindOverride = z
   .object(
-    Object.fromEntries(Object.keys(Config.Keybinds.shape).map((key) => [key, z.string().optional()])) as Record<
+    Object.fromEntries(Config.Keybinds.keyof().options.map((key) => [key, z.string().optional()])) as Record<
       string,
       z.ZodOptional<z.ZodString>
     >,
   )
   .strict()
 
-export const TuiOptions = z.object({
+export const ThemeField = z.string().optional()
+
+export const TuiOptionFields = {
   scroll_speed: z.number().min(0.001).optional().describe("TUI scroll speed"),
   scroll_acceleration: z
     .object({
@@ -31,15 +33,17 @@ export const TuiOptions = z.object({
     .describe(
       "Show a per-turn token breakdown after each answer, with a warning when the prompt cache is invalidated (default: false)",
     ),
-})
+}
+
+export const TuiOptions = z.object(TuiOptionFields)
 
 export const TuiInfo = z
   .object({
     $schema: z.string().optional(),
-    theme: z.string().optional(),
+    theme: ThemeField,
     keybinds: KeybindOverride.optional(),
     plugin: Config.PluginSpec.array().optional(),
     plugin_enabled: z.record(z.string(), z.boolean()).optional(),
+    ...TuiOptionFields,
   })
-  .extend(TuiOptions.shape)
   .strict()

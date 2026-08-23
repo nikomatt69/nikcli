@@ -1,3 +1,4 @@
+import type { JsonValue } from "@/util/json"
 import { Effect } from "effect"
 import z from "zod"
 import { Account } from "@/account"
@@ -33,7 +34,7 @@ export namespace AccountHttp {
     return runPromiseWithLayer(Account.defaultLayer, effect)
   }
 
-  async function readJson(request: Request): Promise<unknown> {
+  async function readJson(request: Request): Promise<JsonValue | undefined> {
     try {
       return await request.json()
     } catch {

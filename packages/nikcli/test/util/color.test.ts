@@ -91,7 +91,7 @@ describe("Color", () => {
     it("Color.isValidHex throughput", () => {
       const inputs = ["#ff0000", "#invalid", undefined, "#abc", "#AABBCC"]
       let i = 0
-      const r = recordBenchmark({
+      recordBenchmark({
         suite: "util-color",
         module: "Color.isValidHex",
         scenario: "throughput",

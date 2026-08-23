@@ -72,7 +72,7 @@ export namespace SessionPending {
         }
         return {
           ...rest,
-          ...(id ? { id: Schema.optional(id) } : {}),
+          ...(id ? { id: Schema.optional(id) } : undefined),
         } as Schema.Struct.Fields
       })
       .annotate({ identifier })

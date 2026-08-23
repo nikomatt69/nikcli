@@ -449,7 +449,7 @@ async function createPromptInput(params: {
     tools: {
       todowrite: false,
       todoread: false,
-      ...(params.hasTaskPermission ? {} : { task: false }),
+      ...(params.hasTaskPermission ? undefined : { task: false }),
       ...Object.fromEntries((params.primaryTools ?? []).map((t) => [t, false])),
     },
     parts: promptParts,
@@ -557,6 +557,10 @@ function subscribeDelegationProgress(sessionID: string, delegationID: string) {
   }, PROGRESS_WRITE_THROTTLE_MS)
   const unsubscribe = Bus.subscribe(MessageV2.Event.PartUpdated, async (evt) => {
     if (evt.properties.part.sessionID !== sessionID) return
+    // Any part at all means the subagent is alive, even when the summary below
+    // is unchanged and the throttled durable write is skipped. The delegation
+    // watchdog reads this to tell a slow task from a hung one.
+    Delegation.touch(delegationID)
     const part = evt.properties.part
     let nextSummary: string | undefined
     if (part.type === "tool") {

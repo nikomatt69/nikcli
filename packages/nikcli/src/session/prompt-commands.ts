@@ -516,7 +516,7 @@ export namespace PromptCommands {
         parts: [{ type: "text", text: commandResult.text }],
         variant: input.variant,
         noReply: true,
-        ...(input.parentSessionID ? { parentSessionID: input.parentSessionID } : {}),
+        ...(input.parentSessionID ? { parentSessionID: input.parentSessionID } : undefined),
       })) as MessageV2.WithParts
       Bus.publish(Command.Event.Executed, {
         name: input.command,
@@ -590,7 +590,7 @@ export namespace PromptCommands {
       agent: userAgent,
       parts,
       variant: input.variant,
-      ...(input.parentSessionID ? { parentSessionID: input.parentSessionID } : {}),
+      ...(input.parentSessionID ? { parentSessionID: input.parentSessionID } : undefined),
     })) as MessageV2.WithParts
 
     Bus.publish(Command.Event.Executed, {

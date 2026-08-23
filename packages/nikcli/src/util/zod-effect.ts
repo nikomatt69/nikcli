@@ -158,9 +158,9 @@ function literal(value: string | number | boolean | null) {
 
 function object(node: ZodAny, cache: Map<ZodAny, Converted>): Schema.Top {
   const def = node._zod.def
-  const shape = def.shape as Record<string, ZodAny>
+  const source = def.shape as Record<string, ZodAny>
   const fields: Record<string, Schema.Top> = {}
-  for (const [key, value] of Object.entries(shape)) {
+  for (const [key, value] of Object.entries(source)) {
     const converted = convert(value, cache)
     fields[key] = converted[OPTIONAL] ? Schema.optional(converted.schema) : converted.schema
   }

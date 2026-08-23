@@ -2,20 +2,11 @@ import path from "path"
 import { exec } from "child_process"
 import * as prompts from "@clack/prompts"
 import { map, pipe, sortBy, values } from "remeda"
-import type {
-  IssueCommentEvent,
-  IssuesEvent,
-  PullRequestReviewCommentEvent,
-  WorkflowDispatchEvent,
-  WorkflowRunEvent,
-  PullRequestEvent,
-} from "@octokit/webhooks-types"
 import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { ModelsDev } from "../../provider/models"
 import { Instance } from "@/project/instance"
 import { withInstanceAsync } from "@/effect"
-import { Provider } from "../../provider/provider"
 import { MessageV2 } from "../../session/message-v2"
 import { Git } from "@/git"
 import { parseGitHubRemote } from "@/util/repository"
@@ -111,30 +102,12 @@ type GitHubIssue = {
   }
 }
 
-type PullRequestQueryResponse = {
-  repository: {
-    pullRequest: GitHubPullRequest
-  }
-}
-
-type IssueQueryResponse = {
-  repository: {
-    issue: GitHubIssue
-  }
-}
-
 const GITHUB_APP_NAME = process.env.NIKCLI_GITHUB_APP_NAME || "nikcli"
-const AGENT_USERNAME = `${GITHUB_APP_NAME}[bot]`
 const API_BASE_URL = process.env.NIKCLI_API_URL || "https://api.nikcli.store"
-const AGENT_REACTION = "eyes"
 const WORKFLOW_FILE = ".github/workflows/nikcli.yml"
 
 const USER_EVENTS = ["issue_comment", "pull_request_review_comment", "issues", "pull_request"] as const
 const REPO_EVENTS = ["schedule", "workflow_dispatch"] as const
-const SUPPORTED_EVENTS = [...USER_EVENTS, ...REPO_EVENTS] as const
-
-type UserEvent = (typeof USER_EVENTS)[number]
-type RepoEvent = (typeof REPO_EVENTS)[number]
 
 export { parseGitHubRemote }
 

@@ -85,10 +85,10 @@ export namespace HttpApiBridge {
     api: typeof PublicApi,
     include?: (path: string) => boolean,
   ): ReadonlyArray<readonly [string, RegExp]> {
-    const spec = OpenApi.fromApi(api) as Record<string, any>
+    const spec = OpenApi.fromApi(api)
     const verbMethods = ["get", "post", "put", "delete", "patch"] as const
     const result: Array<readonly [string, RegExp]> = []
-    const paths = (spec.paths ?? {}) as Record<string, any>
+    const paths = spec.paths ?? {}
     for (const [path, item] of Object.entries(paths)) {
       if (include && !include(path)) continue
       const re = pathToRegex(path)

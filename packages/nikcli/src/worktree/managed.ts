@@ -149,7 +149,7 @@ export namespace ManagedWorktree {
     await fs.cp(src, dest, {
       preserveTimestamps: true,
       recursive: true,
-      filter: (src, dest) => {
+      filter: (src, _dest) => {
         // Skip .worktree files during copy - will be written fresh
         if (path.basename(src) === WORKTREE_MARKER) return false
         return true

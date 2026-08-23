@@ -260,13 +260,13 @@ describe("loop/schema · LOOP_TEMPLATES", () => {
           name: s.name ?? "stage",
           agent: s.agent ?? "ralph",
           objective: s.objective,
-          ...(s.model ? { model: s.model } : {}),
-          ...(s.tokenBudget ? { tokenBudget: s.tokenBudget } : {}),
+          ...(s.model ? { model: s.model } : undefined),
+          ...(s.tokenBudget ? { tokenBudget: s.tokenBudget } : undefined),
         })),
         trigger: t.draft.intervalMs ? { kind: "interval", everyMs: t.draft.intervalMs } : { kind: "manual" },
         enabled: true,
         createdAt: Date.now(),
-        ...(t.draft.maxRuns ? { maxRuns: t.draft.maxRuns } : {}),
+        ...(t.draft.maxRuns ? { maxRuns: t.draft.maxRuns } : undefined),
       }
       expect(validateDefinition(def)).toBeUndefined()
     }

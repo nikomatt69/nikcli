@@ -146,7 +146,7 @@ export namespace Sandbox {
               stderr: "pipe",
               ...(process.platform === "linux" && Flag.NIKCLI_SANDBOX_CGROUP
                 ? { cgroup: Flag.NIKCLI_SANDBOX_CGROUP }
-                : {}),
+                : undefined),
             })
 
             if (input.stdin && proc.stdin) {

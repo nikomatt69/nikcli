@@ -229,7 +229,7 @@ export namespace BackgroundRun {
       sessionID: parentSessionID,
       delivery: "queue" as const,
       model: result.parentModel,
-      ...(result.parentAgent ? { agent: result.parentAgent } : {}),
+      ...(result.parentAgent ? { agent: result.parentAgent } : undefined),
       parts: [
         {
           type: "text" as const,

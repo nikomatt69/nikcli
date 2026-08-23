@@ -22,7 +22,6 @@ const {
   isInHerdrPane,
   setReleased,
   releasePane,
-  reportAgent,
 } = bridge
 
 const originalEnv = { ...process.env }

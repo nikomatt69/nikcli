@@ -21,53 +21,53 @@ The default command is the TUI: `TuiThreadCommand` is registered as `$0 [project
 
 Source: the `.command(...)` list in `src/cli-main.ts` plus `yargs.completion("completion", …)`. Subcommands are the nested `command:` strings in each file. This table is not a CI gate.
 
-| Command           | Subcommands (as registered)                                                                        | Notes                                       |
-| ----------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| _(default TUI)_   | `$0 [project]`                                                                                     | `src/cli/cmd/tui/thread.ts`                 |
-| `attach`          | `<url>`                                                                                            | Attach to an existing server                |
-| `run`             | `[message..]`                                                                                      | One-shot prompt                             |
-| `serve`           | —                                                                                                  | HTTP server                                 |
-| `workspace-serve` | —                                                                                                  | Standalone workspace host                   |
-| `web`             | —                                                                                                  | Web UI                                      |
-| `acp`             | —                                                                                                  | Agent Client Protocol                       |
-| `mcp`             | `list`, `auth [name]`, `logout [name]`, `add`, `debug <name>`                                      |                                             |
-| `auth`            | `list`, `login [url]`, `logout`                                                                    | Credentials                                 |
-| `account`         | `login`, `logout`, `list`, `switch`, `orgs`                                                        |                                             |
-| `agent`           | `create`, `list`                                                                                   |                                             |
-| `upgrade`         | `[target]`                                                                                         | Replaces the binary                         |
-| `uninstall`       | —                                                                                                  |                                             |
-| `doctor`          | —                                                                                                  | Diagnostic                                  |
-| `quickstart`      | —                                                                                                  |                                             |
-| `models`          | `[provider]`                                                                                       |                                             |
-| `image-model`     | `[provider] [model]`                                                                               |                                             |
-| `speak-model`     | `[provider] [model]`                                                                               |                                             |
-| `brain-model`     | `[model]`                                                                                          |                                             |
-| `locale`          | `[action]`                                                                                         |                                             |
-| `stats`           | —                                                                                                  |                                             |
-| `usage`           | —                                                                                                  |                                             |
-| `export`          | `[sessionID]`                                                                                      |                                             |
-| `import`          | `<file>`                                                                                           | Still writes v1 then rebuilds (ROADMAP S4r) |
-| `github`          | `install`, `run`                                                                                   |                                             |
-| `pr`              | `<number>`                                                                                         |                                             |
-| `session`         | `list`                                                                                             | No `show` / `delete` on this command        |
-| `debug`           | `config`, `lsp`, `search`, `file`, `scrap`, `skill`, `snapshot`, `agent`, `paths`, `wait`          |                                             |
-| `generate`        | —                                                                                                  | OpenAPI / codegen helper                    |
-| `plugin`          | `<module>`                                                                                         | `src/cli/cmd/plug.ts`                       |
-| `connectors`      | `list`, `auth [name]`, `logout [name]`, `add`                                                      |                                             |
-| `sync`            | `status`, `connect`, `disconnect`, `token create`                                                  |                                             |
-| `remote`          | `start`, `stop`, `status`, `share`, `attach <sessionId>`                                           |                                             |
-| `teleport`        | `[sessionID]`                                                                                      |                                             |
-| `companion`       | `serve`, `open`                                                                                    |                                             |
-| `mobile`          | `serve`, `pair`, `token list`, `token revoke <id>`                                                 |                                             |
-| `routine`         | `list`, `create`, `get <id>`, `run <id>`, `pause <id>`, `resume <id>`, `delete <id>`               |                                             |
-| `mission`         | `list`, `new`, `get <id>`, `start <id>`, `pause <id>`, `resume <id>`, `cancel <id>`, `delete <id>` |                                             |
-| `goal`            | `[condition..]`                                                                                    |                                             |
-| `analytics`       | `<subcommand>`                                                                                     |                                             |
-| `artifact`        | `login`, `logout`, `list [session-id]`                                                             |                                             |
-| `ads`             | `create`, `list`, `remove [id]`, `toggle [id]`, `enable`, `disable`                                |                                             |
-| `bot`             | `list`, `add`, `start [name]`, `stop [name]`, `webhook [name]`                                     | Chatbot                                     |
-| `heap`            | —                                                                                                  |                                             |
-| `completion`      | —                                                                                                  | yargs-generated shell completion            |
+| Command           | Subcommands (as registered)                                                                        | Notes                                     |
+| ----------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| _(default TUI)_   | `$0 [project]`                                                                                     | `src/cli/cmd/tui/thread.ts`               |
+| `attach`          | `<url>`                                                                                            | Attach to an existing server              |
+| `run`             | `[message..]`                                                                                      | One-shot prompt                           |
+| `serve`           | —                                                                                                  | HTTP server                               |
+| `workspace-serve` | —                                                                                                  | Standalone workspace host                 |
+| `web`             | —                                                                                                  | Web UI                                    |
+| `acp`             | —                                                                                                  | Agent Client Protocol                     |
+| `mcp`             | `list`, `auth [name]`, `logout [name]`, `add`, `debug <name>`                                      |                                           |
+| `auth`            | `list`, `login [url]`, `logout`                                                                    | Credentials                               |
+| `account`         | `login`, `logout`, `list`, `switch`, `orgs`                                                        |                                           |
+| `agent`           | `create`, `list`                                                                                   |                                           |
+| `upgrade`         | `[target]`                                                                                         | Replaces the binary                       |
+| `uninstall`       | —                                                                                                  |                                           |
+| `doctor`          | —                                                                                                  | Diagnostic                                |
+| `quickstart`      | —                                                                                                  |                                           |
+| `models`          | `[provider]`                                                                                       |                                           |
+| `image-model`     | `[provider] [model]`                                                                               |                                           |
+| `speak-model`     | `[provider] [model]`                                                                               |                                           |
+| `brain-model`     | `[model]`                                                                                          |                                           |
+| `locale`          | `[action]`                                                                                         |                                           |
+| `stats`           | —                                                                                                  |                                           |
+| `usage`           | —                                                                                                  |                                           |
+| `export`          | `[sessionID]`                                                                                      |                                           |
+| `import`          | `<file>`                                                                                           | Persists through `SessionV2Write.persist` |
+| `github`          | `install`, `run`                                                                                   |                                           |
+| `pr`              | `<number>`                                                                                         |                                           |
+| `session`         | `list`                                                                                             | No `show` / `delete` on this command      |
+| `debug`           | `config`, `lsp`, `search`, `file`, `scrap`, `skill`, `snapshot`, `agent`, `paths`, `wait`          |                                           |
+| `generate`        | —                                                                                                  | OpenAPI / codegen helper                  |
+| `plugin`          | `<module>`                                                                                         | `src/cli/cmd/plug.ts`                     |
+| `connectors`      | `list`, `auth [name]`, `logout [name]`, `add`                                                      |                                           |
+| `sync`            | `status`, `connect`, `disconnect`, `token create`                                                  |                                           |
+| `remote`          | `start`, `stop`, `status`, `share`, `attach <sessionId>`                                           |                                           |
+| `teleport`        | `[sessionID]`                                                                                      |                                           |
+| `companion`       | `serve`, `open`                                                                                    |                                           |
+| `mobile`          | `serve`, `pair`, `token list`, `token revoke <id>`                                                 |                                           |
+| `routine`         | `list`, `create`, `get <id>`, `run <id>`, `pause <id>`, `resume <id>`, `delete <id>`               |                                           |
+| `mission`         | `list`, `new`, `get <id>`, `start <id>`, `pause <id>`, `resume <id>`, `cancel <id>`, `delete <id>` |                                           |
+| `goal`            | `[condition..]`                                                                                    |                                           |
+| `analytics`       | `<subcommand>`                                                                                     |                                           |
+| `artifact`        | `login`, `logout`, `list [session-id]`                                                             |                                           |
+| `ads`             | `create`, `list`, `remove [id]`, `toggle [id]`, `enable`, `disable`                                |                                           |
+| `bot`             | `list`, `add`, `start [name]`, `stop [name]`, `webhook [name]`                                     | Chatbot                                   |
+| `heap`            | —                                                                                                  |                                           |
+| `completion`      | —                                                                                                  | yargs-generated shell completion          |
 
 Not registered as top-level commands, despite files or earlier drafts: `config`, `db`, `tool`, `loop`. Loops are driven from the TUI / HTTP, not a `nikcli loop` command.
 

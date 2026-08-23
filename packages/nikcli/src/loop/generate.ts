@@ -31,7 +31,7 @@ export async function generateFromDescription(
         // Parent the drafting session to the one that asked for it, so the
         // model inheritance chain in `SessionPrompt` has something to walk
         // even when the reference below resolves to nothing.
-        ...(opts.sessionID ? { parentID: opts.sessionID } : {}),
+        ...(opts.sessionID ? { parentID: opts.sessionID } : undefined),
       })
     }),
   )
@@ -53,7 +53,7 @@ export async function generateFromDescription(
           command: "goal",
           arguments: userMessage,
           agent,
-          ...(modelID ? { model: modelID } : {}),
+          ...(modelID ? { model: modelID } : undefined),
         })
       }),
     )
@@ -119,8 +119,8 @@ function parseLenient(text: string): Parameters<typeof definitionFromGenerated>[
   if (stages.length === 0) throw new Error("No stages could be extracted")
   return {
     stages,
-    ...(nameMatch ? { name: nameMatch[1] } : {}),
-    ...(intervalMatch ? { intervalMs: Number(intervalMatch[1]) } : {}),
-    ...(maxRunsMatch ? { maxRuns: Number(maxRunsMatch[1]) } : {}),
+    ...(nameMatch ? { name: nameMatch[1] } : undefined),
+    ...(intervalMatch ? { intervalMs: Number(intervalMatch[1]) } : undefined),
+    ...(maxRunsMatch ? { maxRuns: Number(maxRunsMatch[1]) } : undefined),
   }
 }

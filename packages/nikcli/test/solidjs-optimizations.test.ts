@@ -51,7 +51,7 @@ describe("SolidJS createEffect Optimizations", () => {
       createEffect(
         on(
           () => ({ a: a(), b: b() }),
-          ({ a, b }) => {
+          ({ a: _a, b: _b }) => {
             runs++
           },
           { defer: true },
@@ -187,7 +187,7 @@ describe("SolidJS createEffect Optimizations", () => {
       createEffect(
         on(
           () => props(),
-          (p) => {
+          (_p) => {
             runs++
           },
           { defer: true },

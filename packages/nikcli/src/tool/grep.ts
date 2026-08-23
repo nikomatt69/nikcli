@@ -15,10 +15,6 @@ const MAX_MATCH = 100
 const MAX_DEF_FIRST = 8
 const MAX_DEF_NEXT = 5
 
-function isRegex(pattern: string): boolean {
-  return /[.*+?^${}()|[\]\\]/.test(pattern)
-}
-
 function isConstraint(text: string): boolean {
   return text.startsWith("!") || text.startsWith("*") || text.endsWith("/")
 }

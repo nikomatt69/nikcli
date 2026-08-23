@@ -200,7 +200,7 @@ async function ensureSandbox(def: MissionDefinition): Promise<RunSandbox.Info | 
     hostDirectory: Instance.directory,
     name: `mission-${def.name}`,
     branchPrefix: "nikcli/mission",
-    ...(def.worktree ? { existing: def.worktree } : {}),
+    ...(def.worktree ? { existing: def.worktree } : undefined),
   })
   if (sandbox && sandbox.directory !== def.worktree?.directory) {
     await Manager.setWorktree(def.id, sandbox).catch((error) =>
@@ -223,7 +223,7 @@ async function ensureSession(title: string, sandboxed: boolean, directory?: stri
           // A mission runs unattended for hours; there is nobody to answer a
           // permission prompt. Full access is only defensible because the run
           // is confined to its own worktree.
-          ...(sandboxed ? { permission: PermissionNext.fullAccess() } : {}),
+          ...(sandboxed ? { permission: PermissionNext.fullAccess() } : undefined),
         })
       }),
     ),
@@ -286,8 +286,8 @@ async function runGoal(
       command: "goal",
       arguments: objective,
       agent: args.agent || DEFAULT_LOOP_AGENT,
-      ...(args.model ? { model: args.model } : {}),
-      ...(args.parentSessionID ? { parentSessionID: args.parentSessionID } : {}),
+      ...(args.model ? { model: args.model } : undefined),
+      ...(args.parentSessionID ? { parentSessionID: args.parentSessionID } : undefined),
     }
     await inSandbox(args.directory, () =>
       runSessionPrompt(
@@ -362,11 +362,11 @@ async function runOneExec(
         sessionID,
         objective: target.objective,
         agent: target.agent,
-        ...(target.model ? { model: target.model } : {}),
-        ...(target.tokenBudget ? { tokenBudget: target.tokenBudget } : {}),
+        ...(target.model ? { model: target.model } : undefined),
+        ...(target.tokenBudget ? { tokenBudget: target.tokenBudget } : undefined),
         timeoutMs,
-        ...(slot.directory ? { directory: slot.directory } : {}),
-        ...(slot.callerSessionID ? { parentSessionID: slot.callerSessionID } : {}),
+        ...(slot.directory ? { directory: slot.directory } : undefined),
+        ...(slot.callerSessionID ? { parentSessionID: slot.callerSessionID } : undefined),
       },
       signal,
     )
@@ -375,7 +375,7 @@ async function runOneExec(
       status,
       ok: result.ok,
       endedAt: Date.now(),
-      ...(result.error !== undefined ? { error: result.error } : {}),
+      ...(result.error !== undefined ? { error: result.error } : undefined),
     })
     void Bus.publish(MissionEvent.ExecFinished, {
       missionID: def.id,
@@ -384,7 +384,7 @@ async function runOneExec(
       targetID: target.id,
       status,
       ok: result.ok,
-      ...(result.error !== undefined ? { error: result.error } : {}),
+      ...(result.error !== undefined ? { error: result.error } : undefined),
     })
     return result
   } finally {
@@ -507,7 +507,7 @@ async function orchestrate(
         void Bus.publish(MissionEvent.Finished, {
           missionID,
           status: "error",
-          ...(result.error ? { error: result.error } : {}),
+          ...(result.error ? { error: result.error } : undefined),
         })
         return
       }
@@ -567,7 +567,7 @@ async function orchestrate(
         void Bus.publish(MissionEvent.Finished, {
           missionID,
           status: "error",
-          ...(result.error ? { error: result.error } : {}),
+          ...(result.error ? { error: result.error } : undefined),
         })
         return
       }
@@ -602,7 +602,7 @@ async function runOneFeature(
       objective: feature.objective,
       agent: feature.agent,
       model: feature.model ?? def.models.worker,
-      ...(feature.tokenBudget ? { tokenBudget: feature.tokenBudget } : {}),
+      ...(feature.tokenBudget ? { tokenBudget: feature.tokenBudget } : undefined),
     },
     sessionID,
     signal,
