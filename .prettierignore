@@ -16,3 +16,8 @@ packages/mobile/android/
 # Reformatting it makes `wrangler types --check` report the types as out of date,
 # which fails `turbo typecheck` for the whole monorepo.
 **/worker-configuration.d.ts
+
+# Written by packages/httpapi-codegen (JSON.stringify(..., null, 2)) and compared
+# byte-for-byte by the CI "Generated HTTP client drift" gate. Prettier collapses the
+# array onto one line, which makes the next codegen run show a diff and fail CI.
+**/.httpapi-codegen.json
