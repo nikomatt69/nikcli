@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.311.0 (August 2026)
+
+## Core
+
+- Regenerate httpapi manifest and apply prettier formatting (@nikomatt69)
+- Enhance validation and client generation processes (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(ci): enhance validation and client generation processes
+  - fix(ci): regenerate httpapi manifest and apply prettier formatting
+
 ## v1.310.0 (August 2026)
 
 ## Core

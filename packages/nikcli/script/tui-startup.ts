@@ -14,40 +14,32 @@
  * not the ones a packaging change moves. "Warm" here means: state already on
  * disk, binary already in the page cache.
  */
-import { mkdtempSync, existsSync } from "node:fs";
-import { rm } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { spawnPty } from "@nikcli-ai/util/pty";
+import { mkdtempSync, existsSync } from "node:fs"
+import { rm } from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+import { spawnPty } from "@nikcli-ai/util/pty"
 
-const BIN = process.argv[2] ?? "";
-if (!BIN || !existsSync(BIN))
-  throw new Error(`usage: tui-startup.ts <binary>  (got ${BIN || "nothing"})`);
-const RUNS = Number(process.env.RUNS ?? 3);
+const BIN = process.argv[2] ?? ""
+if (!BIN || !existsSync(BIN)) throw new Error(`usage: tui-startup.ts <binary>  (got ${BIN || "nothing"})`)
+const RUNS = Number(process.env.RUNS ?? 3)
 
-const ESC = String.fromCharCode(27);
-const BEL = String.fromCharCode(7);
-const ANSI_OSC = new RegExp(
-  `${ESC}\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)`,
-  "g",
-);
-const ANSI_DCS = new RegExp(`${ESC}P[^${ESC}]*${ESC}\\\\`, "g");
-const ANSI_CSI = new RegExp(`${ESC}\\[[0-9;?<>=]*[ -/]*[@-~]`, "g");
-const ANSI_OTHER = new RegExp(`${ESC}[@-Z\\\\-_]`, "g");
+const ESC = String.fromCharCode(27)
+const BEL = String.fromCharCode(7)
+const ANSI_OSC = new RegExp(`${ESC}\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)`, "g")
+const ANSI_DCS = new RegExp(`${ESC}P[^${ESC}]*${ESC}\\\\`, "g")
+const ANSI_CSI = new RegExp(`${ESC}\\[[0-9;?<>=]*[ -/]*[@-~]`, "g")
+const ANSI_OTHER = new RegExp(`${ESC}[@-Z\\\\-_]`, "g")
 function plain(raw: string) {
-  return raw
-    .replace(ANSI_OSC, "")
-    .replace(ANSI_DCS, "")
-    .replace(ANSI_CSI, "")
-    .replace(ANSI_OTHER, "");
+  return raw.replace(ANSI_OSC, "").replace(ANSI_DCS, "").replace(ANSI_CSI, "").replace(ANSI_OTHER, "")
 }
 
-const home = mkdtempSync(path.join(os.tmpdir(), "nikcli-startup-"));
+const home = mkdtempSync(path.join(os.tmpdir(), "nikcli-startup-"))
 
 async function once(): Promise<number> {
-  const started = performance.now();
-  let painted = 0;
-  let raw = "";
+  const started = performance.now()
+  let painted = 0
+  let raw = ""
 
   const pty = spawnPty({
     command: BIN,
@@ -61,34 +53,31 @@ async function once(): Promise<number> {
       NIKCLI_TERMINAL: "1",
       TERM: "xterm-256color",
     },
-  });
+  })
 
   pty.onData((data) => {
-    raw += data;
+    raw += data
     // 200 printable characters is past the alt-screen setup and into content.
-    if (!painted && plain(raw).replace(/\s/g, "").length > 200)
-      painted = performance.now() - started;
-  });
+    if (!painted && plain(raw).replace(/\s/g, "").length > 200) painted = performance.now() - started
+  })
 
-  const deadline = Date.now() + 60_000;
-  while (!painted && Date.now() < deadline) await Bun.sleep(10);
-  pty.kill();
-  if (!painted) throw new Error("never painted");
-  return painted;
+  const deadline = Date.now() + 60_000
+  while (!painted && Date.now() < deadline) await Bun.sleep(10)
+  pty.kill()
+  if (!painted) throw new Error("never painted")
+  return painted
 }
 
-console.log(
-  `warmup: ${(await once()).toFixed(0)}ms (discarded — fresh home pays for migrations)`,
-);
-await Bun.sleep(500);
+console.log(`warmup: ${(await once()).toFixed(0)}ms (discarded — fresh home pays for migrations)`)
+await Bun.sleep(500)
 
-const times: number[] = [];
+const times: number[] = []
 for (let i = 0; i < RUNS; i++) {
-  const ms = await once();
-  times.push(ms);
-  console.log(`run ${i + 1}: ${ms.toFixed(0)}ms`);
-  await Bun.sleep(500);
+  const ms = await once()
+  times.push(ms)
+  console.log(`run ${i + 1}: ${ms.toFixed(0)}ms`)
+  await Bun.sleep(500)
 }
-console.log(`best of ${RUNS} (warm): ${Math.min(...times).toFixed(0)}ms`);
-await rm(home, { recursive: true, force: true }).catch(() => {});
-process.exit(0);
+console.log(`best of ${RUNS} (warm): ${Math.min(...times).toFixed(0)}ms`)
+await rm(home, { recursive: true, force: true }).catch(() => {})
+process.exit(0)

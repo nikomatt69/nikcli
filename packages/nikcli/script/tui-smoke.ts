@@ -16,20 +16,20 @@
  *
  * The binary is auto-detected from ./dist for the host platform when omitted.
  */
-import { mkdtempSync, existsSync } from "node:fs";
-import { rm } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { spawnPty, type PtyExitEvent } from "@nikcli-ai/util/pty";
+import { mkdtempSync, existsSync } from "node:fs"
+import { rm } from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { spawnPty, type PtyExitEvent } from "@nikcli-ai/util/pty"
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dir = path.resolve(__dirname, "..");
-process.chdir(dir);
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const dir = path.resolve(__dirname, "..")
+process.chdir(dir)
 
-const SETTLE_MS = Number(process.env.NIKCLI_SMOKE_TIMEOUT_MS ?? 45_000);
-const COLS = 100;
-const ROWS = 30;
+const SETTLE_MS = Number(process.env.NIKCLI_SMOKE_TIMEOUT_MS ?? 45_000)
+const COLS = 100
+const ROWS = 30
 
 /** Substrings that only ever show up when the TUI failed to boot. */
 const FAILURE_MARKERS = [
@@ -39,59 +39,43 @@ const FAILURE_MARKERS = [
   "is not a function",
   "Cannot find module",
   "ResolveMessage",
-];
+]
 
 function resolveBinary() {
-  const explicit = process.argv[2] ?? process.env.NIKCLI_SMOKE_BIN;
-  if (explicit) return path.resolve(explicit);
-  const platform = process.platform === "win32" ? "windows" : process.platform;
-  const arch = process.arch === "arm64" ? "arm64" : "x64";
-  const exe = process.platform === "win32" ? "nikcli.exe" : "nikcli";
+  const explicit = process.argv[2] ?? process.env.NIKCLI_SMOKE_BIN
+  if (explicit) return path.resolve(explicit)
+  const platform = process.platform === "win32" ? "windows" : process.platform
+  const arch = process.arch === "arm64" ? "arm64" : "x64"
+  const exe = process.platform === "win32" ? "nikcli.exe" : "nikcli"
   const candidates = [
     path.join(dir, "dist", `nikcli-ai-${platform}-${arch}`, "bin", exe),
-    path.join(
-      dir,
-      "dist",
-      `nikcli-ai-${platform}-${arch}-baseline`,
-      "bin",
-      exe,
-    ),
-  ];
-  const found = candidates.find((item) => existsSync(item));
-  if (!found)
-    throw new Error(
-      `no compiled binary found; looked in:\n  ${candidates.join("\n  ")}`,
-    );
-  return found;
+    path.join(dir, "dist", `nikcli-ai-${platform}-${arch}-baseline`, "bin", exe),
+  ]
+  const found = candidates.find((item) => existsSync(item))
+  if (!found) throw new Error(`no compiled binary found; looked in:\n  ${candidates.join("\n  ")}`)
+  return found
 }
 
 /** Drop ANSI/OSC control sequences so cell-by-cell text reassembles into words. */
-const ESC = String.fromCharCode(27);
-const BEL = String.fromCharCode(7);
-const ANSI_OSC = new RegExp(
-  `${ESC}\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)`,
-  "g",
-);
-const ANSI_DCS = new RegExp(`${ESC}P[^${ESC}]*${ESC}\\\\`, "g");
-const ANSI_CSI = new RegExp(`${ESC}\\[[0-9;?<>=]*[ -/]*[@-~]`, "g");
-const ANSI_OTHER = new RegExp(`${ESC}[@-Z\\\\-_]`, "g");
+const ESC = String.fromCharCode(27)
+const BEL = String.fromCharCode(7)
+const ANSI_OSC = new RegExp(`${ESC}\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)`, "g")
+const ANSI_DCS = new RegExp(`${ESC}P[^${ESC}]*${ESC}\\\\`, "g")
+const ANSI_CSI = new RegExp(`${ESC}\\[[0-9;?<>=]*[ -/]*[@-~]`, "g")
+const ANSI_OTHER = new RegExp(`${ESC}[@-Z\\\\-_]`, "g")
 function plain(raw: string) {
-  return raw
-    .replace(ANSI_OSC, "")
-    .replace(ANSI_DCS, "")
-    .replace(ANSI_CSI, "")
-    .replace(ANSI_OTHER, "");
+  return raw.replace(ANSI_OSC, "").replace(ANSI_DCS, "").replace(ANSI_CSI, "").replace(ANSI_OTHER, "")
 }
 
-const binary = resolveBinary();
-const home = mkdtempSync(path.join(os.tmpdir(), "nikcli-tui-smoke-"));
+const binary = resolveBinary()
+const home = mkdtempSync(path.join(os.tmpdir(), "nikcli-tui-smoke-"))
 
-console.log(`[tui-smoke] binary ${binary}`);
-console.log(`[tui-smoke] home   ${home}`);
-console.log(`[tui-smoke] pty    ${COLS}x${ROWS}, settling for ${SETTLE_MS}ms`);
+console.log(`[tui-smoke] binary ${binary}`)
+console.log(`[tui-smoke] home   ${home}`)
+console.log(`[tui-smoke] pty    ${COLS}x${ROWS}, settling for ${SETTLE_MS}ms`)
 
-let raw = "";
-let exit: PtyExitEvent | undefined;
+let raw = ""
+let exit: PtyExitEvent | undefined
 
 const pty = spawnPty({
   command: binary,
@@ -108,60 +92,47 @@ const pty = spawnPty({
     NIKCLI_TERMINAL: "1",
     TERM: "xterm-256color",
   },
-});
+})
 
 pty.onData((data) => {
-  raw += data;
-});
+  raw += data
+})
 pty.onExit((event) => {
-  exit = event;
-});
+  exit = event
+})
 
-const deadline = Date.now() + SETTLE_MS;
+const deadline = Date.now() + SETTLE_MS
 // Stop early once the renderer has clearly painted; otherwise wait it out so a
 // slow-but-healthy boot still passes and a crash still gets its output captured.
 while (Date.now() < deadline && !exit) {
-  if (raw.includes("\x1b[?1049h") && plain(raw).trim().length > 200) break;
-  await Bun.sleep(250);
+  if (raw.includes("\x1b[?1049h") && plain(raw).trim().length > 200) break
+  await Bun.sleep(250)
 }
 
 // Snapshot before killing: `kill()` synchronously drives `onExit`, so reading
 // `exit` afterwards would always look like the binary died on its own.
-const died = exit;
-if (!died) pty.kill();
-await rm(home, { recursive: true, force: true }).catch(() => undefined);
+const died = exit
+if (!died) pty.kill()
+await rm(home, { recursive: true, force: true }).catch(() => undefined)
 
-const text = plain(raw);
-const failures: string[] = [];
+const text = plain(raw)
+const failures: string[] = []
 
-if (died)
-  failures.push(
-    `the binary exited (code ${died.exitCode}) instead of staying in the TUI`,
-  );
+if (died) failures.push(`the binary exited (code ${died.exitCode}) instead of staying in the TUI`)
 if (!raw.includes("\x1b[?1049h"))
-  failures.push(
-    "the TUI never switched to the alternate screen — the renderer did not start",
-  );
-if (text.trim().length < 200)
-  failures.push(
-    `the TUI painted only ${text.trim().length} printable characters`,
-  );
+  failures.push("the TUI never switched to the alternate screen — the renderer did not start")
+if (text.trim().length < 200) failures.push(`the TUI painted only ${text.trim().length} printable characters`)
 for (const marker of FAILURE_MARKERS) {
-  if (text.includes(marker))
-    failures.push(
-      `runtime error surfaced in the TUI output: ${JSON.stringify(marker)}`,
-    );
+  if (text.includes(marker)) failures.push(`runtime error surfaced in the TUI output: ${JSON.stringify(marker)}`)
 }
 
 if (failures.length > 0) {
-  console.error("[tui-smoke] FAIL");
-  for (const failure of failures) console.error(`  - ${failure}`);
-  console.error("[tui-smoke] captured output:");
-  console.error(text.trim() ? text.trim().slice(0, 4000) : "(nothing)");
-  process.exit(1);
+  console.error("[tui-smoke] FAIL")
+  for (const failure of failures) console.error(`  - ${failure}`)
+  console.error("[tui-smoke] captured output:")
+  console.error(text.trim() ? text.trim().slice(0, 4000) : "(nothing)")
+  process.exit(1)
 }
 
-console.log(
-  `[tui-smoke] painted ${text.trim().length} printable characters, process still alive`,
-);
-console.log("[tui-smoke] PASS — the compiled TUI booted and rendered");
+console.log(`[tui-smoke] painted ${text.trim().length} printable characters, process still alive`)
+console.log("[tui-smoke] PASS — the compiled TUI booted and rendered")
