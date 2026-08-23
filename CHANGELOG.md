@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.312.0 (August 2026)
+
+## Core
+
+- Add country tracking to community statistics (@nikomatt69)
+- Resolve all oxlint warnings (66 -> 0)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(web): count downloads by country and map them on /data
+  - feat(inference-dashboard): add country tracking to community statistics
+
 ## v1.311.0 (August 2026)
 
 ## Core
