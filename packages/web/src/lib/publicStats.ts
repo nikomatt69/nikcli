@@ -763,3 +763,111 @@ export function parseDownloads(markdown: string): DownloadPoint[] {
   }
   return points.sort((a, b) => a.date.localeCompare(b.date))
 }
+
+// ── Geography ────────────────────────────────────────────────────────────────
+// Where downloads and tokens come from.
+//
+// This is the one dimension on the page with no upstream to fetch. GitHub
+// publishes `download_count`, an integer per release asset; npm publishes
+// per-day totals. Neither carries a country, for anyone, so a map cannot be
+// derived from them however the numbers are rearranged.
+//
+// It is measured instead, at our own edge. `/releases/download/*` is the URL
+// both installers already fetch from, and Cloudflare resolves `cf-ipcountry`
+// on that request without asking the client for anything; the route stores a
+// day, a country and an asset name and redirects to GitHub, which still serves
+// the file and still counts it. Tokens get their country the same way, recorded
+// where the report or the completion arrives.
+//
+// Counting starts when that route ships. Downloads already in STATS.md have no
+// country and never will, so this is published as its own measurement over its
+// own window rather than as a split of a historical total it cannot explain.
+
+/** One country's slice of a measured total. */
+export interface CountryStat {
+  /** ISO 3166-1 alpha-2, or `XX` when the edge reported none. */
+  code: string
+  /** Whatever is being counted — downloads, or tokens. */
+  value: number
+  /** Share of the window's total, 0..1. */
+  share: number
+}
+
+export interface GeoStats {
+  countries: CountryStat[]
+  /** Sum over every country, including `XX`. */
+  total: number
+  /** Countries with at least one recorded unit. */
+  observed: number
+  /** Days the window covers. */
+  days: number
+  /** Earliest day with a row, `null` when there are none. */
+  since: string | null
+}
+
+/**
+ * Ranks countries by value and attaches each one's share.
+ *
+ * `XX` — the edge had no country — is kept in the total rather than dropped, so
+ * the shares always sum to one and the page never shows a breakdown that
+ * silently omits part of what it is a breakdown of.
+ */
+export function summarizeGeo(
+  rows: ReadonlyArray<{ code: string; value: number }>,
+  days: number,
+  since: string | null = null,
+): GeoStats | null {
+  const perCountry = new Map<string, number>()
+  for (const row of rows) {
+    const code = /^[A-Za-z]{2}$/.test(row.code) ? row.code.toUpperCase() : "XX"
+    const value = Number(row.value)
+    if (!Number.isFinite(value) || value <= 0) continue
+    perCountry.set(code, (perCountry.get(code) ?? 0) + value)
+  }
+
+  const total = [...perCountry.values()].reduce((sum, value) => sum + value, 0)
+  if (total === 0) return null
+
+  const countries = [...perCountry.entries()]
+    .map(([code, value]) => ({ code, value, share: value / total }))
+    .sort((a, b) => b.value - a.value || a.code.localeCompare(b.code))
+
+  return {
+    countries,
+    total,
+    observed: countries.filter((country) => country.code !== "XX").length,
+    days,
+    since,
+  }
+}
+
+/** Window the geographic breakdowns are measured over. */
+export const GEO_DAYS = 90
+
+/**
+ * Reads the per-country download counts written by `/releases/download/*`.
+ *
+ * Returns `null` when the binding is absent, the query fails, or nothing has
+ * been recorded yet — all three mean the same thing to the page, which says so
+ * instead of drawing an empty map.
+ */
+export async function fetchDownloadGeo(DB: D1Database | undefined, days = GEO_DAYS): Promise<GeoStats | null> {
+  if (!DB) return null
+  const from = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+  try {
+    const { results } = await DB.prepare(
+      `SELECT country AS code, SUM(hits) AS value, MIN(day) AS since
+         FROM download_hit
+        WHERE day >= ?
+        GROUP BY country`,
+    )
+      .bind(from)
+      .all<{ code: string; value: number; since: string }>()
+    const rows = results ?? []
+    if (rows.length === 0) return null
+    const since = rows.map((row) => row.since).sort()[0] ?? null
+    return summarizeGeo(rows, days, since)
+  } catch {
+    return null
+  }
+}

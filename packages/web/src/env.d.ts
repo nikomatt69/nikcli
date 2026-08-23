@@ -3,6 +3,7 @@
 
 type KVNamespace = import("@cloudflare/workers-types").KVNamespace
 type R2Bucket = import("@cloudflare/workers-types").R2Bucket
+type D1Database = import("@cloudflare/workers-types").D1Database
 
 /** Domino ships its types under the pre-fork `domino` module name. */
 declare module "@mixmark-io/domino" {
@@ -17,6 +18,12 @@ interface CloudflareEnv {
   USERS: KVNamespace
   SESSIONS: KVNamespace
   ARTIFACTS: R2Bucket
+  /**
+   * Per-country download counts, written by /releases/download/* and read by
+   * /data. Optional: without the binding the route still redirects and the
+   * page still renders, it simply has no geography to draw.
+   */
+  DOWNLOADS?: D1Database
   /**
    * Aggregate gateway-usage feed behind /data, served by the console
    * deployment. Optional on purpose: a preview without it renders the page's

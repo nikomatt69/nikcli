@@ -39,3 +39,7 @@ packages/bench-tui/bun.lock
 .opencode/references/effect-smol/
 .scratch/
 
+
+# Local wrangler state (D1/KV/R2 emulation), written by `wrangler dev` and
+# `d1 migrations apply --local`. Machine-local, never committed.
+.wrangler/

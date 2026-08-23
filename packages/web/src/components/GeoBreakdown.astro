@@ -1,0 +1,273 @@
+---
+/**
+ * Geographic breakdown — a choropleth plus the ranked countries under it.
+ *
+ * Used twice on /data, once for downloads and once for tokens, so the two read
+ * as the same instrument pointed at two measurements: same projection, same
+ * shading ramp, same ranking, same treatment of what is not known.
+ *
+ * Like every other chart on the page it is plain SVG in a fixed viewBox with no
+ * client-side code. The country outlines are projected at build time into
+ * src/data/worldMap.ts; the shading and the highlighting are CSS.
+ *
+ * Two things it refuses to do:
+ *
+ *   - draw a country it has no number for. Unmeasured stays at the base fill,
+ *     visibly the same as an ocean-adjacent neighbour with genuine zero, and
+ *     the caption says how much of the total is unattributed.
+ *   - drop `XX`, the rows where the edge reported no country. They stay in the
+ *     total so the shares sum to one; they are named in the caption rather than
+ *     quietly removed, because a breakdown that omits part of its own total
+ *     overstates every country in it.
+ */
+import { COUNTRY_MARKERS, COUNTRY_NAMES, COUNTRY_SHAPES, MAP_HEIGHT, MAP_WIDTH } from "../data/worldMap"
+import type { GeoStats } from "../lib/publicStats"
+
+interface Props {
+  /** Small label above the heading, naming the measurement's source. */
+  source: string
+  heading: string
+  id: string
+  /** Sentence under the heading explaining what is counted. */
+  blurb: string
+  stats: GeoStats
+  /** Renders one country's value — downloads are whole, tokens are compact. */
+  format: (value: number) => string
+  /** What one unit is called in the caption: "downloads", "tokens". */
+  unit: string
+}
+
+const { source, heading, id, blurb, stats, format, unit } = Astro.props
+
+/** How many make the ranked grid. Fifteen fills five columns by three rows. */
+const TOP = 15
+
+const named = stats.countries.filter((country) => country.code !== "XX")
+const ranked = named.slice(0, TOP)
+const unknown = stats.countries.find((country) => country.code === "XX")
+
+/**
+ * Shading is by rank within the ranked set, not by raw share.
+ *
+ * A linear ramp on share is unreadable here: the leader routinely holds a
+ * quarter of the total and everything from fifth place down collapses into one
+ * indistinguishable dark tone. Ranking spreads the same ordering across the
+ * full range, and the exact figures are in the grid directly below for anyone
+ * reading values rather than shape.
+ */
+const shadeOf = new Map(
+  ranked.map((country, index) => [country.code, 1 - (index / Math.max(ranked.length - 1, 1)) * 0.7]),
+)
+const rankOf = new Map(named.map((country, index) => [country.code, index + 1]))
+const valueOf = new Map(stats.countries.map((country) => [country.code, country]))
+
+const nameOf = (code: string) => COUNTRY_NAMES[code] ?? code
+
+/** Countries with a measurement but no outline at this resolution. */
+const litMarkers = COUNTRY_MARKERS.filter((marker) => valueOf.has(marker.code))
+
+/**
+ * Pairs each ranked row with its country on the map.
+ *
+ * Two rules per ranked country, generated because a selector cannot be
+ * parameterised: hovering a row dims the map and holds that one country lit,
+ * and hovering the country marks its row. That is what makes the ranking and
+ * the shape a single reading rather than two, and it costs no JavaScript.
+ *
+ * Only the ranked countries are paired, because only they have a row. Every
+ * other country still lights on its own hover, via .geo__shape:hover.
+ */
+const linkRules = ranked
+  .flatMap((country) => [
+    `.geo--${id}:has(.geo__row[data-code="${country.code}"]:hover) [data-code="${country.code}"]{opacity:1;fill:rgb(var(--terminal-accent))}`,
+    `.geo--${id}:has([data-code="${country.code}"].geo__shape:hover) .geo__row[data-code="${country.code}"],` +
+      `.geo--${id}:has([data-code="${country.code}"].geo__marker:hover) .geo__row[data-code="${country.code}"]` +
+      `{border-color:color-mix(in srgb, rgb(var(--terminal-accent)) 55%, transparent);` +
+      `background:color-mix(in srgb, rgb(var(--terminal-accent)) 10%, transparent)}`,
+  ])
+  .join("")
+---
+
+<section
+  class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8"
+  aria-labelledby={`${id}-heading`}
+  id={id}
+>
+  <p class="viz-source">{source}</p>
+  <h2 id={`${id}-heading`} class="font-display text-panel-title text-terminal-text">{heading}</h2>
+  <p class="mt-2 max-w-[68ch] text-body-sm text-terminal-muted">{blurb}</p>
+
+  <figure class={`geo geo--${id} mt-6`}>
+    <div class="geo__plot overflow-hidden rounded-[var(--radius-md)] border border-terminal-border/60">
+      <svg
+        viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+        class="block h-auto w-full"
+        role="img"
+        aria-label={`${heading}. ${ranked
+          .slice(0, 5)
+          .map((country) => `${nameOf(country.code)} ${Math.round(country.share * 100)}%`)
+          .join(", ")}.`}
+      >
+        {
+          COUNTRY_SHAPES.map((country) => {
+            const shade = shadeOf.get(country.code)
+            const measured = valueOf.get(country.code)
+            return (
+              <path
+                d={country.path}
+                class="geo__shape"
+                data-code={country.code}
+                style={shade !== undefined ? `--geo-fill:color-mix(in srgb, var(--series-1) ${Math.round(shade * 100)}%, var(--geo-base))` : undefined}
+              >
+                {measured && (
+                  <title>{`${nameOf(country.code)} — ${format(measured.value)} ${unit}`}</title>
+                )}
+              </path>
+            )
+          })
+        }
+        {
+          litMarkers.map((marker) => {
+            const shade = shadeOf.get(marker.code)
+            return (
+              <circle
+                cx={marker.x}
+                cy={marker.y}
+                r="3.2"
+                class="geo__marker"
+                data-code={marker.code}
+                style={shade !== undefined ? `--geo-fill:color-mix(in srgb, var(--series-1) ${Math.round(shade * 100)}%, var(--geo-base))` : undefined}
+              >
+                <title>{`${nameOf(marker.code)} — ${format(valueOf.get(marker.code)!.value)} ${unit}`}</title>
+              </circle>
+            )
+          })
+        }
+      </svg>
+    </div>
+
+    <ul class="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {
+        ranked.map((country) => (
+          <li
+            class="geo__row flex items-center gap-2.5 rounded-[var(--radius-md)] border border-terminal-border/50 bg-terminal-bg/50 px-3 py-2 transition-[border-color] duration-150 hover:border-terminal-accent/40"
+            data-code={country.code}
+          >
+            <span class="shrink-0 tabular-nums text-[12px] text-terminal-muted">
+              {String(rankOf.get(country.code)).padStart(2, "0")}
+            </span>
+            <span
+              class="size-2.5 shrink-0 rounded-[2px]"
+              style={`background:color-mix(in srgb, var(--series-1) ${Math.round((shadeOf.get(country.code) ?? 0) * 100)}%, var(--geo-base))`}
+              aria-hidden="true"
+            />
+            <span class="min-w-0 flex-1 truncate text-body-sm text-terminal-text">{nameOf(country.code)}</span>
+            <span class="shrink-0 tabular-nums text-[13px] text-terminal-muted">{format(country.value)}</span>
+            <span class="w-9 shrink-0 text-right tabular-nums text-[13px] font-semibold text-terminal-text">
+              {Math.round(country.share * 100)}%
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+
+    <figcaption class="mt-4 text-[13px] leading-relaxed text-terminal-muted">
+      {stats.observed} {stats.observed === 1 ? "country" : "countries"} over the last {stats.days} days
+      {stats.since && <> · counting since {stats.since}</>}
+      {
+        named.length > TOP && (
+          <>
+            {" "}
+            · {named.length - TOP} more outside the top {TOP}
+          </>
+        )
+      }
+      {
+        unknown && (
+          <>
+            {" "}
+            · {Math.round(unknown.share * 100)}% arrived without a country and is counted in the total but drawn
+            nowhere
+          </>
+        )
+      }
+    </figcaption>
+  </figure>
+</section>
+
+<!--
+  Global rather than scoped: Astro's scoper rewrites a `:has()` selector group
+  by attaching its attribute to the wrong compound, which turned the first
+  selector below into a bare `.geo__shape` and left every country dimmed to 45%
+  all the time. The class names here are unique to this component, so scoping
+  buys nothing and costs that bug. The per-country rules further down are
+  namespaced by `.geo--<id>` for the same reason.
+-->
+<style is:global>
+  /*
+   * Every colour here is opaque, and that is load-bearing rather than a
+   * preference: the page paints a 48px graph-paper grid on the body, so any
+   * translucent fill lets a row of horizontal rules show straight through the
+   * map. The plot gets its own solid ground for the same reason.
+   *
+   * --geo-base is the fill of a country with no measurement. It is a tint of
+   * the series colour rather than a grey, so an unmeasured country reads as
+   * part of the same map as a measured one instead of as a hole in it.
+   */
+  .geo {
+    --geo-base: color-mix(in srgb, var(--series-1) 14%, rgb(var(--terminal-bg)));
+  }
+
+  .geo__plot {
+    background: rgb(var(--terminal-bg));
+  }
+
+  .geo__shape {
+    fill: var(--geo-fill, var(--geo-base));
+    stroke: color-mix(in srgb, rgb(var(--terminal-text)) 18%, var(--geo-base));
+    stroke-width: 0.4;
+    stroke-linejoin: round;
+    transition: fill 150ms ease;
+  }
+
+  .geo__marker {
+    fill: var(--geo-fill, var(--geo-base));
+    stroke: rgb(var(--terminal-bg));
+    stroke-width: 0.8;
+  }
+
+  /*
+   * Pointing at a country lights it.
+   *
+   * This is the plain case and it works for all of them, not only the fifteen
+   * in the ranking: the fill comes from --geo-fill rather than an inline
+   * `fill`, so an ordinary rule can win over it. Written as an inline
+   * attribute, the shade would outrank every stylesheet rule and nothing here
+   * would highlight at all.
+   */
+  .geo__shape:hover,
+  .geo__marker:hover {
+    fill: rgb(var(--terminal-accent));
+  }
+
+  /*
+   * Hovering a row lifts its country off the map, and hovering the country
+   * lifts the row. Done with :has() so the link between the two halves costs no
+   * JavaScript; where :has() is unsupported the direct hover above still works
+   * and the tooltips still name every measured country.
+   */
+  .geo:has(.geo__row:hover) .geo__shape,
+  .geo:has(.geo__row:hover) .geo__marker,
+  .geo:has(.geo__shape:hover) .geo__shape:not(:hover),
+  .geo:has(.geo__shape:hover) .geo__marker:not(:hover),
+  .geo:has(.geo__marker:hover) .geo__shape:not(:hover),
+  .geo:has(.geo__marker:hover) .geo__marker:not(:hover) {
+    opacity: 0.45;
+  }
+
+  .geo__row:hover {
+    border-color: color-mix(in srgb, rgb(var(--terminal-accent)) 45%, rgb(var(--terminal-panel)));
+  }
+</style>
+
+<style is:global set:html={linkRules}></style>

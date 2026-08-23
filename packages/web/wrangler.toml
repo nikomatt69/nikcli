@@ -61,3 +61,15 @@ id = "bb2d5e50ff1644b482c71b7355a7684c"
 [[r2_buckets]]
 binding = "ARTIFACTS"
 bucket_name = "nikcli-artifact"
+
+# Per-country download counts, written by /releases/download/* — the URL both
+# installers already fetch from. GitHub and npm publish download totals with no
+# geography at all, so this is the only place the country behind a download
+# exists; /data reads it for the geographic breakdown.
+# Schema lives in ./d1-migrations; apply it with:
+#   bun run --cwd packages/web d1:migrate:remote
+[[d1_databases]]
+binding = "DOWNLOADS"
+database_name = "nikcli-web"
+database_id = "0f603451-f624-46fa-8597-e581a68828c1"
+migrations_dir = "./d1-migrations"

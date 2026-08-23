@@ -12,12 +12,15 @@
  */
 import Layout from "../layouts/Layout.astro"
 import Navbar from "../components/Navbar.astro"
+import GeoBreakdown from "../components/GeoBreakdown.astro"
 import statsMarkdown from "../../../../STATS.md?raw"
 import {
   ACTIVITY_DAYS,
   axisTicks,
   fetchCommunity,
+  fetchDownloadGeo,
   fetchGateway,
+  GEO_DAYS,
   parseDownloads,
   SERIES_DAYS,
   WINDOW_DAYS,
@@ -33,6 +36,11 @@ const [gateway, community] = await Promise.all([
   fetchCommunity(env?.COMMUNITY_DATA_URL ?? import.meta.env.COMMUNITY_DATA_URL, now),
 ])
 const downloads = parseDownloads(statsMarkdown)
+// Where those downloads came from. Counted at our own edge by
+// /releases/download/*, the URL both installers already fetch from, because
+// neither GitHub nor npm publishes a country for a download. `null` until that
+// route has seen traffic, and the section is then simply absent.
+const downloadGeo = await fetchDownloadGeo(env?.DOWNLOADS, GEO_DAYS)
 
 // The page is public and identical for everyone, so it is worth caching at the
 // edge: without this every visit re-fetches the console feed.
@@ -285,10 +293,15 @@ const downloadAxisDates = Array.from({ length: 5 }, (_, i) => {
 // nav would otherwise offer six links that scroll nowhere.
 /**
  * Model names come from the database, so a serialised tooltip payload is
- * escaped before it is written inside a <script> element: an unescaped
- * `</script>` in a name would close the element early and let whatever follows
+ * escaped before it is written inside a script element: an unescaped closing
+ * script tag in a name would close the element early and let whatever follows
  * be parsed as markup. `<` is a valid JSON string escape, so the payload still
  * parses unchanged. The two line separators are escaped for the same reason.
+ *
+ * The tags are spelled out in prose rather than written literally: vite's
+ * dependency scanner reads this file as markup and treats a script tag in a
+ * comment as a real one, then fails to parse the sentence after it as
+ * JavaScript.
  */
 const escapeForScript = (value: unknown) =>
   JSON.stringify(value).replace(
@@ -351,7 +364,10 @@ const sectionGroups = [
   },
   {
     label: "Release log",
-    sections: downloads.length > 1 ? [{ id: "adoption", label: "Adoption" }] : [],
+    sections: [
+      ...(downloads.length > 1 ? [{ id: "adoption", label: "Adoption" }] : []),
+      ...(downloadGeo ? [{ id: "download-geo", label: "Where downloads come from" }] : []),
+    ],
   },
 ].filter((group) => group.sections.length > 0)
 
@@ -1623,6 +1639,23 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
               </table>
             </div>
           </div>
+        </section>
+      )
+    }
+
+    {/* ── Where downloads come from ──────────────────────────────────────── */}
+    {
+      downloadGeo && (
+        <section class="page-shell pb-14">
+          <GeoBreakdown
+            id="download-geo"
+            source="Edge counter"
+            heading="Where downloads come from"
+            blurb={`Downloads that passed nikcli.store/releases/download — the URL the install scripts fetch from — resolved to a country at the edge and then handed to GitHub, which serves the file and counts it as it always has. GitHub and npm publish a download total with no geography attached, so this is measured here rather than derived from either, and it counts only from the day the route shipped${lastDownload ? `: the ${whole.format(lastDownload.total)} in the release log above have no country and never will` : ""}.`}
+            stats={downloadGeo}
+            format={(value) => whole.format(value)}
+            unit="downloads"
+          />
         </section>
       )
     }
