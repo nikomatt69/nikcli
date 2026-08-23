@@ -3,6 +3,34 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.313.0 (August 2026)
+
+## Core
+
+- Clean up code formatting and improve readability (@nikomatt69)
+- Enhance error handling in session API (@nikomatt69)
+
+## TUI
+
+- Bind the daemon on the main thread so sessions can start (#236) (@SandroHub013)
+
+## SDK
+
+- Stop prettier from collapsing the httpapi codegen manifest (@nikomatt69)
+
+**Thank you to 3 community contributors:**
+
+- @nikomatt69:
+  - refactor(session): enhance error handling in session API
+  - refactor(session): clean up code formatting and improve readability
+  - fix(ci): stop prettier from collapsing the httpapi codegen manifest
+- @SandroHub013:
+  - fix(browser-control): stop idle sessions, and stop close-all from bricking the browser
+  - fix(browser-control): only count driving a session as using it
+  - fix(browser-control): bind the daemon on the main thread so sessions can start (#236)
+- @cursoragent:
+  - fix(browser-control): strip the BOM, and reap a session once its live view ends
+
 ## v1.312.0 (August 2026)
 
 ## Core
