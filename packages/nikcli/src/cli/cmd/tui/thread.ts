@@ -247,6 +247,17 @@ export const TuiThreadCommand = cmd({
       })
     }
     const client = Rpc.client<typeof rpc>(worker)
+    // The worker cannot bind the browser-control daemon itself: its sessions are
+    // Bun.WebViews, and those only exist on a main thread. This is that thread.
+    // Imported on demand — a session that never opens a browser should not pay
+    // for the package (ffmpeg, evidence, renderers) during TUI startup.
+    client.on<{ socket: string }>("browser-control.host-daemon", ({ socket }) => {
+      import("@nikcli-ai/browser-control/daemon")
+        .then(({ startDaemon }) => startDaemon(socket, { exitProcess: false }))
+        .catch((e) => {
+          Log.Default.error("browser-control daemon failed to bind", { error: errorMessage(e) })
+        })
+    })
     const error = (e: unknown) => {
       Log.Default.error("process error", { error: errorMessage(e) })
     }
