@@ -6,11 +6,7 @@ import path from "path"
 import { removeTestDir } from "../helpers/fs"
 import type { MessageV2 as MessageV2Types } from "../../src/session/message-v2"
 import { Cause, Effect, Layer } from "effect"
-import {
-  runPromiseExitWithLayer,
-  runPromiseWithLayer,
-  withCurrentInstance,
-} from "../../src/effect"
+import { runPromiseExitWithLayer, runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-home-"))
 process.env.NIKCLI_TEST_HOME = testHome

@@ -1088,8 +1088,7 @@ export namespace SessionHttpApi {
     monitorLog: ({ params, query }: { params: typeof MonitorPath.Type; query: typeof MonitorLogQuery.Type }) =>
       Effect.gen(function* () {
         const snapshot = yield* Effect.tryPromise({
-          try: () =>
-            Monitor.readLog(params.sessionID, params.monitorID, query.lines ?? 200),
+          try: () => Monitor.readLog(params.sessionID, params.monitorID, query.lines ?? 200),
           catch: Session.asSessionError,
         })
         return snapshot ?? null
