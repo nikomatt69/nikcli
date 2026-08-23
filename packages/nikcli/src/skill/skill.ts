@@ -1,8 +1,4 @@
-import {
-  isSkillCommandName,
-  skillCommandName,
-  skillSlug as slug,
-} from "@nikcli-ai/util/skill-command"
+import { isSkillCommandName, skillCommandName, skillSlug as slug } from "@nikcli-ai/util/skill-command"
 import path from "path"
 import { Config } from "../config/config"
 import { EventError } from "@/session/event-error"

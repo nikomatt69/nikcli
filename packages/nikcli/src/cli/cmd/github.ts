@@ -1,48 +1,42 @@
-import path from "path";
-import { exec } from "child_process";
-import * as prompts from "@clack/prompts";
-import { map, pipe, sortBy, values } from "remeda";
-import { UI } from "../ui";
-import { cmd } from "./cmd";
-import { ModelsDev } from "../../provider/models";
-import { Instance } from "@/project/instance";
-import { withInstanceAsync } from "@/effect";
-import { MessageV2 } from "../../session/message-v2";
-import { Git } from "@/git";
-import { parseGitHubRemote } from "@/util/repository";
+import path from "path"
+import { exec } from "child_process"
+import * as prompts from "@clack/prompts"
+import { map, pipe, sortBy, values } from "remeda"
+import { UI } from "../ui"
+import { cmd } from "./cmd"
+import { ModelsDev } from "../../provider/models"
+import { Instance } from "@/project/instance"
+import { withInstanceAsync } from "@/effect"
+import { MessageV2 } from "../../session/message-v2"
+import { Git } from "@/git"
+import { parseGitHubRemote } from "@/util/repository"
 
-const GITHUB_APP_NAME = process.env.NIKCLI_GITHUB_APP_NAME || "nikcli";
-const API_BASE_URL = process.env.NIKCLI_API_URL || "https://api.nikcli.store";
-const WORKFLOW_FILE = ".github/workflows/nikcli.yml";
+const GITHUB_APP_NAME = process.env.NIKCLI_GITHUB_APP_NAME || "nikcli"
+const API_BASE_URL = process.env.NIKCLI_API_URL || "https://api.nikcli.store"
+const WORKFLOW_FILE = ".github/workflows/nikcli.yml"
 
-export { parseGitHubRemote };
+export { parseGitHubRemote }
 
 export function extractResponseText(parts: MessageV2.Part[]): string | null {
-  const textPart = parts.findLast((p) => p.type === "text");
-  if (textPart) return textPart.text;
+  const textPart = parts.findLast((p) => p.type === "text")
+  if (textPart) return textPart.text
 
-  const reasoningPart = parts.findLast((p) => p.type === "reasoning");
-  if (reasoningPart) return null;
+  const reasoningPart = parts.findLast((p) => p.type === "reasoning")
+  if (reasoningPart) return null
 
-  const toolParts = parts.filter(
-    (p) => p.type === "tool" && p.state.status === "completed",
-  );
-  if (toolParts.length > 0) return null;
+  const toolParts = parts.filter((p) => p.type === "tool" && p.state.status === "completed")
+  if (toolParts.length > 0) return null
 
-  const partTypes = parts.map((p) => p.type).join(", ") || "none";
-  throw new Error(`Failed to parse response. Part types found: [${partTypes}]`);
+  const partTypes = parts.map((p) => p.type).join(", ") || "none"
+  throw new Error(`Failed to parse response. Part types found: [${partTypes}]`)
 }
 
 export const GithubCommand = cmd({
   command: "github",
   describe: "manage GitHub agent",
-  builder: (yargs) =>
-    yargs
-      .command(GithubInstallCommand)
-      .command(GithubRunCommand)
-      .demandCommand(),
+  builder: (yargs) => yargs.command(GithubInstallCommand).command(GithubRunCommand).demandCommand(),
   async handler() {},
-});
+})
 
 export const GithubInstallCommand = cmd({
   command: "install",
@@ -50,33 +44,33 @@ export const GithubInstallCommand = cmd({
   async handler() {
     await withInstanceAsync({ directory: process.cwd() }, async () => {
       {
-        UI.empty();
-        prompts.intro("Install GitHub agent");
-        const app = await getAppInfo();
-        await installGitHubApp();
+        UI.empty()
+        prompts.intro("Install GitHub agent")
+        const app = await getAppInfo()
+        await installGitHubApp()
 
         const providers = await ModelsDev.get().then((p) => {
-          delete p["github-copilot"];
-          return p;
-        });
+          delete p["github-copilot"]
+          return p
+        })
 
-        const provider = await promptProvider();
-        const model = await promptModel();
+        const provider = await promptProvider()
+        const model = await promptModel()
 
-        await addWorkflowFiles();
-        printNextSteps();
+        await addWorkflowFiles()
+        printNextSteps()
 
         function printNextSteps() {
-          let step2;
+          let step2
           if (provider === "amazon-bedrock") {
             step2 =
-              "Configure OIDC in AWS - https://docs.github.com/en/actions/how-tos/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services";
+              "Configure OIDC in AWS - https://docs.github.com/en/actions/how-tos/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services"
           } else {
             step2 = [
               `    2. Add the following secrets in org or repo (${app.owner}/${app.repo}) settings`,
               "",
               ...providers[provider].env.map((e) => `       - ${e}`),
-            ].join("\n");
+            ].join("\n")
           }
 
           prompts.outro(
@@ -90,16 +84,14 @@ export const GithubInstallCommand = cmd({
               "",
               "   Learn more about the GitHub agent - https://nikcli.store/docs/github/#usage-examples",
             ].join("\n"),
-          );
+          )
         }
 
         async function getAppInfo() {
-          const project = Instance.project;
+          const project = Instance.project
           if (project.vcs !== "git") {
-            prompts.log.error(
-              `Could not find git repository. Please run this command from a git repository.`,
-            );
-            throw new UI.CancelledError();
+            prompts.log.error(`Could not find git repository. Please run this command from a git repository.`)
+            throw new UI.CancelledError()
           }
 
           const info = (
@@ -108,19 +100,17 @@ export const GithubInstallCommand = cmd({
             })
           )
             .text()
-            .trim();
-          const parsed = parseGitHubRemote(info);
+            .trim()
+          const parsed = parseGitHubRemote(info)
           if (!parsed) {
-            prompts.log.error(
-              `Could not find git repository. Please run this command from a git repository.`,
-            );
-            throw new UI.CancelledError();
+            prompts.log.error(`Could not find git repository. Please run this command from a git repository.`)
+            throw new UI.CancelledError()
           }
           return {
             owner: parsed.owner,
             repo: parsed.repo,
             root: Instance.worktree,
-          };
+          }
         }
 
         async function promptProvider() {
@@ -129,7 +119,7 @@ export const GithubInstallCommand = cmd({
             anthropic: 1,
             openai: 2,
             google: 3,
-          };
+          }
           let provider = await prompts.select({
             message: "Select provider",
             maxItems: 8,
@@ -146,15 +136,15 @@ export const GithubInstallCommand = cmd({
                 hint: priority[x.id] === 0 ? "recommended" : undefined,
               })),
             ),
-          });
+          })
 
-          if (prompts.isCancel(provider)) throw new UI.CancelledError();
+          if (prompts.isCancel(provider)) throw new UI.CancelledError()
 
-          return provider;
+          return provider
         }
 
         async function promptModel() {
-          const providerData = providers[provider]!;
+          const providerData = providers[provider]!
 
           const model = await prompts.select({
             message: "Select model",
@@ -168,73 +158,69 @@ export const GithubInstallCommand = cmd({
                 value: x.id,
               })),
             ),
-          });
+          })
 
-          if (prompts.isCancel(model)) throw new UI.CancelledError();
-          return model;
+          if (prompts.isCancel(model)) throw new UI.CancelledError()
+          return model
         }
 
         async function installGitHubApp() {
-          const s = prompts.spinner();
-          s.start("Installing GitHub app");
+          const s = prompts.spinner()
+          s.start("Installing GitHub app")
 
-          const installation = await getInstallation();
-          if (installation) return s.stop("GitHub app already installed");
+          const installation = await getInstallation()
+          if (installation) return s.stop("GitHub app already installed")
 
-          const url = `https://github.com/apps/${GITHUB_APP_NAME}`;
+          const url = `https://github.com/apps/${GITHUB_APP_NAME}`
           const command =
             process.platform === "darwin"
               ? `open "${url}"`
               : process.platform === "win32"
                 ? `start "" "${url}"`
-                : `xdg-open "${url}"`;
+                : `xdg-open "${url}"`
 
           // Hides the intermediary console window, not the browser this launches.
           exec(command, { windowsHide: true }, (error) => {
             if (error) {
-              prompts.log.warn(`Could not open browser. Please visit: ${url}`);
+              prompts.log.warn(`Could not open browser. Please visit: ${url}`)
             }
-          });
+          })
 
           // Skip polling for custom apps (non-official)
           if (GITHUB_APP_NAME !== "nikcli-agent") {
-            s.stop(
-              `Opened ${url} - please install the app and then press Enter to continue...`,
-            );
+            s.stop(`Opened ${url} - please install the app and then press Enter to continue...`)
             await prompts.confirm({
               message: "Have you installed the GitHub app?",
-            });
-            return;
+            })
+            return
           }
 
-          s.message("Waiting for GitHub app to be installed");
-          const MAX_RETRIES = 120;
-          let retries = 0;
+          s.message("Waiting for GitHub app to be installed")
+          const MAX_RETRIES = 120
+          let retries = 0
           // Poll for installation; bounded by MAX_RETRIES.
           while (true) {
-            const installation = await getInstallation();
-            if (installation) break;
+            const installation = await getInstallation()
+            if (installation) break
 
             if (retries > MAX_RETRIES) {
               s.stop(
                 `Failed to detect GitHub app installation. Make sure to install the app for the \`${app.owner}/${app.repo}\` repository.`,
-              );
-              throw new UI.CancelledError();
+              )
+              throw new UI.CancelledError()
             }
 
-            retries++;
-            await Bun.sleep(1000);
+            retries++
+            await Bun.sleep(1000)
           }
 
-          s.stop("Installed GitHub app");
+          s.stop("Installed GitHub app")
 
           async function getInstallation() {
-            const res = await fetch(
-              `${API_BASE_URL}/get_github_app_installation?owner=${app.owner}&repo=${app.repo}`,
-            );
-            if (!res.ok) return null;
-            const data = await res.json();
-            return data.installation;
+            const res = await fetch(`${API_BASE_URL}/get_github_app_installation?owner=${app.owner}&repo=${app.repo}`)
+            if (!res.ok) return null
+            const data = await res.json()
+            return data.installation
           }
         }
 
@@ -242,7 +228,7 @@ export const GithubInstallCommand = cmd({
           const envStr =
             provider === "amazon-bedrock"
               ? ""
-              : `\n        env:${providers[provider].env.map((e) => `\n          ${e}: \${{ secrets.${e} }}`).join("")}`;
+              : `\n        env:${providers[provider].env.map((e) => `\n          ${e}: \${{ secrets.${e} }}`).join("")}`
 
           await Bun.write(
             path.join(app.root, WORKFLOW_FILE),
@@ -284,14 +270,14 @@ jobs:
         uses: nikomatt69/nikcli/github@latest${envStr}
         with:
           model: ${provider}/${model}`,
-          );
+          )
 
-          prompts.log.success(`Added workflow file: "${WORKFLOW_FILE}"`);
+          prompts.log.success(`Added workflow file: "${WORKFLOW_FILE}"`)
         }
       }
-    });
+    })
   },
-});
+})
 
 export const GithubRunCommand = cmd({
   command: "run",
@@ -307,10 +293,8 @@ export const GithubRunCommand = cmd({
         describe: "GitHub personal access token (github_pat_********)",
       }),
   async handler(_args) {
-    prompts.log.error("GitHub agent run is not yet implemented.");
-    prompts.log.info(
-      "Track progress at: https://github.com/nikcli-ai/nikcli/issues",
-    );
-    throw new Error("GitHub agent run is not yet implemented");
+    prompts.log.error("GitHub agent run is not yet implemented.")
+    prompts.log.info("Track progress at: https://github.com/nikcli-ai/nikcli/issues")
+    throw new Error("GitHub agent run is not yet implemented")
   },
-});
+})

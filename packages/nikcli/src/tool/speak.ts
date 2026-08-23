@@ -1,84 +1,81 @@
-import { Schema } from "effect";
-import { zod } from "@nikcli-ai/util/effect-zod";
-import path from "path";
-import os from "os";
-import { spawn } from "child_process";
-import { unlinkSync } from "fs";
+import { Schema } from "effect"
+import { zod } from "@nikcli-ai/util/effect-zod"
+import path from "path"
+import os from "os"
+import { spawn } from "child_process"
+import { unlinkSync } from "fs"
 
-import { Tool } from "./tool";
-import { Log } from "@nikcli-ai/util/log";
-import { Config } from "@/config/config";
-import { ttsRegistry, type TTSProvider } from "@nikcli-ai/util/tts/provider";
-import {
-  ELEVENLABS_VOICES_LIST,
-  elevenLabsProvider,
-} from "@nikcli-ai/util/tts/elevenlabs";
-import { OPENROUTER_VOICES_LIST } from "@nikcli-ai/util/tts/openrouter";
-import { openRouterProvider } from "./speak/openrouter";
-import DESCRIPTION from "./speak.txt";
-import { Effect } from "effect";
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect";
+import { Tool } from "./tool"
+import { Log } from "@nikcli-ai/util/log"
+import { Config } from "@/config/config"
+import { ttsRegistry, type TTSProvider } from "@nikcli-ai/util/tts/provider"
+import { ELEVENLABS_VOICES_LIST, elevenLabsProvider } from "@nikcli-ai/util/tts/elevenlabs"
+import { OPENROUTER_VOICES_LIST } from "@nikcli-ai/util/tts/openrouter"
+import { openRouterProvider } from "./speak/openrouter"
+import DESCRIPTION from "./speak.txt"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
-const log = Log.create({ service: "tool.speak" });
+const log = Log.create({ service: "tool.speak" })
 
-const DEFAULT_VOICE_ID = "YOq2y2Up4RgXP2HyXjE5";
-const DEFAULT_MODEL_ID = "eleven_v3";
-const DEFAULT_OUTPUT_FORMAT = "mp3_44100_128";
-const OPENROUTER_DEFAULT_VOICE_ID = "alloy";
-const OPENROUTER_DEFAULT_MODEL_ID = "openai/gpt-audio-mini";
-const OPENROUTER_DEFAULT_OUTPUT_FORMAT = "mp3";
-const DEFAULT_PROVIDER = "openrouter";
+const DEFAULT_VOICE_ID = "YOq2y2Up4RgXP2HyXjE5"
+const DEFAULT_MODEL_ID = "eleven_v3"
+const DEFAULT_OUTPUT_FORMAT = "mp3_44100_128"
+const OPENROUTER_DEFAULT_VOICE_ID = "alloy"
+const OPENROUTER_DEFAULT_MODEL_ID = "openai/gpt-audio-mini"
+const OPENROUTER_DEFAULT_OUTPUT_FORMAT = "mp3"
+const DEFAULT_PROVIDER = "openrouter"
 
 function configGet() {
   return runPromiseWithLayer(
     Config.defaultLayer,
     withCurrentInstance(
       Effect.gen(function* () {
-        const config = yield* Config.Service;
-        return yield* config.get();
+        const config = yield* Config.Service
+        return yield* config.get()
       }),
     ),
-  );
+  )
 }
 
 // Register built-in providers
-ttsRegistry.register(elevenLabsProvider);
-ttsRegistry.register(openRouterProvider);
+ttsRegistry.register(elevenLabsProvider)
+ttsRegistry.register(openRouterProvider)
 
 function defaultVoiceIdForProvider(providerId: string): string {
-  if (providerId === "openrouter") return OPENROUTER_DEFAULT_VOICE_ID;
-  return DEFAULT_VOICE_ID;
+  if (providerId === "openrouter") return OPENROUTER_DEFAULT_VOICE_ID
+  return DEFAULT_VOICE_ID
 }
 
 function defaultModelIdForProvider(providerId: string): string {
-  if (providerId === "openrouter") return OPENROUTER_DEFAULT_MODEL_ID;
-  return DEFAULT_MODEL_ID;
+  if (providerId === "openrouter") return OPENROUTER_DEFAULT_MODEL_ID
+  return DEFAULT_MODEL_ID
 }
 
 function defaultOutputFormatForProvider(providerId: string): string {
-  if (providerId === "openrouter") return OPENROUTER_DEFAULT_OUTPUT_FORMAT;
-  return DEFAULT_OUTPUT_FORMAT;
+  if (providerId === "openrouter") return OPENROUTER_DEFAULT_OUTPUT_FORMAT
+  return DEFAULT_OUTPUT_FORMAT
 }
 
 function envVoiceIdForProvider(providerId: string): string | undefined {
   if (providerId === "openrouter") {
-    return process.env.NIKCLI_OPENROUTER_VOICE_ID;
+    return process.env.NIKCLI_OPENROUTER_VOICE_ID
   }
-  return process.env.NIKCLI_ELEVENLABS_VOICE_ID;
+  return process.env.NIKCLI_ELEVENLABS_VOICE_ID
 }
 
 function envModelIdForProvider(providerId: string): string | undefined {
   if (providerId === "openrouter") {
-    return process.env.NIKCLI_OPENROUTER_MODEL_ID;
+    return process.env.NIKCLI_OPENROUTER_MODEL_ID
   }
-  return process.env.NIKCLI_ELEVENLABS_MODEL_ID;
+  return process.env.NIKCLI_ELEVENLABS_MODEL_ID
 }
 
 function envOutputFormatForProvider(providerId: string): string | undefined {
   if (providerId === "openrouter") {
-    return process.env.NIKCLI_OPENROUTER_OUTPUT_FORMAT;
+    return process.env.NIKCLI_OPENROUTER_OUTPUT_FORMAT
   }
-  return process.env.NIKCLI_ELEVENLABS_OUTPUT_FORMAT;
+  return process.env.NIKCLI_ELEVENLABS_OUTPUT_FORMAT
 }
 
 // Helper to resolve providers list to try, starting with the primary choice
@@ -86,59 +83,45 @@ async function resolveProvidersToTry(
   providerParam?: string,
   configProvider?: string,
 ): Promise<{ provider: TTSProvider; id: string }[]> {
-  const primaryId =
-    providerParam ??
-    configProvider ??
-    process.env.NIKCLI_SPEAK_PROVIDER ??
-    DEFAULT_PROVIDER;
+  const primaryId = providerParam ?? configProvider ?? process.env.NIKCLI_SPEAK_PROVIDER ?? DEFAULT_PROVIDER
 
-  const primary = ttsRegistry.get(primaryId);
+  const primary = ttsRegistry.get(primaryId)
   if (!primary) {
     const available = ttsRegistry
       .list()
       .map((p) => p.id)
-      .join(", ");
-    throw new Error(
-      `Unknown TTS provider: ${primaryId}. Available providers: ${available}`,
-    );
+      .join(", ")
+    throw new Error(`Unknown TTS provider: ${primaryId}. Available providers: ${available}`)
   }
 
   // Determine fallback order: primary first, then others
-  const others = ttsRegistry.list().filter((p) => p.id !== primaryId);
+  const others = ttsRegistry.list().filter((p) => p.id !== primaryId)
 
-  return [
-    { provider: primary, id: primaryId },
-    ...others.map((p) => ({ provider: p, id: p.id })),
-  ];
+  return [{ provider: primary, id: primaryId }, ...others.map((p) => ({ provider: p, id: p.id }))]
 }
 
 // Voice validation - currently only validates ElevenLabs voices
-const KNOWN_ELEVENLABS_VOICES = ELEVENLABS_VOICES_LIST.map((voice) => voice.id);
-const KNOWN_OPENROUTER_VOICES = new Set(
-  OPENROUTER_VOICES_LIST.map((voice) => voice.id.toLowerCase()),
-);
+const KNOWN_ELEVENLABS_VOICES = ELEVENLABS_VOICES_LIST.map((voice) => voice.id)
+const KNOWN_OPENROUTER_VOICES = new Set(OPENROUTER_VOICES_LIST.map((voice) => voice.id.toLowerCase()))
 
 // ElevenLabs voice IDs are typically 21-character alphanumeric strings
-const VOICE_ID_PATTERN = /^[a-zA-Z0-9_-]{21}$/;
+const VOICE_ID_PATTERN = /^[a-zA-Z0-9_-]{21}$/
 
-function validateVoiceId(
-  voiceId: string,
-  providerId: string,
-): { valid: boolean; isKnown: boolean } {
+function validateVoiceId(voiceId: string, providerId: string): { valid: boolean; isKnown: boolean } {
   if (providerId === "openrouter") {
-    const normalized = voiceId.toLowerCase();
-    const isKnown = KNOWN_OPENROUTER_VOICES.has(normalized);
-    return { valid: isKnown, isKnown };
+    const normalized = voiceId.toLowerCase()
+    const isKnown = KNOWN_OPENROUTER_VOICES.has(normalized)
+    return { valid: isKnown, isKnown }
   }
 
   // For now, only strictly validate ElevenLabs voices by pattern
   if (providerId !== "elevenlabs") {
-    return { valid: true, isKnown: false };
+    return { valid: true, isKnown: false }
   }
 
-  const matchesPattern = VOICE_ID_PATTERN.test(voiceId);
-  const isKnown = KNOWN_ELEVENLABS_VOICES.includes(voiceId);
-  return { valid: matchesPattern, isKnown };
+  const matchesPattern = VOICE_ID_PATTERN.test(voiceId)
+  const isKnown = KNOWN_ELEVENLABS_VOICES.includes(voiceId)
+  return { valid: matchesPattern, isKnown }
 }
 
 function resolveVoiceId(
@@ -147,20 +130,20 @@ function resolveVoiceId(
   envVoiceId: string | undefined,
   providerId: string,
 ): string {
-  const providedVoiceId = inputVoiceId ?? configVoiceId ?? envVoiceId;
+  const providedVoiceId = inputVoiceId ?? configVoiceId ?? envVoiceId
 
   if (!providedVoiceId) {
-    return defaultVoiceIdForProvider(providerId);
+    return defaultVoiceIdForProvider(providerId)
   }
 
-  const validation = validateVoiceId(providedVoiceId, providerId);
+  const validation = validateVoiceId(providedVoiceId, providerId)
 
   if (!validation.valid) {
     log.warn("invalid voiceId format - using default", {
       provided: providedVoiceId,
       expected: `pattern: ${VOICE_ID_PATTERN.source}`,
-    });
-    return defaultVoiceIdForProvider(providerId);
+    })
+    return defaultVoiceIdForProvider(providerId)
   }
 
   if (!validation.isKnown) {
@@ -168,117 +151,101 @@ function resolveVoiceId(
       voiceId: providedVoiceId,
       providerId,
       hint: "voice may work but is not in the known voices list",
-    });
+    })
   }
 
-  return providedVoiceId;
+  return providedVoiceId
 }
 
-const DEFAULT_TIMEOUT_MS = 30_000;
-const MAX_TIMEOUT_MS = 120_000;
-const MAX_TEXT_LENGTH = 800;
+const DEFAULT_TIMEOUT_MS = 30_000
+const MAX_TIMEOUT_MS = 120_000
+const MAX_TEXT_LENGTH = 800
 
 type AudioPlayer = {
-  name: "afplay" | "ffplay" | "mpg123";
-  command: string;
-  args: (input: { filePath: string; volume: number }) => string[];
-};
+  name: "afplay" | "ffplay" | "mpg123"
+  command: string
+  args: (input: { filePath: string; volume: number }) => string[]
+}
 
 function clampNumber(value: number, min: number, max: number): number {
-  if (value < min) return min;
-  if (value > max) return max;
-  return value;
+  if (value < min) return min
+  if (value > max) return max
+  return value
 }
 
 function detectPlayer(): AudioPlayer | undefined {
-  const afplay = Bun.which("afplay");
+  const afplay = Bun.which("afplay")
   if (process.platform === "darwin" && afplay) {
     return {
       name: "afplay",
       command: afplay,
-      args: ({ filePath, volume }) => [
-        "-v",
-        String(clampNumber(volume, 0, 2)),
-        filePath,
-      ],
-    };
+      args: ({ filePath, volume }) => ["-v", String(clampNumber(volume, 0, 2)), filePath],
+    }
   }
 
-  const ffplay = Bun.which("ffplay");
+  const ffplay = Bun.which("ffplay")
   if (ffplay) {
     // ffplay expects volume in 0-100.
     return {
       name: "ffplay",
       command: ffplay,
       args: ({ filePath, volume }) => {
-        const vol = Math.round(clampNumber(volume, 0, 1) * 100);
-        return [
-          "-nodisp",
-          "-autoexit",
-          "-loglevel",
-          "error",
-          "-volume",
-          String(vol),
-          filePath,
-        ];
+        const vol = Math.round(clampNumber(volume, 0, 1) * 100)
+        return ["-nodisp", "-autoexit", "-loglevel", "error", "-volume", String(vol), filePath]
       },
-    };
+    }
   }
 
-  const mpg123 = Bun.which("mpg123");
+  const mpg123 = Bun.which("mpg123")
   if (mpg123) {
     return {
       name: "mpg123",
       command: mpg123,
       args: ({ filePath }) => ["-q", filePath],
-    };
+    }
   }
 
-  return undefined;
+  return undefined
 }
 
 function normalizeText(input: string): { text: string; truncated: boolean } {
-  const text = input.trim();
-  if (!text) throw new Error("Text is required");
-  if (text.length <= MAX_TEXT_LENGTH) return { text, truncated: false };
-  return { text: text.slice(0, MAX_TEXT_LENGTH - 3) + "...", truncated: true };
+  const text = input.trim()
+  if (!text) throw new Error("Text is required")
+  if (text.length <= MAX_TEXT_LENGTH) return { text, truncated: false }
+  return { text: text.slice(0, MAX_TEXT_LENGTH - 3) + "...", truncated: true }
 }
 
 function extensionFromContentType(contentType: string) {
-  const lower = contentType.toLowerCase();
-  if (lower.includes("wav")) return "wav";
-  if (lower.includes("mp3")) return "mp3";
-  return "bin";
+  const lower = contentType.toLowerCase()
+  if (lower.includes("wav")) return "wav"
+  if (lower.includes("mp3")) return "mp3"
+  return "bin"
 }
 
-function playAudioNonBlocking(
-  player: AudioPlayer,
-  filePath: string,
-  volume: number,
-) {
+function playAudioNonBlocking(player: AudioPlayer, filePath: string, volume: number) {
   const cleanup = () => {
     try {
-      unlinkSync(filePath);
+      unlinkSync(filePath)
     } catch {
       // Ignore cleanup failures.
     }
-  };
+  }
 
   const child = spawn(player.command, player.args({ filePath, volume }), {
     windowsHide: true,
     detached: process.platform !== "win32",
     stdio: "ignore",
-  });
+  })
 
-  child.unref();
-  child.once("exit", cleanup);
+  child.unref()
+  child.once("exit", cleanup)
   child.once("error", (error) => {
     log.error("audio playback failed", {
       error: error.message,
       player: player.name,
-    });
-    cleanup();
-  });
+    })
+    cleanup()
+  })
 }
 
 export const SpeakTool = Tool.define("speak", {
@@ -286,26 +253,18 @@ export const SpeakTool = Tool.define("speak", {
   parameters: zod(
     Schema.Struct({
       text: Schema.String.annotate({
-        description:
-          "Text to speak. Can include audio tags like [laughs], [whispers], [excited], etc.",
+        description: "Text to speak. Can include audio tags like [laughs], [whispers], [excited], etc.",
       }),
       provider: Schema.optional(Schema.String).annotate({
         description: "TTS provider (e.g., elevenlabs, openrouter)",
       }),
       stability: Schema.optional(
-        Schema.Number.pipe(
-          Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-          Schema.check(Schema.isLessThanOrEqualTo(1)),
-        ),
+        Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(1))),
       ).annotate({
-        description:
-          "Voice stability (0-1). Lower = more expressive. Default: 0.5",
+        description: "Voice stability (0-1). Lower = more expressive. Default: 0.5",
       }),
       similarityBoost: Schema.optional(
-        Schema.Number.pipe(
-          Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-          Schema.check(Schema.isLessThanOrEqualTo(1)),
-        ),
+        Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(1))),
       ).annotate({
         description: "Voice similarity boost (0-1). Default: 0.75",
       }),
@@ -318,10 +277,7 @@ export const SpeakTool = Tool.define("speak", {
         description: "Speech speed multiplier (0.5-2). Default: 1.0",
       }),
       volume: Schema.optional(
-        Schema.Number.pipe(
-          Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-          Schema.check(Schema.isLessThanOrEqualTo(2)),
-        ),
+        Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(2))),
       ).annotate({ description: "Playback volume (0-2). Default: 1.0" }),
       voiceId: Schema.optional(Schema.String).annotate({
         description: "TTS voice ID (provider-dependent default)",
@@ -332,18 +288,16 @@ export const SpeakTool = Tool.define("speak", {
       outputFormat: Schema.optional(Schema.String).annotate({
         description: "TTS output format (provider-dependent default)",
       }),
-      timeoutMs: Schema.optional(
-        Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
-      ).annotate({
+      timeoutMs: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))).annotate({
         description: `Request timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS})`,
       }),
     }),
   ),
   async execute(params, ctx) {
-    const config = await configGet();
-    const speakConfig = config.speak ?? {};
+    const config = await configGet()
+    const speakConfig = config.speak ?? {}
 
-    const player = detectPlayer();
+    const player = detectPlayer()
     if (!player) {
       throw new Error(
         [
@@ -354,59 +308,43 @@ export const SpeakTool = Tool.define("speak", {
           "- ffmpeg: ffplay",
           "- mpg123: mpg123",
         ].join("\n"),
-      );
+      )
     }
 
     // Resolve providers list
-    const providersToTry = await resolveProvidersToTry(
-      params.provider,
-      speakConfig.provider,
-    );
-    const failureLogs: string[] = [];
+    const providersToTry = await resolveProvidersToTry(params.provider, speakConfig.provider)
+    const failureLogs: string[] = []
 
     for (const { provider: ttsProvider, id: providerId } of providersToTry) {
-      const voiceId = resolveVoiceId(
-        params.voiceId,
-        speakConfig.model,
-        envVoiceIdForProvider(providerId),
-        providerId,
-      );
+      const voiceId = resolveVoiceId(params.voiceId, speakConfig.model, envVoiceIdForProvider(providerId), providerId)
       const modelId =
         params.modelId ??
         speakConfig.modelId ??
         envModelIdForProvider(providerId) ??
-        defaultModelIdForProvider(providerId);
+        defaultModelIdForProvider(providerId)
       const outputFormat =
         params.outputFormat ??
         speakConfig.outputFormat ??
         envOutputFormatForProvider(providerId) ??
-        defaultOutputFormatForProvider(providerId);
+        defaultOutputFormatForProvider(providerId)
 
-      const stability = params.stability ?? 0.5;
-      const similarityBoost = params.similarityBoost ?? 0.75;
-      const speed = params.speed ?? 1.0;
-      const volume = params.volume ?? 1.0;
-      const timeoutMs = clampNumber(
-        params.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-        1000,
-        MAX_TIMEOUT_MS,
-      );
+      const stability = params.stability ?? 0.5
+      const similarityBoost = params.similarityBoost ?? 0.75
+      const speed = params.speed ?? 1.0
+      const volume = params.volume ?? 1.0
+      const timeoutMs = clampNumber(params.timeoutMs ?? DEFAULT_TIMEOUT_MS, 1000, MAX_TIMEOUT_MS)
 
-      const normalized = normalizeText(params.text);
+      const normalized = normalizeText(params.text)
 
       // Optionally check if provider is valid (auth keys present)
       // This helps quickly skip providers that are unconfigured
-      const validation = await ttsProvider
-        .validate()
-        .catch((e) => ({ valid: false, error: e.message }));
+      const validation = await ttsProvider.validate().catch((e) => ({ valid: false, error: e.message }))
       if (!validation.valid) {
         log.warn(`Provider ${providerId} validation failed, skipping`, {
           error: validation.error,
-        });
-        failureLogs.push(
-          `[${providerId}] Skipped: Configuration invalid or missing API key (${validation.error})`,
-        );
-        continue;
+        })
+        failureLogs.push(`[${providerId}] Skipped: Configuration invalid or missing API key (${validation.error})`)
+        continue
       }
 
       await ctx.ask({
@@ -421,10 +359,10 @@ export const SpeakTool = Tool.define("speak", {
           player: player.name,
           timeoutMs,
         },
-      });
+      })
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
       try {
         const ttsResponse = await ttsProvider
@@ -440,34 +378,31 @@ export const SpeakTool = Tool.define("speak", {
             },
             { signal: AbortSignal.any([controller.signal, ctx.abort]) },
           )
-          .finally(() => clearTimeout(timeoutId));
+          .finally(() => clearTimeout(timeoutId))
 
-        const ext = extensionFromContentType(ttsResponse.contentType);
+        const ext = extensionFromContentType(ttsResponse.contentType)
         const tempFile = path.join(
           os.tmpdir(),
           `nikcli-speak-${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`,
-        );
+        )
 
-        await Bun.write(tempFile, ttsResponse.audio);
-        playAudioNonBlocking(player, tempFile, volume);
+        await Bun.write(tempFile, ttsResponse.audio)
+        playAudioNonBlocking(player, tempFile, volume)
 
-        const preview =
-          normalized.text.length > 80
-            ? normalized.text.slice(0, 80) + "..."
-            : normalized.text;
-        const truncated = normalized.truncated ? " (text truncated)" : "";
+        const preview = normalized.text.length > 80 ? normalized.text.slice(0, 80) + "..." : normalized.text
+        const truncated = normalized.truncated ? " (text truncated)" : ""
 
         const outputText = [
           `Playing speech (non-blocking): "${preview}"${truncated}`,
           `Provider: ${ttsProvider.name} (${modelId})`,
           `Voice: ${voiceId}`,
           `Player: ${player.name}`,
-        ];
+        ]
 
         if (failureLogs.length > 0) {
-          outputText.push(`\nFallback sequence:`);
-          outputText.push(...failureLogs);
-          outputText.push(`[${providerId}] Success!`);
+          outputText.push(`\nFallback sequence:`)
+          outputText.push(...failureLogs)
+          outputText.push(`[${providerId}] Success!`)
         }
 
         return {
@@ -482,25 +417,23 @@ export const SpeakTool = Tool.define("speak", {
             textTruncated: normalized.truncated,
             fallbacks: failureLogs.length,
           },
-        };
+        }
       } catch (fetchError: any) {
-        const errorMessage = fetchError.cause?.message ?? fetchError.message;
+        const errorMessage = fetchError.cause?.message ?? fetchError.message
 
         if (fetchError.name === "AbortError") {
           if (ctx.abort.aborted) {
-            log.warn("request cancelled by user", { timeoutMs });
-            throw new Error("Speech request was cancelled");
+            log.warn("request cancelled by user", { timeoutMs })
+            throw new Error("Speech request was cancelled")
           }
           log.error("request timed out", {
             timeoutMs,
             voiceId,
             modelId,
             provider: providerId,
-          });
-          failureLogs.push(
-            `[${providerId}] Failed: Request timed out after ${timeoutMs}ms`,
-          );
-          continue;
+          })
+          failureLogs.push(`[${providerId}] Failed: Request timed out after ${timeoutMs}ms`)
+          continue
         }
 
         log.error(`network error calling ${ttsProvider.name} API`, {
@@ -508,21 +441,14 @@ export const SpeakTool = Tool.define("speak", {
           voiceId,
           modelId,
           provider: providerId,
-        });
+        })
 
-        if (
-          errorMessage.includes("ENOTFOUND") ||
-          errorMessage.includes("dns")
-        ) {
-          failureLogs.push(
-            `[${providerId}] Failed: DNS/Network error. Check internet connection.`,
-          );
+        if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("dns")) {
+          failureLogs.push(`[${providerId}] Failed: DNS/Network error. Check internet connection.`)
         } else if (errorMessage.includes("ECONNREFUSED")) {
-          failureLogs.push(
-            `[${providerId}] Failed: Connection refused. Service may be unavailable.`,
-          );
+          failureLogs.push(`[${providerId}] Failed: Connection refused. Service may be unavailable.`)
         } else {
-          failureLogs.push(`[${providerId}] Failed: ${errorMessage}`);
+          failureLogs.push(`[${providerId}] Failed: ${errorMessage}`)
         }
 
         // Loop continues to next provider
@@ -531,14 +457,12 @@ export const SpeakTool = Tool.define("speak", {
 
     // If we reach here, all providers failed
     if (failureLogs.length > 0) {
-      throw new Error(
-        `All TTS providers failed to speak:\n${failureLogs.join("\n")}`,
-      );
+      throw new Error(`All TTS providers failed to speak:\n${failureLogs.join("\n")}`)
     } else {
-      throw new Error("No available TTS providers could be used.");
+      throw new Error("No available TTS providers could be used.")
     }
   },
-});
+})
 
 // Export the provider registry for external use (e.g., CLI commands)
-export { ttsRegistry };
+export { ttsRegistry }
