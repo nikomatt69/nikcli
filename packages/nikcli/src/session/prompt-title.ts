@@ -1,4 +1,3 @@
-import { Effect } from "effect"
 import { Log } from "@nikcli-ai/util/log"
 import { Agent } from "../agent/agent"
 import { LLM } from "./llm"

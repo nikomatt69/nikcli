@@ -296,7 +296,7 @@ export namespace ManagedWorktree {
   }
 
   // Generate destination name
-  function destinationName(inputName: string | undefined, id: ID): string {
+  function destinationName(inputName: string | undefined, _id: ID): string {
     if (inputName) {
       return inputName
     }

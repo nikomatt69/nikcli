@@ -846,7 +846,7 @@ export namespace Config {
         .describe("Max advisor invocations per request (default: 3)."),
     })
     .catchall(z.any())
-    .transform((agent, ctx) => {
+    .transform((agent, _ctx) => {
       const knownKeys = new Set([
         "name",
         "model",

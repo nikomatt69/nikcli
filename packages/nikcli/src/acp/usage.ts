@@ -1,5 +1,5 @@
 import type { AgentSideConnection, Usage } from "@agentclientprotocol/sdk"
-import type { AssistantMessage, NikcliClient, SessionMessageResponse } from "@nikcli-ai/sdk/httpapi"
+import type { AssistantMessage, NikcliClient } from "@nikcli-ai/sdk/httpapi"
 import { Log } from "@nikcli-ai/util/log"
 
 /**

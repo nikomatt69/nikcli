@@ -1,5 +1,4 @@
 import {
-  SKILL_COMMAND_PREFIX,
   isSkillCommandName,
   skillCommandName,
   skillSlug as slug,

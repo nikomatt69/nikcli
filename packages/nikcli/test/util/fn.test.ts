@@ -219,11 +219,11 @@ describe("fn", () => {
     })
 
     it("handles any type", () => {
-      let received: any
+      let _received: any
       const schema = z.any()
 
       const wrapped = fn(schema, (input) => {
-        received = input
+        _received = input
         return typeof input
       })
 

@@ -17,7 +17,6 @@
  * projects can't collide.
  */
 
-import z from "zod"
 import { Effect, Schema } from "effect"
 import { BusEvent } from "../bus/bus-event"
 import { Bus } from "../bus"
@@ -33,7 +32,6 @@ import * as Manager from "./manager"
 import {
   DEFAULT_FEATURE_TIMEOUT_MS,
   ExecStatusEffect,
-  ExecStatusSchema,
   MAX_CONCURRENT_MISSIONS,
   MAX_FEATURE_TIMEOUT_MS,
   MIN_FEATURE_TIMEOUT_MS,

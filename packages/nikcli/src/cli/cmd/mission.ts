@@ -290,7 +290,7 @@ const MissionGetCommand = cmd({
         console.log(`Models:    ${JSON.stringify(mission.models)}`)
       }
       console.log("")
-      mission.milestones.forEach((m, mi) => {
+      mission.milestones.forEach((m, _mi) => {
         const tick =
           m.status === "done"
             ? "✓"

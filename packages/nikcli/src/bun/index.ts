@@ -3,7 +3,6 @@ import { Log } from "@nikcli-ai/util/log"
 import path from "path"
 import { readableStreamToText } from "bun"
 import { Schema } from "effect"
-import { createRequire } from "module"
 import { Lock } from "../util/lock"
 
 export {

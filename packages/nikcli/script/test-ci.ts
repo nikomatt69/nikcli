@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-export {} // mark as module so top-level await is allowed
+ // mark as module so top-level await is allowed
 
 /**
  * test-ci.ts — runs the validation test suite in bounded batches.

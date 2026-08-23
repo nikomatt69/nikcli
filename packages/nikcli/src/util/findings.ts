@@ -1,6 +1,5 @@
 import path from "path"
 import fs from "fs/promises"
-import { Log } from "@nikcli-ai/util/log"
 
 /**
  * Severity levels for code findings

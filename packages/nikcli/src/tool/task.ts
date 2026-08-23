@@ -717,7 +717,7 @@ async function launchBackgroundSubtask(params: {
       let accumulatedResults: Delegation.SynthesisItem[] = synthesisItems
       const sessionSummaries: string[] = []
       let lastDelegatorSummary: Awaited<ReturnType<typeof summarizeSubtaskSession>> | null = null
-      let lastWorkerStatus = workerRun.status
+      let _lastWorkerStatus = workerRun.status
 
       for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
         const resultsText = accumulatedResults
@@ -813,7 +813,7 @@ async function launchBackgroundSubtask(params: {
           primaryTools: params.primaryTools,
           delegationID: followupDelegation.id,
         })
-        lastWorkerStatus = followupRun.status
+        _lastWorkerStatus = followupRun.status
 
         await Delegation.waitForSettledJob(delegation.jobID!).catch(() => undefined)
         const newResults = await Delegation.collectResultsForJob(delegation.jobID!).catch(() => [])
