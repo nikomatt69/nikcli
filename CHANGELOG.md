@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.310.0 (August 2026)
+
+## Core
+
+- Generate the SDK compat layer and gate direct publishes (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(httpapi-codegen): generate the SDK compat layer and gate direct publishes
+
 ## v1.309.0 (August 2026)
 
 - No notable changes
