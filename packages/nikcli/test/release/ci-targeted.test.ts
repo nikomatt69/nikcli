@@ -86,6 +86,7 @@ describe("ci-validate.ts step order", () => {
       "Install dependencies",
       "Typecheck",
       "Route coverage gate",
+      "Generated HTTP client drift",
       "Formatting",
       "Lint",
       "Shell syntax check (install script)",
@@ -101,6 +102,26 @@ describe("ci-validate.ts step order", () => {
     expect(src).toContain("bun")
     expect(src).toContain("install")
     expect(src).toContain("--frozen-lockfile")
+  })
+
+  it("regenerates HTTP clients and fails when tracked output drifts", async () => {
+    const src = await read("script/ci-validate.ts")
+    expect(src).toContain("generate:httpapi-clients")
+    expect(src).toContain("git diff --exit-code")
+    expect(src).toContain("packages/sdk/js/src/httpapi/generated")
+    expect(src).toContain("packages/nikcli/src/server/httpapi/client")
+  })
+
+  it("treats formatting and lint failures as blocking", async () => {
+    const src = await read("script/ci-validate.ts")
+    const stepsMatch = src.match(/const steps:\s*ValidationStep\[\]\s*=\s*\[([\s\S]*?)\n\]/)
+    expect(stepsMatch).toBeTruthy()
+    for (const name of ["Formatting", "Lint"]) {
+      const start = stepsMatch![1].indexOf(`name: "${name}"`)
+      const end = stepsMatch![1].indexOf("\n  },", start)
+      const block = stepsMatch![1].slice(start, end)
+      expect(block).not.toContain("critical: false")
+    }
   })
 
   it("timeouts are reasonable: tests < 5min, typecheck < 3min", async () => {
@@ -240,6 +261,15 @@ describe("concurrency safety", () => {
 // ─── 8. Workflow failure regressions ────────────────────────────────────────
 
 describe("workflow failure regressions", () => {
+  it("validates direct publishes and only trusts the ci-pipeline caller", async () => {
+    const publish = await read(".github/workflows/publish.yml")
+    const pipeline = await read(".github/workflows/ci-pipeline.yml")
+    expect(publish).toContain("prevalidated:")
+    expect(publish).toContain("if: ${{ !inputs.prevalidated }}")
+    expect(publish).toContain("bun run script/ci-validate.ts")
+    expect(pipeline).toContain("prevalidated: true")
+  })
+
   it("the GitHub agent rejects failed SDK calls while waiting for its server", async () => {
     const src = await read("github/index.ts")
     expect(src).toContain("createNikcliClient({ baseUrl: url, throwOnError: true })")
@@ -313,11 +343,10 @@ describe("railway-deploy job specifics", () => {
     expect(block).toContain("github.repository == 'nikomatt69/nikcli'")
   })
 
-  it("gracefully no-ops when RAILWAY_TOKEN is unset (does not fail the pipeline)", async () => {
+  it("fails when RAILWAY_TOKEN is unset instead of reporting a skipped deploy as successful", async () => {
     const yml = await read(".github/workflows/ci-pipeline.yml")
-    expect(yml).toContain("RAILWAY_TOKEN not configured — skipping deploy")
-    // The skip branch exits 0 so publish-release stays green
-    expect(yml).toMatch(/RAILWAY_TOKEN\b[\s\S]{0,200}exit 0/)
+    expect(yml).toContain("RAILWAY_TOKEN not configured")
+    expect(yml).toMatch(/RAILWAY_TOKEN\b[\s\S]{0,250}exit 1/)
   })
 
   it("uses --detach so the workflow doesn't block on deploy completion", async () => {

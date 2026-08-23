@@ -67,9 +67,14 @@ describe("ci-validate.ts", () => {
       const stepNames = [
         "Install dependencies",
         "Typecheck",
-        "Run tests",
-        "Run release automation tests",
-        "Shell syntax check",
+        "Route coverage gate",
+        "Generated HTTP client drift",
+        "Formatting",
+        "Lint",
+        "Shell syntax check (install script)",
+        "Shell syntax check (railway-deploy)",
+        "Docker nikcli version check",
+        "Railway upload context check",
       ]
       for (const name of stepNames) {
         expect(content).toContain(name)

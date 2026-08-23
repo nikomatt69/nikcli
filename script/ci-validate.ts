@@ -8,12 +8,12 @@
  * on the first critical failure.
  */
 
-import { $ } from "bun"
-import { mkdirSync, writeFileSync, existsSync } from "fs"
-import { dirname, join } from "path"
+import { $ } from "bun";
+import { mkdirSync, writeFileSync, existsSync } from "fs";
+import { dirname, join } from "path";
 
-const SUMMARY_DIR = "tmp"
-const SUMMARY_PATH = join(SUMMARY_DIR, "ci-validation-summary.md")
+const SUMMARY_DIR = "tmp";
+const SUMMARY_PATH = join(SUMMARY_DIR, "ci-validation-summary.md");
 
 // Token-like patterns to redact from any captured output
 const REDACT_PATTERNS = [
@@ -24,21 +24,21 @@ const REDACT_PATTERNS = [
   /npm_[A-Za-z0-9]{36,}/g,
   /[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{20,}/g, // JWT-like
   /x-access-token:[A-Za-z0-9_-]+@/g, // URL-embedded tokens
-]
+];
 
 function redact(output: string): string {
   for (const pattern of REDACT_PATTERNS) {
-    output = output.replace(pattern, "[REDACTED]")
+    output = output.replace(pattern, "[REDACTED]");
   }
-  return output
+  return output;
 }
 
 interface ValidationStep {
-  name: string
-  command: string[]
-  cwd?: string
-  critical?: boolean // defaults to true
-  timeout?: number // ms
+  name: string;
+  command: string[];
+  cwd?: string;
+  critical?: boolean; // defaults to true
+  timeout?: number; // ms
 }
 
 const steps: ValidationStep[] = [
@@ -59,18 +59,25 @@ const steps: ValidationStep[] = [
     timeout: 30_000,
   },
   {
+    name: "Generated HTTP client drift",
+    command: [
+      "bash",
+      "-c",
+      "bun run --cwd packages/nikcli generate:httpapi-clients && git diff --exit-code -- packages/sdk/js/src/httpapi/generated packages/nikcli/src/server/httpapi/client",
+    ],
+    timeout: 120_000,
+  },
+  {
     name: "Formatting",
     command: ["bun", "run", "format:check"],
     cwd: "packages/nikcli",
     timeout: 120_000,
-    critical: false,
   },
   {
     name: "Lint",
     command: ["bun", "run", "lint"],
     cwd: "packages/nikcli",
     timeout: 120_000,
-    critical: false,
   },
   // The full nikcli suite is deliberately NOT run here. It is ~350 files that
   // cost this job 2.5 minutes at best, and it took the runner down outright at
@@ -136,19 +143,19 @@ const steps: ValidationStep[] = [
     critical: true,
     timeout: 60_000,
   },
-]
+];
 
 interface StepResult {
-  name: string
-  passed: boolean
-  durationMs: number
-  outputTail: string
+  name: string;
+  passed: boolean;
+  durationMs: number;
+  outputTail: string;
 }
 
-const DEFAULT_TIMEOUT = 300_000
-const TAIL_LINES = 20
+const DEFAULT_TIMEOUT = 300_000;
+const TAIL_LINES = 20;
 /** How long to keep reading a step's pipes after the process itself has exited. */
-const DRAIN_GRACE = 5_000
+const DRAIN_GRACE = 5_000;
 
 /**
  * Drains one of the child's pipes, echoing every chunk to our own stdout the
@@ -162,23 +169,23 @@ const DRAIN_GRACE = 5_000
  * reached us should already be in the log when it does.
  */
 async function drain(stream: ReadableStream<Uint8Array>, sink: string[]) {
-  const decoder = new TextDecoder()
+  const decoder = new TextDecoder();
   for await (const chunk of stream) {
-    const text = decoder.decode(chunk, { stream: true })
-    if (!text) continue
-    process.stdout.write(text)
-    sink.push(text)
+    const text = decoder.decode(chunk, { stream: true });
+    if (!text) continue;
+    process.stdout.write(text);
+    sink.push(text);
     // Keep the tail bounded: a full test suite's output is megabytes, and only
     // the last TAIL_LINES of it ever reach the summary. Pipe chunks cap at
     // ~64KB, so 64 of them is already far more text than that.
-    if (sink.length > 128) sink.splice(0, sink.length - 64)
+    if (sink.length > 128) sink.splice(0, sink.length - 64);
   }
 }
 
 async function runStep(step: ValidationStep): Promise<StepResult> {
-  const start = Date.now()
-  let passed = false
-  let outputTail = ""
+  const start = Date.now();
+  let passed = false;
+  let outputTail = "";
 
   try {
     const proc = Bun.spawn(step.command, {
@@ -186,25 +193,28 @@ async function runStep(step: ValidationStep): Promise<StepResult> {
       stdout: "pipe",
       stderr: "pipe",
       env: { ...process.env, TERM: "dumb", CI: "true" },
-    })
+    });
 
     // The declared timeout is enforced here. Without it a hung step (a test
     // waiting on a socket, a watcher that never exits) ran until the job's own
     // limit — hours, for a pipeline that should report in minutes.
-    const limit = step.timeout ?? DEFAULT_TIMEOUT
-    let timedOut = false
+    const limit = step.timeout ?? DEFAULT_TIMEOUT;
+    let timedOut = false;
     const timer = setTimeout(() => {
-      timedOut = true
-      proc.kill(9)
-    }, limit)
+      timedOut = true;
+      proc.kill(9);
+    }, limit);
 
     // Both pipes are drained concurrently. Read one to completion before
     // touching the other and a child that fills the idle pipe's buffer blocks
     // forever writing to it, while we wait on a stream it will never advance —
     // a deadlock that only ends at the step timeout.
-    const chunks: string[] = []
-    const drained = Promise.all([drain(proc.stdout, chunks), drain(proc.stderr, chunks)])
-    drained.catch(() => {})
+    const chunks: string[] = [];
+    const drained = Promise.all([
+      drain(proc.stdout, chunks),
+      drain(proc.stderr, chunks),
+    ]);
+    drained.catch(() => {});
 
     // Stop reading once the child is gone, even if the pipes are still open.
     // Bun.spawn puts the child in *our* process group, so `proc.kill()` reaches
@@ -213,16 +223,28 @@ async function runStep(step: ValidationStep): Promise<StepResult> {
     // pipe alone therefore ignores the timeout entirely — a 2s limit sat there
     // for the grandchild's full 30s. The grace period is what lets genuinely
     // buffered output land before we move on.
-    await Promise.race([drained, proc.exited.then(() => Bun.sleep(DRAIN_GRACE))])
-    const exitCode = await proc.exited
-    clearTimeout(timer)
+    await Promise.race([
+      drained,
+      proc.exited.then(() => Bun.sleep(DRAIN_GRACE)),
+    ]);
+    const exitCode = await proc.exited;
+    clearTimeout(timer);
 
-    const tailLines = chunks.join("").trim().split("\n").slice(-TAIL_LINES).join("\n")
-    outputTail = redact(timedOut ? `${tailLines}\n[timed out after ${(limit / 1000).toFixed(0)}s]` : tailLines)
-    passed = !timedOut && exitCode === 0
+    const tailLines = chunks
+      .join("")
+      .trim()
+      .split("\n")
+      .slice(-TAIL_LINES)
+      .join("\n");
+    outputTail = redact(
+      timedOut
+        ? `${tailLines}\n[timed out after ${(limit / 1000).toFixed(0)}s]`
+        : tailLines,
+    );
+    passed = !timedOut && exitCode === 0;
   } catch (err) {
-    outputTail = redact(String(err))
-    passed = false
+    outputTail = redact(String(err));
+    passed = false;
   }
 
   return {
@@ -230,89 +252,95 @@ async function runStep(step: ValidationStep): Promise<StepResult> {
     passed,
     durationMs: Date.now() - start,
     outputTail,
-  }
+  };
 }
 
 async function main() {
   // Ensure summary directory exists
   if (!existsSync(SUMMARY_DIR)) {
-    mkdirSync(SUMMARY_DIR, { recursive: true })
+    mkdirSync(SUMMARY_DIR, { recursive: true });
   }
 
-  const results: StepResult[] = []
-  let hasCriticalFailure = false
+  const results: StepResult[] = [];
+  let hasCriticalFailure = false;
 
-  console.log("=== CI Validation Started ===\n")
+  console.log("=== CI Validation Started ===\n");
 
   for (const step of steps) {
-    const isCritical = step.critical !== false
-    console.log(`▸ ${step.command.join(" ")}`)
-    const result = await runStep(step)
-    results.push(result)
+    const isCritical = step.critical !== false;
+    console.log(`▸ ${step.command.join(" ")}`);
+    const result = await runStep(step);
+    results.push(result);
 
-    const icon = result.passed ? "✓" : "✗"
-    const duration = (result.durationMs / 1000).toFixed(1)
+    const icon = result.passed ? "✓" : "✗";
+    const duration = (result.durationMs / 1000).toFixed(1);
     // Say which failures block. A bare `✗` reads the same either way, which is
     // how a permanently failing test step sat in green runs without anyone
     // noticing it had failed.
-    const note = result.passed ? "" : isCritical ? " — blocking" : " — non-blocking"
-    console.log(`  ${icon} ${step.name} (${duration}s)${note}`)
+    const note = result.passed
+      ? ""
+      : isCritical
+        ? " — blocking"
+        : " — non-blocking";
+    console.log(`  ${icon} ${step.name} (${duration}s)${note}`);
 
     if (!result.passed && isCritical) {
-      hasCriticalFailure = true
+      hasCriticalFailure = true;
       // Continue running remaining steps for summary, but mark that we'll fail
     }
   }
 
   // Write summary
-  const lines: string[] = []
-  lines.push("# CI Validation Summary")
-  lines.push("")
-  lines.push(`**Triggered by:** ${process.env.GITHUB_EVENT_NAME || "local"}`)
-  lines.push(`**Ref:** ${process.env.GITHUB_REF_NAME || "N/A"}`)
-  lines.push(`**SHA:** ${process.env.GITHUB_SHA || "N/A"}`)
-  lines.push("")
+  const lines: string[] = [];
+  lines.push("# CI Validation Summary");
+  lines.push("");
+  lines.push(`**Triggered by:** ${process.env.GITHUB_EVENT_NAME || "local"}`);
+  lines.push(`**Ref:** ${process.env.GITHUB_REF_NAME || "N/A"}`);
+  lines.push(`**SHA:** ${process.env.GITHUB_SHA || "N/A"}`);
+  lines.push("");
 
-  const passedCount = results.filter((r) => r.passed).length
-  const failedCount = results.filter((r) => !r.passed).length
-  lines.push(`**Results:** ${passedCount} passed, ${failedCount} failed`)
-  lines.push("")
+  const passedCount = results.filter((r) => r.passed).length;
+  const failedCount = results.filter((r) => !r.passed).length;
+  lines.push(`**Results:** ${passedCount} passed, ${failedCount} failed`);
+  lines.push("");
 
   for (const result of results) {
-    const icon = result.passed ? "✓" : "✗"
-    lines.push(`## ${icon} ${result.name}`)
+    const icon = result.passed ? "✓" : "✗";
+    lines.push(`## ${icon} ${result.name}`);
     if (!result.passed && result.outputTail) {
-      lines.push("```")
-      lines.push(result.outputTail)
-      lines.push("```")
+      lines.push("```");
+      lines.push(result.outputTail);
+      lines.push("```");
     }
-    lines.push("")
+    lines.push("");
   }
 
-  writeFileSync(SUMMARY_PATH, lines.join("\n"))
-  console.log(`\nSummary written to ${SUMMARY_PATH}`)
+  writeFileSync(SUMMARY_PATH, lines.join("\n"));
+  console.log(`\nSummary written to ${SUMMARY_PATH}`);
 
-  const nonBlocking = results.filter((r) => !r.passed).map((r) => r.name)
+  const nonBlocking = results.filter((r) => !r.passed).map((r) => r.name);
 
   if (hasCriticalFailure) {
-    console.log("\n❌ Validation failed")
-    process.exit(1)
+    console.log("\n❌ Validation failed");
+    process.exit(1);
   }
 
   if (nonBlocking.length > 0) {
-    console.log(`\n✅ Validation passed (non-blocking failures: ${nonBlocking.join(", ")})`)
+    console.log(
+      `\n✅ Validation passed (non-blocking failures: ${nonBlocking.join(", ")})`,
+    );
   } else {
-    console.log("\n✅ Validation passed")
+    console.log("\n✅ Validation passed");
   }
 
   // Explicit, because a timed-out step can leave orphaned grandchildren holding
   // the pipes we abandoned. Falling off the end of main() then keeps the runner
   // alive until *they* exit — a 2s timeout kept the whole script up for the
   // grandchild's full minute. The summary is already written synchronously.
-  process.exit(0)
+  process.exit(0);
 }
 
 main().catch((err) => {
-  console.error("Validation runner crashed:", redact(String(err)))
-  process.exit(2)
-})
+  console.error("Validation runner crashed:", redact(String(err)));
+  process.exit(2);
+});

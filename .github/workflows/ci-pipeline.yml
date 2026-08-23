@@ -95,6 +95,7 @@ jobs:
     with:
       bump: minor
       channel: latest
+      prevalidated: true
     secrets: inherit
 
   desktop:
@@ -132,15 +133,15 @@ jobs:
           curl -fsSL https://railway.com/install.sh | bash -s -- --yes
           echo "$HOME/.railway/bin" >> "$GITHUB_PATH"
 
-      - name: Deploy to Railway (silent)
+      - name: Deploy to Railway
         shell: bash
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE || 'nikcli-mobile' }}
         run: |
           if [ -z "${RAILWAY_TOKEN:-}" ]; then
-            echo "✗ RAILWAY_TOKEN not configured — skipping deploy"
-            exit 0
+            echo "✗ RAILWAY_TOKEN not configured — refusing to report a skipped deploy as successful"
+            exit 1
           fi
           echo "→ Deploying to Railway service: ${RAILWAY_SERVICE:-nikcli-mobile}"
           mkdir -p tmp

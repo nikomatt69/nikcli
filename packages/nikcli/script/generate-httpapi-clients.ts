@@ -1,9 +1,17 @@
 #!/usr/bin/env bun
 
 import { BunFileSystem } from "@effect/platform-bun"
-import { compile, emitEffectImported, emitEffectShape, emitPromise, write } from "@nikcli-ai/httpapi-codegen"
+import {
+  compile,
+  emitEffectImported,
+  emitEffectShape,
+  emitPromise,
+  emitPromiseCompat,
+  write,
+} from "@nikcli-ai/httpapi-codegen"
 import { Effect } from "effect"
 import { fileURLToPath } from "node:url"
+import { PublicClientCompat } from "../src/server/httpapi/client-compat"
 import { PublicApi } from "../src/server/httpapi/public"
 
 // WebSocket upgrade endpoints: no generated HTTP transport owns them.
@@ -19,22 +27,45 @@ const unionPayloads = ["auth.set", "session.partUpdate"]
 // from the Effect endpoint names instead.
 const shared = { clientPathsFromEndpointNames: true } as const
 
-const promiseContract = compile(PublicApi, { ...shared, omitEndpoints: new Set(upgrades) })
-const effectContract = compile(PublicApi, { ...shared, omitEndpoints: new Set([...upgrades, ...unionPayloads]) })
+const promiseContract = compile(PublicApi, {
+  ...shared,
+  omitEndpoints: new Set(upgrades),
+})
+const effectContract = compile(PublicApi, {
+  ...shared,
+  omitEndpoints: new Set([...upgrades, ...unionPayloads]),
+})
+const promise = emitPromise(promiseContract, {
+  mutableOutputs: true,
+  relativeImportExtension: ".js",
+})
+const compat = emitPromiseCompat(promiseContract, PublicClientCompat, {
+  typesModule: "../compat",
+  relativeImportExtension: ".js",
+})
 
 await Effect.runPromise(
   Effect.all(
     [
       write(
-        emitPromise(promiseContract, { mutableOutputs: true, relativeImportExtension: ".js" }),
+        {
+          operations: promise.operations,
+          files: [...promise.files, ...compat.files],
+        },
         fileURLToPath(new URL("../../sdk/js/src/httpapi/generated", import.meta.url)),
       ),
       write(
-        emitEffectImported(effectContract, { module: "../../public", api: "PublicApi" }),
+        emitEffectImported(effectContract, {
+          module: "../../public",
+          api: "PublicApi",
+        }),
         fileURLToPath(new URL("../src/server/httpapi/client/generated", import.meta.url)),
       ),
       write(
-        emitEffectShape(effectContract, { module: "../../public", api: "PublicApi" }),
+        emitEffectShape(effectContract, {
+          module: "../../public",
+          api: "PublicApi",
+        }),
         fileURLToPath(new URL("../src/server/httpapi/client/api", import.meta.url)),
       ),
     ],

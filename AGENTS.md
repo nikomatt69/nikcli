@@ -94,3 +94,11 @@ repo more than once — check them before changing anything in that file:
   `script/check-railway-context.ts`, `script/check-docker-versions.ts` and the
   preflight inside `script/railway-deploy.sh`. Keep them wired into
   `ci-validate.ts`.
+- **Generated HttpApi clients are a blocking validation artifact.**
+  `ci-validate.ts` regenerates both generated client trees and fails on tracked
+  drift. Formatting and lint are blocking there as well; do not make them
+  advisory to obtain a green release.
+- **Every publish path validates.** The primary `live-main` workflow passes the
+  reusable publish workflow `prevalidated: true` only after its `validate` job
+  succeeds. Snapshot and manual publishes run `ci-validate.ts` themselves. A
+  missing `RAILWAY_TOKEN` is a failed required deploy, not a successful skip.

@@ -35,6 +35,10 @@ export type Contract = {
   readonly groups: ReadonlyArray<Group>
 }
 
+export type PromiseCompatAdapter = "result" | "result0" | "resultAt" | "stream" | "stream0"
+
+export type PromiseCompatMap = Readonly<Record<string, readonly [adapter: PromiseCompatAdapter, endpoint: string]>>
+
 export class GenerationError extends Schema.TaggedErrorClass<GenerationError>()("GenerationError", {
   reason: Schema.String,
 }) {
@@ -57,7 +61,10 @@ export type Endpoint = {
   readonly clientPath: readonly [string, ...Array<string>]
   readonly input: ReadonlyArray<InputField & { readonly optional: boolean; readonly whole: boolean }>
   readonly unwrapData: boolean
-  readonly errors: ReadonlyArray<{ readonly status: number; readonly schema: Schema.Top }>
+  readonly errors: ReadonlyArray<{
+    readonly status: number
+    readonly schema: Schema.Top
+  }>
   readonly successes: ReadonlyArray<Schema.Top>
   readonly effectPortable: boolean
 }
@@ -76,7 +83,12 @@ type Slot = {
 
 type PromiseInputField =
   | (InputField & { readonly optional: boolean; readonly whole: boolean })
-  | { readonly name: string; readonly source: "wildcard"; readonly optional: false; readonly whole: false }
+  | {
+      readonly name: string
+      readonly source: "wildcard"
+      readonly optional: false
+      readonly whole: false
+    }
 
 const resolveHttpApiStatus = SchemaAST.resolveAt<number>("httpApiStatus")
 const resolveHttpApiEncoding = SchemaAST.resolveAt<HttpApiSchema.Encoding>("~httpApiEncoding")
@@ -99,22 +111,35 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
   },
 ): Contract {
   const endpoints: Array<Endpoint> = []
+  const endpointIdentities = new Set<string>()
   const portable = new Map<SchemaAST.AST, boolean>()
 
   HttpApi.reflect(api, {
     onGroup() {},
     onEndpoint({ endpoint, errors, group, middleware }) {
       if (options?.omitEndpoints?.has(`${group.identifier}.${endpoint.name}`)) return
+      const endpointIdentity = `${group.identifier}.${endpoint.name}`
+      if (endpointIdentities.has(endpointIdentity)) {
+        throw new GenerationError({
+          reason: `Duplicate endpoint identity: ${endpointIdentity}`,
+        })
+      }
+      endpointIdentities.add(endpointIdentity)
       const groupName = options?.groupNames?.[group.identifier] ?? group.identifier
       const name = `${groupName}.${endpoint.name}`
       const required = Array.from(middleware).find((item) => item.requiredForClient)
       if (required !== undefined) {
-        throw new GenerationError({ reason: `Client middleware requires adapter: ${required.key}` })
+        throw new GenerationError({
+          reason: `Client middleware requires adapter: ${required.key}`,
+        })
       }
 
       const successSchemas = Array.from(endpoint.success)
       if (successSchemas.length === 0) successSchemas.push(HttpApiSchema.NoContent)
-      if (successSchemas.length > 1) throw new GenerationError({ reason: `Multiple success schemas: ${name}` })
+      if (successSchemas.length > 1)
+        throw new GenerationError({
+          reason: `Multiple success schemas: ${name}`,
+        })
 
       const params = normalizeTransport(endpoint.params, "params", endpoint, name)
       const query = normalizeTransport(endpoint.query, "query", endpoint, name)
@@ -123,12 +148,17 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
       const optionalPayload = payloadSchemas.some((schema) => HttpApiSchema.isNoContent(schema.ast))
       const sourcePayloads = payloadSchemas.filter((schema) => !HttpApiSchema.isNoContent(schema.ast))
       if (sourcePayloads.length > 1) {
-        throw new GenerationError({ reason: `Multiple payload schemas: ${name}` })
+        throw new GenerationError({
+          reason: `Multiple payload schemas: ${name}`,
+        })
       }
       const payloads = sourcePayloads.map((schema) => normalizeTransport(schema, "payload", endpoint, name)!)
       const success = normalizeTransport(successSchemas[0], "success", endpoint, name)!
       const errorSchemas = Array.from(errors).flatMap(([status, schemas]) =>
-        schemas.map((schema) => ({ status, ...normalizeTransport(schema, "error", endpoint, name)! })),
+        schemas.map((schema) => ({
+          status,
+          ...normalizeTransport(schema, "error", endpoint, name)!,
+        })),
       )
       const inputs = [
         ...inputFields(params?.schema, "params", name),
@@ -138,7 +168,10 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
       ]
       const names = new Set<string>()
       for (const field of inputs) {
-        if (names.has(field.name)) throw new GenerationError({ reason: `Input field collision: ${field.name}` })
+        if (names.has(field.name))
+          throw new GenerationError({
+            reason: `Input field collision: ${field.name}`,
+          })
         names.add(field.name)
       }
 
@@ -182,7 +215,10 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
         clientPath,
         unwrapData: isDataEnvelope(success.schema),
         successes: [success.schema],
-        errors: errorSchemas.map((item) => ({ status: item.status, schema: item.schema })),
+        errors: errorSchemas.map((item) => ({
+          status: item.status,
+          schema: item.schema,
+        })),
         effectPortable,
         operation: {
           group: groupName,
@@ -213,12 +249,19 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
     Map.groupBy(endpoints, (endpoint) => endpoint.group),
     ([identifier, endpoints], index) => {
       if (new Set(endpoints.map((endpoint) => endpoint.sourceGroup)).size > 1) {
-        throw new GenerationError({ reason: `Client group name collision: ${identifier}` })
+        throw new GenerationError({
+          reason: `Client group name collision: ${identifier}`,
+        })
       }
       const base = /^[A-Za-z0-9_-]+$/.test(identifier) ? identifier : `group-${index}`
       const module = uniqueModule(base, index, modules)
       modules.add(module.toLowerCase())
-      return { identifier, sourceIdentifier: endpoints[0].sourceGroup, module, endpoints }
+      return {
+        identifier,
+        sourceIdentifier: endpoints[0].sourceGroup,
+        module,
+        endpoints,
+      }
     },
   )
   const publicNames = new Set<string>()
@@ -227,11 +270,15 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
   const operationKeys = new Set<string>()
   for (const group of groups) {
     if (group.identifier === "__proto__") {
-      throw new GenerationError({ reason: "Client group name cannot be __proto__" })
+      throw new GenerationError({
+        reason: "Client group name cannot be __proto__",
+      })
     }
     const groupTypeName = identifierPart(group.identifier)
     if (groupTypeNames.has(groupTypeName)) {
-      throw new GenerationError({ reason: `Client group type collision: ${groupTypeName}` })
+      throw new GenerationError({
+        reason: `Client group type collision: ${groupTypeName}`,
+      })
     }
     groupTypeNames.add(groupTypeName)
     assertUniqueClientPaths(
@@ -242,17 +289,23 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
     for (const endpoint of group.endpoints) {
       const operationKey = clientOperationKey(group, endpoint)
       if (operationKeys.has(operationKey)) {
-        throw new GenerationError({ reason: `Client operation key collision: ${operationKey}` })
+        throw new GenerationError({
+          reason: `Client operation key collision: ${operationKey}`,
+        })
       }
       operationKeys.add(operationKey)
       const name = endpoint.clientPath.map(identifierPart).join("")
       const endpointTypeName = `${groupTypeName}${name}`
       if (endpointTypeNames.has(endpointTypeName)) {
-        throw new GenerationError({ reason: `Client endpoint type collision: ${endpointTypeName}` })
+        throw new GenerationError({
+          reason: `Client endpoint type collision: ${endpointTypeName}`,
+        })
       }
       endpointTypeNames.add(endpointTypeName)
       if (typeNames.has(name)) {
-        throw new GenerationError({ reason: `Client endpoint type collision: ${group.identifier}.${name}` })
+        throw new GenerationError({
+          reason: `Client endpoint type collision: ${group.identifier}.${name}`,
+        })
       }
       typeNames.add(name)
     }
@@ -263,7 +316,9 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
       const key = path.join("\0")
       for (const existing of publicNames) {
         if (existing === key || existing.startsWith(`${key}\0`) || key.startsWith(`${existing}\0`)) {
-          throw new GenerationError({ reason: `Client name collision: ${path.join(".")}` })
+          throw new GenerationError({
+            reason: `Client name collision: ${path.join(".")}`,
+          })
         }
       }
       publicNames.add(key)
@@ -281,7 +336,10 @@ export function emitEffect(contract: Contract): Output {
       reason: `Effect schema requires authoritative import: ${endpoint.group}.${endpoint.endpoint.name}`,
     })
   }
-  return { operations: operations(contract.groups), files: renderEffectFiles(contract.groups) }
+  return {
+    operations: operations(contract.groups),
+    files: renderEffectFiles(contract.groups),
+  }
 }
 
 export function emitEffectImported(
@@ -289,7 +347,10 @@ export function emitEffectImported(
   options:
     | { readonly module: string; readonly api: string }
     | { readonly module: string; readonly group: string }
-    | { readonly module: string; readonly endpoints: Readonly<Record<string, string>> },
+    | {
+        readonly module: string
+        readonly endpoints: Readonly<Record<string, string>>
+      },
 ): Output {
   return {
     operations: operations(contract.groups),
@@ -322,7 +383,10 @@ export function emitPromise(
   return {
     operations: promiseOperations(groups),
     files: [
-      { path: "types.ts", content: renderPromiseTypes(groups, options?.outputTypes, options?.mutableOutputs ?? false) },
+      {
+        path: "types.ts",
+        content: renderPromiseTypes(groups, options?.outputTypes, options?.mutableOutputs ?? false),
+      },
       {
         path: "client-error.ts",
         content: `export type ClientErrorReason = "Transport" | "UnexpectedStatus" | "UnsupportedContentType" | "MalformedResponse" | "SseEventTooLarge"\n\nexport class ClientError extends Error {\n  override readonly name = "ClientError"\n  constructor(readonly reason: ClientErrorReason, options?: ErrorOptions) {\n    super(reason, options)\n  }\n}\n`,
@@ -339,6 +403,143 @@ export function emitPromise(
       },
     ],
   }
+}
+
+export function emitPromiseCompat(
+  contract: Contract,
+  mapping: PromiseCompatMap,
+  options: {
+    readonly typesModule: string
+    readonly relativeImportExtension?: ".js"
+    readonly fileName?: string
+  },
+): Output {
+  const available = new Map<string, { readonly group: Group; readonly endpoint: Endpoint }>()
+  for (const group of contract.groups) {
+    for (const endpoint of group.endpoints) {
+      assertPromiseEndpoint(endpoint)
+      const name = `${group.identifier}.${endpoint.endpoint.name}`
+      if (available.has(name)) {
+        throw new GenerationError({
+          reason: `Duplicate Promise compatibility source endpoint: ${name}`,
+        })
+      }
+      available.set(name, {
+        group,
+        endpoint,
+      })
+    }
+  }
+
+  const used = new Set<string>()
+  const entries = Object.entries(mapping).map(([consumerPath, [adapter, endpointName]]) => {
+    const path = consumerPath.split(".")
+    if (path.some((part) => part.length === 0 || part === "__proto__")) {
+      throw new GenerationError({
+        reason: `Invalid Promise compatibility path: ${consumerPath}`,
+      })
+    }
+    const source = available.get(endpointName)
+    if (source === undefined) {
+      throw new GenerationError({
+        reason: `Unknown Promise compatibility endpoint: ${endpointName}`,
+      })
+    }
+    if (used.has(endpointName)) {
+      throw new GenerationError({
+        reason: `Duplicate Promise compatibility endpoint: ${endpointName}`,
+      })
+    }
+    assertPromiseCompatAdapter(adapter, source.endpoint, endpointName)
+    used.add(endpointName)
+    return { path, adapter, ...source }
+  })
+
+  assertUniqueClientPaths(
+    entries.map((entry) => entry.path),
+    (path) => `Promise compatibility path collision: ${path.join(".")}`,
+  )
+  const missing = [...available.keys()].filter((name) => !used.has(name))
+  if (missing.length > 0) {
+    throw new GenerationError({
+      reason: `Missing Promise compatibility endpoint: ${missing.join(", ")}`,
+    })
+  }
+
+  const adapters = [...new Set(entries.map((entry) => entry.adapter))].sort()
+  const body = renderPromiseCompatTree(entries)
+  const extension = options.relativeImportExtension ?? ""
+  return {
+    operations: promiseOperations(contract.groups),
+    files: [
+      {
+        path: options.fileName ?? "compat.ts",
+        content: `// Generated by @nikcli-ai/httpapi-codegen. Do not edit.
+import type { CompatHelpers, Raw } from ${JSON.stringify(`${options.typesModule}${extension}`)}
+
+export const makeCompat = (raw: Raw, helpers: CompatHelpers) => {
+  const { ${adapters.join(", ")} } = helpers
+  return { ${body} }
+}
+`,
+      },
+    ],
+  }
+}
+
+function assertPromiseCompatAdapter(adapter: PromiseCompatAdapter, endpoint: Endpoint, name: string) {
+  const input = promiseInputMode(endpoint)
+  const stream = endpoint.operation.success === "stream"
+  const ownsSelector = promiseInput(endpoint).some((field) => field.name === "directory" || field.name === "workspace")
+  const expected: PromiseCompatAdapter | undefined = stream
+    ? input === "none"
+      ? "stream0"
+      : ownsSelector
+        ? undefined
+        : "stream"
+    : input === "none"
+      ? "result0"
+      : ownsSelector
+        ? "resultAt"
+        : "result"
+  if (adapter !== expected) {
+    throw new GenerationError({
+      reason: `Invalid Promise compatibility adapter ${adapter}: ${name}`,
+    })
+  }
+}
+
+function renderPromiseCompatTree(
+  entries: ReadonlyArray<{
+    readonly path: ReadonlyArray<string>
+    readonly adapter: PromiseCompatAdapter
+    readonly group: Group
+    readonly endpoint: Endpoint
+  }>,
+) {
+  type Node = {
+    entry?: (typeof entries)[number]
+    readonly children: Map<string, Node>
+  }
+  const root: Node = { children: new Map() }
+  for (const entry of entries) {
+    const node = entry.path.reduce((parent, name) => {
+      const child: Node = parent.children.get(name) ?? { children: new Map() }
+      parent.children.set(name, child)
+      return child
+    }, root)
+    node.entry = entry
+  }
+  const raw = (entry: (typeof entries)[number]) => {
+    const prefix = entry.endpoint.topLevel ? "raw" : `raw[${JSON.stringify(entry.group.identifier)}]`
+    return `${prefix}${entry.endpoint.clientPath.map((part) => `[${JSON.stringify(part)}]`).join("")}`
+  }
+  const render = (node: Node): string =>
+    Array.from(node.children, ([name, child]) => {
+      const value = child.entry === undefined ? `{ ${render(child)} }` : `${child.entry.adapter}(${raw(child.entry)})`
+      return `${JSON.stringify(name)}: ${value}`
+    }).join(", ")
+  return render(root)
 }
 
 function renderEffectShape(groups: ReadonlyArray<Group>, options: { readonly module: string; readonly api: string }) {
@@ -428,7 +629,9 @@ function assertPromiseEndpoint(endpoint: Endpoint) {
     payload !== undefined &&
     (payloadEncoding?._tag ?? (HttpMethod.hasBody(endpoint.endpoint.method) ? "Json" : "FormUrlEncoded")) !== "Json"
   ) {
-    throw new GenerationError({ reason: `Unsupported Promise payload encoding: ${name}` })
+    throw new GenerationError({
+      reason: `Unsupported Promise payload encoding: ${name}`,
+    })
   }
   const success = endpoint.successes[0]
   if (isStreamSchema(success)) {
@@ -437,17 +640,23 @@ function assertPromiseEndpoint(endpoint: Endpoint) {
       success.sseMode !== "data" ||
       !SchemaAST.isNever(Schema.toType(success.error).ast)
     ) {
-      throw new GenerationError({ reason: `Unsupported Promise stream: ${name}` })
+      throw new GenerationError({
+        reason: `Unsupported Promise stream: ${name}`,
+      })
     }
   } else if (!HttpApiSchema.isNoContent(success.ast)) {
     const encoding = resolveHttpApiEncoding(success.ast)?._tag ?? "Json"
     if (encoding !== "Json" && encoding !== "Uint8Array" && encoding !== "Text") {
-      throw new GenerationError({ reason: `Unsupported Promise success encoding: ${name}` })
+      throw new GenerationError({
+        reason: `Unsupported Promise success encoding: ${name}`,
+      })
     }
   }
   for (const error of endpoint.errors) {
     if ((resolveHttpApiEncoding(error.schema.ast)?._tag ?? "Json") !== "Json") {
-      throw new GenerationError({ reason: `Unsupported Promise error encoding: ${name}` })
+      throw new GenerationError({
+        reason: `Unsupported Promise error encoding: ${name}`,
+      })
     }
   }
 }
@@ -460,7 +669,10 @@ function promiseOperations(groups: ReadonlyArray<Group>) {
   return groups.flatMap((group) =>
     group.endpoints.map((endpoint) => ({
       ...endpoint.operation,
-      input: promiseInput(endpoint).map(({ name, source }) => ({ name, source })),
+      input: promiseInput(endpoint).map(({ name, source }) => ({
+        name,
+        source,
+      })),
       inputMode: promiseInputMode(endpoint),
     })),
   )
@@ -468,7 +680,10 @@ function promiseOperations(groups: ReadonlyArray<Group>) {
 
 function renderEffectFiles(groups: ReadonlyArray<Group>): Output["files"] {
   return [
-    ...groups.map((group, index) => ({ path: `${group.module}.ts`, content: renderGroup(group, index) })),
+    ...groups.map((group, index) => ({
+      path: `${group.module}.ts`,
+      content: renderGroup(group, index),
+    })),
     {
       path: "client-error.ts",
       content:
@@ -487,7 +702,10 @@ function renderImportedEffectFiles(
   options:
     | { readonly module: string; readonly api: string }
     | { readonly module: string; readonly group: string }
-    | { readonly module: string; readonly endpoints: Readonly<Record<string, string>> },
+    | {
+        readonly module: string
+        readonly endpoints: Readonly<Record<string, string>>
+      },
 ): Output["files"] {
   const adapters = groups.map((group, groupIndex) => {
     const rawGroup = group.endpoints[0]?.topLevel ? "RawClient" : `RawClient[${JSON.stringify(group.sourceIdentifier)}]`
@@ -617,7 +835,10 @@ function renderPromiseTypes(
   }
   const errors = new Map<
     string,
-    { readonly schema: Schema.Top; readonly tagged: ReturnType<typeof declaredErrorFields> }
+    {
+      readonly schema: Schema.Top
+      readonly tagged: ReturnType<typeof declaredErrorFields>
+    }
   >()
   for (const group of groups) {
     for (const endpoint of group.endpoints) {
@@ -660,7 +881,9 @@ function renderPromiseTypes(
             if (field.source === "wildcard") return `readonly ${JSON.stringify(field.name)}: string`
             const schema = schemas[field.source]
             if (schema === undefined)
-              throw new GenerationError({ reason: `Missing input schema: ${prefix}.${field.name}` })
+              throw new GenerationError({
+                reason: `Missing input schema: ${prefix}.${field.name}`,
+              })
             if (field.source === "payload" && payloadName !== undefined && !field.whole) {
               return `readonly ${JSON.stringify(field.name)}${field.optional ? "?" : ""}: ${payloadName}[${JSON.stringify(field.name)}]`
             }
@@ -787,10 +1010,14 @@ function clientEndpointPath(group: string, name: string) {
   const index = parts.lastIndexOf(group.slice(group.lastIndexOf(".") + 1))
   const result = index < 0 ? parts : parts.slice(index + 1)
   if (result.length === 0 || result.some((part) => part.length === 0)) {
-    throw new GenerationError({ reason: "Client endpoint path must contain non-empty names" })
+    throw new GenerationError({
+      reason: "Client endpoint path must contain non-empty names",
+    })
   }
   if (result.some((part) => part === "__proto__")) {
-    throw new GenerationError({ reason: "Client endpoint path cannot contain __proto__" })
+    throw new GenerationError({
+      reason: "Client endpoint path cannot contain __proto__",
+    })
   }
   return result as [string, ...Array<string>]
 }
@@ -817,7 +1044,10 @@ function renderClientTree(
   field: (name: string, value: string) => string,
   separator: string,
 ) {
-  type Node = { endpoint?: { readonly value: Endpoint; readonly index: number }; readonly children: Map<string, Node> }
+  type Node = {
+    endpoint?: { readonly value: Endpoint; readonly index: number }
+    readonly children: Map<string, Node>
+  }
   const root: Node = { children: new Map() }
   endpoints.forEach((endpoint, index) => {
     const node = endpoint.clientPath.reduce((parent, name) => {
@@ -857,7 +1087,9 @@ function structuralTypes(schemas: ReadonlyArray<Schema.Top>, mutable: boolean, r
     ) ||
     Object.keys(document.references.recursives).length > 0
   ) {
-    throw new GenerationError({ reason: "Referenced Promise types are not implemented" })
+    throw new GenerationError({
+      reason: "Referenced Promise types are not implemented",
+    })
   }
   const names = new Map<string, string>()
   const usedNames = new Set(reservedNames)
@@ -897,7 +1129,9 @@ function structuralType(schema: Schema.Top) {
     ) ||
     Object.keys(document.references.recursives).length > 0
   ) {
-    throw new GenerationError({ reason: "Referenced Promise types are not implemented" })
+    throw new GenerationError({
+      reason: "Referenced Promise types are not implemented",
+    })
   }
   const references = new Map(
     document.references.nonRecursives.map((reference) => [reference.$ref, reference.code.Type]),
@@ -907,7 +1141,9 @@ function structuralType(schema: Schema.Top) {
       const pattern = `(?<![A-Za-z0-9_$.'"])${reference.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_$.'"])`
       if (!new RegExp(pattern).test(type)) continue
       if (seen.has(reference)) {
-        throw new GenerationError({ reason: `Recursive Promise types are not implemented: ${reference}` })
+        throw new GenerationError({
+          reason: `Recursive Promise types are not implemented: ${reference}`,
+        })
       }
       type = type.replace(new RegExp(pattern, "g"), `(${expand(value, new Set([...seen, reference]))})`)
     }
@@ -956,7 +1192,9 @@ function normalizePromiseClientContent(content: string, groups: ReadonlyArray<Gr
 
 function replaceOne(input: string, search: string, replacement: string) {
   if (!input.includes(search))
-    throw new GenerationError({ reason: `Missing Promise client template marker: ${search}` })
+    throw new GenerationError({
+      reason: `Missing Promise client template marker: ${search}`,
+    })
   return input.replace(search, replacement)
 }
 
@@ -975,10 +1213,14 @@ function promiseInputMode(endpoint: Endpoint): Operation["inputMode"] {
 function promiseWildcardInput(endpoint: Endpoint): PromiseInputField | undefined {
   if (!endpoint.endpoint.path.includes("*")) return undefined
   if (endpoint.endpoint.path.indexOf("*") !== endpoint.endpoint.path.lastIndexOf("*")) {
-    throw new GenerationError({ reason: `Unsupported Promise path wildcard: ${endpoint.endpoint.path}` })
+    throw new GenerationError({
+      reason: `Unsupported Promise path wildcard: ${endpoint.endpoint.path}`,
+    })
   }
   if (!endpoint.endpoint.path.endsWith("*")) {
-    throw new GenerationError({ reason: `Unsupported Promise path wildcard: ${endpoint.endpoint.path}` })
+    throw new GenerationError({
+      reason: `Unsupported Promise path wildcard: ${endpoint.endpoint.path}`,
+    })
   }
   const name = endpoint.input.some((field) => field.name === "path") ? "wildcard" : "path"
   return { name, source: "wildcard", optional: false, whole: false }
@@ -1001,7 +1243,10 @@ function promisePath(path: string, input: ReadonlyArray<InputField>, wildcard?: 
     .map((segment) => {
       if (!segment.startsWith(":")) return segment.replaceAll("`", "\\`")
       const name = segment.slice(1)
-      if (!fields.has(name)) throw new GenerationError({ reason: `Missing path parameter: ${name}` })
+      if (!fields.has(name))
+        throw new GenerationError({
+          reason: `Missing path parameter: ${name}`,
+        })
       return `\${encodeURIComponent(input.${name})}`
     })
     .join("")
@@ -1025,11 +1270,15 @@ function normalizeTransport(
   if (schema === undefined) return undefined
   if (isStreamSchema(schema)) return { schema, effectPortable: true } as const
   if (!metadataPortable(schema.ast, new Set())) {
-    throw new GenerationError({ reason: `Unportable schema: ${operation}.${source}` })
+    throw new GenerationError({
+      reason: `Unportable schema: ${operation}.${source}`,
+    })
   }
   const decoded = Schema.toType(schema)
   if (!isPathInput(endpoint.path)) {
-    throw new GenerationError({ reason: `Invalid endpoint path: ${operation}` })
+    throw new GenerationError({
+      reason: `Invalid endpoint path: ${operation}`,
+    })
   }
   const rebuilt = HttpApiEndpoint.make(endpoint.method)(endpoint.name, endpoint.path, {
     ...(source === "params" ? { params: decoded } : undefined),
@@ -1051,7 +1300,10 @@ function normalizeTransport(
             : source === "success"
               ? Array.from(rebuilt.success)[0]
               : Array.from(rebuilt.error)[0]
-  if (normalized === undefined) throw new GenerationError({ reason: `Unportable schema: ${operation}.${source}` })
+  if (normalized === undefined)
+    throw new GenerationError({
+      reason: `Unportable schema: ${operation}.${source}`,
+    })
   if (!sameEncoding(schema.ast, normalized.ast)) return { schema, effectPortable: false } as const
   return { schema: decoded, effectPortable: true } as const
 }
@@ -1125,9 +1377,15 @@ export function write(
     const paths = new Set<string>()
     const normalizedPaths = new Set<string>()
     for (const file of output.files) {
-      if (!isSafeOutputPath(file.path)) yield* new GenerationError({ reason: `Unsafe output path: ${file.path}` })
+      if (!isSafeOutputPath(file.path))
+        yield* new GenerationError({
+          reason: `Unsafe output path: ${file.path}`,
+        })
       const path = file.path.toLowerCase()
-      if (normalizedPaths.has(path)) yield* new GenerationError({ reason: `Duplicate output path: ${file.path}` })
+      if (normalizedPaths.has(path))
+        yield* new GenerationError({
+          reason: `Duplicate output path: ${file.path}`,
+        })
       normalizedPaths.add(path)
       paths.add(file.path)
     }
@@ -1137,11 +1395,18 @@ export function write(
     const previous = (yield* fs.exists(manifest))
       ? yield* fs.readFileString(manifest).pipe(
           Effect.flatMap(Schema.decodeUnknownEffect(Manifest)),
-          Effect.mapError(() => new GenerationError({ reason: `Invalid generated file manifest: ${manifest}` })),
+          Effect.mapError(
+            () =>
+              new GenerationError({
+                reason: `Invalid generated file manifest: ${manifest}`,
+              }),
+          ),
         )
       : []
     if (previous.some((path) => !isSafeOutputPath(path))) {
-      yield* new GenerationError({ reason: `Invalid generated file manifest: ${manifest}` })
+      yield* new GenerationError({
+        reason: `Invalid generated file manifest: ${manifest}`,
+      })
     }
     yield* Effect.forEach(
       previous.filter((path) => !paths.has(path)),
@@ -1155,7 +1420,9 @@ export function write(
           Effect.flatMap((exists) => (exists ? fs.stat(join(directory, file.path)) : Effect.succeed(undefined))),
           Effect.flatMap((info) =>
             info?.type === "SymbolicLink"
-              ? new GenerationError({ reason: `Unsafe output path: ${file.path}` })
+              ? new GenerationError({
+                  reason: `Unsafe output path: ${file.path}`,
+                })
               : Effect.void,
           ),
         ),
@@ -1165,8 +1432,17 @@ export function write(
       output.files,
       (file) =>
         Effect.tryPromise({
-          try: () => format(file.content, { filepath: file.path, parser: "typescript", semi: false, printWidth: 120 }),
-          catch: (error) => new GenerationError({ reason: `Failed to format ${file.path}: ${String(error)}` }),
+          try: () =>
+            format(file.content, {
+              filepath: file.path,
+              parser: "typescript",
+              semi: false,
+              printWidth: 120,
+            }),
+          catch: (error) =>
+            new GenerationError({
+              reason: `Failed to format ${file.path}: ${String(error)}`,
+            }),
         }).pipe(Effect.flatMap((content) => fs.writeFileString(join(directory, file.path), content))),
       { concurrency: 8, discard: true },
     )
@@ -1193,11 +1469,15 @@ function inputFields(schema: Schema.Top | undefined, source: InputField["source"
   const ast = Schema.toType(schema).ast
   if (!SchemaAST.isObjects(ast) || ast.indexSignatures.length > 0) {
     if (source === "payload") return [{ name: "payload", source, optional: false, whole: true }] as const
-    throw new GenerationError({ reason: `Input schema must be a struct: ${operation}.${source}` })
+    throw new GenerationError({
+      reason: `Input schema must be a struct: ${operation}.${source}`,
+    })
   }
   return ast.propertySignatures.map((field) => {
     if (typeof field.name !== "string") {
-      throw new GenerationError({ reason: `Input field must have a string name: ${operation}.${source}` })
+      throw new GenerationError({
+        reason: `Input field must have a string name: ${operation}.${source}`,
+      })
     }
     return {
       name: field.name,
@@ -1458,7 +1738,9 @@ function renderGroup(group: Group, groupIndex: number) {
       .map((field) => {
         const slot = schemaBySource[field.source]
         if (slot === undefined) {
-          throw new GenerationError({ reason: `Missing input schema: ${group.identifier}.${endpoint.name}` })
+          throw new GenerationError({
+            reason: `Missing input schema: ${group.identifier}.${endpoint.name}`,
+          })
         }
         return `readonly ${JSON.stringify(field.name)}${field.optional ? "?" : ""}: ${field.whole ? `typeof ${slot.name}.Type` : `(typeof ${slot.name}.Type)[${JSON.stringify(field.name)}]`}`
       })
@@ -1550,7 +1832,10 @@ function renderSchemas(slots: ReadonlyArray<Slot>) {
   const expanded = [
     ...slots.map((slot, index) => (classes.has(index) ? { name: slot.name, schema: Schema.Never } : slot)),
     ...Array.from(classes.values()).flatMap((tagged, classIndex) =>
-      tagged.fields.map(([name, schema]) => ({ name: `Class${classIndex}${name}`, schema })),
+      tagged.fields.map(([name, schema]) => ({
+        name: `Class${classIndex}${name}`,
+        schema,
+      })),
     ),
   ]
   const [first, ...rest] = expanded

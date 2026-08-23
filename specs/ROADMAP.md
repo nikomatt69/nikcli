@@ -2,13 +2,13 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-20**. H4 / H5 / H1 / H6 / I1 / X2 / **H7** / **E5** are done and were still sitting in the plan sections; they now live only in landed work. Verified 2026-08-19: `bun run test` 3820 pass / 0 fail, `bun run check:routes --strict` clean at 338 contracts / 315 handlers / 23 raw, `payload: unknown` in the generated SDK types at 0. H7 verified 2026-08-20: `packages/nikcli` and `packages/sdk` typecheck clean, `check:routes --strict` 338/315/23, mobile route tests 11 pass / 0 fail (full suite not re-run). **E4 was re-scoped after measurement — read its section before starting it.**
+Last reconciled against the source: **2026-08-23**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is reopened because session handlers still recover expected failures from the defect channel. C1 closes the release-integrity gaps found in this reconciliation. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
-An item is only here if the evidence for it is in the repository today. Nothing on this list is speculative product work.
+An item is only here if the evidence for it is in the repository today. Nothing on this list is speculative product work. User outcomes, adoption, distribution, cross-device parity, and commercial validation live separately in [PRODUCT_ROADMAP.md](./PRODUCT_ROADMAP.md); product priorities may promote an evidenced engineering item, but they do not weaken its acceptance criteria.
 
-The previous plan closed one durability model, one HTTP surface, and one TUI package. Those **seams** now exist. The next plan deepens the HttpApi **module** — it is the **interface** every remaining adapter (TUI, SDK, mobile, standalone host) already crosses — and finishes the Effect v4 runtime that still sits behind ALS and `Effect.promise`. A shallow field on that interface (`Schema.Unknown` → generated `any`, a path spelled in four files, a hand-copied namespaced client, a present `undefined` that forces `JSON.parse(JSON.stringify)`) leaks to every caller.
+The previous plan closed one durability model, one HTTP surface, and one TUI package. Those **seams** now exist. The next plan deepens the HttpApi **module** — it is the **interface** every remaining adapter (TUI, SDK, mobile, standalone host) already crosses — and finishes the Effect v4 runtime that still sits behind ALS and `Effect.promise`. A shallow field on that interface (`Schema.Unknown` → generated `any`, a path spelled in four files, a present `undefined` that forces `JSON.parse(JSON.stringify)`) leaks to every caller.
 
 Do not start a second HttpApi rewrite. Hono and `NIKCLI_EXPERIMENTAL_HTTPAPI` are gone.
 
@@ -27,18 +27,26 @@ Horizons are ordering, not dates. An item moves up when its dependency lands, no
 
 The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `MessageV2` message and part schema are on `optionalKey` with their producers omitting the key, and `jsonSafe` is down to the payloads that keep it for reasons optionality cannot reach — the three `Schema.Unknown` SessionV2 entry shapes in `session.ts`, and the live-`fetch` records in `provider.ts` / `config.ts`. That unblocks the first PR, **H7**: 115 unvalidated `/mobile/*` bodies, which no longer need a second `jsonSafe` on encoded mobile responses.
 
-| ID      | Horizon | Item                                                                     |
-| ------- | ------- | ------------------------------------------------------------------------ |
-| **E4**  | Done    | Encode optionals as absent keys — optionality work complete; see section |
-| **H7**  | Done    | JSON `/mobile/*` onto encoded handlers (landed 2026-08-20)               |
-| **E5**  | Done    | Typed Effect failure channel on HttpApi handlers (landed 2026-08-20)     |
-| **P2**  | Later   | Request-path cuts (session list SQL, duplicate URL parse)                |
-| **H3**  | Later   | Generate the SDK namespaced view (`compat.ts`)                           |
-| **H8**  | Later   | `HttpApiMiddleware` on encoded groups                                    |
-| **R1**  | Later   | Keyed scoped instance runtime (drop ALS)                                 |
-| **T3**  | Later   | Output codecs on structured built-ins                                    |
-| **S4r** | Later   | Import / teleport / run write through SessionV2                          |
-| **P3**  | Later   | `normalizeMessages` on the LLM turn path                                 |
+| ID      | Horizon | Item                                                                      |
+| ------- | ------- | ------------------------------------------------------------------------- |
+| **C1**  | Done    | Release integrity: generated drift, blocking static checks, release gates |
+| **E4**  | Done    | Encode optionals as absent keys — corrected scope complete                |
+| **H7**  | Done    | JSON `/mobile/*` onto encoded handlers (landed 2026-08-20)                |
+| **H3**  | Done    | Generate the exhaustive SDK namespaced compatibility view                 |
+| **E5**  | Now     | Keep expected session failures on Effect's typed channel                  |
+| **H8**  | Next    | Declare auth/security with `HttpApiMiddleware` after E5                   |
+| **S4r** | Next    | Import / teleport / run write through SessionV2                           |
+| **P2**  | Next    | Measured request-path cuts, beginning with session-list SQL               |
+| **R1**  | Later   | Keyed scoped instance runtime after lifecycle coverage                    |
+| **T3**  | Later   | Output codecs on structured built-ins                                     |
+| **P3**  | Later   | Characterize, then optimize `normalizeMessages`                           |
+
+### Release integrity (C1) — landed 2026-08-23
+
+- **Buys** — A green release means reviewed generated clients are current, static checks passed, and a required deployment was not silently skipped.
+- **Evidence** — `publish.yml` regenerated clients after the primary validation job, direct snapshot/manual publishes bypassed that job, formatting and lint were non-blocking in `script/ci-validate.ts`, and the Railway job exited successfully when `RAILWAY_TOKEN` was absent.
+- **Implementation** — Validation regenerates the HttpApi clients and fails on tracked drift; formatting and lint are blocking. Direct publishes run the same central validation unless the `ci-pipeline` caller explicitly marks them prevalidated. A missing Railway credential fails the required deploy job.
+- **Done when** — `ci-targeted.test.ts` pins all four invariants, a direct publish cannot reach `Publish` without validation, and the normal `live-main` path does not duplicate validation.
 
 ---
 
@@ -48,6 +56,7 @@ State the wins, so nobody re-plans them:
 
 - **One database.** `nikcli.db` with a journaled TypeScript migration chain, WAL, `foreign_keys=ON`, `mmap_size=0`. `bun:sqlite` is opened in exactly one place. Sessions, messages, parts, todos, permissions, and sync events are SQL. See [storage/nikcli-sql-drizzle-adoption.md](./storage/nikcli-sql-drizzle-adoption.md).
 - **One HTTP surface.** Effect `HttpApi` endpoints; Hono and the experimental flag are gone from `src`. Clients are generated from the contract by `packages/httpapi-codegen`.
+- **Generated namespaced SDK view** (H3, landed 2026-08-23). `PublicClientCompat` beside `PublicApi` declares all 336 Promise endpoints exactly once, including the 40 endpoints the hand-maintained view had omitted. `emitPromiseCompat` rejects missing, unknown, duplicate, colliding, or adapter-incompatible entries and emits `packages/sdk/js/src/httpapi/generated/compat.ts`; the small manual wrapper retains request selection and `{ data, error }` behavior. Client generation now fails before a declared group can disappear from `createNikcliClient`, and C1 blocks generated drift in CI.
 - **One event log.** `sync_event` carries both session and workspace aggregates, with snapshots for cold start and an outbox for remote push. The parallel `session_v2_event` and `workspace.events` logs were dropped.
 - **Entry read model.** `session_entry` with ids whose lexicographic order _is_ conversation order. See [v2/session.md](./v2/session.md).
 - **Instance hot reload.** Config-surface watching with scoped, announced cache invalidation, and an explicit narrow `Provider.refresh()`. See [v2/catalog-config-plugin-lifecycle.md](./v2/catalog-config-plugin-lifecycle.md).
@@ -99,7 +108,7 @@ State the wins, so nobody re-plans them:
 
 ---
 
-## Finish current work
+## Reconciled completed scope
 
 ### Encode optionals as absent keys (E4)
 
@@ -123,36 +132,29 @@ route tests; corrected below before anyone repeats it.**
 - **`/provider` and `/config/providers` keep `jsonSafe` for a different reason entirely.** Not optionality: a provider whose credential comes from the account sign-in carries a live `fetch` **function** in `options` (`provider/provider.ts` ~539), and `options` is `Schema.Record(String, Unknown)`, which rejects a function at the JSON boundary. The round-trip launders it out. Removing it there needs the function to stop living in a schema-declared record — a different item, and one no unit test would have caught: the test catalog is empty, so this only appears against real models.dev data.
 - **`jsonSafe` cannot leave `session.ts` entirely.** `v2Entries` / `v2State` / `v2Events` declare `Schema.Unknown` on purpose (the entry variant set grows without a contract bump — see non-goals), and `Schema.Unknown` rejects a present `undefined` regardless of what the producers do. Those three keep the round-trip until entries stop carrying `undefined`, which is a different item. Amend "Done when" accordingly: the target is `session.ts` down to the `Unknown` payloads, not zero.
 - **Costs if skipped** — Nothing user-visible. `jsonSafe` produces the correct wire shape today; this is a cost and clarity item, not a bug.
-- **Done when** — Per endpoint: the response schema uses `optionalKey`, the producer omits the key, and a route test asserts the key is _absent_ (not `null`) with a service object that leaves the field unset. `jsonSafe` is gone from `session.ts` / `provider.ts` / `config.ts`. Curl `GET /session`, `GET /session/:id`, `GET /config` against a real server with a session whose optionals are unset. Expect the generated types to grow a few numbered duplicates (`SessionWorktree4`, `SessionMobile2`) while a shape exists in both the flipped Effect schema and an unflipped zod mirror; they re-converge as the mirrors flip.
+- **Done when** — Per endpoint: the response schema uses `optionalKey`, the producer omits the key, and a route test asserts the key is _absent_ (not `null`) with a service object that leaves the field unset. `session.ts` keeps `jsonSafe` only for the three deliberately open SessionV2 payloads; `provider.ts` and `config.ts` keep it only where live `fetch` functions must be removed before JSON encoding. Curl `GET /session`, `GET /session/:id`, `GET /config`, and `GET /provider` against real data with unset optionals. These criteria were met on 2026-08-19.
 - **Already paid for** — The two live 400s this same failure mode was causing are fixed (see 2026-08-18 landed work): `mission.ts` `featureMutate` and `config/tui.ts` `plugin_meta`. Grep for `= undefined` on a field whose response schema is `optionalKey` before adding one.
 
-## Plan later structure
+## Active and queued structure
 
-These are evidenced leftovers, not product ideas. They wait because a smaller item in current work already covers the same **seam**, or because the leftover is one adapter.
+These are evidenced leftovers, not product ideas. `Now` items are independent and may proceed in order; `Next` items follow their stated dependency or measurement gate; `Later` items stay deferred until their lifecycle or characterization coverage exists.
 
-### Typed Effect failure channel (E5) — landed 2026-08-20
+### Typed Effect failure channel (E5) — reopened 2026-08-22
 
 - **Buys** — Expected 404/409 cannot arrive as defects. Handlers stop wrapping every service in `Effect.promise` + `orDie` + `catchDefect`.
-- **Evidence** — `httpapi/session.ts`: “services still wrap async impls with `Effect.promise`, so expected errors can arrive on either channel” — then `declaredErrors` does `catch` **and** `catchDefect`. `Session.BusyError` is already `Schema.TaggedErrorClass`. Session handlers reinvent `{ name, data }` next to the schema.
+- **Evidence** — `httpapi/session.ts` still applies `Effect.catchDefect(asSessionError)` after mapping the typed failure channel, so a 404/409 can still cross the defect boundary. `session/revert.ts` still uses the untyped `Effect.tryPromise(() => ...)` form. `Session.BusyError` is already a `Schema.TaggedErrorClass`, so the contract vocabulary exists.
 
   **Corrected 2026-08-18 for `loop.ts` / `mission.ts`.** Both already carry the typed channel: declared 404/400 schemas plus `failNotFound` / `failValidation`, and their managers use the return-`undefined` convention the handlers already check. The `fromPromise` `orDie` wraps genuine I/O, not domain errors. There are no `Engine.LoopNotFoundError` / `MissionNotFoundError` / `MissionAlreadyExistsError` tags to fail with — an earlier draft of this item invented them. The one real gap there is fixed (see landed work).
 
-- **Depends on** — nothing. H4 landed, so there is already one place to catch.
-- **Done when** — Domain methods return `Effect.fail(SessionError.NotFoundError)` (and siblings) **where the service actually throws**; the return-`undefined` convention plus an explicit `fail` is equally typed and already in place for loop/mission. Handlers `catchTag` / schema-declared errors. `Effect.promise` is only for true unknown I/O. (`httpapi/errors.ts` is gone — see landed work.)
-
-### Generate the SDK namespaced view (H3)
-
-- **Buys** — Adding a declared HttpApi group cannot ship a client that typechecks and 404s at `api.client.<group>`.
-- **Evidence** — `packages/sdk/js/src/httpapi/compat.ts` is "maintained by hand" (its own header). [tui-package.md](./tui-package.md) paid an hour for this: codegen produced the raw and Effect clients; `api.client.chatbot` did not exist until the group was added to the namespaced view by hand. The remapping (`app.agents` → `raw["top-level"].agent`) **is** the caller **interface**; deleting `compat.ts` would reappear as edits across the TUI.
-- **Depends on** — nothing; H1 and H6 landed, so the view would be generated over real structs and `unknown`, not `any` blobs.
-- **Done when** — Codegen emits the namespaced view from a declared map next to `PublicApi`. Adding a group without updating that map fails `packages/sdk` typecheck. Existing call sites do not change names.
+- **Depends on** — nothing. H4 landed, so there is already one boundary to fix. H8 waits for this typed vocabulary.
+- **Done when** — Domain methods return or map `Session.Error` on the typed channel where the service can reject; return-`undefined` plus an explicit `Effect.fail` remains valid for loop/mission. Session handlers map schema-declared errors without `catchDefect`. `Effect.promise` / `orDie` remains only for genuinely unknown I/O, and missing-session route tests prove 404s do not arrive as defects.
 
 ### Request-path cuts (P2)
 
 - **Buys** — Encoded JSON requests stop paying for work the contract already did. Hot polls (`/event`, `/session/status`, TUI) stop dominating logs and extra SQL.
 - **Evidence** — Three of the five original items landed 2026-08-17 (`disableLogger`, `COUNT(*)`, the `sessionForRequest` short-circuit). What is left, measured 2026-08-19:
   - `GET /session` (`httpapi/session.ts:629-646`) calls `SessionRepo.list` → `Array.fromAsync` over **every** session of the project, then filters directory / roots / start / search in JS, sorts, `slice(limit)`, and `jsonSafe`s the result. `session/repo.ts:74` is `getByProject` with no filter clause: none of the four query parameters reaches SQL.
-  - 60 `new URL(` in `src/server/`. `ServerRouter.make:61` already accepts a parsed URL, but `public.ts` (four sites), `body-limit.ts:53`, `httpapi/account.ts:128`, `contract-extra.ts` and the mobile dispatcher each re-parse the same string.
+  - A 2026-08-22 grep finds 12 `new URL(` sites in `src/server/`, not the stale count of 60. Several parse provider/repository values and are unrelated; the remaining request-path sites in the bridge, router, server, and mobile dispatch still need one parsed request URL carried through explicitly.
   - `server-router.ts:269` / `:283` log start and completion for every request except `/log`; hot polls (`/event`, `/session/status`) dominate the log with no sampling or duration gate.
 - **Depends on** — E4 if session-list cost turns out to be dominated by `jsonSafe`; measure before assuming. Do not rebuild the HttpApi layer per request — it is already memoized.
 - **Done when** — Session list limit/filter/search is SQL. Dispatch takes `{ url, pathname }` and the re-parse sites read it. `/event` and `/session/status` are sampled or duration-gated. Benches exist for `ServerRouter.context` with/without the session lookup and for encoded `GET /session/:id`. Loose CI budgets, same as the supports bench.
@@ -160,16 +162,16 @@ These are evidenced leftovers, not product ideas. They wait because a smaller it
 ### `HttpApiMiddleware` on encoded groups (H8)
 
 - **Buys** — Auth, tracing, and schema-error mapping live on the contract instead of a second check in the bridge. OpenAPI security follows the groups.
-- **Evidence** — effect-smol `HttpApiMiddleware` is for “authentication, authorization, logging, tracing, rate limiting, request-scoped services, schema-error handling.” `packages/nikcli/src` has zero imports of it. Auth runs in `ServerRouter.make` then again in `HttpApiBridge.handle` unless `upstreamAuthVerified` is set.
+- **Evidence** — effect-smol `HttpApiMiddleware` is for authentication, authorization, logging, tracing, rate limiting, request-scoped services, and schema-error handling; `packages/nikcli/src` has no import of it. Normal router dispatch authenticates once and passes `upstreamAuthVerified`, so double authentication is not the active bug. The gap is that security remains outside the contract, direct bridge callers need an imperative guard, and OpenAPI cannot describe the scheme.
 - **Depends on** — E5 (typed errors, or middleware has nothing typed to map); H4 landed. `/user` and `/account` stay ahead of the router until their `{ error }` union can be discriminated (`global-handlers.ts`).
 - **Done when** — Encoded groups declare security middleware. Bridge does not re-authenticate when the middleware already ran. SSE / prompt / upgrade stay outside it (non-goal). OpenAPI shows the security scheme.
 
 ### Keyed scoped instance runtime (R1)
 
 - **Buys** — One instance key. Fibers see `InstanceRef` without falling back to ALS. `withInstanceAsync({ init })` can die.
-- **Evidence** — `project/instance.ts` still caches `Map<string, Promise<Context>>` via `util/context.ts` ALS. Only two production users: `instance.ts` and `workspace-context.ts`. `InstanceState.context` catches missing `InstanceRef` and reads `Instance.directory`. `with-instance.ts` says the `init` path is removed “when the keyed scoped runtime replaces the promise cache.” Instance bootstrap (`project/bootstrap.ts`) is the one-time `init` passed from `server-router.ts`. See [research-effect-di.md](./research-effect-di.md).
+- **Evidence** — `project/instance.ts` still caches `Map<string, Promise<Context>>` through `util/context.ts` ALS, while `workspace-context.ts` consumes the same ambient context. The migration surface is broader than those imports: `Instance.provide`, `withInstanceAsync({ init })`, promise-cache invalidation, `InstanceState.context`'s ALS fallback, and bootstrap ownership must move together. See [research-effect-di.md](./research-effect-di.md).
 - **Depends on** — nothing; H4 landed, so HTTP is not also the ALS guinea pig. Two production importers remain: `project/instance.ts:2` and `workspace/workspace-context.ts:1` (verified 2026-08-19).
-- **Done when** — Per-directory `ManagedRuntime` / `ScopedCache` owns bootstrap. `Instance.provide` is gone or is a thin test helper. `InstanceState.context` does not catch into ALS. `util/context.ts` has no production importers.
+- **Done when** — Lifecycle tests first pin concurrent acquisition, invalidation, bootstrap failure, and disposal. Then a per-directory `ManagedRuntime` / `ScopedCache` owns bootstrap; `Instance.provide` is gone or a thin test helper, `withInstanceAsync` has no `init` path, `InstanceState.context` does not catch into ALS, and `util/context.ts` has no production importers.
 
 ### Output codecs on structured built-ins (T3)
 

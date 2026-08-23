@@ -2,7 +2,7 @@
 
 These documents explain behavior that is hard to recover from one source file: cross-module contracts, decisions and their alternatives, and the migrations still in flight.
 
-They are **not** API reference and **not** a backlog. Generated clients follow the assembled `HttpApi`; work items live in [ROADMAP.md](./ROADMAP.md) and in issues.
+They are **not** API reference and **not** a backlog. Generated clients follow the assembled `HttpApi`; evidenced engineering work lives in [ROADMAP.md](./ROADMAP.md), while user outcomes and product bets live in [PRODUCT_ROADMAP.md](./PRODUCT_ROADMAP.md).
 
 ## Authority
 
@@ -23,6 +23,7 @@ Authority follows the concern. When a document and the code disagree, the code w
 | Document                                                           | Status      | Job                                                                    |
 | ------------------------------------------------------------------ | ----------- | ---------------------------------------------------------------------- |
 | [ROADMAP](./ROADMAP.md)                                            | Live        | The ordered plan: what is done, what is next, and what each step buys. |
+| [Product roadmap](./PRODUCT_ROADMAP.md)                            | Proposed    | Outcome priorities, evidence gates, and promotion into engineering.    |
 | [Project / multi-directory](./project.md)                          | Historical  | Why the HTTP surface is flat instead of nested under `/project/:id`.   |
 | [TUI package extraction](./tui-package.md)                         | Complete    | TUI lives in `packages/tui`; host files stay in `packages/nikcli`.     |
 | [v2 contracts](./v2/README.md)                                     | Index       | Session, tools, events, instructions, catalog, provider policy.        |
