@@ -34,9 +34,9 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 
 ### Phase 2 — Carry the parsed URL, then attach auth to the contract
 
-- **Engineering** — Where P2.2 is in scope, land the router → public/bridge/fallback/mobile parsed-URL carry-through and the slow/failure logging policy before H8.1, because both touch the same bridge and router files. Then start H8.1: define the `HttpApiSecurity` / `HttpApiMiddleware` vocabulary, attach it to protected encoded groups, preserve open-mode and Tailscale behavior, and ensure direct bridge callers still authenticate once. Generated-client drift is committed with the slice.
+- **Engineering** — P2.2 was decided on 2026-08-24: the logging policy landed, and the parsed-URL carry-through was measured (0.03% of a request) and rejected, so nothing now has to precede H8.1 in the bridge and router files. Start H8.1: define the `HttpApiSecurity` / `HttpApiMiddleware` vocabulary, attach it to protected encoded groups, preserve open-mode and Tailscale behavior, and ensure direct bridge callers still authenticate once. Generated-client drift is committed with the slice.
 - **Product** — Update the **first-use** outcome measure to record which hot-poll paths became silent under the new logging policy, so any "less visible" failure mode is counted, not hidden. No new continuity or automation work yet — the existing release-trust and first-use cohorts are still under measurement.
-- **Phase exit** — `/event` and `/session/status` are sampled or duration-gated without dropping real failures; OpenAPI shows security on protected operations and its absence on public ones; `bun run check:routes` and `bun run generate:httpapi-clients` are clean; first-use baseline reflects the new logging policy.
+- **Phase exit** — `/event` and `/session/status` are duration-gated without dropping real failures (**met 2026-08-24**); OpenAPI shows security on protected operations and its absence on public ones; `bun run check:routes` and `bun run generate:httpapi-clients` are clean; first-use baseline reflects the new logging policy.
 
 ### Phase 3 — Run continuity and automation discovery against existing seams
 

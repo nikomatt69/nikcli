@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. H8 is now unblocked and is the next item; P2.1 stays independent of it. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
+Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. H8 is now unblocked and is the only item left on the near plan: P2 closed on 2026-08-24, one leg landed and one measured away. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -36,7 +36,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | **E5**  | Done    | Keep expected session failures on Effect's typed channel (2026-08-24)     |
 | **H8**  | Now     | Declare auth/security with `HttpApiMiddleware` — E5 no longer blocks it   |
 | **S4r** | Done    | Import / teleport / run write through SessionV2                           |
-| **P2**  | Now     | Request-path cuts: P2.1 landed and measured; P2.2 is the queued remainder |
+| **P2**  | Done    | Request-path cuts: list SQL + hot-poll log policy; URL carry-through cut  |
 | **R1**  | Later   | Keyed scoped instance runtime after lifecycle coverage                    |
 | **T3**  | Later   | Output codecs on structured built-ins                                     |
 | **P3**  | Later   | Characterize, then optimize `normalizeMessages`                           |
@@ -144,7 +144,7 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 - **Order** — E5 is closed (2026-08-24), so H8.1 is the next item on the contract. The P2 session-list SQL slice is independent and may run alongside it; do not start the remaining P2 URL, logging, or benchmark work until that SQL change has been measured.
 - **H8.1 — Put auth on the contract.** E5 is green, so this is the next contract slice. Define the `HttpApiSecurity` / `HttpApiMiddleware` vocabulary, attach it to protected encoded groups composed by `PublicHttpApi` in `public.ts`, and preserve public endpoints plus raw SSE / prompt / upgrade exclusions. Effect's security decoder passes empty credentials to middleware, so the implementation must still delegate to canonical `Auth.authenticate` and preserve no-password open mode and Tailscale identity; a router-remembered principal is the one-authentication handoff. Gate: direct bridge, normal router, bearer, query token, Basic, open-mode, Tailscale, and public-route tests pass; OpenAPI asserts security on protected operations and its absence on public ones; `bun run check:routes` and client generation are clean.
 - **P2.1 — Push list work into SQL.** Landed 2026-08-24, measured below. P2.2 is now unblocked, but it is a separate decision: read the measurement before scheduling it.
-- **P2.2 — Queue the measured remainder.** Only after P2.1 records its result, carry the router's parsed URL into public, bridge, fallback, and mobile raw dispatch; then add a deterministic slow-or-failure logging policy for `/event` and `/session/status`, followed by loose-budget benches for `ServerRouter.context` and encoded `GET /session/:id`. Gate: request-pipeline reparses are gone without chasing unrelated provider / proxy URL parsing, failures and slow polls remain logged, and `bun run test:bench` records scenario metadata.
+- **P2.2 — Decided 2026-08-24 against the measurement.** The logging policy landed; the parsed-URL carry-through is **rejected** and the benches are **not scheduled**. Reasoning and numbers in the dated log below.
 
 ### Typed Effect failure channel (E5) — landed 2026-08-24
 
@@ -164,10 +164,10 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 - **Buys** — Encoded JSON requests stop paying for work the contract already did. Hot polls (`/event`, `/session/status`, TUI) stop dominating logs and extra SQL.
 - **Evidence** — Three of the five original items landed 2026-08-17 (`disableLogger`, `COUNT(*)`, the `sessionForRequest` short-circuit). What is left, measured 2026-08-19:
   - ~~`GET /session` calls `SessionRepo.list` → `Array.fromAsync` over **every** session of the project, then filters directory / roots / start / search in JS, sorts, and slices the limit.~~ **Fixed 2026-08-24 (P2.1).** `SessionRepo.query` applies every filter, the ordering, and the limit in SQL; `Session.Service.query` converts the directory to its comparison key; the route delegates.
-  - `ServerRouter.make` already parses one `URL` and passes it into `dispatch` / `context`, but downstream public, bridge, fallback, auth, and mobile raw paths still reparse `request.url`. Count only request-pipeline reparses; provider, repository, proxy-target, and other value parsing are unrelated.
-  - `server-router.ts:269` / `:283` log start and completion for every request except `/log`; hot polls (`/event`, `/session/status`) dominate the log with no sampling or duration gate.
+  - ~~`ServerRouter.make` already parses one `URL` and passes it into `dispatch` / `context`, but downstream public, bridge, fallback, auth, and mobile raw paths still reparse `request.url`.~~ **Measured and rejected 2026-08-24.** The reparses are real but cost 0.03% of a request; see the dated log.
+  - ~~`server-router.ts:269` / `:283` log start and completion for every request except `/log`; hot polls (`/event`, `/session/status`) dominate the log with no sampling or duration gate.~~ **Fixed 2026-08-24.** `logCompletion` gates the hot paths on status and duration.
 - **Depends on** — nothing. Start with session-list SQL and measure it before queueing the rest. Do not rebuild the HttpApi layer per request — it is already memoized.
-- **Done when** — Session list limit/filter/search/order is SQL with directory comparison semantics preserved — **met 2026-08-24**. Still open (P2.2): the parsed router URL reaches downstream request dispatchers, `/event` and `/session/status` use a deterministic sampling or duration policy that never hides failures, and benches exist for `ServerRouter.context` with/without the session lookup and encoded `GET /session/:id`. Use loose CI budgets, like the supports bench.
+- **Done when** — Met 2026-08-24, with one leg answered rather than built. Session list limit/filter/search/order is SQL with directory comparison semantics preserved. `/event` and `/session/status` use a deterministic duration-and-status policy that never hides failures. The parsed-URL carry-through and the request-path benches were measured and closed as not worth their cost — P2 is done.
 
 ### `HttpApiMiddleware` on encoded groups (H8)
 
@@ -461,6 +461,18 @@ Diagnosing phase 2 took two blind cycles because the 400 had an **empty body and
 **Measured.** 2000 seeded sessions, `limit=20`, same request before and after: rows materialized 2000 → 20, elapsed 7.84 ms → 0.73 ms. The measurement harness was a throwaway; it is not in the tree.
 
 **Verified.** `bun test test/server/ test/session/ test/database/` 792 pass / 1 fail, the failure being `httpapi-file.test.ts`'s ripgrep search under load, which passes alone — the documented load flake, unrelated to this change. `bun run typecheck` clean. No HttpApi contract change, so no client regeneration.
+
+### 2026-08-24 (last) — P2.2 decided: log policy in, URL carry-through out
+
+P2.2 was queued behind "only after P2.1 records its result". It did, so this is the decision rather than the implementation of all three legs.
+
+**Rejected: carry the parsed URL into downstream dispatch.** Instrumented `globalThis.URL` around one warmed `GET /session` through `Server.fetch` and counted constructions by call site. A request builds **5** URLs — `server-router.ts:267`, `public.ts:29`, `public.ts:56`, `httpapi/auth.ts:162`, `extra.ts:78` — at 0.079 µs each: **0.39 µs against a 1.19 ms request, or 0.03%**. Threading a parsed URL through public, bridge, fallback, auth, and mobile dispatch would touch every file H8.1 is about to rewrite, for a saving three orders of magnitude below the noise. The reparses are real; they are not a cost. Do not re-propose this as a performance item — if it returns, it returns as a clarity argument, with a different justification.
+
+**Not scheduled: the request-path benches.** A bench guards a budget. The measurement above says the encoded request path has no evidenced budget to guard, and P2.1's win came from SQL, not from the router. Left out rather than added as an unowned CI cost.
+
+**Landed: the hot-poll logging policy.** `server-router.ts` logged a start and a completion line for every request except `/log`, so a connected client's polling accounted for most of the log. `logCompletion` now gates `/event` and `/session/status`: no start line, and a completion line only when the response is 4xx/5xx, when no response was produced (a thrown error), or when the request took at least 250 ms. It is a duration-and-status gate, not sampling — the same request logs the same way every time, so a reproduction never depends on which side of a sample it fell, and the policy can only ever suppress a _fast, successful_ poll. `test/server/router-log-policy.test.ts` pins all three: the quiet success, an ordinary route still logging both lines, and a failing hot path still logging.
+
+**Verified.** `bun test test/server/` 190 pass / 0 fail; `bun run typecheck` clean. No contract change.
 
 ## Follow working rules
 

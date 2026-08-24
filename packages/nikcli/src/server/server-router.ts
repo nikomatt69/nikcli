@@ -258,6 +258,33 @@ export namespace ServerRouter {
     })
   }
 
+  /**
+   * Paths a connected client polls or holds open continuously, which would
+   * otherwise account for most lines in the log while carrying no information
+   * (P2.2). They are quiet only while they are fast and successful — see
+   * `logCompletion`.
+   */
+  const HOT_PATHS = new Set(["/event", "/session/status"])
+
+  /** A quiet path that takes at least this long is logged anyway. */
+  const SLOW_REQUEST_MS = 250
+
+  /**
+   * Whether to log a finished request.
+   *
+   * Deterministic, not sampled: the same request logs the same way every time,
+   * so a reproduction does not depend on which side of a sample it fell. The
+   * policy can only ever suppress a *fast, successful* hot-path poll — a
+   * failure, a thrown error (no response), or a slow poll still logs, which is
+   * the point: the noise goes, the evidence stays.
+   */
+  function logCompletion(pathname: string, response: Response | undefined, duration: number) {
+    if (pathname === "/log") return false
+    if (!HOT_PATHS.has(pathname)) return true
+    if (response === undefined || response.status >= 400) return true
+    return duration >= SLOW_REQUEST_MS
+  }
+
   export function make(options: Options): Fetch {
     return async (request, server) => {
       const limited = bodyLimitResponse(request)
@@ -266,26 +293,34 @@ export namespace ServerRouter {
       const started = performance.now()
       const url = new URL(request.url)
       const pathname = url.pathname
-      if (pathname !== "/log") log.info("request", { method: request.method, path: pathname })
+      // The start line cannot know the outcome, so a hot path never logs one;
+      // its completion line carries the same method and path anyway.
+      if (pathname !== "/log" && !HOT_PATHS.has(pathname)) {
+        log.info("request", { method: request.method, path: pathname })
+      }
+      let response: Response | undefined
       try {
         const publicResponse = await PublicRoutes.publicRequest(request)
-        if (publicResponse) return withCors(publicResponse, request, options)
+        if (publicResponse) return (response = withCors(publicResponse, request, options))
         const auth = await Auth.authenticate(request, {
           mobileAuthRequired: options.mobileAuthRequired,
           listenHostname: options.listenHostname,
         })
-        if (!auth.ok && !Auth.isPublicPath(request.method, pathname)) return withCors(auth.response, request, options)
+        if (!auth.ok && !Auth.isPublicPath(request.method, pathname))
+          return (response = withCors(auth.response, request, options))
         if (auth.ok) Auth.remember(request, auth.principal)
-        return withCors(await dispatch(request, options, server, url), request, options)
+        return (response = withCors(await dispatch(request, options, server, url), request, options))
       } catch (error) {
-        return withCors(mapError(error), request, options)
+        return (response = withCors(mapError(error), request, options))
       } finally {
-        if (pathname !== "/log")
+        const duration = performance.now() - started
+        if (logCompletion(pathname, response, duration)) {
           log.info("request completed", {
             method: request.method,
             path: pathname,
-            duration: performance.now() - started,
+            duration,
           })
+        }
       }
     }
   }
