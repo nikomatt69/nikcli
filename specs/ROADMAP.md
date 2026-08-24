@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. E5, P2 and H8 all closed on 2026-08-24. R1's lifecycle-coverage gate is met (2026-08-24) and the migration is `Ready` but not started. P3 is closed on its measurement: `normalizeMessages` is characterized and deliberately unchanged. T3 remains `Later`. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
+Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. E5, P2 and H8 all closed on 2026-08-24. R1's lifecycle-coverage gate is met (2026-08-24) and the migration is `Ready` but not started. P3 is closed on its measurement: `normalizeMessages` is characterized and deliberately unchanged. T3 landed on the three built-ins that already emitted JSON. The near plan is empty and R1 is the only item left with work in it. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -38,7 +38,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | **S4r** | Done    | Import / teleport / run write through SessionV2                               |
 | **P2**  | Done    | Request-path cuts: list SQL + hot-poll log policy; URL carry-through cut      |
 | **R1**  | Ready   | Keyed scoped instance runtime — lifecycle coverage landed 2026-08-24          |
-| **T3**  | Later   | Output codecs on structured built-ins                                         |
+| **T3**  | Done    | Output codecs on `todowrite` / `todoread` / `browser_control` (2026-08-24)    |
 | **P3**  | Done    | `normalizeMessages` characterized; kept as-is on the measurement (2026-08-24) |
 
 ### Release integrity (C1) — landed 2026-08-23
@@ -197,12 +197,23 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 
   The ALS-fallback test is a special case: it pins the `InstanceState.context` catch that R1 intends to _delete_. When the keyed runtime lands, invert it rather than remove it, so the day the fallback stops answering is recorded as a decision.
 
-### Output codecs on structured built-ins (T3)
+### Output codecs on structured built-ins (T3) — landed 2026-08-24
 
 - **Buys** — Code Mode and any machine consumer get a validated `value` from tools that already return JSON in `output`.
 - **Evidence** — T2 landed the wrapper; built-ins are not required to use it ([v2/tools.md](./v2/tools.md)). No built-in in `src/tool/*.ts` declares an `output` codec. `browser-control` and `todo` already `JSON.stringify` structured results into the model-facing string.
 - **Depends on** — nothing. Later because T2 called this additive; do not add a CI rule that every tool must have a codec.
 - **Done when** — Tools that already emit JSON declare a codec and return `value`. Model-facing `output` stays a string. A malformed `value` fails that call only. Tools that emit prose are unchanged.
+- **Met 2026-08-24.** `todowrite`, `todoread` and `browser_control` declare codecs; every other tool is untouched and still has no `value`. Model-facing `output` is byte-identical in all three — the tests assert the exact string, not a shape. Code Mode's rendered signature goes from `Promise<unknown>` to the real type.
+
+  **`todo` is the clean case**: the codec is `Todo.InfoSchema`, which this repo owns, so it cannot drift from a payload produced elsewhere.
+
+  **`browser_control` is the case the roadmap's wording did not anticipate**, and the difference is worth recording rather than glossing. A codec is declared per _tool_, but this tool is twenty-one actions with heterogeneous results, so "tools that emit prose are unchanged" cannot hold branch-by-branch: once the codec exists, the wrapper parses `value` on **every** call, and the eight prose branches had to gain one too. Their `output` strings are untouched — which is the part the model sees — but a machine consumer that used to get `"Clicked #go"` now gets `{ action: "click", name, selector }`. The codec is a union discriminated on `action`, so a consumer switches on the result instead of parsing English.
+
+  **Payloads that cross the daemon socket are validated loosely on purpose.** `SessionInfo` and `JSONFrame` are produced by `@nikcli-ai/browser-control`, which ships separately from the tool, so their schemas are `z.looseObject`: the fields the tool documents are required, everything else passes through. Validating an externally-produced payload strictly is how an output codec turns into an outage — a new field on the daemon side would fail calls that would otherwise have worked. A test feeds the tool a session carrying an unknown field and asserts it survives; making the schema strict turns that test red.
+
+  **Two regressions ruled out with evidence rather than reasoning.** (1) The codec never reaches the provider: `session/tools.ts` builds the AI SDK tool from `description` + `inputSchema` only, so the tool-array bytes that form the prompt-cache prefix are unchanged. (2) The codec costs nothing in the model-facing Code Mode catalog: `CATALOG_BUDGET` is `0` and neither tool is pinned, so their signatures were never inline — measured at 0 chars added. At the library default budget the same codecs would have added ~76%, which is the number to remember if that budget is ever raised.
+
+  **Verified by mutation.** Three mutations of `browser-control.ts` are each caught: dropping one branch's `value`, making the session payload strict instead of loose, and mislabelling a snapshot format. All 21 actions (23 return branches) are exercised against a mocked daemon.
 
 ### Import / teleport / run write through SessionV2 (S4 remainder) — landed 2026-08-23
 
