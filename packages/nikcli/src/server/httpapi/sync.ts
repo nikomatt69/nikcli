@@ -1,7 +1,8 @@
 import type { JsonValue } from "@/util/json"
 import { and, eq, gt, sql } from "drizzle-orm"
-import { Effect, Schema } from "effect"
+import { Effect, Layer, Schema } from "effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
+import { HttpApiAuth } from "./security"
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { Database } from "@/database/database"
@@ -159,7 +160,9 @@ export namespace SyncHttpApi {
     )
     .prefix("/sync")
 
-  export const Api = HttpApi.make("nikcli").add(Group)
+  /** Handlers below build against this `Api`, so security is attached here —
+   * see the note on `MobileHttpApi.Api` (H8). */
+  export const Api = HttpApi.make("nikcli").add(Group.middleware(HttpApiAuth.Middleware))
 
   function pushAllowed(identity: string) {
     const now = Date.now()
@@ -415,7 +418,7 @@ export namespace SyncHttpApi {
       return new Response(null, { status: 204 })
     })
 
-  export const HandlersLive = HttpApiBuilder.group(Api, "sync", (handlers) =>
+  const SyncHandlers = HttpApiBuilder.group(Api, "sync", (handlers) =>
     handlers
       .handleRaw("event", event)
       .handleRaw("outbox", outbox)
@@ -427,6 +430,11 @@ export namespace SyncHttpApi {
       .handleRaw("disconnect", noContent("sync disconnect requested from TUI"))
       .handleRaw("drain", noContent("sync drain requested from TUI")),
   )
+
+  /** The middleware implementation must be in scope while the group layer is
+   * built — `HttpApiBuilder.group` captures the context it resolves middleware
+   * from (H8). */
+  export const HandlersLive = SyncHandlers.pipe(Layer.provide(HttpApiAuth.layer))
 
   export async function handleSse(request: Request): Promise<Response> {
     const denied = await scopeDenied(request)

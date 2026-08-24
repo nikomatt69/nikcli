@@ -1,9 +1,10 @@
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { dispatchMobileRequest } from "../mobile/dispatcher"
 import { MobileHttpApi } from "./mobile"
 import { Auth } from "./auth"
+import { HttpApiAuth } from "./security"
 import { MobileHttpError } from "../mobile/request"
 import * as auth from "../mobile/auth"
 import * as memory from "../mobile/memory"
@@ -84,7 +85,7 @@ const catchBadOrUnauthorized = (error: MobileHttpError): Effect.Effect<never, Ba
 const passthrough = <A>(result: A | Response): A | HttpServerResponse.HttpServerResponse =>
   result instanceof Response ? HttpServerResponse.fromWeb(result) : result
 
-export const MobileHandlersLive = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handlers) =>
+const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handlers) =>
   handlers
     // --- auth tokens ---
     .handle("authTokenList", () => fromPromise(() => auth.tokenList()))
@@ -278,3 +279,8 @@ export const MobileHandlersLive = HttpApiBuilder.group(MobileHttpApi.Api, "mobil
     .handle("hostIsland", () => fromPromise(() => hostStatus.hostIsland()))
     .handle("hostDevtools", () => fromPromise(() => hostStatus.hostDevtools())),
 )
+
+/** The middleware implementation must be in scope while the group layer is
+ * built — `HttpApiBuilder.group` captures the context it resolves middleware
+ * from (H8). */
+export const MobileHandlersLive = MobileHandlers.pipe(Layer.provide(HttpApiAuth.layer))

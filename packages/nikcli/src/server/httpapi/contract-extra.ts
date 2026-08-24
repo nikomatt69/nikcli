@@ -10,6 +10,7 @@ import { MessageV2 } from "@/session/message-v2"
 import { SessionPending } from "@/session/pending"
 import { Session } from "@/session"
 import { Snapshot } from "@/snapshot"
+import { HttpApiAuth } from "./security"
 import { Config } from "@/config/config"
 import { InstanceState, runPromiseWithLayer } from "@/effect"
 import { Instance } from "@/project/instance"
@@ -335,6 +336,9 @@ export namespace ContractExtraHttpApi {
       }).annotate(OpenApi.Identifier, "postUserLogin"),
     )
     .add(
+      // Mixed group: register and login are in `Auth.isPublicPath` — a caller
+      // creating or claiming an account has no credentials yet — so only the
+      // update endpoint declares the security middleware (H8).
       HttpApiEndpoint.patch("update", "/user/:id", {
         params: Schema.Struct({ id: Schema.String }),
         payload: Schema.Struct({
@@ -343,7 +347,9 @@ export namespace ContractExtraHttpApi {
           role: Schema.optional(Schema.Literals(["admin", "user"])),
         }),
         success: PublicUser,
-      }).annotate(OpenApi.Identifier, "patchUser:id"),
+      })
+        .middleware(HttpApiAuth.Middleware)
+        .annotate(OpenApi.Identifier, "patchUser:id"),
     )
 
   // --- pty websocket upgrade — not an HTTP transport endpoint for the
@@ -705,6 +711,12 @@ export namespace ContractExtraHttpApi {
     EventsHandlersLive,
     WorkspaceHandlersLive,
     UsersHandlersLive,
+  ).pipe(
+    // The `users` group marks `update` with the security middleware, so its
+    // implementation has to be in scope while these group layers are built —
+    // `HttpApiBuilder.group` resolves middleware out of the context it
+    // captures, not from whatever is provided later (H8).
+    Layer.provide(HttpApiAuth.layer),
   )
 
   export const DependenciesLive = Layer.mergeAll(Auth.defaultLayer, Config.defaultLayer, Provider.defaultLayer)

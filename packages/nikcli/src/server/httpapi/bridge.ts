@@ -14,18 +14,13 @@ import { Auth } from "./auth"
 
 export namespace HttpApiBridge {
   /**
-   * Test-only seam for the auth check in `handle()`. The production
-   * credentials are computed each request via `Auth.currentCredentials()`,
-   * which reads `Flag.NIKCLI_SERVER_PASSWORD` — but `Flag` is captured at
-   * module-load time, so the test runner cannot flip the env var to
-   * simulate a configured server. `overrideAuth(null|credentials)` lets a
-   * test temporarily substitute the credentials without spawning a child
-   * process. Reset in `finally` blocks so requests don't bleed across
-   * tests; production behavior is unchanged unless this is non-null.
+   * Test-only seam for the auth check. Delegates to `Auth.overrideCredentials`,
+   * which is where the state lives now that the HttpApi security middleware
+   * has to see the same substitution (H8); this stays as the name the existing
+   * tests call.
    */
-  let testAuthOverride: Auth.Credentials | null = null
   export function overrideAuth(creds: Auth.Credentials | null) {
-    testAuthOverride = creds
+    Auth.overrideCredentials(creds)
   }
 
   /**
@@ -308,9 +303,16 @@ export namespace HttpApiBridge {
     options?: { upstreamAuthVerified?: boolean; pathname?: string },
   ) {
     const pathname = options?.pathname ?? new URL(request.url).pathname
+    if (options?.upstreamAuthVerified) Auth.markUpstreamVerified(request)
     if (!options?.upstreamAuthVerified && !Auth.isPublicPath(request.method, pathname)) {
-      const result = await Auth.authenticate(request, { credentials: testAuthOverride ?? undefined })
+      const result = await Auth.authenticate(request, Auth.testOptions())
       if (!result.ok) return result.response
+      // Hand the decision to the contract's security middleware instead of
+      // making it authenticate a second time (H8). Raw instance-less handlers
+      // (`/global/event`, `/user/*`) never reach the middleware at all, which
+      // is why this check stays: it is the catch-all for everything the
+      // encoded contract does not describe, including unmatched paths.
+      Auth.remember(request, result.principal)
     }
     if (request.method === "GET" && pathname === "/global/event") {
       return HttpApiEvent.handle()
@@ -349,9 +351,19 @@ export namespace HttpApiBridge {
     // Requests normally arrive through Server.fetch(), whose router already
     // ran `Auth.authenticate`; direct bridge consumers and request-level tests
     // get the same canonical check here.
-    if (!options?.upstreamAuthVerified) {
-      const result = await Auth.authenticate(request, { credentials: testAuthOverride ?? undefined })
+    //
+    // This stays even though every encoded group now declares the security
+    // middleware (H8), because the middleware can only guard paths the
+    // contract describes: an unmatched path has no endpoint and therefore no
+    // middleware, and answering it 404 to an unauthenticated caller on a
+    // password-protected server would be a behavior change. `Auth.remember`
+    // hands the result forward so the middleware does not authenticate twice.
+    if (options?.upstreamAuthVerified) {
+      Auth.markUpstreamVerified(request)
+    } else {
+      const result = await Auth.authenticate(request, Auth.testOptions())
       if (!result.ok) return result.response
+      Auth.remember(request, result.principal)
     }
     return webHandler(
       request,

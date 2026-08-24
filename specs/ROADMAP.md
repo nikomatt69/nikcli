@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. H8 is now unblocked and is the only item left on the near plan: P2 closed on 2026-08-24, one leg landed and one measured away. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
+Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. E5, P2 and H8 all closed on 2026-08-24. The near plan is empty; what remains (R1, T3, P3) is `Later` and still waiting on the coverage or characterization each names. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -34,7 +34,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | **H7**  | Done    | JSON `/mobile/*` onto encoded handlers (landed 2026-08-20)                |
 | **H3**  | Done    | Generate the exhaustive SDK namespaced compatibility view                 |
 | **E5**  | Done    | Keep expected session failures on Effect's typed channel (2026-08-24)     |
-| **H8**  | Now     | Declare auth/security with `HttpApiMiddleware` — E5 no longer blocks it   |
+| **H8**  | Done    | Auth declared with `HttpApiMiddleware` on the contract (2026-08-24)       |
 | **S4r** | Done    | Import / teleport / run write through SessionV2                           |
 | **P2**  | Done    | Request-path cuts: list SQL + hot-poll log policy; URL carry-through cut  |
 | **R1**  | Later   | Keyed scoped instance runtime after lifecycle coverage                    |
@@ -141,8 +141,8 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 
 ### Execute next
 
-- **Order** — E5 is closed (2026-08-24), so H8.1 is the next item on the contract. The P2 session-list SQL slice is independent and may run alongside it; do not start the remaining P2 URL, logging, or benchmark work until that SQL change has been measured.
-- **H8.1 — Put auth on the contract.** E5 is green, so this is the next contract slice. Define the `HttpApiSecurity` / `HttpApiMiddleware` vocabulary, attach it to protected encoded groups composed by `PublicHttpApi` in `public.ts`, and preserve public endpoints plus raw SSE / prompt / upgrade exclusions. Effect's security decoder passes empty credentials to middleware, so the implementation must still delegate to canonical `Auth.authenticate` and preserve no-password open mode and Tailscale identity; a router-remembered principal is the one-authentication handoff. Gate: direct bridge, normal router, bearer, query token, Basic, open-mode, Tailscale, and public-route tests pass; OpenAPI asserts security on protected operations and its absence on public ones; `bun run check:routes` and client generation are clean.
+- **Order** — Nothing is queued. E5, P2 and H8 landed on 2026-08-24; the three `Later` items below each state the coverage they wait on.
+- **H8.1 — Put auth on the contract.** Landed 2026-08-24; see the dated log.
 - **P2.1 — Push list work into SQL.** Landed 2026-08-24, measured below. P2.2 is now unblocked, but it is a separate decision: read the measurement before scheduling it.
 - **P2.2 — Decided 2026-08-24 against the measurement.** The logging policy landed; the parsed-URL carry-through is **rejected** and the benches are **not scheduled**. Reasoning and numbers in the dated log below.
 
@@ -169,12 +169,14 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 - **Depends on** — nothing. Start with session-list SQL and measure it before queueing the rest. Do not rebuild the HttpApi layer per request — it is already memoized.
 - **Done when** — Met 2026-08-24, with one leg answered rather than built. Session list limit/filter/search/order is SQL with directory comparison semantics preserved. `/event` and `/session/status` use a deterministic duration-and-status policy that never hides failures. The parsed-URL carry-through and the request-path benches were measured and closed as not worth their cost — P2 is done.
 
-### `HttpApiMiddleware` on encoded groups (H8)
+### `HttpApiMiddleware` on encoded groups (H8) — landed 2026-08-24
 
-- **Buys** — Auth, tracing, and schema-error mapping live on the contract instead of a second check in the bridge. OpenAPI security follows the groups.
+- **Buys** — Auth is a property of the declaration: an endpoint added to a protected group is authenticated by construction, and OpenAPI says which credential schemes the server accepts.
 - **Evidence** — effect-smol `HttpApiMiddleware` is for authentication, authorization, logging, tracing, rate limiting, request-scoped services, and schema-error handling; `packages/nikcli/src` has no import of it. Normal router dispatch authenticates once and passes `upstreamAuthVerified`, so double authentication is not the active bug. The gap is that security remains outside the contract, direct bridge callers need an imperative guard, and OpenAPI cannot describe the scheme.
 - **Depends on** — E5 (typed errors, or middleware has nothing typed to map); H4 landed. `/user` and `/account` stay ahead of the router until their `{ error }` union can be discriminated (`global-handlers.ts`).
-- **Done when** — Protected encoded groups declare security middleware while public operations remain unannotated. A router-verified principal prevents re-authentication; direct encoded bridge calls still authenticate through the middleware; no-password open mode and Tailscale keep their current behavior. SSE / prompt / upgrade stay outside it (non-goal). OpenAPI shows each supported credential scheme.
+- **Done when** — Met. Protected encoded groups declare security middleware while public operations remain unannotated (328 secured, 10 open, pinned by `test/server/httpapi-security.test.ts`). A remembered principal prevents re-authentication; a direct encoded bridge call with no principal authenticates in the middleware; no-password open mode and Tailscale are untouched because `Auth.authenticate` is still the only implementation. SSE / prompt / upgrade stay outside it (non-goal). OpenAPI declares `bearerAuth`, `auth_token` and `basicAuth`.
+
+  **The middleware is not the only enforcement, and the spec should not pretend otherwise.** It can guard only what the contract describes: an unmatched path has no endpoint and therefore no middleware, so the router's and bridge's imperative checks stay as the catch-all. What changed is that protection now travels with the declaration and is visible in the generated OpenAPI, instead of depending on a route being reached through the right dispatcher.
 
 ### Keyed scoped instance runtime (R1)
 
@@ -473,6 +475,22 @@ P2.2 was queued behind "only after P2.1 records its result". It did, so this is 
 **Landed: the hot-poll logging policy.** `server-router.ts` logged a start and a completion line for every request except `/log`, so a connected client's polling accounted for most of the log. `logCompletion` now gates `/event` and `/session/status`: no start line, and a completion line only when the response is 4xx/5xx, when no response was produced (a thrown error), or when the request took at least 250 ms. It is a duration-and-status gate, not sampling — the same request logs the same way every time, so a reproduction never depends on which side of a sample it fell, and the policy can only ever suppress a _fast, successful_ poll. `test/server/router-log-policy.test.ts` pins all three: the quiet success, an ordinary route still logging both lines, and a failing hot path still logging.
 
 **Verified.** `bun test test/server/` 190 pass / 0 fail; `bun run typecheck` clean. No contract change.
+
+### 2026-08-24 (last) — H8.1: authentication on the HttpApi contract
+
+**Security is now declared where the endpoint is declared.** `ServerRouter` and the bridge authenticated imperatively, so OpenAPI could not name a scheme and a new encoded group was protected only by being reached through the right dispatcher.
+
+- **`httpapi/security.ts`** declares `bearerAuth` / `auth_token` / `basicAuth` and implements all three with one delegate to `Auth.authenticate`, reading the raw `Request` rather than the decoded credential. It has to: the server accepts combinations no single scheme describes — a Tailscale identity header, or open mode with no credential at all. `Auth.authenticate` remains the only implementation of the acceptance order.
+- **The 401 is returned as a `Response`, not raised as a declared error.** Failing with an error schema would have JSON-encoded the body and dropped the `WWW-Authenticate` challenge. Returning it verbatim keeps the wire identical _and_ keeps the middleware's error union empty — which is why `bun run generate:httpapi-clients` produced **zero drift**.
+- **Classification, which is the actual work.** 328 operations secured, 10 open. The 10 are exactly the paths reachable without credentials, from two different sources: `Auth.isPublicPath` (health probe, browser sign-in, account creation) and `PublicRoutes.publicRequest`, which answers the share routes _ahead_ of authentication entirely. `global` and `users` mix public and protected, so those two mark the protected endpoint at its definition site — a group-level sweep would have made the liveness probe advertise a scheme it does not enforce.
+- **Where the middleware has to be provided, and why it is not obvious.** `HttpApiBuilder.group` captures `Effect.context()` when the group layer is built, and `applyMiddleware` resolves the middleware service out of _that_ captured context. Providing it only to `ApiLive` compiles and then fails every protected request at runtime with `Service not found: nikcli/HttpApiAuth`. It therefore goes to the merged handler layers in `public.ts`, and separately to `mobile-handlers.ts`, `sync.ts`, `global.ts` and `contract-extra.ts`, which build their groups against their own `Api`.
+
+**Two regressions found and closed before they shipped:**
+
+- **The imperative checks had to stay.** Removing them looked right — the middleware covers the encoded routes — but the middleware can only guard paths the contract describes. An unmatched path has no endpoint, so a password-protected server would have started answering 404 to unauthenticated callers where it previously answered 401. Both checks are back, and they now `Auth.remember` so the middleware does not authenticate a second time.
+- **`WorkspaceServer` would have started rejecting everything.** It serves a workspace sandbox on its own `Bun.serve`, performs no authentication, and passes `upstreamAuthVerified: true`. With the middleware in place and nothing remembered, it would have authenticated those requests and failed every one on a server with `NIKCLI_SERVER_PASSWORD` set. `Auth.markUpstreamVerified` records that the question was already settled — a different statement from `remember`, which records _who_ the caller is. `test/server/httpapi-bridge-401.test.ts` pins it, and that assertion was confirmed to fail without the marker.
+
+**Verified.** `bun test` full suite 4018 pass / 2 fail. Neither failure is this change: `httpapi-file.test.ts`'s ripgrep search is the documented load flake and passes alone, and `test/mcp/streamable-http-transport.test.ts`'s SSE-reconnect case fails identically on pristine `3c4819927f` in a clean worktree — it is a pre-existing failure, unrelated to the server auth path. `bun run check:routes` ok — 338 contracts, 315 handlers, 23 raw. `bun run generate:httpapi-clients` regenerated with no diff. Typecheck was not run in this session at the author's request; it is the one gate still outstanding.
 
 ## Follow working rules
 

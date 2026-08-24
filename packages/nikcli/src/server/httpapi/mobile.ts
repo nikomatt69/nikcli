@@ -2,6 +2,7 @@ import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "
 import { Schema } from "effect"
 import { Project } from "@/project/project"
 import { Pty } from "@/pty"
+import { HttpApiAuth } from "./security"
 import { MessageV2 } from "@/session/message-v2"
 import { Session } from "@/session"
 import { Snapshot } from "@/snapshot"
@@ -1306,5 +1307,13 @@ export namespace MobileHttpApi {
     )
     .prefix("/mobile")
 
-  export const Api = HttpApi.make("nikcli").add(Group)
+  /**
+   * `MobileHandlersLive` builds this group's routes against *this* `Api`, not
+   * the composed one in `public.ts` — so the security middleware has to be
+   * attached here. Wrapping the group in `public.ts` alone would put the
+   * scheme in OpenAPI while the routes actually served carried no middleware
+   * (H8). `endpoint.middlewares` is a Set keyed by the middleware service, so
+   * the wrap in `public.ts` collapses into this one rather than doubling it.
+   */
+  export const Api = HttpApi.make("nikcli").add(Group.middleware(HttpApiAuth.Middleware))
 }

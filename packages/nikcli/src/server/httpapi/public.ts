@@ -33,6 +33,7 @@ import { TopLevelHttpApi } from "./top-level"
 import { TuiHttpApi } from "./tui"
 import { WorkspaceHttpApi } from "./workspace"
 import { AccountHttp } from "./account"
+import { HttpApiAuth } from "./security"
 import { HttpServerResponse } from "effect/unstable/http"
 import { Effect } from "effect"
 
@@ -41,36 +42,44 @@ export namespace PublicHttpApi {
    * The *served* Effect surface: every group here has handlers below and is
    * reachable through the HttpApi bridge. Contract-only groups (schemas for
    * routes served as raw Request/Response handlers) live on `PublicApi` instead.
+   *
+   * `.middleware(HttpApiAuth.Middleware)` declares security on a group, so an
+   * endpoint added to it is authenticated by construction and OpenAPI says so
+   * (H8). Two groups are left unwrapped because their operations are reachable
+   * without credentials: `GlobalHttpApi.Group` mixes public and protected, so
+   * it marks its one protected endpoint at the definition site, and every
+   * `/account/*` operation is the browser sign-in flow — unauthenticated by
+   * definition, since the caller is signing in.
    */
   export const Api = HttpApi.make("nikcli")
-    .add(TopLevelHttpApi.Group)
-    .add(AnalyticsHttpApi.Group)
-    .add(AppHttpApi.Group)
-    .add(BrainHttpApi.Group)
-    .add(ChatbotHttpApi.Group)
-    .add(DiscordHttpApi.Group)
-    .add(VoiceHttpApi.Group)
-    .add(ProfileHttpApi.Group)
-    .add(ConfigHttpApi.Group)
-    .add(ConnectorsHttpApi.Group)
-    .add(DoctorHttpApi.Group)
-    .add(ExperimentalHttpApi.Group)
-    .add(FileHttpApi.Group)
+    .add(TopLevelHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(AnalyticsHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(AppHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(BrainHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(ChatbotHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(DiscordHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(VoiceHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(ProfileHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(ConfigHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(ConnectorsHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(DoctorHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(ExperimentalHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(FileHttpApi.Group.middleware(HttpApiAuth.Middleware))
     .add(GlobalHttpApi.Group)
-    .add(McpHttpApi.Group)
-    .add(MissionHttpApi.Group)
-    .add(MobileHttpApi.Group)
-    .add(ProjectHttpApi.Group)
-    .add(ProviderHttpApi.Group)
-    .add(QuestionHttpApi.Group)
-    .add(PermissionHttpApi.Group)
-    .add(PtyHttpApi.Group)
-    .add(LoopHttpApi.Group)
-    .add(SessionHttpApi.Group)
+    .add(McpHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(MissionHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(MobileHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(ProjectHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(ProviderHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(QuestionHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(PermissionHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(PtyHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(LoopHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(SessionHttpApi.Group.middleware(HttpApiAuth.Middleware))
     .add(ContractExtraHttpApi.AccountGroup)
-    .add(SyncHttpApi.Group)
-    .add(TuiHttpApi.Group)
-    .add(WorkspaceHttpApi.Group)
+    .add(SyncHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(TuiHttpApi.Group.middleware(HttpApiAuth.Middleware))
+    .add(WorkspaceHttpApi.Group.middleware(HttpApiAuth.Middleware))
 
   export const ApiLive = HttpApiBuilder.layer(Api)
 
@@ -421,6 +430,15 @@ export namespace PublicHttpApi {
         TuiHandlersLive.pipe(Layer.provide(TuiHttpApi.DependenciesLive)),
         WorkspaceHandlersLive,
         AccountHandlersLive,
+      ).pipe(
+        // The security middleware has to be in scope **while each group layer
+        // is built**, not merely provided to `ApiLive`: `HttpApiBuilder.group`
+        // captures `Effect.context()` at construction and `applyMiddleware`
+        // resolves the middleware service out of that captured context when it
+        // turns a handler into a route. Providing it only to `ApiLive` builds
+        // fine and then fails every protected request at runtime with
+        // "Service not found: nikcli/HttpApiAuth" (H8).
+        Layer.provide(HttpApiAuth.layer),
       ),
     ),
   )
@@ -432,12 +450,16 @@ export namespace PublicHttpApi {
  * contract-only groups describe routes served as raw Request/Response handlers,
  * so they have schemas here but no Effect HttpApi handlers.
  */
-export const PublicApi = PublicHttpApi.Api.add(ContractExtraHttpApi.AuthGroup)
-  .add(ContractExtraHttpApi.ConfigManagementGroup)
-  .add(ContractExtraHttpApi.SessionPromptGroup)
+export const PublicApi = PublicHttpApi.Api.add(ContractExtraHttpApi.AuthGroup.middleware(HttpApiAuth.Middleware))
+  .add(ContractExtraHttpApi.ConfigManagementGroup.middleware(HttpApiAuth.Middleware))
+  .add(ContractExtraHttpApi.SessionPromptGroup.middleware(HttpApiAuth.Middleware))
+  // `/s/:id`, `/share/:id` and `/api/share/:id` are answered by
+  // `PublicRoutes.publicRequest`, which runs *ahead* of authentication — a
+  // shared conversation opens without credentials, so the contract must not
+  // claim otherwise.
   .add(ContractExtraHttpApi.ShareGroup)
-  .add(ContractExtraHttpApi.EventsGroup)
-  .add(ContractExtraHttpApi.WorkspaceExtraGroup)
+  .add(ContractExtraHttpApi.EventsGroup.middleware(HttpApiAuth.Middleware))
+  .add(ContractExtraHttpApi.WorkspaceExtraGroup.middleware(HttpApiAuth.Middleware))
   .add(ContractExtraHttpApi.UsersGroup)
-  .add(ContractExtraHttpApi.PtyConnectGroup)
+  .add(ContractExtraHttpApi.PtyConnectGroup.middleware(HttpApiAuth.Middleware))
   .add(ContractExtraHttpApi.AccountGroup)
