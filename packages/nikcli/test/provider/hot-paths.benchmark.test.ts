@@ -3,7 +3,7 @@ import type { ModelMessage } from "ai"
 import { recordBenchmark } from "../benchmarks/runner"
 import { Provider } from "@/provider/provider"
 import { ProviderError } from "@/provider/error"
-import { ProviderTransform } from "@/provider/transform"
+import { ProviderTransform, sanitizeSurrogates } from "@/provider/transform"
 import { mapOpenAICompatibleFinishReason } from "@/provider/sdk/copilot/chat/map-openai-compatible-finish-reason"
 import { mapOpenAIResponseFinishReason } from "@/provider/sdk/copilot/responses/map-openai-responses-finish-reason"
 
@@ -83,6 +83,115 @@ describe("Provider hot paths (benchmark)", () => {
       value: elapsed,
       unit: "ms",
       metadata: { messageCount: msgs.length },
+    })
+  })
+
+  // P3 asked whether `normalizeMessages` is worth rewriting. The answer is in
+  // the split between these three numbers, so they are recorded together: the
+  // whole transform, the per-character scan inside it, and the serialization of
+  // the same payload that the request has to pay regardless. A rewrite that
+  // fuses the passes can only ever move the gap between the first two.
+  it("ProviderTransform.message vs its sanitization scan vs serializing the payload", () => {
+    const model = benchModel()
+    const build = () => {
+      const out: ModelMessage[] = [{ role: "system", content: "You are a coding agent. ".repeat(60) }]
+      for (let i = 0; i < 200; i += 1) {
+        out.push({ role: "user", content: [{ type: "text", text: `please do task ${i}. `.repeat(30) }] })
+        out.push({
+          role: "assistant",
+          content: [
+            { type: "reasoning", text: `thinking about ${i} `.repeat(40) },
+            { type: "text", text: `here is what I will do for ${i} `.repeat(30) },
+            { type: "tool-call", toolCallId: `call_${i}_a-b`, toolName: "read", input: { path: `src/f${i}.ts` } },
+          ],
+        })
+        out.push({
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId: `call_${i}_a-b`,
+              toolName: "read",
+              output: { type: "text", value: `line of source code ${i}\n`.repeat(400) },
+            },
+          ],
+        })
+      }
+      return out
+    }
+
+    const sample = build()
+    // Every string the sanitization pass visits, in the order it visits them.
+    const strings: string[] = []
+    for (const msg of sample) {
+      if (typeof msg.content === "string") {
+        strings.push(msg.content)
+        continue
+      }
+      if (!Array.isArray(msg.content)) continue
+      for (const part of msg.content as Array<{
+        type: string
+        text?: string
+        output?: { type: string; value: string }
+      }>) {
+        if (part.type === "text" || part.type === "reasoning") strings.push(part.text)
+        if (part.type === "tool-result" && (part.output?.type === "text" || part.output?.type === "error-text")) {
+          strings.push(part.output.value)
+        }
+      }
+    }
+
+    const iterations = 30
+    const metadata = { messageCount: sample.length, stringCount: strings.length }
+
+    // A fresh history per iteration: the transform sanitizes in place, so
+    // reusing one would measure the already-clean fast path from the second
+    // iteration onwards.
+    const inputs = Array.from({ length: iterations }, () => build())
+    let start = performance.now()
+    for (let i = 0; i < iterations; i += 1) {
+      ProviderTransform.message(inputs[i], model, {})
+    }
+    const transform = performance.now() - start
+
+    start = performance.now()
+    for (let i = 0; i < iterations; i += 1) {
+      for (const value of strings) sanitizeSurrogates(value)
+    }
+    const scan = performance.now() - start
+
+    start = performance.now()
+    for (let i = 0; i < iterations; i += 1) {
+      JSON.stringify(sample)
+    }
+    const serialize = performance.now() - start
+
+    recordBenchmark({
+      suite: "provider",
+      module: "provider/transform",
+      scenario: "message long history",
+      iterations,
+      value: transform,
+      unit: "ms",
+      metadata,
+    })
+    recordBenchmark({
+      suite: "provider",
+      module: "provider/transform",
+      scenario: "sanitizeSurrogates long history",
+      iterations,
+      value: scan,
+      unit: "ms",
+      metadata,
+    })
+    recordBenchmark({
+      suite: "provider",
+      module: "provider/transform",
+      scenario: "JSON.stringify long history",
+      iterations,
+      value: serialize,
+      unit: "ms",
+      metadata,
     })
   })
 

@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. E5, P2 and H8 all closed on 2026-08-24. R1's lifecycle-coverage gate is met (2026-08-24) and the migration is `Ready` but not started; T3 and P3 remain `Later`, still waiting on the coverage or characterization each names. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
+Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. E5, P2 and H8 all closed on 2026-08-24. R1's lifecycle-coverage gate is met (2026-08-24) and the migration is `Ready` but not started. P3 is closed on its measurement: `normalizeMessages` is characterized and deliberately unchanged. T3 remains `Later`. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -27,19 +27,19 @@ Horizons are ordering, not dates. An item moves up when its dependency lands, no
 
 The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `MessageV2` message and part schema are on `optionalKey` with their producers omitting the key, and `jsonSafe` is down to the payloads that keep it for reasons optionality cannot reach — the three `Schema.Unknown` SessionV2 entry shapes in `session.ts`, and the live-`fetch` records in `provider.ts` / `config.ts`. That unblocks the first PR, **H7**: 115 unvalidated `/mobile/*` bodies, which no longer need a second `jsonSafe` on encoded mobile responses.
 
-| ID      | Horizon | Item                                                                      |
-| ------- | ------- | ------------------------------------------------------------------------- |
-| **C1**  | Done    | Release integrity: generated drift, blocking static checks, release gates |
-| **E4**  | Done    | Encode optionals as absent keys — corrected scope complete                |
-| **H7**  | Done    | JSON `/mobile/*` onto encoded handlers (landed 2026-08-20)                |
-| **H3**  | Done    | Generate the exhaustive SDK namespaced compatibility view                 |
-| **E5**  | Done    | Keep expected session failures on Effect's typed channel (2026-08-24)     |
-| **H8**  | Done    | Auth declared with `HttpApiMiddleware` on the contract (2026-08-24)       |
-| **S4r** | Done    | Import / teleport / run write through SessionV2                           |
-| **P2**  | Done    | Request-path cuts: list SQL + hot-poll log policy; URL carry-through cut  |
-| **R1**  | Ready   | Keyed scoped instance runtime — lifecycle coverage landed 2026-08-24      |
-| **T3**  | Later   | Output codecs on structured built-ins                                     |
-| **P3**  | Later   | Characterize, then optimize `normalizeMessages`                           |
+| ID      | Horizon | Item                                                                          |
+| ------- | ------- | ----------------------------------------------------------------------------- |
+| **C1**  | Done    | Release integrity: generated drift, blocking static checks, release gates     |
+| **E4**  | Done    | Encode optionals as absent keys — corrected scope complete                    |
+| **H7**  | Done    | JSON `/mobile/*` onto encoded handlers (landed 2026-08-20)                    |
+| **H3**  | Done    | Generate the exhaustive SDK namespaced compatibility view                     |
+| **E5**  | Done    | Keep expected session failures on Effect's typed channel (2026-08-24)         |
+| **H8**  | Done    | Auth declared with `HttpApiMiddleware` on the contract (2026-08-24)           |
+| **S4r** | Done    | Import / teleport / run write through SessionV2                               |
+| **P2**  | Done    | Request-path cuts: list SQL + hot-poll log policy; URL carry-through cut      |
+| **R1**  | Ready   | Keyed scoped instance runtime — lifecycle coverage landed 2026-08-24          |
+| **T3**  | Later   | Output codecs on structured built-ins                                         |
+| **P3**  | Done    | `normalizeMessages` characterized; kept as-is on the measurement (2026-08-24) |
 
 ### Release integrity (C1) — landed 2026-08-23
 
@@ -211,12 +211,21 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 - **Implementation** — Those three callers persist each imported message through `SessionV2Write.persist`. Session create stays `Session.create` / `SessionRepo.upsert`. `rebuild` after a direct `MessageRepo` write is gone from production; tests may still call it. Token coalescing in `SessionProcessor.updatePartCoalesced` may still publish ahead of the projector — that path is documented and is not this item.
 - **Done when** — Those three callers persist through `SessionV2` / `SessionV2Write.persist`. `rebuild` after a direct `MessageRepo` write is gone from production. Do not delete `SessionV2Write` or `SessionEntryProjection` as part of this; they earn their keep. `SessionV2.prompt` / `admit` / `loop` / `create` remaining as thin wrappers over `SessionPrompt` / `Session.createNext` is a later naming cleanup, not this item.
 
-### `normalizeMessages` on the LLM turn path (P3)
+### `normalizeMessages` on the LLM turn path (P3) — closed on the measurement 2026-08-24
 
 - **Buys** — Provider turns allocate fewer copies of the message list. Not an HTTP win.
 - **Evidence** — `provider/transform.ts` still has `// TODO: fix this stupid inefficient dogshit function` on `normalizeMessages` (multiple `msgs.map` passes, per-part allocations). June 2026 resource review flagged it; the function is still there. Independent of the HttpApi module.
 - **Depends on** — nothing. Later because it is on the LLM turn, not the contract.
 - **Done when** — One documented pass (or a measured reason to keep several). A bench or a comment with a counter replaces the TODO. Behavior of sanitization / tool-result shaping is unchanged.
+- **Met by the second branch: a measured reason to keep several.** On a 601-message / 2.4MB history — about the largest a 200k-token context holds — `ProviderTransform.message` costs ~2.1ms. Of that, ~72% is `sanitizeSurrogates` scanning characters, which is per-byte work that no restructuring of the passes removes. One structural walk over every message and part costs **0.012ms**, so the passes the TODO complained about are together ~0.5ms of allocation, and their irreducible floor is under 1% of the function. `JSON.stringify` of the same payload — unavoidable, it is the request body — costs **0.8x the entire function**. The transform is linear at ~3.3µs/message and the provider branch barely registers (anthropic vs openai differ by ~6%).
+
+  So a perfect rewrite saves under a millisecond, on a request that then waits seconds for a model, in exchange for merging eight provider-specific rules — two of which reorder or split messages and one of which returns early — into a single walk. That is a bad trade, and P3 is closed the same way P2.2 was: by answering the question rather than building the thing.
+
+  **The characterization is the deliverable that outlasts the decision.** `test/provider/transform-normalize.test.ts` pins the passes that carried no coverage at all: surrogate sanitization across every role and both tool-result output shapes, the Anthropic and Bedrock empty-content filters (including blank reasoning kept alive by a signature), Claude and Mistral id scrubbing on both sides of a call, the Anthropic tool-call reorder, the Mistral tool→user repair, the DeepSeek reasoning injector, and the fact that the Mistral branch returns early so later passes never run. Four mutations of `transform.ts` were each caught. The TODO is replaced by the numbers above; `test/provider/hot-paths.benchmark.test.ts` records transform / scan / serialize together so the ratio that decided this stays visible.
+
+  **One finding worth carrying forward.** The function mutates the caller's messages in place — parts included. `unsupportedParts` copies user messages first, but shallowly, reusing the same part objects, so sanitization is written through to the caller's array for every role. Returning a clean copy would arguably be more correct and would still be a behaviour change. Anyone reopening this must decide that deliberately; the test pins the aliasing precisely.
+
+  **The only lever that would matter** is not re-sanitizing history that previous turns already sanitized — the scan is the cost, and it is repeated over the whole history every turn. That needs provenance on the message and is a correctness change, not a refactor. Not proposed here.
 
 ---
 
