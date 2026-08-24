@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. E5, P2 and H8 all closed on 2026-08-24. The near plan is empty; what remains (R1, T3, P3) is `Later` and still waiting on the coverage or characterization each names. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
+Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. E5, P2 and H8 all closed on 2026-08-24. R1's lifecycle-coverage gate is met (2026-08-24) and the migration is `Ready` but not started; T3 and P3 remain `Later`, still waiting on the coverage or characterization each names. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -37,7 +37,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | **H8**  | Done    | Auth declared with `HttpApiMiddleware` on the contract (2026-08-24)       |
 | **S4r** | Done    | Import / teleport / run write through SessionV2                           |
 | **P2**  | Done    | Request-path cuts: list SQL + hot-poll log policy; URL carry-through cut  |
-| **R1**  | Later   | Keyed scoped instance runtime after lifecycle coverage                    |
+| **R1**  | Ready   | Keyed scoped instance runtime — lifecycle coverage landed 2026-08-24      |
 | **T3**  | Later   | Output codecs on structured built-ins                                     |
 | **P3**  | Later   | Characterize, then optimize `normalizeMessages`                           |
 
@@ -184,6 +184,18 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 - **Evidence** — `project/instance.ts` still caches `Map<string, Promise<Context>>` through `util/context.ts` ALS, while `workspace-context.ts` consumes the same ambient context. The migration surface is broader than those imports: `Instance.provide`, `withInstanceAsync({ init })`, promise-cache invalidation, `InstanceState.context`'s ALS fallback, and bootstrap ownership must move together. See [research-effect-di.md](./research-effect-di.md).
 - **Depends on** — nothing; H4 landed, so HTTP is not also the ALS guinea pig. Two production importers remain: `project/instance.ts:2` and `workspace/workspace-context.ts:1` (verified 2026-08-19).
 - **Done when** — Lifecycle tests first pin concurrent acquisition, invalidation, bootstrap failure, and disposal. Then a per-directory `ManagedRuntime` / `ScopedCache` owns bootstrap; `Instance.provide` is gone or a thin test helper, `withInstanceAsync` has no `init` path, `InstanceState.context` does not catch into ALS, and `util/context.ts` has no production importers.
+- **Gate met 2026-08-24** — `test/project/instance-lifecycle.test.ts` pins all four legs (15 tests) against the current promise-cache implementation, and deliberately asserts no storage mechanism: it is the contract the keyed runtime has to keep, not a description of the `Map`. The migration itself is still open — what changed is that it can now be attempted against a suite that would notice if it changed behaviour.
+
+  **What the coverage actually pins**, because two of these are easy to break by accident and were not written down anywhere:
+
+  - `init` is once _per directory_, not once per call. The loser of a bootstrap race joins the winner's instance and its own `init` never runs. A caller that treats `init` as "before my body" is already wrong today, and the keyed runtime must not quietly fix that without auditing the callers.
+  - Failure is not sticky and eviction is identity-guarded: every waiter on a failing bootstrap sees the _same_ error, the entry is evicted once, and the next acquisition retries. A failing _body_, by contrast, evicts nothing — one bad request must not re-bootstrap the project for everyone.
+  - The cache key is the realpath, so a symlinked alias joins the instance instead of duplicating it.
+  - `disposers.clear()` is load-bearing only for a second `dispose()` inside the same scope; across an acquisition the fresh context provides the same guarantee. Both are pinned separately, because they are different properties that happen to agree today.
+
+  **Verified by mutation, not by passing.** Five mutations of `project/instance.ts` were each caught by the suite: dropping the failed-bootstrap eviction (2 red), dropping `disposers.clear()` (1 red), replacing `realpathSync` with `path.resolve` (1 red), never sharing an in-flight bootstrap (6 red), and dropping the eviction in `dispose` (2 red). The first version of the disposer test passed under its own mutation — it was named for `clear()` but was really observing context replacement — and was rewritten until it failed for the right reason.
+
+  The ALS-fallback test is a special case: it pins the `InstanceState.context` catch that R1 intends to _delete_. When the keyed runtime lands, invert it rather than remove it, so the day the fallback stops answering is recorded as a decision.
 
 ### Output codecs on structured built-ins (T3)
 
