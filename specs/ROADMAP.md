@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-23**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is reopened because session handlers still recover expected failures from the defect channel. C1 closes the release-integrity gaps found in this reconciliation. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
+Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. H8 is now unblocked and is the next item; P2.1 stays independent of it. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -33,8 +33,8 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | **E4**  | Done    | Encode optionals as absent keys — corrected scope complete                |
 | **H7**  | Done    | JSON `/mobile/*` onto encoded handlers (landed 2026-08-20)                |
 | **H3**  | Done    | Generate the exhaustive SDK namespaced compatibility view                 |
-| **E5**  | Now     | Keep expected session failures on Effect's typed channel                  |
-| **H8**  | Next    | Declare auth/security with `HttpApiMiddleware` after E5                   |
+| **E5**  | Done    | Keep expected session failures on Effect's typed channel (2026-08-24)     |
+| **H8**  | Now     | Declare auth/security with `HttpApiMiddleware` — E5 no longer blocks it   |
 | **S4r** | Done    | Import / teleport / run write through SessionV2                           |
 | **P2**  | Next    | Measured request-path cuts, beginning with session-list SQL               |
 | **R1**  | Later   | Keyed scoped instance runtime after lifecycle coverage                    |
@@ -141,24 +141,23 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 
 ### Execute next
 
-- **Order** — Finish E5 before starting H8. The P2 session-list SQL slice is independent and may run alongside E5; do not start the remaining P2 URL, logging, or benchmark work until that SQL change has been measured.
-- **E5.1 — Pin the channel before changing it.** The 2026-08-23 baseline is already red: the existing missing-session revert and diff route tests both receive 500, and the failure log shows `UnknownError` wrapping `SessionNotFoundError`. Add service-level missing-session and busy-session assertions that inspect `Exit` / `Cause` and distinguish `Effect.fail` from `Effect.die`; HTTP status alone cannot prove the channel. Gate: the new assertions fail today because they observe `UnknownError` instead of the session-domain error, without weakening the existing 404 expectations.
-- **E5.2 — Type service adapters.** Export the existing `Session.asSessionError` normalizer (currently private at `session/index.ts:913`), change `SessionRevert.Interface` and the route-facing `SessionSummary.summarize` / `diff` methods from `unknown` to the closed session error channel, and give their `tryPromise` calls an explicit rejection mapping. Keep `computeDiff`'s real dependency error type rather than turning it into a defect. Gate: the E5.1 service assertions pass, the two currently red route tests return their declared 404 bodies, and no route-facing adapter in `session/revert.ts` or `session/summary.ts` uses the untyped `tryPromise(() => ...)` form.
-- **E5.3 — Classify handler Promise bridges.** Preserve domain rejections from the two `MessageV2.get` calls, the two `SessionContext.breakdown` calls, `SessionV2.entries`, and `Monitor.get` / `readLog` / `cancel` on the typed channel; keep `Array.fromAsync`, cancellation, instruction collection, and delegation I/O on the unknown-I/O path. Do not mechanically convert every `Effect.promise`. Gate: a source audit accounts for every Promise bridge in `httpapi/session.ts`, and targeted message, context, v2, monitor, revert, and diff route tests pass.
-- **E5.4 — Close the handler boundary.** Remove `catchDefect(asSessionError)` from `declaredErrors` at `httpapi/session.ts:300` only after E5.1-E5.3 are green; simplify the background missing-session recovery to the typed channel as part of the same boundary cleanup. Gate: `bun test --timeout 30000 test/server/httpapi-session.test.ts`, the service-level `Exit` / `Cause` tests, and `rg "catchDefect\\(asSessionError\\)" src/server/httpapi/session.ts` all pass, then run the session/server test scope and one final `bun run typecheck`.
-- **H8.1 — Put auth on the contract.** After E5 is green, define the `HttpApiSecurity` / `HttpApiMiddleware` vocabulary, attach it to protected encoded groups composed by `PublicHttpApi` in `public.ts`, and preserve public endpoints plus raw SSE / prompt / upgrade exclusions. Effect's security decoder passes empty credentials to middleware, so the implementation must still delegate to canonical `Auth.authenticate` and preserve no-password open mode and Tailscale identity; a router-remembered principal is the one-authentication handoff. Gate: direct bridge, normal router, bearer, query token, Basic, open-mode, Tailscale, and public-route tests pass; OpenAPI asserts security on protected operations and its absence on public ones; `bun run check:routes` and client generation are clean.
+- **Order** — E5 is closed (2026-08-24), so H8.1 is the next item on the contract. The P2 session-list SQL slice is independent and may run alongside it; do not start the remaining P2 URL, logging, or benchmark work until that SQL change has been measured.
+- **H8.1 — Put auth on the contract.** E5 is green, so this is the next contract slice. Define the `HttpApiSecurity` / `HttpApiMiddleware` vocabulary, attach it to protected encoded groups composed by `PublicHttpApi` in `public.ts`, and preserve public endpoints plus raw SSE / prompt / upgrade exclusions. Effect's security decoder passes empty credentials to middleware, so the implementation must still delegate to canonical `Auth.authenticate` and preserve no-password open mode and Tailscale identity; a router-remembered principal is the one-authentication handoff. Gate: direct bridge, normal router, bearer, query token, Basic, open-mode, Tailscale, and public-route tests pass; OpenAPI asserts security on protected operations and its absence on public ones; `bun run check:routes` and client generation are clean.
 - **P2.1 — Push list work into SQL.** Add a service/repository query that applies project, workspace, roots, start, case-insensitive title search, updated-desc ordering, and limit before row mapping, then make `GET /session` delegate to it instead of materializing every project row in JS. Preserve `Filesystem.comparisonKey` semantics for directory filtering, especially Windows case folding; do not replace it with raw SQL equality without proving canonical storage. Gate: route cases cover each filter plus combined ordering / limit, `EXPLAIN QUERY PLAN` guides any index, and the same seeded request records rows materialized and elapsed time before and after.
 - **P2.2 — Queue the measured remainder.** Only after P2.1 records its result, carry the router's parsed URL into public, bridge, fallback, and mobile raw dispatch; then add a deterministic slow-or-failure logging policy for `/event` and `/session/status`, followed by loose-budget benches for `ServerRouter.context` and encoded `GET /session/:id`. Gate: request-pipeline reparses are gone without chasing unrelated provider / proxy URL parsing, failures and slow polls remain logged, and `bun run test:bench` records scenario metadata.
 
-### Typed Effect failure channel (E5) — reopened 2026-08-22
+### Typed Effect failure channel (E5) — landed 2026-08-24
 
 - **Buys** — Expected 404/409 cannot arrive as defects. Handlers stop compensating for untyped Promise adapters with `catchDefect`.
-- **Evidence** — Core `Session.Service` already exposes `Session.Error`, but its normalizer is private. `httpapi/session.ts` still applies `Effect.catchDefect(asSessionError)` after mapping the typed failure channel, `SessionRevert.Interface` and route-facing `SessionSummary` methods still expose `unknown`, and both modules still use the untyped `Effect.tryPromise(() => ...)` form. A 2026-08-23 run of `httpapi-session.test.ts` confirms the consequence: missing-session revert and diff each answer 500 because `Effect.tryPromise` wraps `SessionNotFoundError` in `UnknownError`, which `asSessionError` does not unwrap. `Session.BusyError` is already a `Schema.TaggedErrorClass`, so the contract vocabulary exists.
+- **Evidence** — `httpapi/session.ts` applied `Effect.catchDefect(asSessionError)` after mapping the typed failure channel, `SessionRevert.Interface` and the route-facing `SessionSummary` methods exposed `unknown`, and both modules used the untyped `Effect.tryPromise(() => ...)` form, so `Effect.tryPromise` wrapped `SessionNotFoundError` in `UnknownError` and missing-session revert and diff answered 500. `Session.BusyError` was already a `Schema.TaggedErrorClass`, so the contract vocabulary existed.
+- **Implementation** — E5.2 / E5.3 landed in `ff061973ec`: `Session.asSessionError` is exported, `SessionRevert.Interface` and `SessionSummary.summarize` / `diff` carry `Session.Error`, and the domain-rejecting handler bridges (`MessageV2.get` ×2, `SessionContext.breakdown` ×2, `SessionV2.entries`, `Monitor.get` / `readLog` / `cancel`) use `Effect.tryPromise({ catch: Session.asSessionError })`. `computeDiff` keeps `unknown` — it is real dependency I/O. E5.1 / E5.4 closed it: `declaredErrors` is a single `Effect.catch(asSessionError)`, and the `background` handler dropped its defect arm. The ten remaining `Effect.promise` sites are the audited unknown-I/O set — `Array.fromAsync`, the two session-delete cancels, the `collectSystemPaths` import and call, and the four `Delegation` job routes — and stay on `orDie`. The one `catchDefect` left in the file is the best-effort MCP toggle log, which swallows both channels on purpose and is not part of this boundary.
+
+  **Caveat for the next reader.** `SessionPrompt.assertNotBusy` is still declared `Effect.Effect<void>` and raises by `throw` inside `Effect.gen`. It reaches callers typed only because `SessionRevert` runs it through `runPromiseWithLayer` and re-maps the rejection with `Session.asSessionError`; the busy assertion below pins that behavior. Narrowing that signature to `Session.BusyError` with an explicit `Effect.fail` is a separate cleanup, not a reopening of E5.
 
   **Corrected 2026-08-18 for `loop.ts` / `mission.ts`.** Both already carry the typed channel: declared 404/400 schemas plus `failNotFound` / `failValidation`, and their managers use the return-`undefined` convention the handlers already check. The `fromPromise` `orDie` wraps genuine I/O, not domain errors. There are no `Engine.LoopNotFoundError` / `MissionNotFoundError` / `MissionAlreadyExistsError` tags to fail with — an earlier draft of this item invented them. The one real gap there is fixed (see landed work).
 
-- **Depends on** — nothing. H4 landed, so there is already one boundary to fix. H8 waits for this typed vocabulary.
-- **Done when** — Domain methods return or map `Session.Error` on the typed channel where the service can reject; return-`undefined` plus an explicit `Effect.fail` remains valid for loop/mission. Session handlers map schema-declared errors without `catchDefect`, and `Effect.promise` / `orDie` remains only for genuinely unknown I/O. Service-level `Exit` / `Cause` assertions prove missing and busy failures are typed; route tests separately pin the unchanged 404/409 wire bodies.
+- **Depends on** — nothing. H4 landed, so there was already one boundary to fix. H8 waited for this typed vocabulary and no longer does.
+- **Done when** — Met. Domain methods map `Session.Error` on the typed channel; return-`undefined` plus an explicit `Effect.fail` remains valid for loop/mission. Session handlers map schema-declared errors without `catchDefect`, and `Effect.promise` / `orDie` remains only for genuinely unknown I/O. The service-level assertions in `test/session/session-lifecycle.test.ts` assert `Cause.hasDies === false` before squashing, so they separate `Effect.fail` from `Effect.die` instead of reading through both; route tests separately pin the unchanged 404/409 wire bodies.
 
 ### Request-path cuts (P2)
 
@@ -422,10 +421,12 @@ Diagnosing phase 2 took two blind cycles because the 400 had an **empty body and
 
 ### 2026-08-20 — E5 (typed Effect failure channel on session handlers)
 
-> **Status correction (2026-08-22): reopened.** The current tree still routes session handler
-> failures through `Effect.catchDefect(asSessionError)`, and `SessionRevert` still uses the
-> untyped `Effect.tryPromise(() => ...)` form. The intended implementation below remains the E5
-> completion target, not a description of the current source.
+> **Status correction (2026-08-24): superseded, not current source.** This entry was written
+> ahead of the tree: it was reopened on 2026-08-22 because the handlers still ran
+> `Effect.catchDefect(asSessionError)`, and the `trySessionPromise` / `fromPromise` helpers it
+> names were never added — the shipped form maps rejections inline with
+> `Effect.tryPromise({ catch: Session.asSessionError })`. Read the 2026-08-24 entry below for
+> what actually landed; keep this one only as the record of the intended design.
 
 **404/409 are typed failures now, never defects.** `httpapi/session.ts`'s `declaredErrors` used `catch` + `catchDefect` because a handful of raw `Effect.promise` sites surfaced domain errors as defects; it is now a single `catch` over the typed channel.
 
@@ -434,6 +435,18 @@ Diagnosing phase 2 took two blind cycles because the 400 had an **empty body and
 - `test/server/httpapi-session.test.ts` gained two 404 cases — `POST /session/:id/revert` and `GET /session/:id/diff` for a missing session — that fail against the old `UnknownError` wrap.
 
 **Verified.** `bun run typecheck` clean; `bun test test/server/httpapi-session.test.ts` 13 pass / 0 fail (a combined run with the mobile suite showed one environmental `models.dev` refresh timeout in the context-breakdown test, which passes in isolation).
+
+### 2026-08-24 — E5 closed (E5.1 + E5.4) and roadmap reconciliation
+
+**The session boundary is typed-channel only.** E5.2 / E5.3 had already landed in `ff061973ec` without the item being marked; this pass closed the two remaining halves and reconciled the plan with the tree.
+
+- **Reconciliation first.** The item's headline evidence — "the 2026-08-23 baseline is red, missing-session revert and diff answer 500" — was stale: `bun test test/server/httpapi-session.test.ts` was already 13 pass / 0 fail. `asSessionError` was described as private at `session/index.ts:913`; it is exported at `:918`. `SessionRevert.Interface` and `SessionSummary.summarize` / `diff` already carried `Session.Error`, and no untyped `tryPromise(() => ...)` remained in either module. Those three claims were corrected before any code changed, because a stale red baseline sends the next reader hunting a defect that is not there.
+- **E5.1 completed.** The existing three `Exit` / `Cause` assertions proved only that the squashed error was a `NotFoundError` — `Cause.squash` reads through both channels, so they could not tell a `fail` from a `die`. All three now assert `Cause.hasDies(exit.cause) === false` first. The busy half of the gate did not exist anywhere in `test/`: a fourth assertion seeds `PromptState.reserve(session.id)` and pins that a busy `SessionRevert.revert` fails with `Session.BusyError` on the typed channel, no defect.
+- **E5.4 completed.** `declaredErrors` is `Effect.catch(asSessionError)`; the defect arm is gone, so a genuine defect stays a 500 instead of being laundered into a declared 404 / 409. The `background` handler dropped its `catchDefect(() => succeed(undefined))`, which could turn any defect into a fake `{ error: "Session not found" }`. The MCP-toggle `catchDefect` at `session.ts:1007` is deliberately untouched: it swallows both channels for a best-effort log and is not part of this boundary.
+- **Audited, not converted.** The ten remaining `Effect.promise` sites are unknown I/O and keep `orDie`: `Array.fromAsync` in `list`, the two cancels in session delete, the `collectSystemPaths` dynamic import and call, and the four `Delegation` job routes.
+- **Left standing on purpose.** `SessionPrompt.assertNotBusy` is still `Effect.Effect<void>` raising by `throw` inside `Effect.gen`. Busy reaches callers typed only because `SessionRevert` re-maps the rejection through `Session.asSessionError`; the new assertion pins that. Narrowing the signature is a separate cleanup.
+
+**Verified.** `bun test test/server/httpapi-session.test.ts test/session/` 584 pass / 0 fail; `bun test test/server/` 185 pass / 0 fail; `bun run typecheck` clean. No HttpApi contract change, so no client regeneration.
 
 ## Follow working rules
 

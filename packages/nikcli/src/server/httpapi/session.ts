@@ -294,10 +294,16 @@ export namespace SessionHttpApi {
     return Effect.die(cause)
   }
 
-  /** Failure first, defect second — services still wrap async impls with
-   * Effect.promise, so expected errors can arrive on either channel. */
-  const declaredErrors = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.catch(asSessionError), Effect.catchDefect(asSessionError))
+  /** Expected session failures arrive on the typed channel only (E5).
+   *
+   * The defect half of this boundary is gone: every adapter that can reject
+   * with a session-domain error now maps it with `Session.asSessionError`
+   * (`session/revert.ts`, `session/summary.ts`, and the `Effect.tryPromise`
+   * bridges below), so a defect reaching here is a genuine bug and must stay
+   * a 500 rather than being laundered into a declared 404 / 409. The
+   * `Exit` / `Cause` assertions in `test/session/session-lifecycle.test.ts`
+   * pin that the missing-session and busy-session paths never die. */
+  const declaredErrors = <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.catch(asSessionError))
 
   // Drops present-`undefined` keys so an encoder declared with
   // `Schema.optional` puts an absent key on the wire instead of `null`.
@@ -1052,10 +1058,10 @@ export namespace SessionHttpApi {
     background: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        const found = yield* session.get(params.sessionID).pipe(
-          Effect.catch(() => Effect.succeed(undefined)),
-          Effect.catchDefect(() => Effect.succeed(undefined)),
-        )
+        // Typed channel only: `Session.Service.get` fails with `Session.Error`
+        // for a missing session, so the defect arm this used to carry can no
+        // longer fire (E5.4). A real defect stays a 500.
+        const found = yield* session.get(params.sessionID).pipe(Effect.catch(() => Effect.succeed(undefined)))
         if (!found) {
           return yield* Effect.fail({ error: "Session not found" as const })
         }

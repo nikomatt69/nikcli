@@ -22,9 +22,9 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 
 ### Phase 0 — Recover release integrity and stop the E5 regression
 
-- **Engineering** — C1 already gates every publish. Block new discovery work on the red E5 baseline (missing-session revert/diff returning 500 from `Effect.tryPromise` + `UnknownError`); finish E5.1–E5.4 before H8.1 starts. P2.1 may be developed in a separate lane and measured, but its result does not unblock H8 and may not hide the red merge gate.
+- **Engineering** — C1 already gates every publish. The E5 block on discovery is **lifted (2026-08-24)**: E5.1–E5.4 landed, the missing-session revert/diff 500 is gone, and the session/server scopes are green, so H8.1 may start. P2.1 may be developed in a separate lane and measured, but its result does not unblock H8.
 - **Product** — Run the **release-trust** discovery against the new world: prove a revision-bearing `GET /global/health` identity can be tied to the detached Railway upload without flaky polling, and establish the post-deploy health baseline window the engineering promotion rule will guard. In parallel, instrument the **first-use** baseline already named in the existing outcome table — install completed, provider configured, session created, first turn completed, categorized failure — only on top of stable E5 behavior so the cohort is not poisoned by the 500 path.
-- **Phase exit** — Both `bun run typecheck` and the session/server test scope are green; release-trust evidence shows the health identity round-trip succeeds for two consecutive Railway uploads; first-use baseline data exists for at least one release boundary.
+- **Phase exit** — Both `bun run typecheck` and the session/server test scope are green (**met 2026-08-24**); release-trust evidence shows the health identity round-trip succeeds for two consecutive Railway uploads; first-use baseline data exists for at least one release boundary. The two remaining legs are product-side and still open, so the phase is not closed — but the engineering leg no longer holds it.
 
 ### Phase 1 — Land measured P2 work and finish P2 discovery
 

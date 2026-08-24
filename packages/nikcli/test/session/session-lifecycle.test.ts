@@ -372,6 +372,9 @@ describe("session lifecycle", () => {
         )
         expect(exit._tag).toBe("Failure")
         if (exit._tag !== "Failure") return
+        // `Cause.squash` reads through both channels; `hasDies` is what
+        // separates a typed `Effect.fail` from an `Effect.die`.
+        expect(Cause.hasDies(exit.cause)).toBe(false)
         const error = Cause.squash(exit.cause)
         expect(error).toBeInstanceOf(SessionError.NotFoundError)
       })
@@ -388,8 +391,36 @@ describe("session lifecycle", () => {
         )
         expect(exit._tag).toBe("Failure")
         if (exit._tag !== "Failure") return
+        // `Cause.squash` reads through both channels; `hasDies` is what
+        // separates a typed `Effect.fail` from an `Effect.die`.
+        expect(Cause.hasDies(exit.cause)).toBe(false)
         const error = Cause.squash(exit.cause)
         expect(error).toBeInstanceOf(SessionError.NotFoundError)
+      })
+    })
+
+    it("SessionRevert.revert rejects with SessionBusyError on a typed failure channel", async () => {
+      await withProject(async () => {
+        const { PromptState } = await import("../../src/session/prompt-state")
+        const session = await createSession()
+        // Reserving the session is what `SessionPrompt.assertNotBusy` reads;
+        // a busy revert must reach the caller as `Session.BusyError` on the
+        // failure channel, not as a defect the HTTP boundary has to recover.
+        PromptState.reserve(session.id)
+        const exit = await runRevertExit(
+          Effect.gen(function* () {
+            const revert = yield* SessionRevert.Service
+            return yield* revert.revert({
+              sessionID: session.id,
+              messageID: "msg_does_not_exist",
+            })
+          }),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        const error = Cause.squash(exit.cause)
+        expect(error).toBeInstanceOf(Session.BusyError)
       })
     })
 
@@ -411,6 +442,9 @@ describe("session lifecycle", () => {
         )
         expect(exit._tag).toBe("Failure")
         if (exit._tag !== "Failure") return
+        // `Cause.squash` reads through both channels; `hasDies` is what
+        // separates a typed `Effect.fail` from an `Effect.die`.
+        expect(Cause.hasDies(exit.cause)).toBe(false)
         const error = Cause.squash(exit.cause)
         expect(error).toBeInstanceOf(SessionError.NotFoundError)
       })
