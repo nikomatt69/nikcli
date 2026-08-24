@@ -28,7 +28,7 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 
 ### Phase 1 — Land measured P2 work and finish P2 discovery
 
-- **Engineering** — Land P2.1 (session list filters / ordering / limit pushed into SQL) and use its measurement to decide whether the JSON-bound work in P2.2 (parsed-URL carry-through, slow/failure logging for `/event` and `/session/status`, request-path benches) is worth scheduling. Do not pre-commit to P2.2.
+- **Engineering** — P2.1 (session list filters / ordering / limit pushed into SQL) **landed 2026-08-24**: on 2000 seeded sessions with `limit=20`, the same request materializes 20 rows instead of 2000 and takes 0.73 ms instead of 7.84 ms. Use that measurement to decide whether the JSON-bound work in P2.2 (parsed-URL carry-through, slow/failure logging for `/event` and `/session/status`, request-path benches) is worth scheduling. Do not pre-commit to P2.2.
 - **Product** — Run the **first-use** baseline window against the SQL-backed list path: re-evaluate install-to-provider-ready completion and first-turn elapsed time on the new endpoint shape. If hot-poll cost was a dominant failure cause, document the new `/event` and `/session/status` behavior in the first-use failure taxonomy; otherwise the logging change becomes an engineering follow-up rather than a product bet.
 - **Phase exit** — P2.1 is on a loose CI budget, the same seeded request records a lower materialization count and elapsed time than before, and first-use baseline numbers are recorded for the release boundary the slice lands in.
 

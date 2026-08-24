@@ -36,7 +36,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | **E5**  | Done    | Keep expected session failures on Effect's typed channel (2026-08-24)     |
 | **H8**  | Now     | Declare auth/security with `HttpApiMiddleware` — E5 no longer blocks it   |
 | **S4r** | Done    | Import / teleport / run write through SessionV2                           |
-| **P2**  | Next    | Measured request-path cuts, beginning with session-list SQL               |
+| **P2**  | Now     | Request-path cuts: P2.1 landed and measured; P2.2 is the queued remainder |
 | **R1**  | Later   | Keyed scoped instance runtime after lifecycle coverage                    |
 | **T3**  | Later   | Output codecs on structured built-ins                                     |
 | **P3**  | Later   | Characterize, then optimize `normalizeMessages`                           |
@@ -143,7 +143,7 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 
 - **Order** — E5 is closed (2026-08-24), so H8.1 is the next item on the contract. The P2 session-list SQL slice is independent and may run alongside it; do not start the remaining P2 URL, logging, or benchmark work until that SQL change has been measured.
 - **H8.1 — Put auth on the contract.** E5 is green, so this is the next contract slice. Define the `HttpApiSecurity` / `HttpApiMiddleware` vocabulary, attach it to protected encoded groups composed by `PublicHttpApi` in `public.ts`, and preserve public endpoints plus raw SSE / prompt / upgrade exclusions. Effect's security decoder passes empty credentials to middleware, so the implementation must still delegate to canonical `Auth.authenticate` and preserve no-password open mode and Tailscale identity; a router-remembered principal is the one-authentication handoff. Gate: direct bridge, normal router, bearer, query token, Basic, open-mode, Tailscale, and public-route tests pass; OpenAPI asserts security on protected operations and its absence on public ones; `bun run check:routes` and client generation are clean.
-- **P2.1 — Push list work into SQL.** Add a service/repository query that applies project, workspace, roots, start, case-insensitive title search, updated-desc ordering, and limit before row mapping, then make `GET /session` delegate to it instead of materializing every project row in JS. Preserve `Filesystem.comparisonKey` semantics for directory filtering, especially Windows case folding; do not replace it with raw SQL equality without proving canonical storage. Gate: route cases cover each filter plus combined ordering / limit, `EXPLAIN QUERY PLAN` guides any index, and the same seeded request records rows materialized and elapsed time before and after.
+- **P2.1 — Push list work into SQL.** Landed 2026-08-24, measured below. P2.2 is now unblocked, but it is a separate decision: read the measurement before scheduling it.
 - **P2.2 — Queue the measured remainder.** Only after P2.1 records its result, carry the router's parsed URL into public, bridge, fallback, and mobile raw dispatch; then add a deterministic slow-or-failure logging policy for `/event` and `/session/status`, followed by loose-budget benches for `ServerRouter.context` and encoded `GET /session/:id`. Gate: request-pipeline reparses are gone without chasing unrelated provider / proxy URL parsing, failures and slow polls remain logged, and `bun run test:bench` records scenario metadata.
 
 ### Typed Effect failure channel (E5) — landed 2026-08-24
@@ -163,11 +163,11 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 
 - **Buys** — Encoded JSON requests stop paying for work the contract already did. Hot polls (`/event`, `/session/status`, TUI) stop dominating logs and extra SQL.
 - **Evidence** — Three of the five original items landed 2026-08-17 (`disableLogger`, `COUNT(*)`, the `sessionForRequest` short-circuit). What is left, measured 2026-08-19:
-  - `GET /session` (`httpapi/session.ts:629-650`) calls `SessionRepo.list` → `Array.fromAsync` over **every** session of the project, then filters directory / roots / start / search in JS, sorts, and slices the limit. `session/repo.ts:64-75` filters only by project: no list filter, ordering, or limit reaches SQL.
+  - ~~`GET /session` calls `SessionRepo.list` → `Array.fromAsync` over **every** session of the project, then filters directory / roots / start / search in JS, sorts, and slices the limit.~~ **Fixed 2026-08-24 (P2.1).** `SessionRepo.query` applies every filter, the ordering, and the limit in SQL; `Session.Service.query` converts the directory to its comparison key; the route delegates.
   - `ServerRouter.make` already parses one `URL` and passes it into `dispatch` / `context`, but downstream public, bridge, fallback, auth, and mobile raw paths still reparse `request.url`. Count only request-pipeline reparses; provider, repository, proxy-target, and other value parsing are unrelated.
   - `server-router.ts:269` / `:283` log start and completion for every request except `/log`; hot polls (`/event`, `/session/status`) dominate the log with no sampling or duration gate.
 - **Depends on** — nothing. Start with session-list SQL and measure it before queueing the rest. Do not rebuild the HttpApi layer per request — it is already memoized.
-- **Done when** — Session list limit/filter/search/order is SQL with directory comparison semantics preserved. The parsed router URL reaches downstream request dispatchers, `/event` and `/session/status` use a deterministic sampling or duration policy that never hides failures, and benches exist for `ServerRouter.context` with/without the session lookup and encoded `GET /session/:id`. Use loose CI budgets, like the supports bench.
+- **Done when** — Session list limit/filter/search/order is SQL with directory comparison semantics preserved — **met 2026-08-24**. Still open (P2.2): the parsed router URL reaches downstream request dispatchers, `/event` and `/session/status` use a deterministic sampling or duration policy that never hides failures, and benches exist for `ServerRouter.context` with/without the session lookup and encoded `GET /session/:id`. Use loose CI budgets, like the supports bench.
 
 ### `HttpApiMiddleware` on encoded groups (H8)
 
@@ -447,6 +447,20 @@ Diagnosing phase 2 took two blind cycles because the 400 had an **empty body and
 - **Left standing on purpose.** `SessionPrompt.assertNotBusy` is still `Effect.Effect<void>` raising by `throw` inside `Effect.gen`. Busy reaches callers typed only because `SessionRevert` re-maps the rejection through `Session.asSessionError`; the new assertion pins that. Narrowing the signature is a separate cleanup.
 
 **Verified.** `bun test test/server/httpapi-session.test.ts test/session/` 584 pass / 0 fail; `bun test test/server/` 185 pass / 0 fail; `bun run typecheck` clean. No HttpApi contract change, so no client regeneration.
+
+### 2026-08-24 (later) — P2.1 (session list filters, ordering, and limit in SQL)
+
+**`GET /session` stops reading the whole project to return twenty rows.** The route materialized every session of the project through `Array.fromAsync` — one `JSON.parse` of the `data` blob per stored row — then filtered directory / roots / start / search in JS, sorted, and sliced.
+
+- **Two derived columns, because the JS predicates are not expressible in SQLite without changing their meaning.** `session_info.directory_key` stores `Filesystem.comparisonKey(directory)`: on Windows that is a JS `toLowerCase` of a resolved, forward-slashed path, so `WHERE directory = ?` would be a different predicate and `WHERE lower(directory) = ?` an ASCII-only approximation of it. `session_info.title_lower` stores `title.toLowerCase()`, because SQLite's `lower()` is ASCII-only and would silently drop non-ASCII search matches the JS filter accepts. `20260824000000_session_directory_key` adds both and backfills them with the same functions the write path uses, so runtime and backfill agree by construction. Neither column is read back into `Session.Info` or put on the wire.
+- **Search uses `instr()`, not `LIKE`.** `LIKE` reads `%` and `_` in a user's search term as wildcards; `String.includes` does not. A route test pins that searching for `%` returns nothing.
+- **`SessionRepo.query` + `Session.Service.query`.** The repository takes a comparison key; the service takes a directory path and converts it, so no caller can pass a raw path where a key is expected. `list()` stays — it is the "walk every session of this project" iterator other callers still want. Ordering is `updated_at DESC, created_at ASC`; the tiebreaker reproduces the old behavior, whose stable `Array.prototype.sort` over a created-ascending input kept created order on equal `updatedAt`.
+- **Both hand-enumerated column lists updated.** `upsert`'s `onConflictDoUpdate.set` and `update`'s `.set` list columns one by one, so the derived pair had to be added to both — otherwise a rename would leave `title_lower` stale and the search filter would match the old title.
+- **`EXPLAIN QUERY PLAN` chose the index shape.** A plain `(project_id, updated_at)` index gave `SEARCH … USING INDEX` plus `USE TEMP B-TREE FOR LAST TERM OF ORDER BY`. Declaring the index `(project_id, updated_at DESC, created_at ASC)` — matching the query's directions — reduces the plan to the bare `SEARCH`.
+
+**Measured.** 2000 seeded sessions, `limit=20`, same request before and after: rows materialized 2000 → 20, elapsed 7.84 ms → 0.73 ms. The measurement harness was a throwaway; it is not in the tree.
+
+**Verified.** `bun test test/server/ test/session/ test/database/` 792 pass / 1 fail, the failure being `httpapi-file.test.ts`'s ripgrep search under load, which passes alone — the documented load flake, unrelated to this change. `bun run typecheck` clean. No HttpApi contract change, so no client regeneration.
 
 ## Follow working rules
 

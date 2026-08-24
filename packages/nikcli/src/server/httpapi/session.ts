@@ -24,7 +24,6 @@ import { SessionStatus } from "@/session/status"
 import { Todo } from "@/session/todo"
 import { SessionV2 } from "@/session/v2"
 import { WorkspaceContext } from "@/workspace/workspace-context"
-import { Filesystem } from "@nikcli-ai/util/filesystem"
 
 export namespace SessionHttpApi {
   const log = Log.create({ service: "httpapi.session" })
@@ -636,24 +635,19 @@ export namespace SessionHttpApi {
       Effect.gen(function* () {
         const ctx = yield* InstanceState.context
         const service = yield* Session.Service
-        const iterable = yield* service.list()
-        const sessions = yield* Effect.promise(() => Array.fromAsync(iterable))
-        const term = query.search?.toLowerCase()
+        // Filter / order / limit happen in SQL (P2.1). This used to read every
+        // session of the project through `Array.fromAsync` — one `JSON.parse`
+        // of the `data` blob per stored row — and then filter, sort, and slice
+        // in JS. An active workspace still pins the directory to the instance's
+        // own, overriding whatever the query asked for.
         const directory = WorkspaceContext.workspaceID ? ctx.directory : query.directory
-        const filtered = sessions.filter((session) => {
-          if (
-            directory !== undefined &&
-            Filesystem.comparisonKey(session.directory) !== Filesystem.comparisonKey(directory)
-          )
-            return false
-          if (query.roots && session.parentID) return false
-          if (query.start !== undefined && session.time.updated < query.start) return false
-          if (term !== undefined && !session.title.toLowerCase().includes(term)) return false
-          return true
+        return yield* service.query({
+          ...(directory !== undefined ? { directory } : {}),
+          ...(query.roots !== undefined ? { roots: query.roots } : {}),
+          ...(query.start !== undefined ? { start: query.start } : {}),
+          ...(query.search !== undefined ? { search: query.search } : {}),
+          ...(query.limit !== undefined ? { limit: query.limit } : {}),
         })
-        filtered.sort((a, b) => b.time.updated - a.time.updated)
-        const limited = query.limit !== undefined ? filtered.slice(0, query.limit) : filtered
-        return limited
       }).pipe(Effect.orDie),
     status: () =>
       Effect.gen(function* () {

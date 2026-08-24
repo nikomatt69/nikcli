@@ -68,6 +68,7 @@ describe("Database.Service", () => {
       { id: "20260814100000_session_pending" },
       { id: "20260814110000_instruction_sync" },
       { id: "20260816000000_session_last_model" },
+      { id: "20260824000000_session_directory_key" },
     ])
     expect(result.tables.map((table) => table.name)).toEqual([
       "account",

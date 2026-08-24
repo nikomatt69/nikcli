@@ -319,6 +319,90 @@ describe("Session HttpApi bridge", () => {
     expect(created.directory).toBe(directory)
   })
 
+  /**
+   * P2.1 pushed the list route's filters, ordering, and limit into SQL. Each
+   * case here is a predicate that used to run in JS over every session of the
+   * project; the directory case additionally pins that the SQL comparison is
+   * still `Filesystem.comparisonKey`, not raw string equality — a
+   * non-canonical spelling of the same path has to match.
+   */
+  describe("list filters run in SQL", () => {
+    it("filters by directory on the comparison key, not the raw path", async () => {
+      const directory = await makeProjectDir()
+      const created = (await post("/session", directory, { title: "In this directory" })) as { id: string }
+
+      const exact = await listByInstance(directory, { directory })
+      expect(exact.map((session) => session.id)).toContain(created.id)
+
+      // Same directory, spelled so that only a path *resolve* makes it equal.
+      // Raw SQL equality on the stored `directory` column would miss this.
+      const nonCanonical = await listByInstance(directory, {
+        directory: `${directory}/child/..`,
+      })
+      expect(nonCanonical.map((session) => session.id)).toContain(created.id)
+
+      const elsewhere = await listByInstance(directory, {
+        directory: path.join(directory, "not-this-one"),
+      })
+      expect(elsewhere.map((session) => session.id)).not.toContain(created.id)
+    })
+
+    it("filters roots, start, and search, and applies ordering with limit", async () => {
+      const directory = await makeProjectDir()
+      const parent = (await post("/session", directory, { title: "Alpha parent" })) as {
+        id: string
+        time: { updated: number }
+      }
+      const child = (await post("/session", directory, {
+        parentID: parent.id,
+        title: "Beta child",
+      })) as { id: string }
+      const other = (await post("/session", directory, { title: "Gamma root" })) as {
+        id: string
+        time: { updated: number }
+      }
+
+      const roots = await listByInstance(directory, { roots: "true" })
+      const rootIds = roots.map((session) => session.id)
+      expect(rootIds).toContain(parent.id)
+      expect(rootIds).toContain(other.id)
+      expect(rootIds).not.toContain(child.id)
+
+      // `search` is a case-insensitive substring test on the title.
+      const search = await listByInstance(directory, { search: "beta" })
+      expect(search.map((session) => session.id)).toEqual([child.id])
+
+      // `%` is a LIKE wildcard but not a `String.includes` one: a term
+      // containing it must match literally, i.e. nothing here.
+      expect(await listByInstance(directory, { search: "%" })).toEqual([])
+
+      // `start` is a `time.updated >= start` boundary.
+      const future = await listByInstance(directory, { start: String(Date.now() + 60_000) })
+      expect(future).toEqual([])
+      const past = await listByInstance(directory, { start: "1" })
+      expect(past.length).toBeGreaterThanOrEqual(3)
+
+      // Ordering is newest-updated first — asserted on the values rather than
+      // on which session happens to win, because three sessions created in the
+      // same millisecond legitimately tie.
+      const all = (await listByInstance(directory)) as unknown as { id: string; time: { updated: number } }[]
+      expect(all.length).toBeGreaterThanOrEqual(3)
+      for (let i = 1; i < all.length; i++) {
+        expect(all[i - 1]!.time.updated).toBeGreaterThanOrEqual(all[i]!.time.updated)
+      }
+
+      // The limit is applied after that ordering, not before it.
+      const limited = await listByInstance(directory, { limit: "1" })
+      expect(limited.map((session) => session.id)).toEqual([all[0]!.id])
+
+      // Combined: root sessions only, newest first, one row — and the child is
+      // excluded even though it may sort ahead of both roots.
+      const combined = await listByInstance(directory, { roots: "true", limit: "1" })
+      expect(combined).toHaveLength(1)
+      expect([parent.id, other.id]).toContain(combined[0]!.id)
+    })
+  })
+
   it("serves session list and status routes", async () => {
     const directory = await makeProjectDir()
     const created = (await post("/session", directory, {

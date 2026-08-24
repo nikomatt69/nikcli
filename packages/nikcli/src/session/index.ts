@@ -21,6 +21,7 @@ import { Snapshot } from "@/snapshot"
 import type { Provider } from "@/provider/provider"
 import { PermissionNext } from "@/permission/next"
 import { Global } from "@nikcli-ai/util/global"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { WorkspaceContext } from "../workspace/workspace-context"
 import { WorkspaceDB } from "../workspace/db"
 import {
@@ -236,6 +237,19 @@ export namespace Session {
     limit: z.number().optional(),
   })
   export type MessagesInput = z.infer<typeof MessagesInput>
+
+  /**
+   * Filters for the session list read (P2.1). `directory` is a path — the
+   * service converts it to the stored `Filesystem.comparisonKey`, so callers
+   * never handle the key form.
+   */
+  export type QueryInput = {
+    directory?: string | undefined
+    roots?: boolean | undefined
+    start?: number | undefined
+    search?: string | undefined
+    limit?: number | undefined
+  }
 
   export const RemoveMessageInput = z.object({
     sessionID: ID,
@@ -557,6 +571,28 @@ export namespace Session {
       if (activeWorkspaceID && session.workspaceID !== activeWorkspaceID) continue
       yield session
     }
+  }
+
+  /**
+   * The list route's filters, ordering, and limit, evaluated in SQL.
+   *
+   * `list()` stays: it is the "walk every session of this project" iterator
+   * other callers still want. This is the filtered read (P2.1), and it takes
+   * a `directory` path rather than a comparison key so the caller cannot
+   * accidentally pass a raw path where a key is expected — the conversion
+   * happens here, next to the write path that stores it.
+   */
+  function queryImpl(ctx: InstanceContext, input: QueryInput): Info[] {
+    const activeWorkspaceID = WorkspaceContext.workspaceID
+    return SessionRepo.query({
+      projectId: ctx.project.id,
+      ...(activeWorkspaceID ? { workspaceId: activeWorkspaceID } : {}),
+      ...(input.directory !== undefined ? { directoryKey: Filesystem.comparisonKey(input.directory) } : {}),
+      ...(input.roots !== undefined ? { roots: input.roots } : {}),
+      ...(input.start !== undefined ? { start: input.start } : {}),
+      ...(input.search !== undefined ? { search: input.search } : {}),
+      ...(input.limit !== undefined ? { limit: input.limit } : {}),
+    })
   }
 
   async function childrenImpl(ctx: InstanceContext, parentID: string) {
@@ -892,6 +928,7 @@ export namespace Session {
     diff(sessionID: string): Effect.Effect<Snapshot.FileDiff[], Error>
     messages(input: MessagesInput): Effect.Effect<MessageV2.WithParts[], Error>
     list(): Effect.Effect<AsyncIterable<Info>>
+    query(input: QueryInput): Effect.Effect<Info[], Error>
     children(parentID: string): Effect.Effect<Info[], Error>
     remove(sessionID: string): Effect.Effect<void, Error>
     removeMessageWithParts(sessionID: string, messageID: string): Effect.Effect<void, Error>
@@ -1052,6 +1089,15 @@ export namespace Session {
           ),
         ),
       list: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.sync(() => listImpl(ctx)))),
+      query: (input) =>
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.try({
+              try: () => queryImpl(ctx, input),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       children: (parentID) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) =>

@@ -26,6 +26,7 @@ import workspaceJson from "./migration/20260814090000_workspace_json"
 import sessionPending from "./migration/20260814100000_session_pending"
 import instructionSync from "./migration/20260814110000_instruction_sync"
 import sessionLastModel from "./migration/20260816000000_session_last_model"
+import sessionDirectoryKey from "./migration/20260824000000_session_directory_key"
 
 export const migrations = [
   initial,
@@ -55,4 +56,5 @@ export const migrations = [
   sessionPending,
   instructionSync,
   sessionLastModel,
+  sessionDirectoryKey,
 ] satisfies DatabaseMigration.Migration[]
