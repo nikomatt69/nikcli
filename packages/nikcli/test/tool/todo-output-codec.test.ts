@@ -102,7 +102,7 @@ describe("todo tools — output codec", () => {
       description: "todo",
       input: z.toJSONSchema(def.parameters, { io: "input" }) as never,
       output: z.toJSONSchema(def.output!, { io: "output" }) as never,
-      run: () => Effect.succeed(null),
+      run: () => Effect.die("catalog-only tool in a signature test"),
     })
 
     // Without a codec this reads `unknown`, and `code_mode.ts` renders the

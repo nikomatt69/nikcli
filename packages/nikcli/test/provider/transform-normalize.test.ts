@@ -102,7 +102,7 @@ describe("normalizeMessages — surrogate sanitization (every provider)", () => 
     expect(contentOf(msgs[0])[0].text).toBe("before�after")
     expect(contentOf(msgs[1])[0].text).toBe("before�after")
     expect(contentOf(msgs[1])[1].text).toBe("before�after")
-    expect(contentOf(msgs[2])[0].output.value).toBe("before�after")
+    expect(contentOf(msgs[2])[0]?.output?.value).toBe("before�after")
   })
 
   it("sanitizes error-text and structured content tool results", () => {
@@ -126,8 +126,8 @@ describe("normalizeMessages — surrogate sanitization (every provider)", () => 
     )
 
     const parts = contentOf(msgs[0])
-    expect(parts[0].output.value).toBe("before�after")
-    expect(parts[1].output.value[0].text).toBe("before�after")
+    expect(parts[0]?.output?.value).toBe("before�after")
+    expect(parts[1]?.output?.value[0].text).toBe("before�after")
   })
 
   it("leaves a valid surrogate pair alone", () => {
@@ -210,8 +210,8 @@ describe("normalizeMessages — Anthropic empty content", () => {
     // the signature chain on the next turn.
     const parts = contentOf(msgs[0])
     expect(parts).toHaveLength(2)
-    expect(parts[0].providerOptions.anthropic.signature).toBe("sig")
-    expect(parts[1].providerOptions.anthropic.redactedData).toBe("red")
+    expect(parts[0]?.providerOptions?.anthropic?.signature).toBe("sig")
+    expect(parts[1]?.providerOptions?.anthropic?.redactedData).toBe("red")
   })
 
   it("applies the same rule under Bedrock with Bedrock's own provider key", () => {

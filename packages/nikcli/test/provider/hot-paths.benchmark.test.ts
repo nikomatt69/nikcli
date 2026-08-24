@@ -134,7 +134,7 @@ describe("Provider hot paths (benchmark)", () => {
         text?: string
         output?: { type: string; value: string }
       }>) {
-        if (part.type === "text" || part.type === "reasoning") strings.push(part.text)
+        if ((part.type === "text" || part.type === "reasoning") && part.text !== undefined) strings.push(part.text)
         if (part.type === "tool-result" && (part.output?.type === "text" || part.output?.type === "error-text")) {
           strings.push(part.output.value)
         }
