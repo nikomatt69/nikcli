@@ -10,7 +10,7 @@
     "dev": "bun run --cwd packages/nikcli --conditions=browser src/index.ts",
     "build:single": "bun run --cwd packages/nikcli build:single",
     "dev:bin": "bun run --cwd packages/nikcli dev:bin",
-    "typecheck": "bun turbo typecheck",
+    "typecheck": "bun turbo typecheck --concurrency=1",
     "prepare": "husky",
     "random": "echo 'Random script'",
     "hello": "echo 'Hello World!'",
