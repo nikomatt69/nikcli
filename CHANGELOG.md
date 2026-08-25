@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.317.0 (August 2026)
+
+## Core
+
+- Thread the instance context through every module that held one (R1) (@nikomatt69)
+- Stop crossing the Effect runtime to read three ALS getters (R1) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(instance): stop crossing the Effect runtime to read three ALS getters (R1)
+  - refactor(instance): thread the instance context through every module that held one (R1)
+
 ## v1.316.0 (August 2026)
 
 ## Core

@@ -197,6 +197,7 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 
   - ~~`withInstanceAsync` has no `init` path.~~ Amended 2026-08-25: the two bridges are collapsed into one, which is what the clause was protecting; the `init` option stays because the bootstrap-cost measurement says removing it buys correctness the mechanism already provides and costs a disable flag in the contract.
   - ~~`InstanceState.context` does not catch into ALS.~~ Amended 2026-08-25: that catch is a tool-layer remainder under `withCurrentInstance`, which is not a fallback but the boundary 210 Promise-side call sites cross to enter Effect. Deleting either is not the property worth having. What replaces the clause: the ALS read happens only where a context genuinely cannot be threaded, no module both holds an `InstanceContext` and re-derives one from ALS, and no call site starts a fiber solely to read the ambient scope.
+
 - **Gate met 2026-08-24** — `test/project/instance-lifecycle.test.ts` pins all four legs (15 tests) against the current promise-cache implementation, and deliberately asserts no storage mechanism: it is the contract the keyed runtime has to keep, not a description of the `Map`. The migration itself is still open — what changed is that it can now be attempted against a suite that would notice if it changed behaviour.
 
   **What the coverage actually pins**, because two of these are easy to break by accident and were not written down anywhere:
