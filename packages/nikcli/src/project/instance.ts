@@ -25,6 +25,16 @@ interface Context {
    * because plenty of call sites acquire an instance without an `init`.
    */
   bootstrapped?: Promise<void>
+  /**
+   * Set the moment teardown begins, before the first disposer runs.
+   *
+   * The ambient scope outlives `dispose()` — every accessor keeps answering,
+   * because they read the scope and not the cache — so without this the
+   * context cannot tell a caller that the instance behind it is gone. It is
+   * what makes teardown idempotent and what lets a disposer registered too
+   * late run instead of being dropped in silence.
+   */
+  disposed?: boolean
 }
 const context = Context.create<Context>("instance")
 const cache = new Map<string, Promise<Context>>()
@@ -161,10 +171,28 @@ export const Instance = {
     return State.create(() => Instance.directory, init, dispose)
   },
   registerDisposer(disposer: () => void | Promise<void>) {
-    context.use().disposers.add(disposer)
+    const ctx = context.use()
+    if (ctx.disposed) {
+      // The set has already been walked and will not be walked again, and the
+      // cache entry that would have reached it is deleted, so adding to it
+      // drops the disposer silently. Whatever it closes was created on an
+      // instance that is already gone, so close it now.
+      void Promise.resolve()
+        .then(() => disposer())
+        .catch((error) => {
+          Log.Default.warn("late instance disposer failed", { directory: ctx.directory, error })
+        })
+      return
+    }
+    ctx.disposers.add(disposer)
   },
   async dispose() {
     const ctx = context.use()
+    // Teardown is idempotent. Both calls resolve the same context off the
+    // ambient scope, and `disposers.clear()` only ever protected the disposer
+    // set: the disposal event and the state teardown outside it ran twice.
+    if (ctx.disposed) return
+    ctx.disposed = true
     Log.Default.info("disposing instance", { directory: ctx.directory })
 
     const { Bus } = await import("@/bus")
@@ -227,5 +255,10 @@ export const Instance = {
       }
     }
     cache.clear()
+    // State read back after its instance was disposed rebuilt under the same
+    // directory key with no cache entry left to reach it. Collect those here
+    // rather than leaving them for a later acquire-and-dispose of that
+    // directory that may never come.
+    await State.disposeAll()
   },
 }

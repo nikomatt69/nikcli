@@ -14,6 +14,7 @@ preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const { Instance } = await import("@/project/instance")
 const { InstanceState } = await import("@/effect")
+const { Bus } = await import("@/bus")
 
 const created: string[] = []
 
@@ -289,17 +290,64 @@ describe("Instance lifecycle — disposal", () => {
         Instance.registerDisposer(() => {
           runs++
         })
-        // Both calls resolve the same context off the ambient scope, so the
-        // second one still has a disposer set to walk. `disposers.clear()` is
-        // the only thing standing between that and a double teardown — which
-        // for a real disposer (a watcher, a server, a database handle) is a
-        // second close on something already closed.
+        // Both calls resolve the same context off the ambient scope. Teardown
+        // is idempotent as of 2026-08-25, so the second returns immediately;
+        // before that, `disposers.clear()` was the only thing standing between
+        // this and a double close on a watcher, a server or a database handle,
+        // and the disposal event and state teardown outside that set ran twice
+        // regardless.
         await Instance.dispose()
         await Instance.dispose()
       },
     })
 
     expect(runs).toBe(1)
+  })
+
+  it("publishes the disposal event once when disposal is entered twice", async () => {
+    // What `disposers.clear()` never covered: everything outside the disposer
+    // set — the disposal event, the state teardown — ran again on the second
+    // call, because both calls resolve the same context off the ambient scope.
+    const dir = await directory("dispose-twice-event")
+    let events = 0
+
+    await Instance.provide({
+      directory: dir,
+      fn: async () => {
+        const unsubscribe = await Bus.subscribe(Bus.InstanceDisposed, (event) => {
+          if (event.properties.directory === dir) events++
+        })
+        await Instance.dispose()
+        await Instance.dispose()
+        unsubscribe()
+      },
+    })
+
+    expect(events).toBe(1)
+  })
+
+  it("runs a disposer that registers another disposer during teardown", async () => {
+    // The instance is marked disposed before the walk, not after it, so a
+    // registration that arrives mid-teardown is treated as late and runs.
+    // Marking it afterwards would add it to a set that is cleared moments
+    // later, which drops it without a word.
+    const dir = await directory("dispose-nested")
+    let nested = 0
+
+    await Instance.provide({
+      directory: dir,
+      fn: async () => {
+        Instance.registerDisposer(() => {
+          Instance.registerDisposer(() => {
+            nested++
+          })
+        })
+        await Instance.dispose()
+      },
+    })
+
+    await Instance.disposeAll()
+    expect(nested).toBe(1)
   })
 
   it("gives a re-acquired instance a fresh disposer set", async () => {
@@ -419,7 +467,17 @@ describe("Instance lifecycle — the ALS fallback R1 removes", () => {
  * the reason R1 needs the keyed runtime to give those call sites invalidation
  * semantics instead of teardown. When it lands, invert them.
  */
-describe("Instance lifecycle — what survives dispose (characterized, not endorsed)", () => {
+/**
+ * Two of the three defects this block characterized are fixed (2026-08-25).
+ * They are inverted here rather than deleted, so the day the old behaviour
+ * stopped is recorded as a decision and not as a missing test.
+ *
+ * The first is deliberately still green: `dispose()` does not blind the
+ * ambient accessors. 215 synchronous `Instance.*` reads across 89 files
+ * depend on them answering, and making them throw is the keyed runtime's
+ * change to make, not a side effect of fixing disposer registration.
+ */
+describe("Instance lifecycle — what survives dispose", () => {
   it("keeps the ambient context live after the instance is gone", async () => {
     const dir = await directory("post-dispose-ambient")
 
@@ -436,7 +494,7 @@ describe("Instance lifecycle — what survives dispose (characterized, not endor
     })
   })
 
-  it("never runs a disposer registered after dispose", async () => {
+  it("runs a disposer registered after dispose instead of dropping it", async () => {
     const dir = await directory("post-dispose-disposer")
     let runs = 0
 
@@ -450,13 +508,15 @@ describe("Instance lifecycle — what survives dispose (characterized, not endor
       },
     })
 
-    // The set was already walked and cleared, and the cache entry it would have
-    // been reached through is deleted, so `disposeAll` has nothing to find.
+    // Inverted 2026-08-25. The set has been walked and will not be walked
+    // again, and the cache entry that would have reached it is deleted — so
+    // adding to it used to drop the disposer in silence. It runs immediately
+    // now, because whatever it closes was created on a dead instance.
     await Instance.disposeAll()
-    expect(runs).toBe(0)
+    expect(runs).toBe(1)
   })
 
-  it("leaves state rebuilt after dispose without an owner", async () => {
+  it("collects state rebuilt after dispose instead of leaking it", async () => {
     const dir = await directory("post-dispose-state")
     let disposed = 0
 
@@ -472,15 +532,17 @@ describe("Instance lifecycle — what survives dispose (characterized, not endor
         state()
         await Instance.dispose()
         expect(disposed).toBe(1)
-        // Reading it again re-runs `init` under the same directory key. This
-        // second instance outlives the scope: only a later acquire-and-dispose
-        // of the same directory would ever collect it.
+        // Reading it again re-runs `init` under the same directory key, with
+        // no cache entry left to reach it.
         state()
       },
     })
 
+    // Inverted 2026-08-25. That second cell used to be collectable only by a
+    // later acquire-and-dispose of the same directory, which may never come;
+    // `disposeAll` sweeps the state records that outlived their instances.
     await Instance.disposeAll()
-    expect(disposed).toBe(1)
+    expect(disposed).toBe(2)
   })
 })
 
