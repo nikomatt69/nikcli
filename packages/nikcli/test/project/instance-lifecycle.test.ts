@@ -544,3 +544,141 @@ describe("Instance lifecycle — invalidation", () => {
     expect(Instance.has(dir)).toBe(true)
   })
 })
+
+/**
+ * Bootstrap belongs to the instance, not to whoever reached it first.
+ *
+ * It used not to. `init` was a parameter of the caller, so an acquisition that
+ * passed none permanently decided that the directory would never be
+ * bootstrapped, and every later caller's `init` was dropped in silence. That
+ * was reachable in production, not a test-only shape: `server/mobile/
+ * session.ts` creates a session on a *freshly created worktree directory* with
+ * no `init`, so that worktree's instance came up without LSP, the file
+ * watcher, the formatter, snapshots, hot reload, or the loop / mission /
+ * routine restores — and a later `withInstanceAsync({ directory, init:
+ * InstanceBootstrap })` for the same worktree joined that entry and did
+ * nothing.
+ *
+ * Every `init` passed anywhere in `src` is the same constant
+ * (`InstanceBootstrap`), which is what made this a defect rather than a
+ * policy: no caller wants a different bootstrap, they only disagreed about
+ * whether one happens at all.
+ */
+describe("Instance lifecycle — init belongs to the instance", () => {
+  it("runs a later init on an instance an earlier caller created without one", async () => {
+    const dir = await directory("init-first-caller")
+    let bootstraps = 0
+
+    // Stands in for the mobile session route: a fresh worktree, no init.
+    await Instance.provide({ directory: dir, fn: async () => {} })
+
+    // Stands in for the HTTP router: same directory, InstanceBootstrap.
+    await Instance.provide({
+      directory: dir,
+      init: async () => {
+        bootstraps++
+      },
+      fn: async () => {},
+    })
+
+    expect(bootstraps).toBe(1)
+    expect(Instance.has(dir)).toBe(true)
+
+    // And still only once: a third caller joins the bootstrap that ran.
+    await Instance.provide({
+      directory: dir,
+      init: async () => {
+        bootstraps++
+      },
+      fn: async () => {},
+    })
+    expect(bootstraps).toBe(1)
+  })
+
+  it("shares one retroactive bootstrap between concurrent askers", async () => {
+    const dir = await directory("init-retro-shared")
+    const gate = deferred()
+    let bootstraps = 0
+
+    await Instance.provide({ directory: dir, fn: async () => {} })
+
+    const init = async () => {
+      bootstraps++
+      await gate.promise
+    }
+    // Both find the instance already built and both ask for a bootstrap; the
+    // loser has to join the winner's run rather than start a second one.
+    const first = Instance.provide({ directory: dir, init, fn: async () => "a" })
+    const second = Instance.provide({ directory: dir, init, fn: async () => "b" })
+
+    gate.resolve()
+    expect(await Promise.all([first, second])).toEqual(["a", "b"])
+    expect(bootstraps).toBe(1)
+  })
+
+  it("lets the next caller retry a retroactive bootstrap that failed, and keeps the instance", async () => {
+    const dir = await directory("init-retro-fail")
+    let attempts = 0
+
+    await Instance.provide({ directory: dir, fn: async () => {} })
+
+    await expect(
+      Instance.provide({
+        directory: dir,
+        init: async () => {
+          attempts++
+          throw new Error("retro bootstrap exploded")
+        },
+        fn: () => "unreachable",
+      }),
+    ).rejects.toThrow("retro bootstrap exploded")
+
+    // The instance predates the failed bootstrap and other callers hold it, so
+    // unlike a failed *creation* it is not evicted — but the failure is not
+    // sticky either.
+    expect(Instance.has(dir)).toBe(true)
+
+    await Instance.provide({
+      directory: dir,
+      init: async () => {
+        attempts++
+      },
+      fn: async () => {},
+    })
+    expect(attempts).toBe(2)
+  })
+
+  it("runs init once when the caller that passes one arrives first", async () => {
+    const dir = await directory("init-bootstrap-first")
+    let bootstraps = 0
+    const init = async () => {
+      bootstraps++
+    }
+
+    await Instance.provide({ directory: dir, init, fn: async () => {} })
+    await Instance.provide({ directory: dir, init, fn: async () => {} })
+    await Instance.provide({ directory: dir, fn: async () => {} })
+
+    // Once per directory, not once per call — the property the keyed runtime
+    // has to keep. Only the *skipped* case above is the defect.
+    expect(bootstraps).toBe(1)
+  })
+
+  it("runs init inside the instance scope it is bootstrapping", async () => {
+    const dir = await directory("init-scope")
+    let seen: string | undefined
+
+    await Instance.provide({
+      directory: dir,
+      init: async () => {
+        seen = Instance.directory
+      },
+      fn: async () => {},
+    })
+
+    // InstanceBootstrap reads `Instance.directory` on its first line and
+    // registers disposers on the context being built, so init must not run
+    // before the scope exists.
+    expect(seen).toBe(dir)
+  })
+})

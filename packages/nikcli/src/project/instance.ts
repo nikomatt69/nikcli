@@ -17,6 +17,14 @@ interface Context {
   worktree: string
   project: Project.Info
   disposers: Set<() => void | Promise<void>>
+  /**
+   * The in-flight or settled bootstrap for this instance, if one has been
+   * asked for. Present means "someone has already run `init` here", so a
+   * later caller passing the same `init` joins instead of repeating it.
+   * Absent means no caller has asked yet — which is a reachable state,
+   * because plenty of call sites acquire an instance without an `init`.
+   */
+  bootstrapped?: Promise<void>
 }
 const context = Context.create<Context>("instance")
 const cache = new Map<string, Promise<Context>>()
@@ -52,15 +60,21 @@ export const Instance = {
             return yield* project.fromDirectory(directory)
           }),
         )
-        const ctx = {
+        const ctx: Context = {
           directory,
           worktree: sandbox,
           project,
           disposers: new Set<() => void | Promise<void>>(),
         }
-        await context.provide(ctx, async () => {
-          await input.init?.()
-        })
+        if (input.init) {
+          await context.provide(ctx, async () => {
+            await input.init!()
+          })
+          // Record it on the context, not just on the closure: the next caller
+          // to pass an `init` for this directory has to be able to tell that
+          // one has already run.
+          ctx.bootstrapped = Promise.resolve()
+        }
         return ctx
       })()
       cache.set(directory, promise)
@@ -76,6 +90,34 @@ export const Instance = {
       }
       Log.Default.warn("instance creation failed", { directory, error: err })
       throw err
+    }
+
+    // Bootstrap belongs to the instance, not to whoever reached it first.
+    // Without this, an acquisition that passes no `init` — the mobile session
+    // route creating a fresh worktree, for one — permanently decides that the
+    // directory is never bootstrapped, and every later caller's `init` is
+    // dropped in silence. Single-flight, so concurrent askers share one run.
+    if (input.init) {
+      let pending = ctx.bootstrapped
+      if (!pending) {
+        const init = input.init
+        // Inside the scope: `InstanceBootstrap` reads `Instance.directory` and
+        // registers disposers on the context it is bootstrapping.
+        pending = context.provide(ctx, async () => {
+          await init()
+        })
+        ctx.bootstrapped = pending
+      }
+      try {
+        await pending
+      } catch (err) {
+        // Clear so the next caller retries, the same way a failed creation is
+        // evicted. The instance itself is not dropped: unlike a failed
+        // creation it was already built and already handed out, and evicting
+        // it here would tear down state that other callers hold.
+        if (ctx.bootstrapped === pending) ctx.bootstrapped = undefined
+        throw err
+      }
     }
 
     return context.provide(ctx, async () => {
