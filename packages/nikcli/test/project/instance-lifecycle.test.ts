@@ -404,3 +404,76 @@ describe("Instance lifecycle — the ALS fallback R1 removes", () => {
     expect(ctx.project.id).toBeString()
   })
 })
+
+/**
+ * `dispose()` tears down the instance but leaves the ambient scope answering,
+ * so a caller that disposes mid-request and keeps working — which is exactly
+ * what `httpapi/provider.ts` and `httpapi/config.ts` do — builds state that
+ * nothing owns. These tests characterize that, they do not endorse it: they are
+ * the reason R1 needs the keyed runtime to give those call sites invalidation
+ * semantics instead of teardown. When it lands, invert them.
+ */
+describe("Instance lifecycle — what survives dispose (characterized, not endorsed)", () => {
+  it("keeps the ambient context live after the instance is gone", async () => {
+    const dir = await directory("post-dispose-ambient")
+
+    await Instance.provide({
+      directory: dir,
+      fn: async () => {
+        await Instance.dispose()
+        // The cache entry is gone, yet every accessor still answers, because
+        // they read the scope rather than the cache. Nothing tells the caller
+        // it is now holding a disposed instance.
+        expect(Instance.has(dir)).toBe(false)
+        expect(Instance.directory).toBe(dir)
+      },
+    })
+  })
+
+  it("never runs a disposer registered after dispose", async () => {
+    const dir = await directory("post-dispose-disposer")
+    let runs = 0
+
+    await Instance.provide({
+      directory: dir,
+      fn: async () => {
+        await Instance.dispose()
+        Instance.registerDisposer(() => {
+          runs++
+        })
+      },
+    })
+
+    // The set was already walked and cleared, and the cache entry it would have
+    // been reached through is deleted, so `disposeAll` has nothing to find.
+    await Instance.disposeAll()
+    expect(runs).toBe(0)
+  })
+
+  it("leaves state rebuilt after dispose without an owner", async () => {
+    const dir = await directory("post-dispose-state")
+    let disposed = 0
+
+    await Instance.provide({
+      directory: dir,
+      fn: async () => {
+        const state = Instance.state(
+          () => ({ n: 1 }),
+          async () => {
+            disposed++
+          },
+        )
+        state()
+        await Instance.dispose()
+        expect(disposed).toBe(1)
+        // Reading it again re-runs `init` under the same directory key. This
+        // second instance outlives the scope: only a later acquire-and-dispose
+        // of the same directory would ever collect it.
+        state()
+      },
+    })
+
+    await Instance.disposeAll()
+    expect(disposed).toBe(1)
+  })
+})

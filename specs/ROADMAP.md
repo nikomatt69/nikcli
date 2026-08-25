@@ -2,7 +2,7 @@
 
 Orders verified work by value and dependency.
 
-Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. E5, P2 and H8 all closed on 2026-08-24. R1's lifecycle-coverage gate is met (2026-08-24) and the migration is `Ready` but not started. P3 is closed on its measurement: `normalizeMessages` is characterized and deliberately unchanged. T3 landed on the three built-ins that already emitted JSON. The near plan is empty and R1 is the only item left with work in it. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
+Last reconciled against the source: **2026-08-24**. H4 / H5 / H1 / H6 / I1 / X2 / H7 / H3 / C1 are done. E4 is complete under its corrected scope: the remaining `jsonSafe` calls protect deliberately open or live-function payloads and are not optional-key debt. E5 is closed: the session boundary maps declared errors from the typed channel only, and `catchDefect(asSessionError)` is gone. E5, P2 and H8 all closed on 2026-08-24. R1's lifecycle-coverage gate is met (2026-08-24) and the migration is `Ready` but not started; that coverage also surfaced a live post-dispose defect (2026-08-25) which R1 now owns. P3 is closed on its measurement: `normalizeMessages` is characterized and deliberately unchanged. T3 landed on the three built-ins that already emitted JSON. The near plan is empty and R1 is the only item left with work in it. Historical verification counts remain in the dated landing log; re-run checks rather than treating those counts as a current baseline.
 
 This is the ordered plan. Each item says what it buys, what proves it is needed, what it depends on, and how you know it is done. Items are referenced by id from the specs (`S1`, `T2`, `H1`, …) so a document never has to restate the plan.
 
@@ -27,19 +27,19 @@ Horizons are ordering, not dates. An item moves up when its dependency lands, no
 
 The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `MessageV2` message and part schema are on `optionalKey` with their producers omitting the key, and `jsonSafe` is down to the payloads that keep it for reasons optionality cannot reach — the three `Schema.Unknown` SessionV2 entry shapes in `session.ts`, and the live-`fetch` records in `provider.ts` / `config.ts`. That unblocks the first PR, **H7**: 115 unvalidated `/mobile/*` bodies, which no longer need a second `jsonSafe` on encoded mobile responses.
 
-| ID      | Horizon | Item                                                                          |
-| ------- | ------- | ----------------------------------------------------------------------------- |
-| **C1**  | Done    | Release integrity: generated drift, blocking static checks, release gates     |
-| **E4**  | Done    | Encode optionals as absent keys — corrected scope complete                    |
-| **H7**  | Done    | JSON `/mobile/*` onto encoded handlers (landed 2026-08-20)                    |
-| **H3**  | Done    | Generate the exhaustive SDK namespaced compatibility view                     |
-| **E5**  | Done    | Keep expected session failures on Effect's typed channel (2026-08-24)         |
-| **H8**  | Done    | Auth declared with `HttpApiMiddleware` on the contract (2026-08-24)           |
-| **S4r** | Done    | Import / teleport / run write through SessionV2                               |
-| **P2**  | Done    | Request-path cuts: list SQL + hot-poll log policy; URL carry-through cut      |
-| **R1**  | Ready   | Keyed scoped instance runtime — lifecycle coverage landed 2026-08-24          |
-| **T3**  | Done    | Output codecs on `todowrite` / `todoread` / `browser_control` (2026-08-24)    |
-| **P3**  | Done    | `normalizeMessages` characterized; kept as-is on the measurement (2026-08-24) |
+| ID      | Horizon | Item                                                                               |
+| ------- | ------- | ---------------------------------------------------------------------------------- |
+| **C1**  | Done    | Release integrity: generated drift, blocking static checks, release gates          |
+| **E4**  | Done    | Encode optionals as absent keys — corrected scope complete                         |
+| **H7**  | Done    | JSON `/mobile/*` onto encoded handlers (landed 2026-08-20)                         |
+| **H3**  | Done    | Generate the exhaustive SDK namespaced compatibility view                          |
+| **E5**  | Done    | Keep expected session failures on Effect's typed channel (2026-08-24)              |
+| **H8**  | Done    | Auth declared with `HttpApiMiddleware` on the contract (2026-08-24)                |
+| **S4r** | Done    | Import / teleport / run write through SessionV2                                    |
+| **P2**  | Done    | Request-path cuts: list SQL + hot-poll log policy; URL carry-through cut           |
+| **R1**  | Ready   | Keyed scoped instance runtime — owns the post-dispose defect found by its coverage |
+| **T3**  | Done    | Output codecs on `todowrite` / `todoread` / `browser_control` (2026-08-24)         |
+| **P3**  | Done    | `normalizeMessages` characterized; kept as-is on the measurement (2026-08-24)      |
 
 ### Release integrity (C1) — landed 2026-08-23
 
@@ -196,6 +196,12 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
   **Verified by mutation, not by passing.** Five mutations of `project/instance.ts` were each caught by the suite: dropping the failed-bootstrap eviction (2 red), dropping `disposers.clear()` (1 red), replacing `realpathSync` with `path.resolve` (1 red), never sharing an in-flight bootstrap (6 red), and dropping the eviction in `dispose` (2 red). The first version of the disposer test passed under its own mutation — it was named for `clear()` but was really observing context replacement — and was rewritten until it failed for the right reason.
 
   The ALS-fallback test is a special case: it pins the `InstanceState.context` catch that R1 intends to _delete_. When the keyed runtime lands, invert it rather than remove it, so the day the fallback stops answering is recorded as a decision.
+
+  **The coverage found a live defect, and R1 is the fix.** `dispose()` walks the disposers, clears the set and deletes the cache entry, but it does not touch the ambient scope — every accessor keeps answering afterwards, and nothing tells the caller the instance it is holding is gone. Three consequences, each pinned by a test in the `what survives dispose` block: `Instance.has(dir)` is `false` while `Instance.directory` still answers; a disposer registered after `dispose()` never runs at all, because the set has already been walked and the entry it would be reached through is deleted; and state rebuilt after `dispose()` re-runs `init` under the same directory key and then outlives the scope, collectable only by a later acquire-and-dispose of that same directory.
+
+  This is reachable in production, not a test-only shape. `httpapi/provider.ts:143`, `httpapi/provider.ts:152` and `httpapi/config.ts:100` all dispose mid-request and then keep using the instance — `provider.refresh()` runs after the teardown. What those three call sites want is **invalidation**: drop the cached state so the next read rebuilds it, while the request keeps a working instance. `dispose()` is teardown, and they are using it as invalidation because there is nothing else. The keyed runtime should give them a separate verb rather than reproduce this behaviour, and the tests above are written to go red when it does — invert them, do not delete them.
+
+  Deliberately not fixed in place. A `disposed` flag on the context (running late disposers immediately, making a second `dispose()` a no-op) is about thirty lines and was written and then reverted: it changes the lifecycle contract for all 215 synchronous `Instance.*` reads across 89 files while the migration that owns that contract is still open, and it would paper over the fact that three call sites are asking for the wrong verb.
 
 ### Output codecs on structured built-ins (T3) — landed 2026-08-24
 
