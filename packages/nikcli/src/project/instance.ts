@@ -151,6 +151,29 @@ export const Instance = {
     ctx.disposers.clear()
     cache.delete(ctx.directory)
   },
+  /**
+   * Drop config-derived per-instance state without tearing the instance
+   * down. Reloadable caches run their finalizers and rebuild lazily on the
+   * next access; runtime state — bus subscriptions, live sessions, loop
+   * engines, schedulers, registered disposers — survives, and the cache
+   * entry stays. This is the semantics `POST /config/update` and the
+   * provider auth mutations want: the request that changed the input keeps
+   * a working instance, unlike `dispose`, which evicts the entry while the
+   * request's ambient scope keeps answering, leaving state built after it
+   * owned by nothing.
+   *
+   * Takes an optional directory so callers holding a key (tests, global
+   * tooling) can invalidate without standing in an instance scope; without
+   * one it reads the ambient scope, like `dispose`.
+   */
+  async invalidate(directory?: string) {
+    const target = directory ?? context.use().directory
+    // Lazy import: `@/effect` reaches back into this module, and a static
+    // edge would close an initialization cycle.
+    const { InstanceState, runPromise } = await import("@/effect")
+    await runPromise(InstanceState.invalidateReloadable(target))
+  },
+
   async disposeAll() {
     Log.Default.info("disposing all instances")
     for (const [_key, value] of cache) {

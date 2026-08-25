@@ -97,7 +97,12 @@ export namespace ConfigHttpApi {
       Effect.gen(function* () {
         const config = yield* Config.Service
         yield* config.update(payload as Config.Info)
-        yield* Effect.promise(() => Instance.dispose())
+        // Invalidate, not dispose: the request scope keeps answering after
+        // this line, and `dispose` would evict the cache entry out from
+        // under it, leaving state built later in this request owned by
+        // nothing. Reloadable caches rebuild lazily; the disk watcher would
+        // reach the same state ~300ms later via InstanceReload.
+        yield* Effect.promise(() => Instance.invalidate())
         return payload
       }).pipe(
         // failures first — converting defects afterwards keeps the converted

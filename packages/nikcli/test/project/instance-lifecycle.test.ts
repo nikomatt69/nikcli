@@ -139,7 +139,10 @@ describe("Instance lifecycle — concurrent acquisition", () => {
       directory: outer,
       fn: async () => {
         const before = Instance.directory
-        const nested = await Instance.provide({ directory: inner, fn: () => Instance.directory })
+        const nested = await Instance.provide({
+          directory: inner,
+          fn: () => Instance.directory,
+        })
         return { before, nested, after: Instance.directory }
       },
     })
@@ -195,7 +198,10 @@ describe("Instance lifecycle — bootstrap failure", () => {
       },
       fn: () => "unreachable",
     })
-    const second = Instance.provide({ directory: dir, fn: () => "unreachable" })
+    const second = Instance.provide({
+      directory: dir,
+      fn: () => "unreachable",
+    })
 
     gate.resolve()
     const [a, b] = await Promise.allSettled([first, second])
@@ -475,5 +481,66 @@ describe("Instance lifecycle — what survives dispose (characterized, not endor
 
     await Instance.disposeAll()
     expect(disposed).toBe(1)
+  })
+})
+
+/**
+ * `Instance.invalidate` is the seam the characterized dispose tests above
+ * point at: config/provider mutations need derived state rebuilt, not the
+ * instance torn down mid-request. These pin what invalidation guarantees,
+ * so the keyed scoped runtime can swap mechanism without changing
+ * behaviour — and so nothing quietly drifts back to dispose-as-invalidate.
+ */
+describe("Instance lifecycle — invalidation", () => {
+  it("keeps the instance cached, its disposers, and its state cells", async () => {
+    const dir = await directory("invalidate-keep")
+    let disposerRuns = 0
+    const cell = Instance.state(() => ({ token: {} }))
+
+    const before = await Instance.provide({
+      directory: dir,
+      fn: () => {
+        Instance.registerDisposer(() => {
+          disposerRuns++
+        })
+        return cell()
+      },
+    })
+
+    await Instance.provide({ directory: dir, fn: () => Instance.invalidate() })
+
+    // Invalidation is not teardown: the entry stays, disposers are untouched.
+    expect(Instance.has(dir)).toBe(true)
+    expect(disposerRuns).toBe(0)
+    // A non-reloadable state cell keeps serving the same state — only
+    // reloadable caches rebuild on the next access.
+    const after = await Instance.provide({ directory: dir, fn: () => cell() })
+    expect(after).toBe(before)
+
+    // Teardown remains available and runs exactly once afterwards.
+    await Instance.provide({ directory: dir, fn: () => Instance.dispose() })
+    expect(disposerRuns).toBe(1)
+    expect(Instance.has(dir)).toBe(false)
+  })
+
+  it("accepts an explicit directory without an ambient scope", async () => {
+    const dir = await directory("invalidate-explicit")
+    await Instance.provide({ directory: dir, fn: () => undefined })
+
+    // Unlike dispose, invalidation can be addressed by key: callers that
+    // hold a directory (tests, global tooling) do not need to stand in a
+    // scope first.
+    await Instance.invalidate(dir)
+    expect(Instance.has(dir)).toBe(true)
+  })
+
+  it("requires an active scope when no directory is given", async () => {
+    const dir = await directory("invalidate-unscoped")
+    await Instance.provide({ directory: dir, fn: () => undefined })
+
+    // Same contract as dispose: without a key it reads the ambient scope,
+    // and with none it fails loudly instead of silently doing nothing.
+    await expect(Instance.invalidate()).rejects.toThrow(/No context found/)
+    expect(Instance.has(dir)).toBe(true)
   })
 })

@@ -140,7 +140,10 @@ export namespace ProviderHttpApi {
           providerID: params.providerID,
           key: payload.key,
         })
-        yield* Effect.promise(() => Instance.dispose())
+        // Invalidate, not dispose — same reasoning as the config update
+        // handler: this request's scope is still live. `refresh()` below
+        // rebuilds the provider catalog explicitly.
+        yield* Effect.promise(() => Instance.invalidate())
         const provider = yield* Provider.Service
         yield* Effect.ignore(provider.refresh())
         return { success: true as const }
@@ -149,7 +152,9 @@ export namespace ProviderHttpApi {
       Effect.gen(function* () {
         const auth = yield* Auth.Service
         yield* auth.remove(params.providerID)
-        yield* Effect.promise(() => Instance.dispose())
+        // See the `api` handler: invalidation keeps this request's instance
+        // owned and alive; refresh rebuilds what the credential change broke.
+        yield* Effect.promise(() => Instance.invalidate())
         const provider = yield* Provider.Service
         yield* Effect.ignore(provider.refresh())
         return { success: true as const }
