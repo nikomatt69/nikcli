@@ -1,6 +1,6 @@
 {
   "name": "@nikcli-ai/web",
-  "version": "1.313.0",
+  "version": "1.314.0",
   "type": "module",
   "scripts": {
     "dev": "astro dev",

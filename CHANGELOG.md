@@ -3,6 +3,42 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.314.0 (August 2026)
+
+## Core
+
+- Characterize the post-dispose leak R1 owns (@nikomatt69)
+- Satisfy the type checker on the new characterization tests (@nikomatt69)
+- Declare output codecs on the built-ins that already emit JSON (T3) (@nikomatt69)
+- Drop the unused reject half of the test deferred (@nikomatt69)
+- Characterize normalizeMessages, and keep its passes (P3) (@nikomatt69)
+- Pin the instance lifecycle before R1 replaces it (@nikomatt69)
+- Declare authentication on the contract with HttpApiMiddleware (H8.1) (@nikomatt69)
+- Gate hot-poll request logs, and close P2.2 on the measurement (@nikomatt69)
+- Filter, order, and limit the session list in SQL (P2.1) (@nikomatt69)
+- Close E5 — declared errors on the typed channel only (@nikomatt69)
+
+## SDK
+
+- Stop the SDK build from collapsing the codegen manifest again (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(session): close E5 — declared errors on the typed channel only
+  - perf(session): filter, order, and limit the session list in SQL (P2.1)
+  - perf(server): gate hot-poll request logs, and close P2.2 on the measurement
+  - feat(httpapi): declare authentication on the contract with HttpApiMiddleware (H8.1)
+  - docs(roadmap): record the H8 typecheck result
+  - test(instance): pin the instance lifecycle before R1 replaces it
+  - perf(provider): characterize normalizeMessages, and keep its passes (P3)
+  - test(instance): drop the unused reject half of the test deferred
+  - feat(tool): declare output codecs on the built-ins that already emit JSON (T3)
+  - fix(test): satisfy the type checker on the new characterization tests
+  - test(instance): characterize the post-dispose leak R1 owns
+  - fix(ci): stop the SDK build from collapsing the codegen manifest again
+  - fix(ci): name the missing secret when the site deploy cannot authenticate
+
 ## v1.313.0 (August 2026)
 
 ## Core
