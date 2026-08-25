@@ -7,7 +7,7 @@ import { Global } from "@nikcli-ai/util/global"
 import { Scheduler } from "../scheduler"
 import { Lock } from "@/util/lock"
 import { Log } from "@nikcli-ai/util/log"
-import { InstanceState, type InstanceContext, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, type InstanceContext, locallyInstance, runPromiseWithLayer } from "@/effect"
 import { zodObject, zodObjectMode, type DeepMutable } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 
@@ -35,24 +35,31 @@ export namespace Snapshot {
     Service,
     Service.of({
       init: () =>
-        Effect.sync(() => {
-          Scheduler.register({
-            id: "snapshot.cleanup",
-            interval: hour,
-            run: () =>
-              runPromiseWithLayer(
-                defaultLayer,
-                withCurrentInstance(
-                  Effect.gen(function* () {
-                    const snapshot = yield* Service
-                    yield* snapshot.cleanup()
-                  }),
+        // Bind the instance at registration. `Scheduler.run` establishes no
+        // scope of its own — the hourly task only ever found one because
+        // AsyncLocalStorage happens to propagate into a timer created inside
+        // the scope. Capturing it here does not rely on that.
+        InstanceState.context.pipe(
+          Effect.map((instance) => {
+            Scheduler.register({
+              id: "snapshot.cleanup",
+              interval: hour,
+              run: () =>
+                runPromiseWithLayer(
+                  defaultLayer,
+                  locallyInstance(
+                    instance,
+                    Effect.gen(function* () {
+                      const snapshot = yield* Service
+                      yield* snapshot.cleanup()
+                    }),
+                  ),
                 ),
-              ),
-            scope: "instance",
-            skipInitialRun: true,
-          })
-        }),
+              scope: "instance",
+              skipInitialRun: true,
+            })
+          }),
+        ),
       cleanup: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => cleanupImpl(ctx)))),
       track: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => trackImpl(ctx)))),
       patch: (hash) =>
@@ -77,10 +84,11 @@ export namespace Snapshot {
     return `snapshot:${gitdir(ctx)}`
   }
 
-  function configGet() {
+  function configGet(ctx: InstanceContext) {
     return runPromiseWithLayer(
       Config.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        ctx,
         Effect.gen(function* () {
           const config = yield* Config.Service
           return yield* config.get()
@@ -322,7 +330,7 @@ export namespace Snapshot {
 
   async function cleanupImpl(ctx: InstanceContext) {
     if (ctx.project.vcs !== "git") return
-    const cfg = await configGet()
+    const cfg = await configGet(ctx)
     if (cfg.snapshot === false) return
 
     await withLock(ctx, async () => {
@@ -347,7 +355,7 @@ export namespace Snapshot {
 
   async function trackImpl(ctx: InstanceContext) {
     if (ctx.project.vcs !== "git") return undefined
-    const cfg = await configGet()
+    const cfg = await configGet(ctx)
     if (cfg.snapshot === false) return undefined
 
     return withLock(ctx, async () => {

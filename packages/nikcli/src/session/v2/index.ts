@@ -14,7 +14,7 @@ import { SessionPrompt } from "../prompt"
 import { Stepper } from "./stepper"
 import { Log } from "@nikcli-ai/util/log"
 import { Effect } from "effect"
-import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer } from "@/effect"
 import { zodObject } from "@nikcli-ai/util/effect-zod"
 
 /**
@@ -35,12 +35,15 @@ import { zodObject } from "@nikcli-ai/util/effect-zod"
 export namespace SessionV2 {
   const log = Log.create({ service: "session-v2" })
 
+  // These are the module's promise-side entry points; nothing upstream of them
+  // carries an `InstanceContext`, so the ambient scope is read here and bound
+  // explicitly for the run rather than re-derived inside the fiber.
   function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(Session.defaultLayer, locallyInstance(InstanceState.ambient(), effect))
   }
 
   function runPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
-    return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(SessionPrompt.defaultLayer, locallyInstance(InstanceState.ambient(), effect))
   }
 
   export const Event = SessionProjector.Event

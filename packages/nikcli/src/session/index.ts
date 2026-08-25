@@ -24,13 +24,7 @@ import { Global } from "@nikcli-ai/util/global"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { WorkspaceContext } from "../workspace/workspace-context"
 import { WorkspaceDB } from "../workspace/db"
-import {
-  InstanceState,
-  locallyInstance,
-  runPromiseWithLayer,
-  withCurrentInstance,
-  type InstanceContext,
-} from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { Context, Effect, Layer, Schema } from "effect"
 import { zod, zodObject, zodObjectMode, type DeepMutable } from "@nikcli-ai/util/effect-zod"
 import { Analytics } from "../analytics/analytics"
@@ -43,12 +37,12 @@ import { SessionSync } from "./projectors"
 import { SyncEvent } from "@/sync/sync-event"
 import { MessageRepo } from "./message-repo"
 
-function configGet(ctx?: InstanceContext) {
+function configGet(ctx: InstanceContext) {
   const effect = Effect.gen(function* () {
     const config = yield* Config.Service
     return yield* config.get()
   })
-  return runPromiseWithLayer(Config.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
+  return runPromiseWithLayer(Config.defaultLayer, locallyInstance(ctx, effect))
 }
 
 export namespace Session {

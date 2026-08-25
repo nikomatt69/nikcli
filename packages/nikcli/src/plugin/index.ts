@@ -32,13 +32,7 @@ import type { PluginModule } from "@nikcli-ai/plugin"
 import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cloudflare"
 import { HerdrPlugin } from "./herdr"
 import { Context, Effect, Layer } from "effect"
-import {
-  InstanceState,
-  locallyInstance,
-  runPromiseWithLayer,
-  withCurrentInstance,
-  type InstanceContext,
-} from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 
 type NotifyChannel = "macos" | "slack" | "discord"
 type NotifyPriority = "low" | "normal" | "high" | "critical"
@@ -99,7 +93,7 @@ type NotifyState = {
 const notifyLog = Log.create({ service: "notify" })
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+  return runPromiseWithLayer(Session.defaultLayer, locallyInstance(InstanceState.ambient(), effect))
 }
 
 const DEFAULT_RATE_WINDOW_MS = 60_000
@@ -114,16 +108,13 @@ const DEFAULT_BREAKER_COOLDOWN_MS = 120_000
 const DEFAULT_IDLE_MIN_MS = 30_000
 const DEFAULT_QUIET_SUPPRESS: NotifyChannel[] = ["macos"]
 
+/**
+ * The notify and init paths hold no `InstanceContext`, so the ambient scope is
+ * read here — once, at the boundary — and handed to the explicit form below
+ * rather than re-derived inside the fiber.
+ */
 function configGet() {
-  return runPromiseWithLayer(
-    Config.defaultLayer,
-    withCurrentInstance(
-      Effect.gen(function* () {
-        const config = yield* Config.Service
-        return yield* config.get()
-      }),
-    ),
-  )
+  return configGetFor(InstanceState.ambient())
 }
 
 function configGetFor(ctx: InstanceContext) {

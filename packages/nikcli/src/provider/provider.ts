@@ -17,13 +17,7 @@ import { Env } from "../env"
 import { Flag } from "@nikcli-ai/util/flag"
 import { iife } from "@nikcli-ai/util/iife"
 import { Context, Effect, Exit, Layer, Schema, ScopedCache } from "effect"
-import {
-  InstanceState,
-  locallyInstance,
-  runPromiseWithLayer,
-  withCurrentInstance,
-  type InstanceContext,
-} from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 
 // Bundled provider SDKs are loaded lazily (see BUNDLED_PROVIDERS): evaluating
 // all twenty packages eagerly costs ~2s at process start, while a session only
@@ -64,8 +58,8 @@ function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service | Config.Service
   return runPromiseWithLayer(Layer.merge(Auth.defaultLayer, Config.defaultLayer), effect)
 }
 
-function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>, ctx?: InstanceContext) {
-  return runPromiseWithLayer(Plugin.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
+function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>, ctx: InstanceContext) {
+  return runPromiseWithLayer(Plugin.defaultLayer, locallyInstance(ctx, effect))
 }
 
 function authGet(providerID: string): Promise<Auth.Info | undefined> {
@@ -96,7 +90,7 @@ function authAll(): Promise<Record<string, Auth.Info>> {
   )
 }
 
-function pluginList(ctx?: InstanceContext): Promise<PluginHooks[]> {
+function pluginList(ctx: InstanceContext): Promise<PluginHooks[]> {
   return runPlugin(
     Effect.gen(function* () {
       const plugin = yield* Plugin.Service
@@ -106,12 +100,12 @@ function pluginList(ctx?: InstanceContext): Promise<PluginHooks[]> {
   )
 }
 
-function configGet(ctx?: InstanceContext): Promise<Config.Info> {
+function configGet(ctx: InstanceContext): Promise<Config.Info> {
   const effect = Effect.gen(function* () {
     const config = yield* Config.Service
     return yield* config.get()
   })
-  return runPromiseWithLayer(Config.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
+  return runPromiseWithLayer(Config.defaultLayer, locallyInstance(ctx, effect))
 }
 
 export namespace Provider {

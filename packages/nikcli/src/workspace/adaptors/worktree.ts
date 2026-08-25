@@ -4,15 +4,15 @@ import { Worktree } from "@/worktree"
 import type { Config } from "../config"
 import type { Adaptor, ListedWorkspace } from "./types"
 import { Log } from "@nikcli-ai/util/log"
-import { runPromiseWithLayer, withCurrentInstance, InstanceState } from "@/effect"
+import { runPromiseWithLayer, locallyInstance, InstanceState, type InstanceContext } from "@/effect"
 import { Effect } from "effect"
 
 const log = Log.create({ service: "worktree.adaptor" })
 
 type WorktreeConfig = Extract<Config, { type: "worktree" }>
 
-function runWorktree<A, E>(effect: Effect.Effect<A, E, Worktree.Service>) {
-  return runPromiseWithLayer(Worktree.defaultLayer, withCurrentInstance(effect))
+function runWorktree<A, E>(instance: InstanceContext, effect: Effect.Effect<A, E, Worktree.Service>) {
+  return runPromiseWithLayer(Worktree.defaultLayer, locallyInstance(instance, effect))
 }
 
 export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
@@ -26,7 +26,9 @@ export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
     //
     // opencode v2's detached-at-HEAD behaviour belongs to `ProjectCopy`, which
     // is a different concept and passes `detached: true` itself.
+    const instance = InstanceState.ambient()
     const next = await runWorktree(
+      instance,
       Effect.gen(function* () {
         const worktree = yield* Worktree.Service
         return yield* worktree.makeWorktreeInfo({
@@ -44,8 +46,11 @@ export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
         name: next.name,
         eventLimit: _from.eventLimit,
       },
+      // Bound to the instance that created the worktree, not to whatever is
+      // ambient when the caller gets around to running `init`.
       init: () =>
         runWorktree(
+          instance,
           Effect.gen(function* () {
             const worktree = yield* Worktree.Service
             yield* worktree.createFromInfo(next)
@@ -57,9 +62,10 @@ export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
   // working copy) so `Workspace.syncList` can register any that aren't tracked
   // in the DB yet — mirroring opencode's worktree adapter `list()`.
   async list(): Promise<ListedWorkspace<WorktreeConfig>[]> {
+    const ctx = InstanceState.ambient()
     const result = await runWorktree(
+      ctx,
       Effect.gen(function* () {
-        const ctx = yield* InstanceState.context
         if (ctx.project.vcs !== "git") return [] as ListedWorkspace<WorktreeConfig>[]
         const worktree = yield* Worktree.Service
         const entries = yield* worktree.list()
@@ -83,6 +89,7 @@ export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
   },
   async remove(config: WorktreeConfig) {
     await runWorktree(
+      InstanceState.ambient(),
       Effect.gen(function* () {
         const worktree = yield* Worktree.Service
         return yield* worktree.remove({ directory: config.directory })

@@ -38,7 +38,7 @@ import { PermissionNext } from "@/permission/next"
 import { SessionStatus } from "./status"
 import { Context, Effect, Layer } from "effect"
 import { Instance } from "@/project/instance"
-import { InstanceState, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { errorMessage } from "@nikcli-ai/util/error-format"
 import { resolveTools, createStructuredOutputTool } from "./tools"
 import { PromptParts } from "./prompt-parts"
@@ -71,7 +71,8 @@ export namespace SessionPrompt {
   function askPermission(input: PermissionNext.AskInput) {
     return runPromiseWithLayer(
       PermissionNext.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const permission = yield* PermissionNext.Service
           return yield* permission.ask(input)
@@ -83,7 +84,8 @@ export namespace SessionPrompt {
   function configGet() {
     return runPromiseWithLayer(
       Config.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const config = yield* Config.Service
           return yield* config.get()
@@ -95,7 +97,8 @@ export namespace SessionPrompt {
   function commandGet(name: string) {
     return runPromiseWithLayer(
       Command.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const command = yield* Command.Service
           return yield* command.get(name)
@@ -107,7 +110,8 @@ export namespace SessionPrompt {
   function agentGet(name: string) {
     return runPromiseWithLayer(
       Agent.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const agent = yield* Agent.Service
           return yield* agent.get(name)
@@ -125,7 +129,8 @@ export namespace SessionPrompt {
   function agentList() {
     return runPromiseWithLayer(
       Agent.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const agent = yield* Agent.Service
           return yield* agent.list()
@@ -137,7 +142,8 @@ export namespace SessionPrompt {
   function defaultAgent() {
     return runPromiseWithLayer(
       Agent.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const agent = yield* Agent.Service
           return yield* agent.defaultAgent()
@@ -147,19 +153,19 @@ export namespace SessionPrompt {
   }
 
   function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service | Session.Service | Snapshot.Service>) {
-    return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(SessionSummary.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function runRevert<A, E>(effect: Effect.Effect<A, E, SessionRevert.Service>) {
-    return runPromiseWithLayer(SessionRevert.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(SessionRevert.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function runCompaction<A, E>(effect: Effect.Effect<A, E, SessionCompaction.Service>) {
-    return runPromiseWithLayer(SessionCompaction.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(SessionCompaction.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-    return runPromiseWithLayer(Session.layer, withCurrentInstance(effect))
+    return runPromiseWithLayer(Session.layer, locallyInstance(currentContext(), effect))
   }
 
   function runGoal<A, E>(effect: Effect.Effect<A, E, SessionGoal.Service>) {
@@ -263,11 +269,11 @@ export namespace SessionPrompt {
   }
 
   function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
-    return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(Plugin.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
-    return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(Provider.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function providerGetModel(providerID: string, modelID: string) {
@@ -298,17 +304,18 @@ export namespace SessionPrompt {
   }
 
   function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
-    return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(LSP.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function runMCP<A, E>(effect: Effect.Effect<A, E, MCP.Service>) {
-    return runPromiseWithLayer(MCP.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(MCP.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function setStatus(sessionID: string, status: SessionStatus.Info) {
     return runPromiseWithLayer(
       SessionStatus.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const sessionStatus = yield* SessionStatus.Service
           return yield* sessionStatus.set(sessionID, status)
@@ -317,6 +324,19 @@ export namespace SessionPrompt {
     )
   }
 
+  /**
+   * The instance this service call is running in.
+   *
+   * Every entry point into this module is a `Service` method that goes through
+   * `withInstanceContext`, which resolves an `InstanceContext` and re-enters
+   * `Instance.provide` with it. The ambient scope read here is therefore not an
+   * accident of whoever called us — it is the context this module installed one
+   * frame up, so reading it is equivalent to threading that context through the
+   * ~40 signatures between here and there, and cannot disagree with it.
+   *
+   * `test/session/prompt-instance-scope.test.ts` pins the premise: a service
+   * method that reaches these helpers without installing the scope fails there.
+   */
   function currentContext(): InstanceContext {
     return InstanceState.ambient()
   }

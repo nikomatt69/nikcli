@@ -11,7 +11,7 @@ import { Agent } from "@/agent/agent"
 import { Skill } from "@/skill"
 import { Token } from "@nikcli-ai/util/token"
 import { Log } from "@nikcli-ai/util/log"
-import { runPromiseWithLayer, withCurrentInstance, InstanceState, type InstanceContext } from "@/effect"
+import { runPromiseWithLayer, locallyInstance, InstanceState, type InstanceContext } from "@/effect"
 import { collectSystemPaths } from "./instruction"
 
 const log = Log.create({ service: "session.context-breakdown" })
@@ -53,29 +53,29 @@ export namespace SessionContext {
   })
   export type Breakdown = z.infer<typeof Breakdown>
 
-  function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+  function runSession<A, E>(ctx: InstanceContext, effect: Effect.Effect<A, E, Session.Service>) {
+    return runPromiseWithLayer(Session.defaultLayer, locallyInstance(ctx, effect))
   }
-  function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
-    return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+  function runProvider<A, E>(ctx: InstanceContext, effect: Effect.Effect<A, E, Provider.Service>) {
+    return runPromiseWithLayer(Provider.defaultLayer, locallyInstance(ctx, effect))
   }
-  function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
-    return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
+  function runConfig<A, E>(ctx: InstanceContext, effect: Effect.Effect<A, E, Config.Service>) {
+    return runPromiseWithLayer(Config.defaultLayer, locallyInstance(ctx, effect))
   }
-  function runMCP<A, E>(effect: Effect.Effect<A, E, MCP.Service>) {
-    return runPromiseWithLayer(MCP.defaultLayer, withCurrentInstance(effect))
+  function runMCP<A, E>(ctx: InstanceContext, effect: Effect.Effect<A, E, MCP.Service>) {
+    return runPromiseWithLayer(MCP.defaultLayer, locallyInstance(ctx, effect))
   }
-  function runRegistry<A, E>(effect: Effect.Effect<A, E, ToolRegistry.Service>) {
-    return runPromiseWithLayer(ToolRegistry.defaultLayer, withCurrentInstance(effect))
+  function runRegistry<A, E>(ctx: InstanceContext, effect: Effect.Effect<A, E, ToolRegistry.Service>) {
+    return runPromiseWithLayer(ToolRegistry.defaultLayer, locallyInstance(ctx, effect))
   }
-  function runAgent<A, E>(effect: Effect.Effect<A, E, Agent.Service>) {
-    return runPromiseWithLayer(Agent.defaultLayer, withCurrentInstance(effect))
+  function runAgent<A, E>(ctx: InstanceContext, effect: Effect.Effect<A, E, Agent.Service>) {
+    return runPromiseWithLayer(Agent.defaultLayer, locallyInstance(ctx, effect))
   }
-  function runSkill<A, E>(effect: Effect.Effect<A, E, Skill.Service>) {
-    return runPromiseWithLayer(Skill.defaultLayer, withCurrentInstance(effect))
+  function runSkill<A, E>(ctx: InstanceContext, effect: Effect.Effect<A, E, Skill.Service>) {
+    return runPromiseWithLayer(Skill.defaultLayer, locallyInstance(ctx, effect))
   }
-  function runSystemPrompt<A, E>(effect: Effect.Effect<A, E, SystemPrompt.Service>) {
-    return runPromiseWithLayer(SystemPrompt.defaultLayer, withCurrentInstance(effect))
+  function runSystemPrompt<A, E>(ctx: InstanceContext, effect: Effect.Effect<A, E, SystemPrompt.Service>) {
+    return runPromiseWithLayer(SystemPrompt.defaultLayer, locallyInstance(ctx, effect))
   }
 
   function currentContext(): InstanceContext {
@@ -127,7 +127,12 @@ export namespace SessionContext {
   }
 
   export async function breakdown(sessionID: string): Promise<Breakdown> {
+    // One ambient read for the whole breakdown, at the entry point. Everything
+    // below is bound to this instance explicitly, so a service resolved late in
+    // the walk cannot end up on a different one than the session it started on.
+    const ctx = currentContext()
     const session = await runSession(
+      ctx,
       Effect.gen(function* () {
         const service = yield* Session.Service
         return yield* service.get(sessionID)
@@ -140,6 +145,7 @@ export namespace SessionContext {
       ? { providerID: last.providerID, modelID: last.modelID }
       : (lastModel ??
         (await runProvider(
+          ctx,
           Effect.gen(function* () {
             const provider = yield* Provider.Service
             const model = yield* provider.defaultModel()
@@ -149,6 +155,7 @@ export namespace SessionContext {
 
     const model = modelRef
       ? await runProvider(
+          ctx,
           Effect.gen(function* () {
             const provider = yield* Provider.Service
             return yield* provider.getModel(modelRef.providerID, modelRef.modelID)
@@ -174,13 +181,13 @@ export namespace SessionContext {
       : { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
 
     const config = await runConfig(
+      ctx,
       Effect.gen(function* () {
         const service = yield* Config.Service
         return yield* service.get()
       }),
     )
 
-    const ctx = currentContext()
     const sources: Source[] = []
 
     // 1. System prompt (provider header + base instructions) — always present.
@@ -199,6 +206,7 @@ export namespace SessionContext {
 
     // 2. Environment block.
     const environment = await runSystemPrompt(
+      ctx,
       Effect.gen(function* () {
         const service = yield* SystemPrompt.Service
         return yield* service.environment()
@@ -219,6 +227,7 @@ export namespace SessionContext {
     // 2b. User profile block — small, but it is in every request, so it belongs
     //     in the breakdown rather than hiding inside "System prompt".
     const profile = await runSystemPrompt(
+      ctx,
       Effect.gen(function* () {
         const service = yield* SystemPrompt.Service
         return yield* service.profile()
@@ -279,6 +288,7 @@ export namespace SessionContext {
     await Promise.all(
       activeSkills.map(async (name) => {
         const loaded = await runSkill(
+          ctx,
           Effect.gen(function* () {
             const skill = yield* Skill.Service
             return yield* skill.load(name)
@@ -301,12 +311,14 @@ export namespace SessionContext {
     // 5. MCP servers — group connected tools by server, include disabled servers as togglable-on.
     const mcpConfig = config.mcp ?? {}
     const mcpStatus = await runMCP(
+      ctx,
       Effect.gen(function* () {
         const service = yield* MCP.Service
         return yield* service.status()
       }),
     ).catch(() => ({}) as Record<string, { status: string }>)
     const mcpTools = await runMCP(
+      ctx,
       Effect.gen(function* () {
         const service = yield* MCP.Service
         return yield* service.tools()
@@ -344,6 +356,7 @@ export namespace SessionContext {
     const disabledTools = session.disabledTools ?? {}
     if (model) {
       const tools = await runRegistry(
+        ctx,
         Effect.gen(function* () {
           const registry = yield* ToolRegistry.Service
           return yield* registry.tools({ providerID: model.providerID, modelID: model.id })
@@ -373,6 +386,7 @@ export namespace SessionContext {
 
     // 7. Custom agents — feed the task tool / subagent routing.
     const agents = await runAgent(
+      ctx,
       Effect.gen(function* () {
         const service = yield* Agent.Service
         return yield* service.list()
