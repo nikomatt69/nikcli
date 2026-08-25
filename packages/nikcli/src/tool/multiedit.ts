@@ -11,7 +11,6 @@ import { FileTime } from "../file/time"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Bom } from "../util/bom"
 import { Format } from "../format"
-import { Instance } from "../project/instance"
 import { buildFileDiff, trimDiff } from "./file-diff"
 import { assertExternalDirectory } from "./external-directory"
 import { replaceWithCount } from "./edit"
@@ -57,7 +56,9 @@ export const MultiEditTool = Tool.define("multiedit", {
       }
     }
 
-    const filePath = path.isAbsolute(params.filePath) ? params.filePath : path.join(Instance.directory, params.filePath)
+    const filePath = path.isAbsolute(params.filePath)
+      ? params.filePath
+      : path.join(ctx.instance.directory, params.filePath)
     await assertExternalDirectory(ctx, filePath)
 
     // An empty first `oldString` is the "create" spelling, same as `edit`: the file need not
@@ -111,7 +112,7 @@ export const MultiEditTool = Tool.define("multiedit", {
       // intermediate states they cannot evaluate separately.
       await ctx.ask({
         permission: "edit",
-        patterns: [path.relative(Instance.worktree, filePath)],
+        patterns: [path.relative(ctx.instance.worktree, filePath)],
         always: ["*"],
         metadata: {
           filepath: filePath,
@@ -156,7 +157,7 @@ export const MultiEditTool = Tool.define("multiedit", {
       },
     })
 
-    const relative = path.relative(Instance.worktree, filePath)
+    const relative = path.relative(ctx.instance.worktree, filePath)
     const summary =
       replacements === 0
         ? "Created file."

@@ -3,7 +3,6 @@ import z from "zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./artifact.txt"
 import { Artifact } from "@/artifact"
-import { Instance } from "@/project/instance"
 
 const parameters = z.object({
   filePath: z.string().describe("Path to the file to publish (absolute, or relative to the project directory)"),
@@ -19,7 +18,9 @@ export const ArtifactTool = Tool.define("artifact", {
   description: DESCRIPTION,
   parameters,
   async execute(params, ctx) {
-    const filepath = path.isAbsolute(params.filePath) ? params.filePath : path.join(Instance.directory, params.filePath)
+    const filepath = path.isAbsolute(params.filePath)
+      ? params.filePath
+      : path.join(ctx.instance.directory, params.filePath)
 
     const contentType = Artifact.contentTypeFor(filepath)
     if (!contentType) {

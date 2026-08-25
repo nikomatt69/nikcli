@@ -3,7 +3,7 @@ import type { MessageV2 } from "../session/message-v2"
 import type { Agent } from "../agent/agent"
 import type { PermissionNext } from "../permission/next"
 import { Truncate } from "./truncation"
-import { AppRuntime, runPromiseWithLayer } from "@/effect"
+import { AppRuntime, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { Effect } from "effect"
 
 export namespace Tool {
@@ -37,12 +37,33 @@ export namespace Tool {
 
   export interface InitContext {
     agent?: Agent.Info
+    /**
+     * The instance the tool is being initialised for. A tool whose *definition*
+     * depends on the project — `bash` names the default working directory in
+     * its description — reads it from here instead of the ambient scope.
+     *
+     * Optional because `init()` is called with no argument in tests and on the
+     * three prompt-side paths that build a tool ad hoc; those either do not
+     * have an instance-dependent definition or resolve one at the boundary.
+     */
+    instance?: InstanceContext
   }
 
   export type Context<M extends Metadata = Metadata> = {
     sessionID: string
     messageID: string
     agent: string
+    /**
+     * The instance this call belongs to.
+     *
+     * A tool used to reach its directory, worktree and project through the
+     * ambient AsyncLocalStorage scope, which meant every tool depended on
+     * being invoked from a frame that happened to be inside one — invisible
+     * in the type system, and wrong the moment a tool resumed on a fiber that
+     * had resumed somewhere else. It is a field on the call now, resolved
+     * once where the call is built.
+     */
+    instance: InstanceContext
     abort: AbortSignal
     callID: string
     extra?: Record<string, unknown>
@@ -164,19 +185,31 @@ export namespace Tool {
               )
             }
 
-            const wrappedCtx: Context = {
-              ...ctx,
-              metadata(input) {
-                const metadata = {
-                  ...input.metadata,
-                  truncated: input.metadata?.truncated === undefined ? false : input.metadata.truncated,
-                }
-                ctx.metadata({
-                  ...input,
-                  metadata,
-                })
+            // Copy descriptors rather than spread. A spread reads every field
+            // eagerly, so a caller that supplies `instance` lazily — the tool
+            // test helper does, because tests build the context before
+            // entering the instance scope — would have it resolved here, one
+            // frame too early. Copying descriptors keeps the fields *own* and
+            // enumerable, so anything downstream that spreads this context
+            // still works.
+            const wrappedCtx: Context = Object.defineProperties({} as Context, {
+              ...Object.getOwnPropertyDescriptors(ctx),
+              metadata: {
+                enumerable: true,
+                writable: true,
+                configurable: true,
+                value(input: { title?: string; metadata?: M }) {
+                  const metadata = {
+                    ...input.metadata,
+                    truncated: input.metadata?.truncated === undefined ? false : input.metadata.truncated,
+                  }
+                  ctx.metadata({
+                    ...input,
+                    metadata,
+                  })
+                },
               },
-            }
+            })
 
             const result = yield* asEffect(authoredExecute(args, wrappedCtx))
             const codec = authored.output

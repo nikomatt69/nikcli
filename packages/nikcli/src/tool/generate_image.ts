@@ -9,7 +9,6 @@ import { Identifier } from "@nikcli-ai/util/id"
 import type { MessageV2 } from "@/session/message-v2"
 import { Installation } from "@/installation"
 import os from "os"
-import { Instance } from "@/project/instance"
 import { Flag } from "@nikcli-ai/util/flag"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -148,12 +147,13 @@ function extFromMime(mime: string): string {
 
 function buildRequestHeaders(input: {
   model: Provider.Model
+  projectID: string
   sessionID: string
   messageID: string
 }): Record<string, string> {
   if (input.model.providerID.startsWith("nikcli")) {
     return {
-      "x-nikcli-project": Instance.project.id,
+      "x-nikcli-project": input.projectID,
       "x-nikcli-session": input.sessionID,
       "x-nikcli-request": input.messageID,
       "x-nikcli-client": Flag.NIKCLI_CLIENT,
@@ -263,6 +263,7 @@ export const GenerateImageTool = Tool.define("generate_image", {
       abortSignal: ctx.abort,
       headers: buildRequestHeaders({
         model,
+        projectID: ctx.instance.project.id,
         sessionID: ctx.sessionID,
         messageID: ctx.messageID,
       }),

@@ -440,6 +440,10 @@ export namespace ToolRegistry {
         options?: { exclude?: ReadonlySet<string> },
       ) {
         const tools = yield* all()
+        // A tool whose definition depends on the project (`bash` names the
+        // default working directory in its description) gets the instance
+        // here rather than reading the ambient scope from inside `init`.
+        const instance = yield* InstanceState.context
         const result = yield* Effect.promise(() =>
           Promise.all(
             tools
@@ -469,7 +473,7 @@ export namespace ToolRegistry {
               .sort((left, right) => compareIds(left.id, right.id))
               .map(async (t) => {
                 using _ = log.time(t.id)
-                const def = await t.init({ agent })
+                const def = await t.init({ agent, instance })
                 return {
                   id: t.id,
                   description: def.description,

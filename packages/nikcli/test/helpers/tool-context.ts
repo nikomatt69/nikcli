@@ -20,6 +20,7 @@
  */
 import { Identifier } from "@nikcli-ai/util/id"
 import { Instance } from "@/project/instance"
+import { InstanceState, type InstanceContext } from "@/effect"
 import type { Tool } from "@/tool/tool"
 
 export type AskRecord = {
@@ -40,6 +41,8 @@ export type MakeToolContextOptions = {
   agent?: string
   /** AbortSignal. Defaults to a fresh AbortController signal. */
   abort?: AbortSignal
+  /** Pin the instance. By default it is read from the enclosing scope on access. */
+  instance?: InstanceContext
   /** Override the ask recorder. By default, asks accumulate into `asked`. */
   ask?: Tool.Context["ask"]
   /** Override progress handler. */
@@ -103,6 +106,15 @@ export function makeToolContext(options: MakeToolContextOptions = {}): ToolConte
     })
 
   const ctx: Tool.Context = {
+    // Resolved on access rather than at construction. Tests build the context
+    // outside `withProjectDirectory` and execute the tool inside it — the
+    // order the ambient read used to make invisible — so reading eagerly here
+    // would throw for every one of them. The production contract is a plain
+    // field; this getter reproduces, for tests only, the timing they were
+    // written against.
+    get instance() {
+      return options.instance ?? InstanceState.ambient()
+    },
     sessionID,
     messageID,
     callID,

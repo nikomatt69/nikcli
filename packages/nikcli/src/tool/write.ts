@@ -11,7 +11,6 @@ import { FileTime } from "../file/time"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Bom } from "../util/bom"
 import { Format } from "../format"
-import { Instance } from "../project/instance"
 import { buildFileDiff, readAfterMutation, trimDiff } from "./file-diff"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -58,7 +57,9 @@ export const WriteTool = Tool.define("write", {
   description: DESCRIPTION,
   parameters: zod(Parameters),
   async execute(params, ctx) {
-    const filepath = path.isAbsolute(params.filePath) ? params.filePath : path.join(Instance.directory, params.filePath)
+    const filepath = path.isAbsolute(params.filePath)
+      ? params.filePath
+      : path.join(ctx.instance.directory, params.filePath)
     await assertExternalDirectory(ctx, filepath)
 
     const file = Bun.file(filepath)
@@ -74,7 +75,7 @@ export const WriteTool = Tool.define("write", {
     const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, contentText))
     await ctx.ask({
       permission: "edit",
-      patterns: [path.relative(Instance.worktree, filepath)],
+      patterns: [path.relative(ctx.instance.worktree, filepath)],
       always: ["*"],
       metadata: {
         filepath,
@@ -135,7 +136,7 @@ export const WriteTool = Tool.define("write", {
     }
 
     return {
-      title: path.relative(Instance.worktree, filepath),
+      title: path.relative(ctx.instance.worktree, filepath),
       metadata: {
         diagnostics,
         filepath,

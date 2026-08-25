@@ -2,7 +2,7 @@ import z from "zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./memory_search.txt"
 import { SessionRepo } from "@/session/repo"
-import { Instance } from "@/project/instance"
+import type { Project } from "@/project/project"
 import { MessageV2 } from "@/session/message-v2"
 
 const parameters = z.object({
@@ -52,7 +52,7 @@ export const MemorySearchTool = Tool.define<typeof parameters, { count: number }
       }
     }
 
-    const sessions = await collectSessions(params.sessionId, maxSessions)
+    const sessions = await collectSessions(ctx.instance.project, params.sessionId, maxSessions)
     const results: Result[] = []
     const counter = { value: 0 }
 
@@ -134,9 +134,8 @@ function makeSnippet(text: string, lower: string, terms: string[]) {
   return text.slice(start, end).replace(/\s+/g, " ").trim()
 }
 
-async function collectSessions(sessionId: string | undefined, max: number) {
+async function collectSessions(project: Project.Info, sessionId: string | undefined, max: number) {
   if (sessionId) return [sessionId]
-  const project = Instance.project
   const ids = SessionRepo.getByProject(project.id).map((session) => session.id)
   return ids.slice(0, max)
 }

@@ -11,7 +11,6 @@ import { FileTime } from "../file/time"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Bom } from "../util/bom"
 import { Format } from "../format"
-import { Instance } from "../project/instance"
 import { buildFileDiff, trimDiff } from "./file-diff"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -68,7 +67,9 @@ export const EditTool = Tool.define("edit", {
       throw new Error("No changes to apply: oldString and newString are identical.")
     }
 
-    const filePath = path.isAbsolute(params.filePath) ? params.filePath : path.join(Instance.directory, params.filePath)
+    const filePath = path.isAbsolute(params.filePath)
+      ? params.filePath
+      : path.join(ctx.instance.directory, params.filePath)
     await assertExternalDirectory(ctx, filePath)
 
     let diff = ""
@@ -82,7 +83,7 @@ export const EditTool = Tool.define("edit", {
         diff = trimDiff(createTwoFilesPatch(filePath, filePath, contentOld, contentNew))
         await ctx.ask({
           permission: "edit",
-          patterns: [path.relative(Instance.worktree, filePath)],
+          patterns: [path.relative(ctx.instance.worktree, filePath)],
           always: ["*"],
           metadata: {
             filepath: filePath,
@@ -131,7 +132,7 @@ export const EditTool = Tool.define("edit", {
       )
       await ctx.ask({
         permission: "edit",
-        patterns: [path.relative(Instance.worktree, filePath)],
+        patterns: [path.relative(ctx.instance.worktree, filePath)],
         always: ["*"],
         metadata: {
           filepath: filePath,
@@ -181,7 +182,7 @@ export const EditTool = Tool.define("edit", {
     let output =
       replacements === 0
         ? "Created file."
-        : `Replaced ${replacements} ${replacements === 1 ? "occurrence" : "occurrences"} in ${path.relative(Instance.worktree, filePath)}.`
+        : `Replaced ${replacements} ${replacements === 1 ? "occurrence" : "occurrences"} in ${path.relative(ctx.instance.worktree, filePath)}.`
     const diagnostics = await runLSP(
       Effect.gen(function* () {
         const lsp = yield* LSP.Service
@@ -209,7 +210,7 @@ export const EditTool = Tool.define("edit", {
         diff,
         filediff,
       },
-      title: `${path.relative(Instance.worktree, filePath)}`,
+      title: `${path.relative(ctx.instance.worktree, filePath)}`,
       output,
     }
   },

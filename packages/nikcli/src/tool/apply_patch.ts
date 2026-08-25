@@ -4,7 +4,6 @@ import * as fs from "fs/promises"
 import { Tool } from "./tool"
 import { Bus } from "../bus"
 import { FileWatcher } from "../file/watcher"
-import { Instance } from "../project/instance"
 import { Patch } from "../patch"
 import { createTwoFilesPatch, diffLines } from "diff"
 import { assertExternalDirectory } from "./external-directory"
@@ -67,7 +66,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
     let totalDiff = ""
 
     for (const hunk of hunks) {
-      const filePath = path.resolve(Instance.directory, hunk.path)
+      const filePath = path.resolve(ctx.instance.directory, hunk.path)
       await assertExternalDirectory(ctx, filePath)
 
       switch (hunk.type) {
@@ -132,7 +131,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
             if (change.removed) deletions += change.count || 0
           }
 
-          const movePath = hunk.move_path ? path.resolve(Instance.directory, hunk.move_path) : undefined
+          const movePath = hunk.move_path ? path.resolve(ctx.instance.directory, hunk.move_path) : undefined
           await assertExternalDirectory(ctx, movePath)
 
           fileChanges.push({
@@ -180,7 +179,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
         fileChanges.flatMap((c) => {
           const paths = [c.filePath]
           if (c.movePath) paths.push(c.movePath)
-          return paths.map((p) => path.relative(Instance.worktree, p))
+          return paths.map((p) => path.relative(ctx.instance.worktree, p))
         }),
       ),
     ]
@@ -288,13 +287,13 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
     // Generate output summary
     const summaryLines = fileChanges.map((change) => {
       if (change.type === "add") {
-        return `A ${path.relative(Instance.worktree, change.filePath)}`
+        return `A ${path.relative(ctx.instance.worktree, change.filePath)}`
       }
       if (change.type === "delete") {
-        return `D ${path.relative(Instance.worktree, change.filePath)}`
+        return `D ${path.relative(ctx.instance.worktree, change.filePath)}`
       }
       const target = change.movePath ?? change.filePath
-      return `M ${path.relative(Instance.worktree, target)}`
+      return `M ${path.relative(ctx.instance.worktree, target)}`
     })
     let output = `Success. Updated the following files:\n${summaryLines.join("\n")}`
 
@@ -310,7 +309,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
         const limited = errors.slice(0, MAX_DIAGNOSTICS_PER_FILE)
         const suffix =
           errors.length > MAX_DIAGNOSTICS_PER_FILE ? `\n... and ${errors.length - MAX_DIAGNOSTICS_PER_FILE} more` : ""
-        output += `\n\nLSP errors detected in ${path.relative(Instance.worktree, target)}, please fix:\n<diagnostics file="${target}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
+        output += `\n\nLSP errors detected in ${path.relative(ctx.instance.worktree, target)}, please fix:\n<diagnostics file="${target}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
       }
     }
 
@@ -321,7 +320,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
 
         return {
           filePath: change.filePath,
-          relativePath: path.relative(Instance.worktree, targetPath),
+          relativePath: path.relative(ctx.instance.worktree, targetPath),
           type: change.type,
           diff: change.diff,
           before: change.oldContent,

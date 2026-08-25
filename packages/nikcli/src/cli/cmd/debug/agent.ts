@@ -6,11 +6,10 @@ import { Session } from "../../../session"
 import type { MessageV2 } from "../../../session/message-v2"
 import { Identifier } from "@nikcli-ai/util/id"
 import { ToolRegistry } from "../../../tool/registry"
-import { Instance } from "../../../project/instance"
 import { PermissionNext } from "../../../permission/next"
 import { bootstrap } from "../../bootstrap"
 import { cmd } from "../cmd"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
 function agentGet(name: string) {
@@ -150,6 +149,7 @@ async function createToolContext(agent: Agent.Info) {
   )
   const messageID = Identifier.ascending("message")
   const model = agent.model ?? (await defaultProviderModel())
+  const instance = InstanceState.ambient()
   const now = Date.now()
   const message: MessageV2.Assistant = {
     id: messageID,
@@ -164,8 +164,8 @@ async function createToolContext(agent: Agent.Info) {
     mode: "debug",
     agent: agent.name,
     path: {
-      cwd: Instance.directory,
-      root: Instance.worktree,
+      cwd: instance.directory,
+      root: instance.worktree,
     },
     cost: 0,
     tokens: {
@@ -188,6 +188,7 @@ async function createToolContext(agent: Agent.Info) {
   const ruleset = PermissionNext.merge(agent.permission, session.permission ?? [])
 
   return {
+    instance,
     sessionID: session.id,
     messageID,
     callID: Identifier.ascending("part"),

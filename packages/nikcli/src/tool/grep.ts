@@ -6,7 +6,6 @@ import DESCRIPTION from "./grep.txt"
 import { FFF } from "../file/fff"
 import { SearchBackend } from "../file/searchBackend"
 import type { GrepMode, GrepMatch as FFFGrepMatch } from "#fff"
-import { Instance } from "../project/instance"
 import { assertExternalDirectory } from "./external-directory"
 import { withSearchDeadline } from "./search-deadline"
 
@@ -181,8 +180,8 @@ export const GrepTool = Tool.define("grep", {
       },
     })
 
-    let dir = params.path ?? Instance.directory
-    dir = path.isAbsolute(dir) ? dir : path.resolve(Instance.directory, dir)
+    let dir = params.path ?? ctx.instance.directory
+    dir = path.isAbsolute(dir) ? dir : path.resolve(ctx.instance.directory, dir)
     await assertExternalDirectory(ctx, dir, { kind: "directory" })
 
     const outcome = await withSearchDeadline(

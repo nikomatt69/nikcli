@@ -11,15 +11,23 @@ process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 
 preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
-const [{ Instance }, { Delegation }, { BackgroundRun }, { BackgroundRunRepo }, { DelegationTool }, { DelegatorTool }] =
-  await Promise.all([
-    import("../src/project/instance"),
-    import("../src/delegation/manager"),
-    import("../src/background/run"),
-    import("../src/background/repo"),
-    import("../src/tool/delegation"),
-    import("../src/tool/delegator"),
-  ])
+const [
+  { Instance },
+  { InstanceState },
+  { Delegation },
+  { BackgroundRun },
+  { BackgroundRunRepo },
+  { DelegationTool },
+  { DelegatorTool },
+] = await Promise.all([
+  import("../src/project/instance"),
+  import("../src/effect"),
+  import("../src/delegation/manager"),
+  import("../src/background/run"),
+  import("../src/background/repo"),
+  import("../src/tool/delegation"),
+  import("../src/tool/delegator"),
+])
 
 const projectDirs: string[] = []
 
@@ -34,6 +42,11 @@ async function withProject<T>(fn: (projectDir: string) => Promise<T>): Promise<T
 
 function createContext(sessionID: string): Tool.Context {
   return {
+    // Read on access: the context is built outside `withProject` and used
+    // inside it.
+    get instance() {
+      return InstanceState.ambient()
+    },
     sessionID,
     messageID: "msg_test",
     callID: "call_test",

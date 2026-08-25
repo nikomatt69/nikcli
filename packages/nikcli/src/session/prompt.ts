@@ -918,6 +918,7 @@ export namespace SessionPrompt {
         let executionError: Error | undefined
         const taskAgent = await agentRequired(task.agent)
         const taskCtx: Tool.Context = {
+          instance: currentContext(),
           agent: lastUser.agent ?? task.agent,
           messageID: assistantMessage.id,
           sessionID: sessionID,
@@ -1636,6 +1637,7 @@ export namespace SessionPrompt {
                   const tool = await ReadTool.init()
                   const model = await providerGetModel(info.model.providerID, info.model.modelID)
                   const readCtx: Tool.Context = {
+                    instance: currentContext(),
                     sessionID: input.sessionID,
                     abort: new AbortController().signal,
                     agent: input.agent!,
@@ -1696,6 +1698,7 @@ export namespace SessionPrompt {
               if (part.mime === "application/x-directory") {
                 const args = { path: filepath }
                 const listCtx: Tool.Context = {
+                  instance: currentContext(),
                   sessionID: input.sessionID,
                   abort: new AbortController().signal,
                   agent: input.agent!,

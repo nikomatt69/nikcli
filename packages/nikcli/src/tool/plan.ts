@@ -7,7 +7,6 @@ import { Session } from "../session"
 import { sessionModel } from "@/session/model"
 import { MessageV2 } from "../session/message-v2"
 import { Identifier } from "@nikcli-ai/util/id"
-import { Instance } from "../project/instance"
 import EXIT_DESCRIPTION from "./plan-exit.txt"
 import ENTER_DESCRIPTION from "./plan-enter.txt"
 import { Effect } from "effect"
@@ -41,7 +40,7 @@ export const PlanExitTool = Tool.define("plan_exit", {
       Effect.gen(function* () {
         const session = yield* Session.Service
         const info = yield* session.get(ctx.sessionID)
-        return path.relative(Instance.worktree, yield* session.plan(info))
+        return path.relative(ctx.instance.worktree, yield* session.plan(info))
       }),
     )
     const answers = await askQuestion({
@@ -106,7 +105,7 @@ export const PlanEnterTool = Tool.define("plan_enter", {
       Effect.gen(function* () {
         const session = yield* Session.Service
         const info = yield* session.get(ctx.sessionID)
-        return path.relative(Instance.worktree, yield* session.plan(info))
+        return path.relative(ctx.instance.worktree, yield* session.plan(info))
       }),
     )
 

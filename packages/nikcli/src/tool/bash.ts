@@ -19,7 +19,7 @@ import { BashArity } from "@/permission/arity"
 import { splitShellStatements } from "@/permission/shell-split"
 import { Truncate } from "./truncation"
 import { Plugin } from "@/plugin"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export const MAX_METADATA_LENGTH = 30_000
 export const MAX_OUTPUT_LENGTH = 5 * 1024 * 1024
@@ -480,12 +480,17 @@ const parser = lazyAsync(async () => {
   return p
 })
 
-export const BashTool = Tool.define("bash", async () => {
+export const BashTool = Tool.define("bash", async (initCtx?: Tool.InitContext) => {
+  // The description names the default working directory, so the definition
+  // itself depends on the project. The registry passes the instance in; the
+  // fallback is the one named boundary read this module keeps, for the ad hoc
+  // `init()` calls that carry no context.
+  const instance = initCtx?.instance ?? InstanceState.ambient()
   return {
     // The model otherwise guesses the shell dialect from the OS, which is wrong whenever the
     // resolved shell is not the platform default (zsh vs bash on macOS, Git Bash or PowerShell on
     // Windows) — and a command in the wrong dialect fails for reasons the model cannot see.
-    description: DESCRIPTION.replaceAll("${directory}", Instance.directory)
+    description: DESCRIPTION.replaceAll("${directory}", instance.directory)
       .replaceAll("${platform}", PLATFORM_LABEL)
       .replaceAll("${shell}", Shell.describe())
       .replaceAll("${maxLines}", String(Truncate.MAX_LINES))
@@ -499,7 +504,7 @@ export const BashTool = Tool.define("bash", async () => {
           description: "Optional timeout in milliseconds",
         }),
         workdir: Schema.optional(Schema.String).annotate({
-          description: `The working directory to run the command in. Defaults to ${Instance.directory}. Use this instead of 'cd' commands.`,
+          description: `The working directory to run the command in. Defaults to ${instance.directory}. Use this instead of 'cd' commands.`,
         }),
         // Opencode #26419: local OpenAI-compatible backends (llama.cpp, LM Studio,
         // LiteLLM) sometimes omit `description`. Make it optional and synthesize a
@@ -521,7 +526,7 @@ export const BashTool = Tool.define("bash", async () => {
       const invocation = await triggerShellCreateBefore({
         sessionID: ctx.sessionID,
         command: params.command,
-        cwd: params.workdir || Instance.directory,
+        cwd: params.workdir || ctx.instance.directory,
         timeout: params.timeout ?? DEFAULT_TIMEOUT,
       })
 
