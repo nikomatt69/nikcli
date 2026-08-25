@@ -1,14 +1,14 @@
-Apply multiple find-and-replace edits to a single file in one operation. Built on top of Edit. Prefer this over multiple Edit calls when edits target the same file.
+Apply multiple find-and-replace edits to a single file in one operation. Prefer this over multiple Edit calls when edits target the same file.
 
-Each edit has `oldString`, `newString`, optional `replaceAll` (default false).
+`filePath` names the file; each entry in `edits` has `oldString`, `newString`, optional `replaceAll` (default false).
 
 Rules:
-- Provide absolute file paths.
-- Edits are applied in sequence; each operates on the previous result.
-- Edits are atomic — if any edit fails, none are applied.
-- `oldString` must match exactly (including whitespace and indentation).
+- Provide an absolute file path.
+- Edits are applied in sequence against the file's contents in memory; each operates on the previous result.
+- Edits are atomic — the file is written once, after every edit resolves. If any edit fails, none are applied.
+- `oldString` must match exactly (including whitespace and indentation) the file as you last read it — the formatter only runs after the whole batch, so it cannot invalidate a later edit.
 - Plan to avoid conflicts between sequential edits.
 
-To create a new file: empty `oldString` plus the file contents as `newString`. To rename a token across the file, use `replaceAll: true`.
+To create a new file: an empty `oldString` in the first edit plus the file contents as `newString`; later edits then apply to that content. To rename a token across the file, use `replaceAll: true`.
 
 No TODO/FIXME placeholders. No emojis unless the user asks. Don't touch git hooks unless asked.
