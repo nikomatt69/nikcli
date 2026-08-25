@@ -3,6 +3,25 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.315.0 (August 2026)
+
+## Core
+
+- Record the Brain pass output and this session's plan artifacts (@nikomatt69)
+- One bridge for withInstanceAsync, and measure what bootstrap costs (R1) (@nikomatt69)
+- Make bootstrap a property of the instance, not of the first caller (R1) (@nikomatt69)
+- Make multiedit one atomic batch instead of N sequential edits (@nikomatt69)
+- Give the mid-request call sites invalidation instead of teardown (R1) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(instance): give the mid-request call sites invalidation instead of teardown (R1)
+  - fix(tool): make multiedit one atomic batch instead of N sequential edits
+  - fix(instance): make bootstrap a property of the instance, not of the first caller (R1)
+  - refactor(effect): one bridge for withInstanceAsync, and measure what bootstrap costs (R1)
+  - chore(nikcli): record the Brain pass output and this session's plan artifacts
+
 ## v1.314.0 (August 2026)
 
 ## Core
