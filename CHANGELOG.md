@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.316.0 (August 2026)
+
+## Core
+
+- Stop version bumps from silently dropping dependency patches (C1) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(deps): stop version bumps from silently dropping dependency patches (C1)
+
 ## v1.315.0 (August 2026)
 
 ## Core
