@@ -25,6 +25,29 @@ jobs:
         with:
           node-version: "24"
 
+      # `sst deploy` runs the whole app — infra/app.ts, infra/console.ts and
+      # infra/enterprise.ts — and the console half declares Stripe resources, so
+      # the Stripe provider needs a key even for a site-only change. Without one
+      # the deploy fails as `StripeWebhookEndpoint ... api_key is required`,
+      # which names a resource rather than the missing repository secret. Check
+      # the credentials up front and say which one is absent.
+      - name: Verify deployment credentials
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          missing=()
+          for name in CLOUDFLARE_API_TOKEN STRIPE_SECRET_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name}" ]; then missing+=("$name"); fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository secret(s): ${missing[*]}. Set them with 'gh secret set <NAME>' — sst.config.ts reads each one as a provider credential and the deploy cannot authenticate without it."
+            exit 1
+          fi
+
       - name: Deploy nikcli site with SST
         shell: bash
         run: |
@@ -47,6 +70,7 @@ jobs:
           bun sst deploy --stage="${{ github.ref_name }}"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
