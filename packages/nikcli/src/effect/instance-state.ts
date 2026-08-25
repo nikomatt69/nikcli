@@ -2,15 +2,26 @@ import { Instance } from "@/project/instance"
 import { Duration, Effect, ScopedCache, Scope } from "effect"
 import { instance, type InstanceContext } from "./instance-ref"
 
-export const context: Effect.Effect<InstanceContext> = instance.pipe(
-  Effect.catch(() =>
-    Effect.sync(() => ({
-      directory: Instance.directory,
-      worktree: Instance.worktree,
-      project: Instance.project,
-    })),
-  ),
-)
+/**
+ * The ambient instance as a plain value, read synchronously in the caller's
+ * frame. Throws when there is no instance scope, exactly like the getters it
+ * reads.
+ *
+ * `context` below is the Effect form and is what Effect code should use. This
+ * exists for the promise side: several call sites were starting a fiber on a
+ * `ManagedRuntime` whose only job was to read these three getters out of the
+ * ambient scope, bind them to `InstanceRef`, and immediately read them back —
+ * a round trip through the Effect runtime for a synchronous property access.
+ */
+export function ambient(): InstanceContext {
+  return {
+    directory: Instance.directory,
+    worktree: Instance.worktree,
+    project: Instance.project,
+  }
+}
+
+export const context: Effect.Effect<InstanceContext> = instance.pipe(Effect.catch(() => Effect.sync(ambient)))
 
 export const directory = Effect.map(context, (ctx) => ctx.directory)
 export const worktree = Effect.map(context, (ctx) => ctx.worktree)

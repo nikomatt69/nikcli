@@ -7,7 +7,7 @@ import { SearchBackend } from "@/file/searchBackend"
 import { assertExternalDirectory } from "./external-directory"
 import { FileIgnore } from "@/file/ignore"
 import { LSP } from "@/lsp"
-import { AppRuntime, InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
 const parameters = z.object({
@@ -24,7 +24,7 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
 }
 
 async function instancePaths() {
-  const ctx = await AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
+  const ctx = InstanceState.ambient()
   return { directory: ctx.directory, worktree: ctx.worktree }
 }
 

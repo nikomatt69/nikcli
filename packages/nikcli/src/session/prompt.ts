@@ -38,7 +38,7 @@ import { PermissionNext } from "@/permission/next"
 import { SessionStatus } from "./status"
 import { Context, Effect, Layer } from "effect"
 import { Instance } from "@/project/instance"
-import { AppRuntime, InstanceState, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 import { errorMessage } from "@nikcli-ai/util/error-format"
 import { resolveTools, createStructuredOutputTool } from "./tools"
 import { PromptParts } from "./prompt-parts"
@@ -317,8 +317,8 @@ export namespace SessionPrompt {
     )
   }
 
-  function currentContext(): Promise<InstanceContext> {
-    return AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
+  function currentContext(): InstanceContext {
+    return InstanceState.ambient()
   }
 
   function runInInstanceContext<A>(ctx: InstanceContext, fn: () => Promise<A>): Effect.Effect<A, Error> {
@@ -503,7 +503,7 @@ export namespace SessionPrompt {
         } satisfies Admission
       }
 
-      const ctx = await currentContext()
+      const ctx = currentContext()
       const prepared = await prepareUserMessage(admitted)
       const result = Database.transaction(() => {
         const raced = existingAdmission(admitted.sessionID, messageID, promptData)
@@ -605,7 +605,7 @@ export namespace SessionPrompt {
         promptData: SessionPending.canonical(row.data),
       })
     }
-    const ctx = await currentContext()
+    const ctx = currentContext()
 
     const promoted = Database.transaction((tx) => {
       const available = new Map(SessionPending.list(sessionID, delivery, tx).map((row) => [row.id, row]))
@@ -677,7 +677,7 @@ export namespace SessionPrompt {
     const abort = controller.signal
 
     await using _ = defer(() => PromptState.finish(sessionID, controller))
-    const ctx = await currentContext()
+    const ctx = currentContext()
 
     // Instruction deltas emitted by earlier turns have been delivered by now.
     // Fold them into the epoch prefix so they stop being replayed, in full, on

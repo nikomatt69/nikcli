@@ -1,7 +1,6 @@
 import { Git } from "@/git"
 import { Log } from "@nikcli-ai/util/log"
-import { runPromiseWithLayer, withCurrentInstance, InstanceState } from "@/effect"
-import { Worktree } from "@/worktree"
+import { InstanceState } from "@/effect"
 import type { Config } from "../config"
 import type { Adaptor } from "./types"
 
@@ -36,8 +35,8 @@ function branchName(input: string) {
     .join("/")
 }
 
-async function projectRoot(): Promise<{ directory: string; vcs?: string }> {
-  const ctx = await runPromiseWithLayer(Worktree.defaultLayer, withCurrentInstance(InstanceState.context))
+function projectRoot(): { directory: string; vcs?: string } {
+  const ctx = InstanceState.ambient()
   return { directory: ctx.worktree, vcs: ctx.project.vcs }
 }
 
@@ -120,7 +119,7 @@ export const BranchAdaptor: Adaptor<BranchConfig> = {
   name: "Branch",
   description: "Switch this checkout to a dedicated git branch (in place)",
   async create(_from: BranchConfig, branch: string | null | undefined, _workspaceID?: string) {
-    const root = await projectRoot()
+    const root = projectRoot()
     if (root.vcs !== "git") throw new Error("Branch workspaces are only supported for git projects")
     const cwd = root.directory
 

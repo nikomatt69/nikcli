@@ -11,7 +11,7 @@ import { Agent } from "@/agent/agent"
 import { Skill } from "@/skill"
 import { Token } from "@nikcli-ai/util/token"
 import { Log } from "@nikcli-ai/util/log"
-import { AppRuntime, runPromiseWithLayer, withCurrentInstance, InstanceState, type InstanceContext } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, InstanceState, type InstanceContext } from "@/effect"
 import { collectSystemPaths } from "./instruction"
 
 const log = Log.create({ service: "session.context-breakdown" })
@@ -78,8 +78,8 @@ export namespace SessionContext {
     return runPromiseWithLayer(SystemPrompt.defaultLayer, withCurrentInstance(effect))
   }
 
-  function currentContext(): Promise<InstanceContext> {
-    return AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
+  function currentContext(): InstanceContext {
+    return InstanceState.ambient()
   }
 
   const est = (s: string) => Token.estimate(s)
@@ -180,7 +180,7 @@ export namespace SessionContext {
       }),
     )
 
-    const ctx = await currentContext()
+    const ctx = currentContext()
     const sources: Source[] = []
 
     // 1. System prompt (provider header + base instructions) — always present.

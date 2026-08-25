@@ -57,7 +57,7 @@ export namespace PromptCommands {
     ): Promise<unknown>
     sessionUpdateMessage(message: MessageV2.Info): Promise<unknown>
     sessionUpdatePart(part: MessageV2.Part): Promise<unknown>
-    currentContext(): Promise<InstanceContext>
+    currentContext(): InstanceContext
     runRevert<A, E>(effect: Effect.Effect<A, E, SessionRevert.Service>): Promise<A>
     runGoal<A, E>(effect: Effect.Effect<A, E, SessionGoal.Service>): Promise<A>
     runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>): Promise<A>
@@ -102,7 +102,7 @@ export namespace PromptCommands {
     }
     const abort = controller.signal
     await using _ = defer(() => state.finish(input.sessionID, controller))
-    const ctx = await deps.currentContext()
+    const ctx = deps.currentContext()
 
     const session = await deps.sessionGet(input.sessionID)
     if (session.revert) {
@@ -540,7 +540,7 @@ export namespace PromptCommands {
       })
     }
 
-    const templateParts = await PromptParts.resolve(await deps.currentContext(), template)
+    const templateParts = await PromptParts.resolve(deps.currentContext(), template)
     const parts = isSubtask
       ? [
           {

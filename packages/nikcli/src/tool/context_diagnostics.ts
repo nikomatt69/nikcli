@@ -4,7 +4,7 @@ import { Tool } from "./tool"
 import DESCRIPTION from "./context_diagnostics.txt"
 import { LSP } from "@/lsp"
 import { assertExternalDirectory } from "./external-directory"
-import { AppRuntime, InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
 const parameters = z.object({
@@ -17,7 +17,7 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
 }
 
 async function instancePaths() {
-  const ctx = await AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
+  const ctx = InstanceState.ambient()
   return { directory: ctx.directory, worktree: ctx.worktree }
 }
 
