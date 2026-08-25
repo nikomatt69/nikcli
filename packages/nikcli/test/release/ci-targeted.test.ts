@@ -92,6 +92,7 @@ describe("ci-validate.ts step order", () => {
       "Shell syntax check (install script)",
       "Shell syntax check (railway-deploy)",
       "Docker nikcli version check",
+      "Patched dependency check",
       "Railway upload context check",
       "PowerShell syntax check (install.ps1)",
     ])

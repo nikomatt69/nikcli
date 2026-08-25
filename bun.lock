@@ -1039,6 +1039,8 @@
     "tree-sitter-bash",
   ],
   "patchedDependencies": {
+    "ghostty-web@0.4.0": "patches/ghostty-web@0.4.0.patch",
+    "@modelcontextprotocol/sdk@1.26.0": "patches/@modelcontextprotocol%2Fsdk@1.26.0.patch",
     "@opentui/core@0.4.5": "patches/@opentui%2Fcore@0.4.5.patch",
     "ghostty-web@0.3.0": "patches/ghostty-web@0.3.0.patch",
     "expo-modules-jsi@56.0.9": "patches/expo-modules-jsi@56.0.9.patch",

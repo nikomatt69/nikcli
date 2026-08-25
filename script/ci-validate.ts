@@ -115,6 +115,16 @@ const steps: ValidationStep[] = [
     timeout: 30_000,
   },
   {
+    // `patchedDependencies` is keyed by exact version, so bumping a dependency
+    // silently stops applying its patch — bun says nothing, and package.json
+    // still lists the entry. `@modelcontextprotocol/sdk` lost its SSE
+    // reconnect-storm fix that way for 25 days.
+    name: "Patched dependency check",
+    command: ["bun", "run", "script/check-patched-deps.ts"],
+    critical: true,
+    timeout: 30_000,
+  },
+  {
     // .railwayignore filters the repo-root `railway up` upload. A rule that
     // drops something Dockerfile.serve COPYs fails the Railway build, not CI.
     name: "Railway upload context check",
