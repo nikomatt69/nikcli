@@ -6,6 +6,15 @@ import { AppRuntime } from "./runtime"
 export interface WithInput {
   readonly directory: string
   readonly workspaceID?: string
+  /**
+   * Bootstrap to run for this instance if it has not had one yet — in
+   * practice always `InstanceBootstrap`, which is the only `init` passed
+   * anywhere in `src`. It is a property of the instance, not of this call:
+   * `Instance.provide` runs it once per directory, retroactively for an
+   * instance an earlier bootstrap-free acquisition created, and shares one
+   * run between concurrent askers.
+   */
+  readonly init?: () => Promise<void>
 }
 
 export const InstanceScope = {
@@ -31,6 +40,7 @@ export const InstanceScope = {
 
       Instance.provide({
         directory: input.directory,
+        init: input.init,
         fn: () => {
           const ctx: InstanceContext = {
             directory: Instance.directory,
