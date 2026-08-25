@@ -196,12 +196,11 @@ export const rpc = {
       for (const id of eventStreams.keys()) {
         stopEventStream(id)
       }
-      // Stop the browser-control daemon (and any Chromium/WebView children
-      // it spawned) before tearing the HTTP server and Instances down.
-      // Must run BEFORE `Instance.disposeAll()` because
-      // `BrowserControl.closeAll()` resolves the socket path from
-      // `Instance.directory`; after dispose that becomes undefined and the
-      // cleanup would either target the wrong workspace or no-op silently.
+      // Stop the browser-control daemons (and any Chromium/WebView children
+      // they spawned) before tearing the HTTP server and Instances down.
+      // `closeAll()` sweeps every workspace this process resolved a socket
+      // for, so it does not depend on standing in an instance scope — this
+      // RPC handler stands in none.
       await BrowserControl.closeAll().catch((error) => {
         Log.Default.warn("browser-control shutdown failed", {
           error: errorMessage(error),

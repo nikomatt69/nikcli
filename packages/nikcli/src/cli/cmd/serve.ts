@@ -221,13 +221,12 @@ export const ServeCommand = cmd({
       await server.stop(true)
       if (remoteSync) await remoteSync.stop()
       await Promise.all(workspaceSync.map((item) => item.stop()))
-      // Stop the browser-control daemon so its Chromium/WebView children
+      // Stop the browser-control daemons so their Chromium/WebView children
       // die with the server instead of being reaped only by the 10-minute
       // idle timer (or, worse, never — when sessions outlive `serve`).
-      // `serve` doesn't populate `Instance.directory`, so
-      // `BrowserControl.closeAll()` falls back to `findWorkspaceRoot()` from
-      // `process.cwd()` — same behaviour as the TUI worker, so the socket
-      // resolves to the correct workspace.
+      // `serve` stands in no instance scope, so `closeAll()` resolves this
+      // process's own workspace from `process.cwd()`, and closes every other
+      // workspace a session reached a daemon for as well.
       await BrowserControl.closeAll().catch((error) => {
         log.warn("browser-control shutdown failed", {
           error: errorMessage(error),
