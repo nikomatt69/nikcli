@@ -41,13 +41,13 @@ afterAll(async () => {
 })
 
 /**
- * R1 replaces the `Map<string, Promise<Context>>` promise cache and the
- * AsyncLocalStorage scope in `project/instance.ts` with a keyed scoped runtime.
- * These tests exist so that migration is a swap of mechanism and not of
- * behaviour: they pin what the current implementation guarantees about
- * acquisition, failure, invalidation and disposal, without asserting anything
- * about *how* it is stored. A replacement that keeps every one of these green
- * is a replacement that cannot silently change what callers depend on.
+ * R1 replaces the `Map<string, Promise<Context>>` promise cache with a keyed
+ * `ScopedCache` in `project/instance.ts`. ALS still carries "which instance
+ * am I in" for the remaining synchronous reads; these tests pin what
+ * acquisition, failure, invalidation and disposal guarantee, without
+ * asserting anything about *how* the entry is stored. A replacement that
+ * keeps every one of these green is a replacement that cannot silently
+ * change what callers depend on.
  */
 describe("Instance lifecycle — concurrent acquisition", () => {
   it("bootstraps once for overlapping acquisitions of the same directory", async () => {
@@ -78,11 +78,12 @@ describe("Instance lifecycle — concurrent acquisition", () => {
     const [a, b] = await Promise.all([first, second])
 
     expect(a).toBe(b)
-    expect(firstInit).toBe(1)
-    // `init` belongs to the bootstrap, not to the call. The loser of the race
-    // joins the winner's instance and its own `init` never runs — callers that
-    // pass one must treat it as "once per directory", never "before my body".
-    expect(secondInit).toBe(0)
+    // `init` belongs to the bootstrap, not to the call. Whichever asker
+    // reaches the empty `bootstrapped` slot first runs it; the other joins.
+    // Production has only `InstanceBootstrap`, so the two functions are the
+    // same constant — callers must treat this as "once per directory", never
+    // "before my body".
+    expect(firstInit + secondInit).toBe(1)
   })
 
   it("keys the instance by realpath, so an alias joins rather than duplicates", async () => {
@@ -155,7 +156,7 @@ describe("Instance lifecycle — concurrent acquisition", () => {
 })
 
 describe("Instance lifecycle — bootstrap failure", () => {
-  it("does not cache a failed bootstrap, and the next acquisition retries", async () => {
+  it("keeps the instance when the first caller's init fails, and the next acquisition retries", async () => {
     const dir = await directory("boot-fail")
     let attempts = 0
 
@@ -170,9 +171,13 @@ describe("Instance lifecycle — bootstrap failure", () => {
       }),
     ).rejects.toThrow("bootstrap exploded")
 
-    // The failure is not sticky: a poisoned entry would make the directory
-    // permanently unusable for the life of the process.
-    expect(Instance.has(dir)).toBe(false)
+    // Inverted 2026-08-26. `init` used to run inside the creation promise, so
+    // a failed first bootstrap evicted the instance as if `fromDirectory` had
+    // failed. The keyed cache looks up the context only; `init` is the same
+    // retroactive path whether the instance is new or already held. The
+    // failure is not sticky — a poisoned `bootstrapped` would make the
+    // directory permanently unusable — but the entry stays.
+    expect(Instance.has(dir)).toBe(true)
 
     const recovered = await Instance.provide({
       directory: dir,
@@ -187,7 +192,7 @@ describe("Instance lifecycle — bootstrap failure", () => {
     expect(Instance.has(dir)).toBe(true)
   })
 
-  it("fails every waiter on a shared failing bootstrap, and evicts it once", async () => {
+  it("fails every waiter that asked for a shared failing init, and keeps the instance", async () => {
     const dir = await directory("boot-fail-shared")
     const gate = deferred()
 
@@ -201,20 +206,30 @@ describe("Instance lifecycle — bootstrap failure", () => {
     })
     const second = Instance.provide({
       directory: dir,
+      init: async () => {
+        throw new Error("should join the first init, not run")
+      },
       fn: () => "unreachable",
+    })
+    const bystander = Instance.provide({
+      directory: dir,
+      fn: () => "ok",
     })
 
     gate.resolve()
-    const [a, b] = await Promise.allSettled([first, second])
+    const [a, b, c] = await Promise.allSettled([first, second, bystander])
 
     expect(a.status).toBe("rejected")
     expect(b.status).toBe("rejected")
-    // Both waiters observe the same failure — the loser is not handed a
-    // half-built instance, and not a different error either.
+    // Both waiters that asked for init observe the same failure — the loser
+    // is not handed a half-bootstrapped instance, and not a different error.
     expect((a as PromiseRejectedResult).reason).toBe((b as PromiseRejectedResult).reason)
-    // Eviction is guarded by identity, so the second waiter's cleanup cannot
-    // remove an entry that a later acquisition has already installed.
-    expect(Instance.has(dir)).toBe(false)
+    // Inverted 2026-08-26. A waiter that did not ask for bootstrap is not
+    // failed by someone else's `init`. Creation already succeeded; they
+    // wanted the instance. Evicting here would also drop the entry out from
+    // under them.
+    expect(c).toEqual({ status: "fulfilled", value: "ok" })
+    expect(Instance.has(dir)).toBe(true)
   })
 
   it("keeps the instance cached when the body throws", async () => {

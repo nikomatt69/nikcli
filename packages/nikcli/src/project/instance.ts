@@ -5,7 +5,7 @@ import { State } from "./state"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { realpathSync } from "fs"
 import path from "path"
-import { Effect } from "effect"
+import { Duration, Effect, Exit, ScopedCache, Scope } from "effect"
 import { runService } from "@/effect"
 
 function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
@@ -37,7 +37,48 @@ interface Context {
   disposed?: boolean
 }
 const context = Context.create<Context>("instance")
-const cache = new Map<string, Promise<Context>>()
+
+/**
+ * Per-directory instance cache. Lookup creates the context (`fromDirectory`);
+ * `init` is not part of lookup — it is a property of the instance, run by
+ * `provide` after the entry exists, the same path whether this is the first
+ * acquisition or a later one. A failed lookup expires immediately so the
+ * next caller retries creation; a failed `init` does not evict, because the
+ * instance was already built and other callers may hold it.
+ *
+ * The owning scope is process-lifetime: `dispose` / `disposeAll` invalidate
+ * entries, they do not close this scope. Closing it would mark the cache
+ * Closed and every later `provide` would interrupt.
+ */
+const instanceScope = Scope.makeUnsafe()
+const cache = Effect.runSync(
+  ScopedCache.makeWith<string, Context, Error>({
+    capacity: Number.MAX_SAFE_INTEGER,
+    lookup: (directory) => createInstance(directory),
+    timeToLive: (exit) => (Exit.isFailure(exit) ? Duration.zero : Duration.infinity),
+  }).pipe(Effect.provideService(Scope.Scope, instanceScope)),
+)
+
+function createInstance(directory: string) {
+  return Effect.tryPromise({
+    try: async () => {
+      Log.Default.info("creating instance", { directory })
+      const { project, sandbox } = await runProject(
+        Effect.gen(function* () {
+          const project = yield* Project.Service
+          return yield* project.fromDirectory(directory)
+        }),
+      )
+      return {
+        directory,
+        worktree: sandbox,
+        project,
+        disposers: new Set<() => void | Promise<void>>(),
+      } satisfies Context
+    },
+    catch: (error) => (error instanceof Error ? error : new Error(String(error), { cause: error })),
+  })
+}
 
 /**
  * Whether a directory is the root of its filesystem — `/` on POSIX, `C:\` and
@@ -60,44 +101,10 @@ function normalizeDirectory(directory: string) {
 export const Instance = {
   async provide<R>(input: { directory: string; init?: (instance: Context) => Promise<any>; fn: () => R }): Promise<R> {
     const directory = normalizeDirectory(input.directory)
-    let existing = cache.get(directory)
-    if (!existing) {
-      Log.Default.info("creating instance", { directory })
-      const promise = (async () => {
-        const { project, sandbox } = await runProject(
-          Effect.gen(function* () {
-            const project = yield* Project.Service
-            return yield* project.fromDirectory(directory)
-          }),
-        )
-        const ctx: Context = {
-          directory,
-          worktree: sandbox,
-          project,
-          disposers: new Set<() => void | Promise<void>>(),
-        }
-        if (input.init) {
-          await context.provide(ctx, async () => {
-            await input.init!(ctx)
-          })
-          // Record it on the context, not just on the closure: the next caller
-          // to pass an `init` for this directory has to be able to tell that
-          // one has already run.
-          ctx.bootstrapped = Promise.resolve()
-        }
-        return ctx
-      })()
-      cache.set(directory, promise)
-      existing = promise
-    }
-
     let ctx: Context
     try {
-      ctx = await existing
+      ctx = await Effect.runPromise(ScopedCache.get(cache, directory))
     } catch (err) {
-      if (cache.get(directory) === existing) {
-        cache.delete(directory)
-      }
       Log.Default.warn("instance creation failed", { directory, error: err })
       throw err
     }
@@ -107,6 +114,13 @@ export const Instance = {
     // route creating a fresh worktree, for one — permanently decides that the
     // directory is never bootstrapped, and every later caller's `init` is
     // dropped in silence. Single-flight, so concurrent askers share one run.
+    //
+    // Lookup does not run `init`. The first caller that passes one used to
+    // bake it into the creation promise, which meant a concurrent waiter that
+    // did not ask for bootstrap still failed when that init exploded, and the
+    // instance was evicted. Creation and bootstrap are different failures:
+    // a failed `fromDirectory` expires out of the cache, a failed `init`
+    // clears `bootstrapped` and leaves the entry.
     if (input.init) {
       let pending = ctx.bootstrapped
       if (!pending) {
@@ -137,7 +151,7 @@ export const Instance = {
     })
   },
   has(directory: string) {
-    return cache.has(normalizeDirectory(directory))
+    return Effect.runSync(ScopedCache.has(cache, normalizeDirectory(directory)))
   },
   get directory() {
     return context.use().directory
@@ -221,7 +235,7 @@ export const Instance = {
 
     await Promise.allSettled(tasks)
     ctx.disposers.clear()
-    cache.delete(ctx.directory)
+    await Effect.runPromise(ScopedCache.invalidate(cache, ctx.directory))
   },
   /**
    * Drop config-derived per-instance state without tearing the instance
@@ -248,15 +262,13 @@ export const Instance = {
 
   async disposeAll() {
     Log.Default.info("disposing all instances")
-    for (const [_key, value] of cache) {
-      const awaited = await value.catch(() => {})
-      if (awaited) {
-        await context.provide(await value, async () => {
-          await Instance.dispose()
-        })
-      }
+    const live = await Effect.runPromise(ScopedCache.entries(cache))
+    for (const [, ctx] of live) {
+      await context.provide(ctx, async () => {
+        await Instance.dispose()
+      })
     }
-    cache.clear()
+    await Effect.runPromise(ScopedCache.invalidateAll(cache))
     // State read back after its instance was disposed rebuilt under the same
     // directory key with no cache entry left to reach it. Collect those here
     // rather than leaving them for a later acquire-and-dispose of that
