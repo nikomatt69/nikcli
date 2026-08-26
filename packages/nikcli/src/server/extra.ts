@@ -4,8 +4,7 @@ import path from "node:path"
 import { Effect } from "effect"
 import { Auth } from "@/auth"
 import { Config } from "@/config/config"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Instance } from "@/project/instance"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { InstanceReload } from "@/project/reload"
 import { Provider } from "@/provider/provider"
 import { Workspace } from "@/workspace"
@@ -75,6 +74,10 @@ async function refreshProviders() {
 }
 
 export async function extraRequest(request: Request): Promise<Response | undefined> {
+  // A raw HTTP entry point carries no context, so this is where the ambient
+  // scope is read: once, in the caller's own frame, rather than three times
+  // from whatever fiber each branch happens to be running on.
+  const instance = InstanceState.ambient()
   const url = new URL(request.url)
   const pathname = url.pathname
   const method = request.method.toUpperCase()
@@ -112,7 +115,7 @@ export async function extraRequest(request: Request): Promise<Response | undefin
 
   if (pathname === "/config/reload" && method === "POST") {
     await InstanceReload.reload(["api"])
-    return json({ reloaded: true, directory: Instance.directory })
+    return json({ reloaded: true, directory: instance.directory })
   }
 
   if (pathname === "/config/mcp" && method === "POST") {
@@ -163,7 +166,7 @@ export async function extraRequest(request: Request): Promise<Response | undefin
       const next = { ...current.mcp }
       if (!(name in next)) return json({ error: "MCP server not found" }, 404)
       delete next[name]
-      await Bun.write(path.join(Instance.directory, "nikcli.json"), JSON.stringify({ ...current, mcp: next }, null, 2))
+      await Bun.write(path.join(instance.directory, "nikcli.json"), JSON.stringify({ ...current, mcp: next }, null, 2))
       return json({ success: true })
     }
   }
@@ -225,7 +228,7 @@ export async function extraRequest(request: Request): Promise<Response | undefin
       return json({ error: "Profile name can only contain letters, numbers, dots, underscores, and dashes" }, 400)
     const file = Bun.file(profilePath(name))
     if (!(await file.exists())) return json({ error: "Profile not found" }, 404)
-    await Bun.write(path.join(Instance.directory, "nikcli.json"), JSON.stringify(await file.json(), null, 2))
+    await Bun.write(path.join(instance.directory, "nikcli.json"), JSON.stringify(await file.json(), null, 2))
     await Bun.write(activeProfilePath(), name)
     return json({ success: true })
   }

@@ -2,8 +2,7 @@ import { HttpRouter } from "effect/unstable/http"
 import { OpenApi } from "effect/unstable/httpapi"
 import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
 import { Context, Effect, Layer } from "effect"
-import { InstanceRef, LogRedirect, sharedMemoMap } from "@/effect"
-import { Instance } from "@/project/instance"
+import { InstanceRef, InstanceState, LogRedirect, sharedMemoMap } from "@/effect"
 import { ChatbotHttp } from "./chatbot"
 import { HttpApiEvent } from "./event"
 import { HttpApiPrompt } from "./prompt"
@@ -365,13 +364,6 @@ export namespace HttpApiBridge {
       if (!result.ok) return result.response
       Auth.remember(request, result.principal)
     }
-    return webHandler(
-      request,
-      Context.make(InstanceRef, {
-        directory: Instance.directory,
-        worktree: Instance.worktree,
-        project: Instance.project,
-      }) as Context.Context<any>,
-    )
+    return webHandler(request, Context.make(InstanceRef, InstanceState.ambient()) as Context.Context<any>)
   }
 }

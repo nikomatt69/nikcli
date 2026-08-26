@@ -4,8 +4,8 @@ import { Installation } from "@/installation"
 import { MobileAuth } from "@/mobile/auth"
 import { Expo } from "@/mobile/expo"
 import { MobileProjectDetect } from "@/mobile/project-detect"
-import { Instance } from "@/project/instance"
 import { Project } from "@/project/project"
+import type { InstanceContext } from "@/effect"
 import { getContainerRuntimeInfo } from "@/workspace/adaptors"
 import { githubOAuthClientID, githubToken, githubUser, runCommand, runProject } from "./helpers"
 
@@ -18,7 +18,7 @@ async function projects() {
 }
 
 /** The mobile token the request was authenticated with, if any. */
-export async function bootstrap(currentToken: MobileAuth.PublicToken | undefined) {
+export async function bootstrap(instance: InstanceContext, currentToken: MobileAuth.PublicToken | undefined) {
   const list = await projects()
   const [user, storedGithubToken, container, oauth, expo, detected] = await Promise.all([
     githubUser(),
@@ -26,13 +26,13 @@ export async function bootstrap(currentToken: MobileAuth.PublicToken | undefined
     getContainerRuntimeInfo(),
     githubOAuthClientID(),
     Expo.doctor(),
-    MobileProjectDetect.detect(Instance.directory),
+    MobileProjectDetect.detect(instance.directory),
   ])
   return {
     version: Installation.VERSION,
     auth: { bearerEnabled: true, currentToken },
-    currentProject: { ...Instance.project, current: true },
-    projects: list.map((project) => ({ ...project, current: project.id === Instance.project.id })),
+    currentProject: { ...instance.project, current: true },
+    projects: list.map((project) => ({ ...project, current: project.id === instance.project.id })),
     execution: { container },
     github: {
       connected: Boolean(user),
@@ -76,6 +76,6 @@ export async function commandList() {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export async function projectList() {
-  return (await projects()).map((project) => ({ ...project, current: project.id === Instance.project.id }))
+export async function projectList(current: Project.Info) {
+  return (await projects()).map((project) => ({ ...project, current: project.id === current.id }))
 }

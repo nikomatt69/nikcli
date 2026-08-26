@@ -12,8 +12,7 @@ import { Session } from "@/session"
 import { Snapshot } from "@/snapshot"
 import { HttpApiAuth } from "./security"
 import { Config } from "@/config/config"
-import { InstanceState, runPromiseWithLayer } from "@/effect"
-import { Instance } from "@/project/instance"
+import { InstanceState, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { InstanceReload } from "@/project/reload"
 import { Provider } from "@/provider/provider"
 import { ShareNext } from "@/share/share-next"
@@ -409,9 +408,18 @@ export namespace ContractExtraHttpApi {
     .add(UsersGroup)
     .add(AccountGroup)
 
-  function raw(handler: (request: Request) => Promise<Response> | Response) {
+  /**
+   * Adapt a plain-async raw handler. The instance is resolved here and handed
+   * to the handler, so a body that writes into the project does not have to
+   * find the directory by reading whatever scope its fiber woke up in.
+   */
+  function raw(handler: (request: Request, instance: InstanceContext) => Promise<Response> | Response) {
     return ({ request }: { readonly request: HttpServerRequest.HttpServerRequest }) =>
-      Effect.promise(async () => HttpServerResponse.fromWeb(await handler(request.source as Request)))
+      InstanceState.context.pipe(
+        Effect.flatMap((instance) =>
+          Effect.promise(async () => HttpServerResponse.fromWeb(await handler(request.source as Request, instance))),
+        ),
+      )
   }
 
   function json(body: unknown, status = 200) {
@@ -525,14 +533,14 @@ export namespace ContractExtraHttpApi {
       )
       .handleRaw(
         "mcpRemove",
-        raw(async (request) => {
+        raw(async (request, instance) => {
           const name = decodeURIComponent(new URL(request.url).pathname.split("/").at(-1) ?? "")
           const current = await runConfig(configService((service) => service.get()))
           const next = { ...current.mcp }
           if (!(name in next)) return json({ error: "MCP server not found" }, 404)
           delete next[name]
           await Bun.write(
-            path.join(Instance.directory, "nikcli.json"),
+            path.join(instance.directory, "nikcli.json"),
             JSON.stringify({ ...current, mcp: next }, null, 2),
           )
           return json({ success: true })
@@ -583,7 +591,7 @@ export namespace ContractExtraHttpApi {
       )
       .handleRaw(
         "profileActivate",
-        raw(async (request) => {
+        raw(async (request, instance) => {
           const requested = decodeURIComponent(new URL(request.url).pathname.split("/").at(-1) ?? "").trim()
           await fs.mkdir(profileDir(), { recursive: true })
           if (requested === "default") {
@@ -600,7 +608,7 @@ export namespace ContractExtraHttpApi {
             )
           const file = Bun.file(profilePath(name))
           if (!(await file.exists())) return json({ error: "Profile not found" }, 404)
-          await Bun.write(path.join(Instance.directory, "nikcli.json"), JSON.stringify(await file.json(), null, 2))
+          await Bun.write(path.join(instance.directory, "nikcli.json"), JSON.stringify(await file.json(), null, 2))
           await Bun.write(activeProfilePath(), name)
           return json({ success: true })
         }),

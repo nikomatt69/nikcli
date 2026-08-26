@@ -66,9 +66,8 @@ export async function sessionList(query: { limit?: number; search?: string }) {
   return query.limit ? sessions.slice(0, query.limit) : sessions
 }
 
-export async function sessionCreate(input: typeof MobileSessionCreateInput._output) {
-  const target = input?.executionTarget === "container" ? "container" : "local",
-    host = Instance.directory
+export async function sessionCreate(host: string, input: typeof MobileSessionCreateInput._output) {
+  const target = input?.executionTarget === "container" ? "container" : "local"
   const sessionInput = input
     ? { parentID: input.parentID, title: input.title, permission: input.permission, github: input.github }
     : undefined

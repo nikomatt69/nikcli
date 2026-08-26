@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect"
-import { InstanceState } from "@/effect"
+import { InstanceState, type InstanceContext } from "@/effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { dispatchMobileRequest } from "../mobile/dispatcher"
@@ -72,6 +72,13 @@ const withDirectory = <A>(fn: (directory: string) => Promise<A>): Effect.Effect<
     Effect.orDie,
   )
 
+/** `withDirectory` for a body that needs the project as well as the directory. */
+const withInstance = <A>(fn: (instance: InstanceContext) => Promise<A>): Effect.Effect<A> =>
+  InstanceState.context.pipe(
+    Effect.flatMap((instance) => Effect.promise(() => fn(instance))),
+    Effect.orDie,
+  )
+
 /** The `withDirectory` shape for an endpoint that declares errors. */
 const routeWithDirectory = <A, E>(
   fn: (directory: string) => Promise<A>,
@@ -118,13 +125,13 @@ const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handle
     .handle("authTokenRevoke", ({ params }) => fromPromise(() => auth.tokenRevoke(params.id)))
     // --- misc ---
     .handle("bootstrap", ({ request }) =>
-      fromPromise(() => {
+      withInstance((instance) => {
         const principal = Auth.principal(sourceOf(request))
-        return misc.bootstrap(principal?.type === "mobile" ? principal.token : undefined)
+        return misc.bootstrap(instance, principal?.type === "mobile" ? principal.token : undefined)
       }),
     )
     .handle("commandList", () => fromPromise(() => misc.commandList()))
-    .handle("projectList", () => fromPromise(() => misc.projectList()))
+    .handle("projectList", () => withInstance((instance) => misc.projectList(instance.project)))
     // --- memory ---
     .handle("memoryHistory", () => fromPromise(() => memory.history()))
     .handle("memorySearch", ({ query }) => fromPromise(() => memory.search(query.query)))
@@ -148,7 +155,9 @@ const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handle
     )
     // --- sessions ---
     .handle("sessionList", ({ query }) => fromPromise(() => session.sessionList(query)))
-    .handle("sessionCreate", ({ payload }) => fromPromise(() => session.sessionCreate(mutable(payload))))
+    .handle("sessionCreate", ({ payload }) =>
+      withDirectory((directory) => session.sessionCreate(directory, mutable(payload))),
+    )
     .handle("sessionDetail", ({ params }) => fromPromise(() => session.sessionDetail(params.sessionID)))
     .handle("sessionDelete", ({ params }) => fromPromise(() => session.sessionDelete(params.sessionID)))
     .handle("sessionDiff", ({ params }) => fromPromise(() => session.sessionDiff(params.sessionID, params.messageID)))
@@ -197,7 +206,9 @@ const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handle
     // --- teleport ---
     .handle("teleportUploadBegin", () => fromPromise(() => teleport.teleportUploadBegin()))
     .handleRaw("teleportUploadChunk", forward)
-    .handle("teleportIn", ({ payload }) => route(() => teleport.teleportIn(mutable(payload)), catchBad))
+    .handle("teleportIn", ({ payload }) =>
+      routeWithDirectory((directory) => teleport.teleportIn(directory, mutable(payload)), catchBad),
+    )
     .handle("teleportOut", ({ params, payload }) =>
       route(() => teleport.teleportOut(params.sessionID, mutable(payload)), catchBadOrNotFound),
     )
@@ -299,7 +310,7 @@ const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handle
     .handle("fusionList", () => fromPromise(() => features.fusionList()))
     .handle("fusionSet", ({ payload }) => fromPromise(() => features.fusionSet(payload)))
     // --- host status ---
-    .handle("hostBrowser", () => fromPromise(() => hostStatus.hostBrowser()))
+    .handle("hostBrowser", () => withDirectory((directory) => hostStatus.hostBrowser(directory)))
     .handle("hostComputer", () => fromPromise(() => hostStatus.hostComputer()))
     .handle("hostHerdrGet", () => fromPromise(() => hostStatus.hostHerdrGet()))
     .handle("hostHerdrSet", ({ payload }) => fromPromise(() => hostStatus.hostHerdrSet(payload)))

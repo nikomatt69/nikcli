@@ -3,15 +3,14 @@ import { socketPathFor } from "@nikcli-ai/browser-control"
 import { hostBackend } from "@nikcli-ai/computer-use"
 import { HerdrBridge } from "@nikcli-ai/util/herdr-bridge"
 import { IslandBridge } from "@nikcli-ai/util/island-bridge"
-import { Instance } from "@/project/instance"
 
 function unavailable(reason: string) {
   return { available: false, reason }
 }
 
-export async function hostBrowser() {
+export async function hostBrowser(directory: string) {
   try {
-    const socket = await socketPathFor(Instance.directory)
+    const socket = await socketPathFor(directory)
     if (!existsSync(socket)) {
       return unavailable("Browser control daemon is not running on the host")
     }

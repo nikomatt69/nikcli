@@ -5,7 +5,6 @@ import z from "zod"
 import { Effect } from "effect"
 import { Global } from "@nikcli-ai/util/global"
 import { Identifier } from "@nikcli-ai/util/id"
-import { Instance } from "@/project/instance"
 import { Project } from "@/project/project"
 import { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
@@ -117,7 +116,11 @@ async function register(directory: string, name?: string) {
     log.warn("teleport project registration failed", { error })
   }
 }
-async function importSession(input: z.infer<typeof TeleportInput>, directory: string): Promise<TeleportResult> {
+async function importSession(
+  input: z.infer<typeof TeleportInput>,
+  directory: string,
+  host: string,
+): Promise<TeleportResult> {
   const fallback = input.messages
     .flatMap((message) => (message.info.role === "user" ? message.parts : []))
     .find((part) => part.type === "text" && part.text.trim())
@@ -156,7 +159,7 @@ async function importSession(input: z.infer<typeof TeleportInput>, directory: st
     title: session.title,
     messageCount: imported.length,
     directory: session.directory,
-    workspace: directory !== Instance.directory,
+    workspace: directory !== host,
   }
 }
 
@@ -181,8 +184,8 @@ export async function handleTeleportUploadChunkRequest(request: Request): Promis
   return Response.json({ ok: true })
 }
 
-export async function teleportIn(input: z.infer<typeof TeleportInput>) {
-  let directory = Instance.directory
+export async function teleportIn(host: string, input: z.infer<typeof TeleportInput>) {
+  let directory = host
   const upload = input.uploadID ? uploads.get(input.uploadID) : undefined
   if (input.uploadID && !upload) throw new MobileHttpError("Workspace upload not found or expired", 400)
   if (upload) {
@@ -200,7 +203,7 @@ export async function teleportIn(input: z.infer<typeof TeleportInput>) {
     await ensureRepo(directory)
     await register(directory, input.name)
   }
-  const result = await importSession(input, directory)
+  const result = await importSession(input, directory, host)
   log.info("teleported session", { ...result, origin: input.origin })
   return result
 }

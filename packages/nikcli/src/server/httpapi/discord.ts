@@ -2,7 +2,7 @@ import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from 
 import { Effect, Layer, Schema } from "effect"
 import { Config } from "@/config/config"
 import { ConnectorAuth } from "@/connectors/auth"
-import { Instance } from "@/project/instance"
+import { InstanceState } from "@/effect"
 
 /**
  * Discord Gateway bot manager, as a declared group.
@@ -159,7 +159,7 @@ export namespace DiscordHttpApi {
           }
           return body
         }
-        const directory = Instance.directory
+        const directory = yield* InstanceState.directory
         return yield* fromPromise(async (): Promise<StartBody> => {
           try {
             const [{ startDiscordBot }, { Server }] = await Promise.all([discordBot(), import("@/server/server")])
