@@ -2,6 +2,7 @@ import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/u
 import { Effect, Layer, Schema } from "effect"
 import { Brain, getBrainConfig, getSessionsCountSince, readLastBrainAt } from "@/brain"
 import { Log } from "@nikcli-ai/util/log"
+import { InstanceState, type InstanceContext } from "@/effect"
 
 export namespace BrainHttpApi {
   const log = Log.create({ service: "httpapi.brain" })
@@ -45,6 +46,13 @@ export namespace BrainHttpApi {
 
   const fromPromise = <A>(fn: () => Promise<A>) => Effect.promise(fn).pipe(Effect.orDie)
 
+  /** `fromPromise` for a body that needs the request's instance. */
+  const withInstance = <A>(fn: (instance: InstanceContext) => Promise<A>) =>
+    InstanceState.context.pipe(
+      Effect.flatMap((instance) => Effect.promise(() => fn(instance))),
+      Effect.orDie,
+    )
+
   export const Group = HttpApiGroup.make("brain")
     .add(HttpApiEndpoint.get("status", "/", { success: Status }))
     .add(
@@ -60,12 +68,12 @@ export namespace BrainHttpApi {
 
   export const handlers = {
     status: () =>
-      fromPromise(async () => {
+      withInstance(async (instance) => {
         const cfg = await getBrainConfig()
         const lastBrainAt = await readLastBrainAt()
         const hoursSinceLastBrain = lastBrainAt ? (Date.now() - lastBrainAt) / HOUR_MS : Number.POSITIVE_INFINITY
-        const sessionsSinceLastBrain = await getSessionsCountSince(lastBrainAt)
-        const shouldTrigger = await Brain.shouldTrigger().catch(() => false)
+        const sessionsSinceLastBrain = await getSessionsCountSince(instance, lastBrainAt)
+        const shouldTrigger = await Brain.shouldTrigger(instance).catch(() => false)
         return {
           enabled: cfg.enabled,
           memoryEnabled: cfg.memoryEnabled,
@@ -80,9 +88,9 @@ export namespace BrainHttpApi {
       }),
 
     trigger: ({ payload }: { payload: typeof TriggerPayload.Type }) =>
-      fromPromise(() => {
+      withInstance((instance) => {
         log.info("brain trigger requested", { force: payload.force, sessionID: payload.sessionID })
-        return Brain.trigger({ force: payload.force, sessionID: payload.sessionID })
+        return Brain.trigger(instance, { force: payload.force, sessionID: payload.sessionID })
       }),
   }
 

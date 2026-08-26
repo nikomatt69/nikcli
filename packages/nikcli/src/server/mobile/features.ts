@@ -5,6 +5,7 @@ import { LSP } from "@/lsp"
 import { FUSION_BUILTIN_VARIANTS, FUSION_MODEL_ID } from "@nikcli-ai/util/fusion"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { configGet, runConfig } from "./helpers"
+import type { InstanceContext } from "@/effect"
 
 const HOUR_MS = 60 * 60 * 1000
 const chatbot = () => import("@/chatbot").then((module) => module.ChatBot)
@@ -23,12 +24,12 @@ async function configGetConnectors() {
   return config.connectors ?? {}
 }
 
-export async function brainStatus() {
+export async function brainStatus(instance: InstanceContext) {
   const cfg = await getBrainConfig()
   const lastBrainAt = await readLastBrainAt()
   const hoursSinceLastBrain = lastBrainAt ? (Date.now() - lastBrainAt) / HOUR_MS : Number.POSITIVE_INFINITY
-  const sessionsSinceLastBrain = await getSessionsCountSince(lastBrainAt)
-  const shouldTrigger = await Brain.shouldTrigger().catch(() => false)
+  const sessionsSinceLastBrain = await getSessionsCountSince(instance, lastBrainAt)
+  const shouldTrigger = await Brain.shouldTrigger(instance).catch(() => false)
   return {
     enabled: cfg.enabled,
     memoryEnabled: cfg.memoryEnabled,
@@ -42,8 +43,8 @@ export async function brainStatus() {
   }
 }
 
-export function brainTrigger(input: { force?: boolean } | void) {
-  return Brain.trigger({ force: input?.force })
+export function brainTrigger(instance: InstanceContext, input: { force?: boolean } | void) {
+  return Brain.trigger(instance, { force: input?.force })
 }
 
 export async function chatBotList() {

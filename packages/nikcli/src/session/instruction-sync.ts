@@ -1,10 +1,9 @@
 import { Log } from "@nikcli-ai/util/log"
 import { Database } from "@/database/database"
-import { Instance } from "@/project/instance"
 import { Config } from "@/config/config"
 import { Skill } from "@/skill"
 import { Profile } from "@/profile"
-import { runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 import { Effect } from "effect"
 import { SyncEvent } from "@/sync/sync-event"
 import type { SyncEventRecord } from "@/sync/index"
@@ -298,11 +297,7 @@ export namespace InstructionSync {
     skills: string[]
     disabled: string[]
   }): Promise<AssembleResult> {
-    const ctx: InstanceContext = {
-      directory: Instance.directory,
-      worktree: Instance.worktree,
-      project: Instance.project,
-    }
+    const ctx = InstanceState.ambient()
     const config = await runPromiseWithLayer(
       Config.defaultLayer,
       withCurrentInstance(

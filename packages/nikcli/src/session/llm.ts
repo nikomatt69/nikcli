@@ -42,7 +42,7 @@ import { Flag } from "@nikcli-ai/util/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { LLMNativeRuntime } from "./llm/native-runtime"
 import { suppressEmptyTextResult, toProcessorStream } from "./llm/llm-event-adapter"
 
@@ -79,6 +79,7 @@ export namespace LLM {
 
   // Build request headers based on provider and model configuration
   function buildRequestHeaders(
+    projectID: string,
     providerID: string,
     sessionID: string,
     userID: string,
@@ -95,7 +96,7 @@ export namespace LLM {
 
     if (providerID.startsWith("nikcli")) {
       return {
-        "x-nikcli-project": Instance.project.id,
+        "x-nikcli-project": projectID,
         "x-nikcli-session": sessionID,
         "x-nikcli-request": userID,
         "x-nikcli-client": Flag.NIKCLI_CLIENT,
@@ -273,6 +274,10 @@ export namespace LLM {
   }
 
   export async function stream(input: StreamInput) {
+    // One read at the entry, for the `x-nikcli-project` header built in two
+    // places below. Reading it inside the header builder put it on whichever
+    // fiber the request happened to be assembled on.
+    const projectID = InstanceState.ambient().project.id
     const l = log
       .clone()
       .tag("providerID", input.model.providerID)
@@ -403,7 +408,14 @@ export namespace LLM {
             topK: params.topK,
             options: params.options,
           },
-          buildRequestHeaders(input.model.providerID, input.sessionID, input.user.id, isCodex, input.model.headers),
+          buildRequestHeaders(
+            projectID,
+            input.model.providerID,
+            input.sessionID,
+            input.user.id,
+            isCodex,
+            input.model.headers,
+          ),
         )
         const prepared = await LLMRuntime.prepareRequest(llmRequest)
         l.debug("LLM request prepared via @nikcli-ai/llm route", {
@@ -485,6 +497,7 @@ export namespace LLM {
     ])
 
     const requestHeaders = buildRequestHeaders(
+      projectID,
       input.model.providerID,
       input.sessionID,
       input.user.id,

@@ -70,8 +70,11 @@ export const HerdrTool = definePluginTool({
     /** Optional herdr pane id used by `report_session` / `release_session`. */
     paneId: z.string().optional(),
   },
-  async execute(params, _ctx) {
-    const directory = Instance.directory ?? process.cwd()
+  async execute(params, ctx) {
+    // `Instance.directory ?? process.cwd()` was dead: the getter throws
+    // outside a scope rather than answering undefined, so the fallback could
+    // never run. The instance is on the call now.
+    const directory = ctx.instance.directory
     const info = await bridge.detect()
     if (!info.installed) {
       return {

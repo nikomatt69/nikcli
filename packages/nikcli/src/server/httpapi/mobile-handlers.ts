@@ -299,8 +299,10 @@ const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handle
     // --- live host events ---
     .handleRaw("events", forward)
     // --- operator features ---
-    .handle("brainStatus", () => fromPromise(() => features.brainStatus()))
-    .handle("brainTrigger", ({ payload }) => fromPromise(() => features.brainTrigger(mutable(payload))))
+    .handle("brainStatus", () => withInstance((instance) => features.brainStatus(instance)))
+    .handle("brainTrigger", ({ payload }) =>
+      withInstance((instance) => features.brainTrigger(instance, mutable(payload))),
+    )
     .handle("chatBotList", () => fromPromise(() => features.chatBotList()))
     .handle("chatBotStart", ({ params }) => fromPromise(() => features.chatBotStart(params.name)))
     .handle("chatBotStop", ({ params }) => fromPromise(() => features.chatBotStop(params.name)))

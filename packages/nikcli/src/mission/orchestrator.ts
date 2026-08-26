@@ -192,10 +192,10 @@ function inSandbox<T>(directory: string | undefined, fn: () => Promise<T>): Prom
  * and persist the handle so a resume rebinds to the same one. Returns
  * `undefined` when the mission opted out or the project cannot be sandboxed.
  */
-async function ensureSandbox(def: MissionDefinition): Promise<RunSandbox.Info | undefined> {
+async function ensureSandbox(hostDirectory: string, def: MissionDefinition): Promise<RunSandbox.Info | undefined> {
   if (!isSandboxed(def)) return undefined
   const sandbox = await RunSandbox.ensure({
-    hostDirectory: Instance.directory,
+    hostDirectory,
     name: `mission-${def.name}`,
     branchPrefix: "nikcli/mission",
     ...(def.worktree ? { existing: def.worktree } : undefined),
