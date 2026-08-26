@@ -3,6 +3,33 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.319.0 (August 2026)
+
+## Core
+
+- Routines take the instance they belong to (R1) (@nikomatt69)
+- The mission manager takes the project it operates on (R1) (@nikomatt69)
+- The loop manager takes the project it operates on (R1) (@nikomatt69)
+- Brain, sandbox and the session LLM path take the instance (R1) (@nikomatt69)
+- CLI command bodies receive the instance they run in (R1) (@nikomatt69)
+- Server handlers resolve the instance and pass it down (R1) (@nikomatt69)
+- Lsp servers and mobile git take the instance as an argument (R1) (@nikomatt69)
+- The tool layer takes its instance from the call (R1) (@nikomatt69)
+- Key the two module-level caches that answered for every instance (R1) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(instance): key the two module-level caches that answered for every instance (R1)
+  - refactor(instance): the tool layer takes its instance from the call (R1)
+  - refactor(instance): lsp servers and mobile git take the instance as an argument (R1)
+  - refactor(instance): server handlers resolve the instance and pass it down (R1)
+  - refactor(instance): CLI command bodies receive the instance they run in (R1)
+  - refactor(instance): brain, sandbox and the session LLM path take the instance (R1)
+  - refactor(instance): the loop manager takes the project it operates on (R1)
+  - refactor(instance): the mission manager takes the project it operates on (R1)
+  - refactor(instance): routines take the instance they belong to (R1)
+
 ## v1.317.0 (August 2026)
 
 ## Core
