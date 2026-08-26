@@ -1,7 +1,6 @@
 import { Instance } from "@/project/instance"
 import { Effect, Fiber, type Exit } from "effect"
 import { locallyInstance, locallyWorkspace, type InstanceContext } from "./instance-ref"
-import { AppRuntime } from "./runtime"
 
 export interface WithInput {
   readonly directory: string
@@ -23,8 +22,10 @@ export const InstanceScope = {
    *
    * The effect must execute inside `Instance.provide`'s AsyncLocalStorage
    * scope (legacy code in effect bodies still reads `Instance.directory`
-   * from ALS), so it is forked onto the shared AppRuntime from within that
-   * scope. Unlike a plain promise hand-off, the bridge stays structured:
+   * from ALS), so it is forked onto that instance's `ManagedRuntime` from
+   * within the scope. The runtime's layer provides `InstanceRef`, so fibers
+   * see the instance without an ALS fallback. Unlike a plain promise
+   * hand-off, the bridge stays structured:
    *
    * - the inner fiber's full Exit (typed failures, defects, interruption)
    *   is rethrown in the caller's fiber instead of being squashed to Error
@@ -51,9 +52,10 @@ export const InstanceScope = {
             ? locallyWorkspace({ id: input.workspaceID }, locallyInstance(ctx, effect))
             : locallyInstance(ctx, effect)
           // SAFETY: `locallyInstance` (and `locallyWorkspace` when a workspace is
-          // pinned) provide every requirement the effect declares, so nothing is
-          // left for the runtime to supply.
-          const fiber = AppRuntime.runFork(scoped as Effect.Effect<A, E, never>)
+          // pinned) provide every requirement the effect declares. The instance
+          // runtime's layer also provides `InstanceRef`; the explicit provide
+          // keeps the same ctx the ALS scope just installed.
+          const fiber = Instance.runtime.runFork(scoped as Effect.Effect<A, E, never>)
           inner = fiber
           if (cancelled) fiber.interruptUnsafe()
           return new Promise<Exit.Exit<A, E>>((resolve) => {

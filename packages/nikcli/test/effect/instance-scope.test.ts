@@ -224,6 +224,21 @@ describe("withInstanceAsync with an init", () => {
     )
     expect(seen.id).toBe("wrk_init")
   })
+
+  it("forks onto a per-directory runtime whose layer provides InstanceRef", async () => {
+    const directory = await makeProjectDir()
+    const fromLayer = await Instance.provide({
+      directory,
+      fn: () =>
+        Instance.runtime.runPromise(
+          Effect.gen(function* () {
+            const ref = yield* InstanceRef
+            return ref.directory
+          }),
+        ),
+    })
+    expect(fromLayer).toBe(directory)
+  })
 })
 
 afterAll(async () => {

@@ -463,11 +463,11 @@ describe("Instance lifecycle — the ALS fallback R1 removes", () => {
       fn: () => Effect.runPromise(InstanceState.context),
     })
 
-    // This is the fallback in `effect/instance-state.ts`, and it is the reason
-    // R1 cannot simply delete `util/context.ts`: an Effect run without
-    // `InstanceRef` still resolves, because the ambient scope answers. When the
-    // keyed runtime lands, this test should be inverted — not deleted — so the
-    // day the fallback stops working is a decision and not a surprise.
+    // The fallback in `effect/instance-state.ts` still answers when an Effect
+    // runs without `InstanceRef` inside an ALS scope — `withCurrentInstance`
+    // is that boundary, 165 sites, and deleting the catch would break the
+    // tool layer. The keyed runtime's fibers do not take it: they run on a
+    // per-directory `ManagedRuntime` whose layer already provides `InstanceRef`.
     expect(ctx.directory).toBe(dir)
     expect(ctx.worktree).toBeString()
     expect(ctx.project.id).toBeString()
@@ -475,36 +475,32 @@ describe("Instance lifecycle — the ALS fallback R1 removes", () => {
 })
 
 /**
- * `dispose()` tears down the instance but leaves the ambient scope answering,
- * so a caller that disposes mid-request and keeps working — which is exactly
- * what `httpapi/provider.ts` and `httpapi/config.ts` do — builds state that
- * nothing owns. These tests characterize that, they do not endorse it: they are
- * the reason R1 needs the keyed runtime to give those call sites invalidation
- * semantics instead of teardown. When it lands, invert them.
+ * `dispose()` used to leave the ambient scope answering, so a caller that
+ * disposed mid-request and kept working built state that nothing owned.
+ * Invalidation is the verb those call sites wanted (2026-08-25). Accessors
+ * throw after teardown (2026-08-26).
  */
 /**
  * Two of the three defects this block characterized are fixed (2026-08-25).
  * They are inverted here rather than deleted, so the day the old behaviour
  * stopped is recorded as a decision and not as a missing test.
  *
- * The first is deliberately still green: `dispose()` does not blind the
- * ambient accessors. 215 synchronous `Instance.*` reads across 89 files
- * depend on them answering, and making them throw is the keyed runtime's
- * change to make, not a side effect of fixing disposer registration.
+ * The third is inverted 2026-08-26: accessors throw after `dispose()`. The
+ * remaining 22 ambient reads are the boundary, and a caller that keeps
+ * reading `Instance.directory` after teardown is holding a disposed instance.
  */
 describe("Instance lifecycle — what survives dispose", () => {
-  it("keeps the ambient context live after the instance is gone", async () => {
+  it("blinds the ambient accessors after the instance is gone", async () => {
     const dir = await directory("post-dispose-ambient")
 
     await Instance.provide({
       directory: dir,
       fn: async () => {
         await Instance.dispose()
-        // The cache entry is gone, yet every accessor still answers, because
-        // they read the scope rather than the cache. Nothing tells the caller
-        // it is now holding a disposed instance.
         expect(Instance.has(dir)).toBe(false)
-        expect(Instance.directory).toBe(dir)
+        expect(() => Instance.directory).toThrow(/instance has been disposed/)
+        expect(() => Instance.worktree).toThrow(/instance has been disposed/)
+        expect(() => Instance.project).toThrow(/instance has been disposed/)
       },
     })
   })
@@ -547,17 +543,15 @@ describe("Instance lifecycle — what survives dispose", () => {
         state()
         await Instance.dispose()
         expect(disposed).toBe(1)
-        // Reading it again re-runs `init` under the same directory key, with
-        // no cache entry left to reach it.
-        state()
+        // Inverted 2026-08-26. Reading state after dispose used to re-run
+        // `init` under the same directory key with no cache entry left to
+        // reach it. Accessors throw, so that leak cannot start.
+        expect(() => state()).toThrow(/instance has been disposed/)
       },
     })
 
-    // Inverted 2026-08-25. That second cell used to be collectable only by a
-    // later acquire-and-dispose of the same directory, which may never come;
-    // `disposeAll` sweeps the state records that outlived their instances.
     await Instance.disposeAll()
-    expect(disposed).toBe(2)
+    expect(disposed).toBe(1)
   })
 })
 

@@ -4,7 +4,7 @@ import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { Global } from "@nikcli-ai/util/global"
 import { Log } from "@nikcli-ai/util/log"
-import { InstanceState, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance, withInstanceAsync, type InstanceContext } from "@/effect"
 import { Effect, Schema } from "effect"
 import { Instance } from "./instance"
 
@@ -137,10 +137,7 @@ export namespace InstanceReload {
       const files = [...(pending ?? [])]
       pending = undefined
       if (stopped || !Instance.has(directory)) return
-      void Instance.provide({
-        directory,
-        fn: () => reload(directory, files),
-      }).catch((error) => {
+      void withInstanceAsync({ directory }, async () => reload(directory, files)).catch((error) => {
         log.warn("hot reload failed", { directory, error })
       })
     }

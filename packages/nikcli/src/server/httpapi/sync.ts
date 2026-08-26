@@ -503,8 +503,9 @@ export namespace SyncHttpApi {
     if (!raw.includes("/") && !raw.includes("\\")) return raw
     try {
       const { Instance } = await import("@/project/instance")
+      const { withInstanceAsync } = await import("@/effect")
       if (!Instance.has(raw)) return ""
-      return await Instance.provide({ directory: raw, fn: () => Instance.project.id })
+      return await withInstanceAsync({ directory: raw }, async (instance) => instance.project.id)
     } catch {
       return ""
     }

@@ -3,6 +3,7 @@ import { Server } from "@/server/server"
 import { Log } from "@nikcli-ai/util/log"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"
+import { withInstanceAsync } from "@/effect"
 import { Rpc } from "@tui/util/rpc"
 import { setMainThreadDaemonHost } from "@nikcli-ai/browser-control/daemon-client"
 import { upgrade, upgradeNow } from "@/cli/upgrade"
@@ -160,25 +161,17 @@ export const rpc = {
     return MobileAuth.create(input)
   },
   async checkUpgrade(input: { directory: string }) {
-    await Instance.provide({
-      directory: input.directory,
-      init: InstanceBootstrap,
-      fn: async () => {
-        await upgrade().catch((error) => {
-          Log.Default.debug("upgrade check failed", {
-            error: error instanceof Error ? error.message : String(error),
-          })
+    await withInstanceAsync({ directory: input.directory, init: InstanceBootstrap }, async () => {
+      await upgrade().catch((error) => {
+        Log.Default.debug("upgrade check failed", {
+          error: error instanceof Error ? error.message : String(error),
         })
-      },
+      })
     })
   },
   async upgradeNow(input: { directory: string; method: string; version: string }) {
-    await Instance.provide({
-      directory: input.directory,
-      init: InstanceBootstrap,
-      fn: async () => {
-        await upgradeNow(input.method as Installation.Method, input.version)
-      },
+    await withInstanceAsync({ directory: input.directory, init: InstanceBootstrap }, async () => {
+      await upgradeNow(input.method as Installation.Method, input.version)
     })
   },
   async reload() {

@@ -5,8 +5,9 @@ import { State } from "./state"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { realpathSync } from "fs"
 import path from "path"
-import { Duration, Effect, Exit, ScopedCache, Scope } from "effect"
+import { Duration, Effect, Exit, Layer, ScopedCache, Scope, type ManagedRuntime } from "effect"
 import { runService } from "@/effect"
+import { InstanceRef } from "@/effect/instance-ref"
 
 function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
   return runService(Project, effect)
@@ -28,13 +29,20 @@ interface Context {
   /**
    * Set the moment teardown begins, before the first disposer runs.
    *
-   * The ambient scope outlives `dispose()` — every accessor keeps answering,
-   * because they read the scope and not the cache — so without this the
-   * context cannot tell a caller that the instance behind it is gone. It is
-   * what makes teardown idempotent and what lets a disposer registered too
-   * late run instead of being dropped in silence.
+   * Accessors throw once this is set: the cache entry is gone, and a caller
+   * that keeps reading `Instance.directory` is holding a disposed instance.
+   * `dispose` / `registerDisposer` still resolve the context off the ambient
+   * scope so teardown can finish. Distinct from `disposing`, which is set
+   * before the disposal event publishes so a concurrent `dispose()` is a
+   * no-op without blinding `Bus.publish`'s ALS read.
    */
   disposed?: boolean
+  disposing?: boolean
+  /**
+   * Per-directory Effect runtime whose layer provides `InstanceRef`.
+   * Fibers forked onto it see the instance without reading ALS.
+   */
+  runtime?: ManagedRuntime.ManagedRuntime<any, any>
 }
 const context = Context.create<Context>("instance")
 
@@ -58,6 +66,29 @@ const cache = Effect.runSync(
     timeToLive: (exit) => (Exit.isFailure(exit) ? Duration.zero : Duration.infinity),
   }).pipe(Effect.provideService(Scope.Scope, instanceScope)),
 )
+
+let makeRuntime: typeof import("@/effect/runtime").makeRuntime | undefined
+
+async function ensureRuntime(ctx: Context) {
+  if (ctx.runtime) return ctx.runtime
+  if (!makeRuntime) {
+    ;({ makeRuntime } = await import("@/effect/runtime"))
+  }
+  ctx.runtime = makeRuntime(
+    Layer.succeed(InstanceRef, {
+      directory: ctx.directory,
+      worktree: ctx.worktree,
+      project: ctx.project,
+    }),
+  )
+  return ctx.runtime
+}
+
+function useLive() {
+  const ctx = context.use()
+  if (ctx.disposed) throw new Error("instance has been disposed")
+  return ctx
+}
 
 function createInstance(directory: string) {
   return Effect.tryPromise({
@@ -109,6 +140,8 @@ export const Instance = {
       throw err
     }
 
+    await ensureRuntime(ctx)
+
     // Bootstrap belongs to the instance, not to whoever reached it first.
     // Without this, an acquisition that passes no `init` — the mobile session
     // route creating a fresh worktree, for one — permanently decides that the
@@ -154,13 +187,23 @@ export const Instance = {
     return Effect.runSync(ScopedCache.has(cache, normalizeDirectory(directory)))
   },
   get directory() {
-    return context.use().directory
+    return useLive().directory
   },
   get worktree() {
-    return context.use().worktree
+    return useLive().worktree
   },
   get project() {
-    return context.use().project
+    return useLive().project
+  },
+  /**
+   * The per-directory `ManagedRuntime` whose layer provides `InstanceRef`.
+   * Only valid inside `provide`: Effect callers go through `InstanceScope.with`,
+   * which forks onto this runtime instead of the process-wide `AppRuntime`.
+   */
+  get runtime() {
+    const runtime = context.use().runtime
+    if (!runtime) throw new Error("instance runtime has not been created")
+    return runtime
   },
   containsPath(filepath: string) {
     try {
@@ -207,17 +250,24 @@ export const Instance = {
     // Teardown is idempotent. Both calls resolve the same context off the
     // ambient scope, and `disposers.clear()` only ever protected the disposer
     // set: the disposal event and the state teardown outside it ran twice.
-    if (ctx.disposed) return
-    ctx.disposed = true
+    if (ctx.disposed || ctx.disposing) return
+    ctx.disposing = true
     Log.Default.info("disposing instance", { directory: ctx.directory })
 
     const { Bus } = await import("@/bus")
+    // Publish while accessors still answer: `Bus.publish` crosses
+    // `withCurrentInstance`, which reads `Instance.directory` from ALS.
+    // Blinding first turned every disposal event into a failed publish.
     await Bus.publish(Bus.InstanceDisposed, { directory: ctx.directory }).catch((error) => {
       Log.Default.warn("failed to publish instance disposal event", {
         directory: ctx.directory,
         error,
       })
     })
+
+    // Mark disposed before the disposer walk, not after it, so a registration
+    // that arrives mid-teardown runs instead of being dropped.
+    ctx.disposed = true
 
     const tasks = [
       State.dispose(ctx.directory),
@@ -236,6 +286,13 @@ export const Instance = {
     await Promise.allSettled(tasks)
     ctx.disposers.clear()
     await Effect.runPromise(ScopedCache.invalidate(cache, ctx.directory))
+    const runtime = ctx.runtime
+    ctx.runtime = undefined
+    if (runtime) {
+      await runtime.dispose().catch((error) => {
+        Log.Default.warn("instance runtime dispose failed", { directory: ctx.directory, error })
+      })
+    }
   },
   /**
    * Drop config-derived per-instance state without tearing the instance
