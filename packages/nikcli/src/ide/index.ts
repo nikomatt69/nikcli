@@ -23,10 +23,7 @@ export namespace Ide {
     ),
   }
 
-  export class AlreadyInstalledError extends Schema.TaggedError<AlreadyInstalledError>()(
-    "AlreadyInstalledError",
-    {},
-  ) {}
+  export class AlreadyInstalledError extends Schema.TaggedError<AlreadyInstalledError>()("AlreadyInstalledError", {}) {}
 
   export class InstallFailedError extends Schema.TaggedError<InstallFailedError>()("InstallFailedError", {
     stderr: Schema.String,

@@ -90,14 +90,11 @@ export namespace MessageV2 {
   }).annotate({ ...strip, identifier: "APIError" })
 
   export class OutputLengthError extends Schema.TaggedError<OutputLengthError>()("MessageOutputLengthError", {}) {}
-  export class ContextOverflowError extends Schema.TaggedError<ContextOverflowError>()(
-    "MessageContextOverflowError",
-    {
-      message: Schema.String,
-      statusCode: Schema.optionalKey(Schema.Number),
-      responseBody: Schema.optionalKey(Schema.String),
-    },
-  ) {}
+  export class ContextOverflowError extends Schema.TaggedError<ContextOverflowError>()("MessageContextOverflowError", {
+    message: Schema.String,
+    statusCode: Schema.optionalKey(Schema.Number),
+    responseBody: Schema.optionalKey(Schema.String),
+  }) {}
   export class AbortedError extends Schema.TaggedError<AbortedError>()("MessageAbortedError", {
     message: Schema.String,
   }) {
