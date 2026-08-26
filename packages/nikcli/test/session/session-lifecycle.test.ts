@@ -455,7 +455,7 @@ describe("session lifecycle", () => {
         )
         expect(exit._tag).toBe("Failure")
         if (exit._tag !== "Failure") return
-        // E6.1. The busy assertion used to `throw` inside `Effect.gen`, which
+        // E8.1. The busy assertion used to `throw` inside `Effect.gen`, which
         // is a defect: it only reached callers typed because `SessionRevert`
         // ran it through `runPromiseWithLayer` and re-mapped the rejection.
         // `hasDies` is what separates the two, so this assertion is the one

@@ -106,7 +106,7 @@ describe("Pty HttpApi (Wave 4 Path B)", () => {
   })
 
   /**
-   * E6.2. `handlers.get` / `handlers.update` used to raise the declared
+   * E8.2. `handlers.get` / `handlers.update` used to raise the declared
    * `Pty.NotFoundError` with `throw` inside `Effect.gen`, so it reached the
    * boundary as a *defect* and only became a 404 because `catchNotFound`
    * carried an `Effect.catchDefect` arm alongside its typed one. The defect

@@ -142,7 +142,7 @@ export namespace PtyHttpApi {
   }
 
   /**
-   * E6.2: the 404 arrives on the typed channel, so there is no defect arm.
+   * E8.2: the 404 arrives on the typed channel, so there is no defect arm.
    * `handlers.get` / `handlers.update` `Effect.fail` a `Pty.NotFoundError`
    * rather than `throw`ing it inside `Effect.gen`, which is what used to
    * make a declared error reach this boundary as a defect.
@@ -168,7 +168,7 @@ export namespace PtyHttpApi {
   }
 
   /**
-   * E6.2: `Pty.Service.create` already declares `Pty.Error` (`CreateError`)
+   * E8.2: `Pty.Service.create` already declares `Pty.Error` (`CreateError`)
    * on its failure channel — `src/pty/index.ts` builds it in the `catch` of
    * the `Effect.try` around `spawnPty`. Nothing produces it as a defect, so
    * the defect arm this used to carry was dead compensation.

@@ -371,7 +371,7 @@ export namespace SessionPrompt {
   export interface Interface {
     /**
      * Fails with `Session.BusyError` when the session already has a running
-     * turn. Declared on the typed channel (E6.1): a busy session is an
+     * turn. Declared on the typed channel (E8.1): a busy session is an
      * expected 409, not a defect, so every caller — Effect-side or through
      * the Promise bridge — sees it without a `catchDefect` arm.
      */
