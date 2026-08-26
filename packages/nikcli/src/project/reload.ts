@@ -4,7 +4,13 @@ import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { Global } from "@nikcli-ai/util/global"
 import { Log } from "@nikcli-ai/util/log"
-import { InstanceState, runPromiseWithLayer, withCurrentInstance, withInstanceAsync, type InstanceContext } from "@/effect"
+import {
+  InstanceState,
+  runPromiseWithLayer,
+  withCurrentInstance,
+  withInstanceAsync,
+  type InstanceContext,
+} from "@/effect"
 import { Effect, Schema } from "effect"
 import { Instance } from "./instance"
 
