@@ -1,6 +1,6 @@
 # Effect 4: the beta.83 pin against the release candidate
 
-Status: **Current** (measured 2026-08-26).
+Status: **Landed with E6** (measured 2026-08-26; pin moved the same day).
 
 Research notes behind roadmap items E6, E7, H9 and H10. Everything here is a measurement, not a
 plan: the break surface was obtained by diffing the shipped `.d.ts` of `effect@4.0.0-beta.83`
@@ -140,14 +140,12 @@ are the two that got roadmap entries, and both are gated.
 covering `Effect.gen` / `Effect.fn` style, `Context.Service`, error handling, `Scope`, streams,
 observability, testing, HttpApi servers and `HttpClient`.
 
-That matters because ROADMAP's last working rule says to _"verify against
-`.opencode/references/effect-smol` when adding Effect-specific code"_, and **no such directory
-exists in this repository**. It was an absolute path on the author's machine —
-`/Volumes/SSD/Projects/nikcli/.opencode/references/effect-smol`, recorded in
+That matters because the working rule used to name a local clone of effect-smol that existed only
+on the author's machine (`/Volumes/SSD/Projects/nikcli/…`, recorded in
 `.nikcli/plans/1780432203144-hidden-orchid.md:306` and `1780518271642-sunny-mountain.md:407` as a
-clone made "per the `effect` skill". Anyone else reading the rule has nothing to check against, and
-`oxlint.slop.config.ts:30` still excludes the path. E7 replaces the dangling clone with the docs the
-package now ships.
+clone made "per the `effect` skill"). **No such directory exists in this repository.** Anyone else
+reading the old rule had nothing to check against, and `oxlint.slop.config.ts` still ignores the
+`.opencode` tree. E7 replaces the dangling clone with the docs the package now ships.
 
 ## 6. Why the upgrade is the first item and not the fifth
 
