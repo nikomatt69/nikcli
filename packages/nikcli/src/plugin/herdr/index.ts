@@ -33,6 +33,7 @@ import * as bridge from "@nikcli-ai/util/herdr-bridge"
 import { Global } from "@nikcli-ai/util/global"
 import { Log } from "@nikcli-ai/util/log"
 import { Instance } from "@/project/instance"
+import { InstanceState } from "@/effect"
 
 const log = Log.create({ service: "herdr-plugin" })
 
@@ -70,11 +71,14 @@ export const HerdrTool = definePluginTool({
     /** Optional herdr pane id used by `report_session` / `release_session`. */
     paneId: z.string().optional(),
   },
-  async execute(params, ctx) {
-    // `Instance.directory ?? process.cwd()` was dead: the getter throws
-    // outside a scope rather than answering undefined, so the fallback could
-    // never run. The instance is on the call now.
-    const directory = ctx.instance.directory
+  async execute(params, _ctx) {
+    // The plugin `ToolContext` is a separate published contract from
+    // `Tool.Context` and carries no instance, so this is a boundary read
+    // rather than a threaded value. What it replaces was worse:
+    // `Instance.directory ?? process.cwd()` looked like it had a fallback,
+    // but the getter throws outside a scope rather than answering undefined,
+    // so the right-hand side could never run.
+    const directory = InstanceState.ambient().directory
     const info = await bridge.detect()
     if (!info.installed) {
       return {

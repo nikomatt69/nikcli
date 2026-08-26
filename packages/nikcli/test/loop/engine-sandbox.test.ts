@@ -11,6 +11,7 @@ import * as Manager from "@/loop/manager"
 import * as Engine from "@/loop/engine"
 import { RunSandbox } from "@/worktree/sandbox"
 import { generateID, type LoopDefinition } from "@/loop/schema"
+import { InstanceState, type InstanceContext } from "@/effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-loop-sandbox-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -51,8 +52,8 @@ await fs.writeFile(path.join(resolvedDir, "README.md"), "# loop sandbox\n")
 await git(resolvedDir, "add", "README.md")
 await git(resolvedDir, "-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-m", "initial")
 
-async function withInstance<A>(fn: () => Promise<A>): Promise<A> {
-  return Instance.provide({ directory: resolvedDir, fn: async () => fn() })
+async function withInstance<A>(fn: (instance: InstanceContext) => Promise<A>): Promise<A> {
+  return Instance.provide({ directory: resolvedDir, fn: async () => fn(InstanceState.ambient()) })
 }
 
 afterEach(async () => {
@@ -92,12 +93,12 @@ describe("loop/engine · sandbox", () => {
       return { ok: true }
     })
 
-    await withInstance(async () => {
+    await withInstance(async (inst) => {
       const def = makeDef()
-      await Manager.upsert(def)
+      await Manager.upsert(inst.project.id, def)
       await Engine.runOnce(def.id)
 
-      const saved = await Manager.get(def.id)
+      const saved = await Manager.get(inst.project.id, def.id)
       expect(saved?.worktree).toBeDefined()
       expect(path.dirname(saved!.worktree!.directory)).toBe(path.join(resolvedDir, RunSandbox.ROOT))
       // Every stage ran bound to the sandbox, never to the user's checkout.
@@ -109,13 +110,13 @@ describe("loop/engine · sandbox", () => {
   it("reuses the same worktree across runs", async () => {
     Engine._internalSetStageExecutor(async () => ({ ok: true }))
 
-    await withInstance(async () => {
+    await withInstance(async (inst) => {
       const def = makeDef({ name: "reused loop" })
-      await Manager.upsert(def)
+      await Manager.upsert(inst.project.id, def)
       await Engine.runOnce(def.id)
-      const first = (await Manager.get(def.id))?.worktree
+      const first = (await Manager.get(inst.project.id, def.id))?.worktree
       await Engine.runOnce(def.id)
-      const second = (await Manager.get(def.id))?.worktree
+      const second = (await Manager.get(inst.project.id, def.id))?.worktree
       expect(second).toEqual(first!)
     })
   })
@@ -126,12 +127,12 @@ describe("loop/engine · sandbox", () => {
       return { ok: true }
     })
 
-    await withInstance(async () => {
+    await withInstance(async (inst) => {
       const def = makeDef({ name: "writer loop" })
-      await Manager.upsert(def)
+      await Manager.upsert(inst.project.id, def)
       await Engine.runOnce(def.id)
 
-      const saved = await Manager.get(def.id)
+      const saved = await Manager.get(inst.project.id, def.id)
       expect(await Bun.file(path.join(saved!.worktree!.directory, "agent-output.md")).exists()).toBe(true)
       expect(await Bun.file(path.join(resolvedDir, "agent-output.md")).exists()).toBe(false)
       // The sandbox root is self-ignoring, so the host repo stays clean.
@@ -146,13 +147,13 @@ describe("loop/engine · sandbox", () => {
       return { ok: true }
     })
 
-    await withInstance(async () => {
+    await withInstance(async (inst) => {
       const def = makeDef({ name: "unsandboxed loop", sandbox: false })
-      await Manager.upsert(def)
+      await Manager.upsert(inst.project.id, def)
       await Engine.runOnce(def.id)
 
       expect(directories).toEqual([undefined])
-      expect((await Manager.get(def.id))?.worktree).toBeUndefined()
+      expect((await Manager.get(inst.project.id, def.id))?.worktree).toBeUndefined()
     })
   })
 })

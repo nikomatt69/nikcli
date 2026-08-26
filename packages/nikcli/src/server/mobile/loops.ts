@@ -14,6 +14,7 @@ import {
   MobileRoutineUpdateInput,
 } from "./helpers"
 import { MobileHttpError } from "./request"
+import type { InstanceContext } from "@/effect"
 
 const notFound = (id: string) => new MobileHttpError(`Loop "${id}" not found`, 404)
 const routineNotFound = (id: string) => new MobileHttpError(`Routine "${id}" not found`, 404)
@@ -30,87 +31,87 @@ export function loopGenerate(input: typeof MobileLoopGenerateInput._output) {
   })
 }
 
-export async function loopRunsRecent(query: { limit?: number }) {
-  return { runs: await LoopManager.listAllRunsAcrossLoops(query.limit ?? 50) }
+export async function loopRunsRecent(instance: InstanceContext, query: { limit?: number }) {
+  return { runs: await LoopManager.listAllRunsAcrossLoops(instance.project.id, query.limit ?? 50) }
 }
 
-export async function loopList() {
-  const loops = await LoopManager.list()
+export async function loopList(instance: InstanceContext) {
+  const loops = await LoopManager.list(instance.project.id)
   return { loops, runtimes: loops.map((loop) => ({ loopID: loop.id, ...LoopEngine.getRuntime(loop.id) })) }
 }
 
-export async function loopCreate(input: typeof MobileLoopWriteInput._output) {
+export async function loopCreate(instance: InstanceContext, input: typeof MobileLoopWriteInput._output) {
   const loop: LoopDefinition = { ...input, id: generateID(), createdAt: Date.now(), enabled: input.enabled ?? true }
   const error = validateDefinition(loop)
   if (error) throw new MobileHttpError(error, 400)
-  const saved = await LoopManager.upsert(loop)
+  const saved = await LoopManager.upsert(instance.project.id, loop)
   await LoopEngine.sync(saved.id)
   void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: saved.id })
   return saved
 }
 
-export async function loopGet(id: string) {
-  const existing = await LoopManager.get(id)
+export async function loopGet(instance: InstanceContext, id: string) {
+  const existing = await LoopManager.get(instance.project.id, id)
   if (!existing) throw notFound(id)
   return { loop: existing, runtime: { loopID: id, ...LoopEngine.getRuntime(id) } }
 }
 
-export async function loopUpdate(id: string, input: typeof MobileLoopWriteInput._output) {
-  const existing = await LoopManager.get(id)
+export async function loopUpdate(instance: InstanceContext, id: string, input: typeof MobileLoopWriteInput._output) {
+  const existing = await LoopManager.get(instance.project.id, id)
   if (!existing) throw notFound(id)
   const next: LoopDefinition = { ...input, id, createdAt: existing.createdAt }
   const error = validateDefinition(next)
   if (error) throw new MobileHttpError(error, 400)
-  const saved = await LoopManager.upsert(next)
+  const saved = await LoopManager.upsert(instance.project.id, next)
   await LoopEngine.sync(id)
   void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: id })
   return saved
 }
 
-export async function loopDelete(id: string) {
-  if (!(await LoopManager.get(id))) throw notFound(id)
+export async function loopDelete(instance: InstanceContext, id: string) {
+  if (!(await LoopManager.get(instance.project.id, id))) throw notFound(id)
   await LoopEngine.cancelRun(id)
-  await LoopManager.remove(id)
+  await LoopManager.remove(instance.project.id, instance.directory, id)
   LoopEngine.disarm(id)
   void Bus.publish(LoopEngine.LoopEvent.Removed, { loopID: id })
   return { success: true as const }
 }
 
-export async function loopRuns(id: string, query: { limit?: number }) {
-  return { runs: await LoopManager.listRuns(id, query.limit ?? 50) }
+export async function loopRuns(instance: InstanceContext, id: string, query: { limit?: number }) {
+  return { runs: await LoopManager.listRuns(instance.project.id, id, query.limit ?? 50) }
 }
 
-export async function loopRun(id: string) {
-  if (!(await LoopManager.get(id))) throw notFound(id)
+export async function loopRun(instance: InstanceContext, id: string) {
+  if (!(await LoopManager.get(instance.project.id, id))) throw notFound(id)
   void LoopEngine.runOnce(id).catch((error) => log.error("loop run failed", { id, error }))
   return { success: true as const }
 }
 
-export async function loopAbort(id: string) {
-  if (!(await LoopManager.get(id))) throw notFound(id)
+export async function loopAbort(instance: InstanceContext, id: string) {
+  if (!(await LoopManager.get(instance.project.id, id))) throw notFound(id)
   await LoopEngine.cancelRun(id)
   return { success: true as const }
 }
 
-export async function loopToggle(id: string, input: { enabled: boolean }) {
-  const next = await LoopManager.setEnabled(id, input.enabled)
+export async function loopToggle(instance: InstanceContext, id: string, input: { enabled: boolean }) {
+  const next = await LoopManager.setEnabled(instance.project.id, id, input.enabled)
   if (!next) throw notFound(id)
   await LoopEngine.sync(id)
   void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: id })
   return next
 }
 
-export async function loopPause(id: string) {
-  if (!(await LoopManager.get(id))) throw notFound(id)
-  await LoopManager.setPaused(id, true)
+export async function loopPause(instance: InstanceContext, id: string) {
+  if (!(await LoopManager.get(instance.project.id, id))) throw notFound(id)
+  await LoopManager.setPaused(instance.project.id, id, true)
   LoopEngine.disarm(id)
   LoopEngine.setRuntimeStatus(id, "paused")
   return { success: true as const }
 }
 
-export async function loopResume(id: string) {
-  if (!(await LoopManager.get(id))) throw notFound(id)
-  await LoopManager.setPaused(id, false)
+export async function loopResume(instance: InstanceContext, id: string) {
+  if (!(await LoopManager.get(instance.project.id, id))) throw notFound(id)
+  await LoopManager.setPaused(instance.project.id, id, false)
   LoopEngine.setRuntimeStatus(id, "idle")
   await LoopEngine.sync(id)
   return { success: true as const }

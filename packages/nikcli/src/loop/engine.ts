@@ -48,6 +48,7 @@ import {
   type LoopRunStatus,
 } from "./schema"
 import * as PR from "./pr"
+import { InstanceState, type InstanceContext } from "@/effect"
 
 const log = Log.create({ service: "loop.engine" })
 
@@ -210,7 +211,7 @@ function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Servic
  * Rebind the current instance to the loop's sandbox worktree for the duration
  * of `fn`. Everything that touches the workspace — session creation, the goal
  * command, cancellation — must go through here so tools resolve paths inside
- * the sandbox (`Instance.directory`) instead of the user's checkout.
+ * the sandbox (the instance directory) instead of the user's checkout.
  *
  * Bookkeeping (`Manager`) deliberately stays on the host instance: run history
  * and definitions belong to the project, not to a disposable worktree.
@@ -226,17 +227,18 @@ function inSandbox<T>(directory: string | undefined, fn: () => Promise<T>): Prom
  * opted out of sandboxing or the project cannot be sandboxed — the run then
  * happens in the host directory, exactly as before.
  */
-async function ensureSandbox(def: LoopDefinition): Promise<RunSandbox.Info | undefined> {
+async function ensureSandbox(instance: InstanceContext, def: LoopDefinition): Promise<RunSandbox.Info | undefined> {
+  const hostDirectory = instance.directory
   if (!isSandboxed(def)) return undefined
   const sandboxInput: RunSandbox.EnsureInput = {
-    hostDirectory: Instance.directory,
+    hostDirectory,
     name: `loop-${def.name}`,
     branchPrefix: "nikcli/loop",
   }
   if (def.worktree) sandboxInput.existing = def.worktree
   const sandbox = await RunSandbox.ensure(sandboxInput)
   if (sandbox && sandbox.directory !== def.worktree?.directory) {
-    await Manager.setWorktree(def.id, sandbox).catch((error) =>
+    await Manager.setWorktree(instance.project.id, def.id, sandbox).catch((error) =>
       log.warn("failed to persist sandbox worktree", {
         loopID: def.id,
         error: describeError(error),
@@ -375,6 +377,7 @@ export function _internalSetPullRequestHook(
 
 /** Run all stages of a loop sequentially in one session. */
 async function executeRun(
+  instance: InstanceContext,
   def: LoopDefinition,
   run: LoopRun,
   signal: AbortSignal,
@@ -395,7 +398,7 @@ async function executeRun(
   onSessionID?.(sessionID)
   patch(def.id, (prev) => ({ ...prev, sessionID }))
 
-  await Manager.attachRunSession(def.id, run.id, sessionID)
+  await Manager.attachRunSession(instance.project.id, def.id, run.id, sessionID)
   void Bus.publish(LoopEvent.RunStarted, {
     loopID: def.id,
     runID: run.id,
@@ -448,13 +451,13 @@ async function executeRun(
   if (timedOut) firstError = "Run timed out"
   const ok = firstError === undefined && !signal.aborted
   const finalStatus: LoopRunStatus = timedOut ? "timeout" : signal.aborted ? "cancelled" : ok ? "complete" : "error"
-  const finishPatch: Parameters<typeof Manager.finishRun>[2] = {
+  const finishPatch: Parameters<typeof Manager.finishRun>[3] = {
     status: finalStatus,
     ok,
     endedAt,
   }
   if (firstError !== undefined) finishPatch.error = firstError
-  await Manager.finishRun(def.id, run.id, finishPatch)
+  await Manager.finishRun(instance.project.id, def.id, run.id, finishPatch)
 
   // Best-effort auto-PR: when the run completed cleanly and the definition
   // opted in, push the worktree to a stable loop branch and create/update a
@@ -491,7 +494,7 @@ async function executeRun(
       })
     }
     if (pullRequest) {
-      await Manager.attachRunPullRequest(def.id, run.id, pullRequest)
+      await Manager.attachRunPullRequest(instance.project.id, def.id, run.id, pullRequest)
     }
   }
 
@@ -546,6 +549,7 @@ async function executeRun(
  * placeholder with a real promise; the second call returns the same promise.
  */
 export async function runOnce(id: string, options?: { callerSessionID?: string }): Promise<void> {
+  const instance = InstanceState.ambient()
   const callerSessionID = options?.callerSessionID
   const { inFlight } = instanceState()
   // ── Synchronous claim ──────────────────────────────────────────────────────
@@ -575,7 +579,7 @@ export async function runOnce(id: string, options?: { callerSessionID?: string }
       void Bus.publish(LoopEvent.Aborted, { loopID: id, reason: "capacity" })
       return
     }
-    const def = await Manager.get(id)
+    const def = await Manager.get(instance.project.id, id)
     if (!def) {
       log.warn("runOnce called for unknown loop", { id })
       return
@@ -585,7 +589,7 @@ export async function runOnce(id: string, options?: { callerSessionID?: string }
 
     // Enforce maxRuns before kicking off a new run.
     if (def.maxRuns !== undefined) {
-      const runs = await Manager.countRuns(id)
+      const runs = await Manager.countRuns(instance.project.id, id)
       if (runs >= def.maxRuns) {
         log.info("loop reached maxRuns; disarming", {
           id,
@@ -600,12 +604,12 @@ export async function runOnce(id: string, options?: { callerSessionID?: string }
         // filesystem. Failures stay swallowed: the in-memory state and the
         // scheduler are already updated above, and a storage error should not
         // turn a completed cap into a thrown tick.
-        await Manager.setEnabled(id, false).catch(() => {})
+        await Manager.setEnabled(instance.project.id, id, false).catch(() => {})
         return
       }
     }
 
-    const latest = await Manager.get(id)
+    const latest = await Manager.get(instance.project.id, id)
     if (!latest) {
       log.warn("loop removed before run could start", { id })
       return
@@ -614,10 +618,10 @@ export async function runOnce(id: string, options?: { callerSessionID?: string }
     // Materialize the sandbox before the run record exists: a failure here is
     // non-fatal (RunSandbox.ensure never throws) and just means the run
     // executes in the host directory.
-    const sandbox = await ensureSandbox(def)
+    const sandbox = await ensureSandbox(instance, def)
     slot.directory = sandbox?.directory
 
-    const run = await Manager.startRun(id)
+    const run = await Manager.startRun(instance.project.id, id)
     slot.runID = run.id
 
     // Cap the run's wall-clock time so a hung stage can never hold the
@@ -630,12 +634,16 @@ export async function runOnce(id: string, options?: { callerSessionID?: string }
     timeout = setTimeout(() => ctrl.abort("timeout"), timeoutMs)
     // Renew the run's lease while we drive it, so restore() in another
     // process doesn't orphan a legitimately running run.
-    heartbeat = setInterval(() => void Manager.touchRun(id, run.id), Math.floor(LOOP_RUN_LEASE_MS / 3))
+    heartbeat = setInterval(
+      () => void Manager.touchRun(instance.project.id, id, run.id),
+      Math.floor(LOOP_RUN_LEASE_MS / 3),
+    )
 
     // Swap the placeholder for the real promise so subsequent calls await it.
     const real = (async () => {
       try {
         await executeRun(
+          instance,
           def,
           run,
           ctrl.signal,
@@ -648,7 +656,7 @@ export async function runOnce(id: string, options?: { callerSessionID?: string }
       } catch (error) {
         const message = describeError(error)
         log.error("run failed", { id, error: message })
-        await Manager.finishRun(id, run.id, {
+        await Manager.finishRun(instance.project.id, id, run.id, {
           status: "error",
           ok: false,
           endedAt: Date.now(),
@@ -691,6 +699,7 @@ export function abort(id: string): Promise<void> | undefined {
 
 /** Cancel + finalize any in-flight run for a loop. Used by the DELETE route. */
 export async function cancelRun(id: string): Promise<void> {
+  const instance = InstanceState.ambient()
   const slot = instanceState().inFlight.get(id)
   if (!slot) return
   const runID = slot.runID
@@ -698,7 +707,7 @@ export async function cancelRun(id: string): Promise<void> {
   patch(id, (prev) => ({ ...prev, status: "cancelling" }))
   await cancelInFlightRun(id, runID, sessionID)
   if (runID) {
-    await Manager.finishRun(id, runID, {
+    await Manager.finishRun(instance.project.id, id, runID, {
       status: "cancelled",
       ok: false,
       endedAt: Date.now(),
@@ -729,15 +738,19 @@ function schedulerID(id: string): string {
 export function arm(def: LoopDefinition): void {
   Scheduler.unregister(schedulerID(def.id))
   if (!def.enabled || def.paused || def.trigger.kind !== "interval") return
+  // Captured here, not read inside `run`. `Scheduler.run` establishes no
+  // instance scope of its own; the task only ever found one because
+  // AsyncLocalStorage propagates into a timer created inside the scope.
+  const instance = InstanceState.ambient()
   Scheduler.register({
     id: schedulerID(def.id),
     interval: def.trigger.everyMs,
     scope: "instance",
     skipInitialRun: true,
     run: async () => {
-      // Re-establish the current instance context so Session/SessionPrompt resolve
-      // against the right directory (Scheduler is per-instance).
-      await withInstanceAsync({ directory: Instance.directory }, () => runOnce(def.id))
+      // Re-enter the instance this loop was armed in so Session/SessionPrompt
+      // resolve against the right directory.
+      await withInstanceAsync({ directory: instance.directory }, () => runOnce(def.id))
     },
   })
   log.info("armed", { id: def.id, everyMs: def.trigger.everyMs })
@@ -754,17 +767,18 @@ export function disarm(id: string): void {
  * `"running"` runs (process died mid-run). Call from `InstanceBootstrap`.
  */
 export async function restore(): Promise<void> {
-  const defs = await Manager.list()
+  const instance = InstanceState.ambient()
+  const defs = await Manager.list(instance.project.id)
   for (const def of defs) {
     arm(def)
     const status: RuntimeStatus = def.paused ? "paused" : "idle"
     // Rehydrate runtime state from the latest run (if any).
-    const recent = await Manager.listRuns(def.id, 1)
+    const recent = await Manager.listRuns(instance.project.id, def.id, 1)
     if (recent.length > 0) {
       const last = recent[0]
       const rehydrated: Runtime = {
         status,
-        runs: await Manager.countRuns(def.id),
+        runs: await Manager.countRuns(instance.project.id, def.id),
         lastRunAt: last.endedAt ?? last.startedAt,
       }
       if (last.error) rehydrated.lastError = last.error
@@ -779,13 +793,13 @@ export async function restore(): Promise<void> {
   // The lease is judged on the heartbeat, not startedAt, so a long run that
   // is still actively driven (heartbeats every LOOP_RUN_LEASE_MS / 3) is
   // never orphaned from under its owner.
-  const stale = await Manager.listRunningRuns()
+  const stale = await Manager.listRunningRuns(instance.project.id)
   const cutoff = Date.now() - LOOP_RUN_LEASE_MS
   const isExpired = (run: LoopRun) => (run.heartbeatAt ?? run.startedAt) < cutoff
   for (const run of stale) {
     if (isExpired(run)) {
       log.warn("orphaning stale run", { loopID: run.loopID, runID: run.id })
-      await Manager.orphanRun(run.loopID, run.id)
+      await Manager.orphanRun(instance.project.id, run.loopID, run.id)
       void Bus.publish(LoopEvent.RunFinished, {
         loopID: run.loopID,
         runID: run.id,
@@ -809,7 +823,8 @@ export async function restore(): Promise<void> {
  * than `restore()` for write paths.
  */
 export async function sync(id: string): Promise<void> {
-  const def = await Manager.get(id)
+  const instance = InstanceState.ambient()
+  const def = await Manager.get(instance.project.id, id)
   if (def) arm(def)
   else disarm(id)
 }
@@ -834,7 +849,8 @@ export function listRuntimes(): Array<{ loopID: string; runtime: Runtime }> {
 
 /** Reset the run counter (persisted + in-memory) for a loop. Used after manual run cap edits. */
 export async function resetRunCount(id: string): Promise<void> {
-  await Manager.resetRunCounter(id)
+  const instance = InstanceState.ambient()
+  await Manager.resetRunCounter(instance.project.id, id)
   patch(id, (prev) => ({ ...prev, runs: 0 }))
 }
 

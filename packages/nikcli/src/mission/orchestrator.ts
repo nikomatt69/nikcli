@@ -27,7 +27,7 @@ import { SessionPrompt } from "../session/prompt"
 import { PermissionNext } from "../permission/next"
 import { RunSandbox } from "../worktree/sandbox"
 import { DEFAULT_LOOP_AGENT } from "../loop/schema"
-import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "../effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "../effect"
 import * as Manager from "./manager"
 import {
   DEFAULT_FEATURE_TIMEOUT_MS,
@@ -437,7 +437,7 @@ async function orchestrate(
   // Materialize the sandbox first: every worker in this mission runs bound to
   // it. `ensureSandbox` never throws — a project that cannot be sandboxed
   // falls back to the host directory.
-  const sandbox = await ensureSandbox(initial)
+  const sandbox = await ensureSandbox(InstanceState.ambient().directory, initial)
   slot.directory = sandbox?.directory
   const sessionID = await ensureSession(`mission: ${initial.name}`, sandbox !== undefined, sandbox?.directory)
   slot.sessionID = sessionID

@@ -79,6 +79,16 @@ const withInstance = <A>(fn: (instance: InstanceContext) => Promise<A>): Effect.
     Effect.orDie,
   )
 
+/** The `withInstance` shape for an endpoint that declares errors. */
+const routeWithInstance = <A, E>(
+  fn: (instance: InstanceContext) => Promise<A>,
+  map: (error: MobileHttpError) => Effect.Effect<never, E>,
+): Effect.Effect<A, E> =>
+  InstanceState.context.pipe(
+    Effect.flatMap((instance) => Effect.promise(() => fn(instance))),
+    Effect.catchDefect((cause) => (cause instanceof MobileHttpError ? map(cause) : Effect.die(cause))),
+  )
+
 /** The `withDirectory` shape for an endpoint that declares errors. */
 const routeWithDirectory = <A, E>(
   fn: (directory: string) => Promise<A>,
@@ -231,22 +241,26 @@ const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handle
     .handle("gitPush", ({ query }) => withDirectory((directory) => git.gitPush(directory, query)))
     .handle("gitPull", () => withDirectory((directory) => git.gitPull(directory)))
     // --- loops ---
-    .handle("loopList", () => fromPromise(() => loops.loopList()))
-    .handle("loopCreate", ({ payload }) => route(() => loops.loopCreate(mutable(payload)), catchBad))
+    .handle("loopList", () => withInstance((instance) => loops.loopList(instance)))
+    .handle("loopCreate", ({ payload }) => routeWithInstance((i) => loops.loopCreate(i, mutable(payload)), catchBad))
     .handle("loopTemplates", () => fromPromise(() => loops.loopTemplates()))
     .handle("loopGenerate", ({ payload }) => fromPromise(() => loops.loopGenerate(mutable(payload))))
-    .handle("loopRunsRecent", ({ query }) => fromPromise(() => loops.loopRunsRecent(query)))
-    .handle("loopGet", ({ params }) => route(() => loops.loopGet(params.id), catchNotFound))
-    .handle("loopDelete", ({ params }) => route(() => loops.loopDelete(params.id), catchNotFound))
+    .handle("loopRunsRecent", ({ query }) => withInstance((instance) => loops.loopRunsRecent(instance, query)))
+    .handle("loopGet", ({ params }) => routeWithInstance((i) => loops.loopGet(i, params.id), catchNotFound))
+    .handle("loopDelete", ({ params }) => routeWithInstance((i) => loops.loopDelete(i, params.id), catchNotFound))
     .handle("loopUpdate", ({ params, payload }) =>
-      route(() => loops.loopUpdate(params.id, mutable(payload)), catchBadOrNotFound),
+      routeWithInstance((i) => loops.loopUpdate(i, params.id, mutable(payload)), catchBadOrNotFound),
     )
-    .handle("loopRuns", ({ params, query }) => route(() => loops.loopRuns(params.id, query), catchNotFound))
-    .handle("loopRun", ({ params }) => route(() => loops.loopRun(params.id), catchNotFound))
-    .handle("loopAbort", ({ params }) => route(() => loops.loopAbort(params.id), catchNotFound))
-    .handle("loopToggle", ({ params, payload }) => route(() => loops.loopToggle(params.id, payload), catchNotFound))
-    .handle("loopPause", ({ params }) => route(() => loops.loopPause(params.id), catchNotFound))
-    .handle("loopResume", ({ params }) => route(() => loops.loopResume(params.id), catchNotFound))
+    .handle("loopRuns", ({ params, query }) =>
+      routeWithInstance((i) => loops.loopRuns(i, params.id, query), catchNotFound),
+    )
+    .handle("loopRun", ({ params }) => routeWithInstance((i) => loops.loopRun(i, params.id), catchNotFound))
+    .handle("loopAbort", ({ params }) => routeWithInstance((i) => loops.loopAbort(i, params.id), catchNotFound))
+    .handle("loopToggle", ({ params, payload }) =>
+      routeWithInstance((i) => loops.loopToggle(i, params.id, payload), catchNotFound),
+    )
+    .handle("loopPause", ({ params }) => routeWithInstance((i) => loops.loopPause(i, params.id), catchNotFound))
+    .handle("loopResume", ({ params }) => routeWithInstance((i) => loops.loopResume(i, params.id), catchNotFound))
     // --- routines ---
     .handle("routineList", () => fromPromise(() => loops.routineList()))
     .handle("routineCreate", ({ payload }) => fromPromise(() => loops.routineCreate(mutable(payload))))

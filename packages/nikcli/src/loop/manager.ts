@@ -11,7 +11,6 @@
  * separate change from moving the storage.
  */
 
-import { Instance } from "../project/instance"
 import { Log } from "@nikcli-ai/util/log"
 import { RunSandbox } from "../worktree/sandbox"
 import { LoopRepo } from "./repo"
@@ -27,22 +26,17 @@ import {
 
 const log = Log.create({ service: "loop.manager" })
 
-function projectID(): string {
-  return Instance.project.id
+export async function list(project: string): Promise<LoopDefinition[]> {
+  return LoopRepo.list(project)
 }
 
-export async function list(): Promise<LoopDefinition[]> {
-  return LoopRepo.list(projectID())
+export async function get(project: string, id: string): Promise<LoopDefinition | undefined> {
+  return LoopRepo.get(project, id)
 }
 
-export async function get(id: string): Promise<LoopDefinition | undefined> {
-  return LoopRepo.get(projectID(), id)
-}
-
-export async function upsert(def: LoopDefinition): Promise<LoopDefinition> {
+export async function upsert(project: string, def: LoopDefinition): Promise<LoopDefinition> {
   const sanitized = sanitizeDefinition(def)
   if (!sanitized) throw new Error("Invalid loop definition")
-  const project = projectID()
   // `worktree` is engine-owned state, not part of the user-editable
   // definition. Clients that round-trip a whole definition on edit (the TUI
   // dialog, a REST PUT) omit it, and dropping it would strand the loop's
@@ -61,8 +55,7 @@ export async function upsert(def: LoopDefinition): Promise<LoopDefinition> {
   return sanitized
 }
 
-export async function remove(id: string): Promise<boolean> {
-  const project = projectID()
+export async function remove(project: string, directory: string, id: string): Promise<boolean> {
   const existing = LoopRepo.get(project, id)
   if (!existing) return false
   // Cascade: the definition and every run it owns go in one transaction, so a
@@ -72,35 +65,39 @@ export async function remove(id: string): Promise<boolean> {
   // still holds work, so deleting a loop never destroys an agent's output.
   if (existing.worktree) {
     await RunSandbox.release({
-      hostDirectory: Instance.directory,
+      hostDirectory: directory,
       sandbox: existing.worktree,
     }).catch(() => false)
   }
   return true
 }
 
-export async function setEnabled(id: string, enabled: boolean): Promise<LoopDefinition | undefined> {
-  const def = await get(id)
+export async function setEnabled(project: string, id: string, enabled: boolean): Promise<LoopDefinition | undefined> {
+  const def = await get(project, id)
   if (!def) return undefined
   const next: LoopDefinition = { ...def, enabled }
-  return upsert(next)
+  return upsert(project, next)
 }
 
 /**
  * Record the sandbox worktree the engine created for this loop so later runs
  * (and later processes) rebind to it instead of branching a fresh one.
  */
-export async function setWorktree(id: string, worktree: LoopWorktree): Promise<LoopDefinition | undefined> {
-  const def = await get(id)
+export async function setWorktree(
+  project: string,
+  id: string,
+  worktree: LoopWorktree,
+): Promise<LoopDefinition | undefined> {
+  const def = await get(project, id)
   if (!def) return undefined
-  return upsert({ ...def, worktree })
+  return upsert(project, { ...def, worktree })
 }
 
-export async function setPaused(id: string, paused: boolean): Promise<LoopDefinition | undefined> {
-  const def = await get(id)
+export async function setPaused(project: string, id: string, paused: boolean): Promise<LoopDefinition | undefined> {
+  const def = await get(project, id)
   if (!def) return undefined
   const next: LoopDefinition = { ...def, paused }
-  return upsert(next)
+  return upsert(project, next)
 }
 
 /**
@@ -108,12 +105,13 @@ export async function setPaused(id: string, paused: boolean): Promise<LoopDefini
  * boot). Returns the updated run, or `undefined` if the run was not found.
  */
 export async function orphanRun(
+  project: string,
   loopID: string,
   runID: string,
   endedAt: number = Date.now(),
 ): Promise<LoopRun | undefined> {
   try {
-    return LoopRepo.updateRun(projectID(), loopID, runID, (draft) => {
+    return LoopRepo.updateRun(project, loopID, runID, (draft) => {
       if (draft.status === "running") {
         draft.status = "orphaned"
         draft.ok = false
@@ -128,8 +126,8 @@ export async function orphanRun(
 }
 
 /** Find every run across every loop that is still in `"running"` status. */
-export async function listRunningRuns(): Promise<LoopRun[]> {
-  return LoopRepo.listRunsByStatus(projectID(), "running")
+export async function listRunningRuns(project: string): Promise<LoopRun[]> {
+  return LoopRepo.listRunsByStatus(project, "running")
 }
 
 // ── Run counter ───────────────────────────────────────────────────────────────
@@ -141,8 +139,7 @@ export async function listRunningRuns(): Promise<LoopRun[]> {
  * initialized from the surviving history records (one-time migration for
  * pre-counter loops).
  */
-export async function countRuns(loopID: string): Promise<number> {
-  const project = projectID()
+export async function countRuns(project: string, loopID: string): Promise<number> {
   const counted = LoopRepo.startedRuns(project, loopID)
   if (counted !== undefined) return counted
   const fromHistory = LoopRepo.countRunRecords(project, loopID)
@@ -155,9 +152,9 @@ export async function countRuns(loopID: string): Promise<number> {
 }
 
 /** Overwrite the lifetime run counter. Used after manual run cap edits. */
-export async function resetRunCounter(loopID: string, startedRuns = 0): Promise<void> {
+export async function resetRunCounter(project: string, loopID: string, startedRuns = 0): Promise<void> {
   try {
-    LoopRepo.setStartedRuns(projectID(), loopID, startedRuns)
+    LoopRepo.setStartedRuns(project, loopID, startedRuns)
   } catch (error) {
     log.warn("resetRunCounter failed", { loopID, error })
   }
@@ -165,8 +162,7 @@ export async function resetRunCounter(loopID: string, startedRuns = 0): Promise<
 
 // ── Runs ──────────────────────────────────────────────────────────────────────
 
-export async function startRun(loopID: string, sessionID?: string): Promise<LoopRun> {
-  const project = projectID()
+export async function startRun(project: string, loopID: string, sessionID?: string): Promise<LoopRun> {
   const now = Date.now()
   const run: LoopRun = {
     id: generateID("loop_run"),
@@ -193,9 +189,9 @@ export async function startRun(loopID: string, sessionID?: string): Promise<Loop
 }
 
 /** Renew the lease on a running run. No-op if the run already finished. */
-export async function touchRun(loopID: string, runID: string): Promise<void> {
+export async function touchRun(project: string, loopID: string, runID: string): Promise<void> {
   try {
-    LoopRepo.updateRun(projectID(), loopID, runID, (draft) => {
+    LoopRepo.updateRun(project, loopID, runID, (draft) => {
       if (draft.status !== "running") return
       draft.heartbeatAt = Date.now()
     })
@@ -205,9 +201,14 @@ export async function touchRun(loopID: string, runID: string): Promise<void> {
 }
 
 /** Attach the session to a running run without touching status/endedAt. */
-export async function attachRunSession(loopID: string, runID: string, sessionID: string): Promise<void> {
+export async function attachRunSession(
+  project: string,
+  loopID: string,
+  runID: string,
+  sessionID: string,
+): Promise<void> {
   try {
-    LoopRepo.updateRun(projectID(), loopID, runID, (draft) => {
+    LoopRepo.updateRun(project, loopID, runID, (draft) => {
       draft.sessionID = sessionID
     })
   } catch (error) {
@@ -217,12 +218,13 @@ export async function attachRunSession(loopID: string, runID: string, sessionID:
 
 /** Persist the auto-created/updated GitHub PR reference onto a finished run. */
 export async function attachRunPullRequest(
+  project: string,
   loopID: string,
   runID: string,
   pullRequest: LoopPullRequestRef,
 ): Promise<void> {
   try {
-    LoopRepo.updateRun(projectID(), loopID, runID, (draft) => {
+    LoopRepo.updateRun(project, loopID, runID, (draft) => {
       draft.pullRequest = pullRequest
     })
   } catch (error) {
@@ -231,6 +233,7 @@ export async function attachRunPullRequest(
 }
 
 export async function finishRun(
+  project: string,
   loopID: string,
   runID: string,
   patch: {
@@ -241,7 +244,6 @@ export async function finishRun(
     sessionID?: string
   },
 ): Promise<LoopRun | undefined> {
-  const project = projectID()
   try {
     const next = LoopRepo.updateRun(project, loopID, runID, (draft) => {
       draft.status = patch.status
@@ -259,10 +261,10 @@ export async function finishRun(
   }
 }
 
-export async function listRuns(loopID: string, limit = HISTORY_LIMIT): Promise<LoopRun[]> {
-  return LoopRepo.listRuns(projectID(), loopID, limit)
+export async function listRuns(project: string, loopID: string, limit = HISTORY_LIMIT): Promise<LoopRun[]> {
+  return LoopRepo.listRuns(project, loopID, limit)
 }
 
-export async function listAllRunsAcrossLoops(limit = 100): Promise<LoopRun[]> {
-  return LoopRepo.listRunsByProject(projectID(), limit)
+export async function listAllRunsAcrossLoops(project: string, limit = 100): Promise<LoopRun[]> {
+  return LoopRepo.listRunsByProject(project, limit)
 }
