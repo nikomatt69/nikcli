@@ -147,8 +147,7 @@ export namespace PtyHttpApi {
    * rather than `throw`ing it inside `Effect.gen`, which is what used to
    * make a declared error reach this boundary as a defect.
    */
-  const catchNotFound = <A, R>(effect: Effect.Effect<A, Pty.NotFoundError, R>) =>
-    effect.pipe(Effect.catch(asNotFound))
+  const catchNotFound = <A, R>(effect: Effect.Effect<A, Pty.NotFoundError, R>) => effect.pipe(Effect.catch(asNotFound))
 
   /**
    * Translate a `Pty.CreateError` to the declared 400 body. `Pty.Error` is
@@ -174,8 +173,7 @@ export namespace PtyHttpApi {
    * the `Effect.try` around `spawnPty`. Nothing produces it as a defect, so
    * the defect arm this used to carry was dead compensation.
    */
-  const catchCreateError = <A, R>(effect: Effect.Effect<A, Pty.Error, R>) =>
-    effect.pipe(Effect.catch(asCreateError))
+  const catchCreateError = <A, R>(effect: Effect.Effect<A, Pty.Error, R>) => effect.pipe(Effect.catch(asCreateError))
 
   /**
    * Cast helpers — safe because `PtyCreateInput`/`PtyUpdateInput` are
