@@ -1,7 +1,6 @@
 import { randomBytes } from "crypto"
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator"
 import z from "zod"
-import { Instance } from "@/project/instance"
 import { Scheduler } from "@/scheduler"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
@@ -11,6 +10,7 @@ import { Provider } from "@/provider/provider"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { RoutineRepo } from "./repo"
+import type { InstanceContext } from "@/effect"
 
 function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
   return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
@@ -107,10 +107,6 @@ export namespace Routine {
 
   // ── Identity ───────────────────────────────────────────────────────────────
 
-  function projectID() {
-    return Instance.project.id
-  }
-
   function missing(id: string): never {
     throw new Error(`Routine "${id}" not found.`)
   }
@@ -195,32 +191,35 @@ export namespace Routine {
       scope: "instance",
       skipInitialRun: true,
       run: async () => {
-        await withInstanceAsync({ directory: routine.directory }, () => run(routine.id))
+        // The routine records the directory it belongs to, so this re-enters
+        // that instance and hands the body the context it installed rather
+        // than reading whatever scope the timer fired on.
+        await withInstanceAsync({ directory: routine.directory }, (instance) => run(instance, routine.id))
       },
     })
   }
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
-  export async function list(): Promise<Record[]> {
+  export async function list(instance: InstanceContext): Promise<Record[]> {
     // Resolve the project id in the caller's instance scope, exactly like
     // `LoopManager.list` (`src/loop/manager.ts`).
-    return RoutineRepo.list(projectID())
+    return RoutineRepo.list(instance.project.id)
   }
 
-  export async function get(id: string): Promise<Record | undefined> {
-    return RoutineRepo.get(projectID(), id)
+  export async function get(instance: InstanceContext, id: string): Promise<Record | undefined> {
+    return RoutineRepo.get(instance.project.id, id)
   }
 
-  export async function getByToken(token: string): Promise<Record | null> {
-    const all = await list()
+  export async function getByToken(instance: InstanceContext, token: string): Promise<Record | null> {
+    const all = await list(instance)
     return (
       all.find((r) => r.triggers.some((t): t is TriggerApi => t.type === "api" && t.enabled && t.token === token)) ??
       null
     )
   }
 
-  export async function create(input: CreateInput): Promise<Record> {
+  export async function create(instance: InstanceContext, input: CreateInput): Promise<Record> {
     const id = generateID()
     const now = Date.now()
 
@@ -245,21 +244,21 @@ export namespace Routine {
       triggers,
       model,
       paused: false,
-      projectID: Instance.project.id,
-      directory: Instance.directory,
+      projectID: instance.project.id,
+      directory: instance.directory,
       createdAt: now,
       updatedAt: now,
     }
 
-    RoutineRepo.upsert(projectID(), record)
+    RoutineRepo.upsert(instance.project.id, record)
     log.info("created", { id, name: record.name })
     registerScheduler(record)
     return record
   }
 
-  export async function update(id: string, input: UpdateInput): Promise<Record> {
+  export async function update(instance: InstanceContext, id: string, input: UpdateInput): Promise<Record> {
     if (input.triggers) validateTriggers(input.triggers)
-    const record = RoutineRepo.update(projectID(), id, (draft) => {
+    const record = RoutineRepo.update(instance.project.id, id, (draft) => {
       if (input.name !== undefined) draft.name = input.name
       if (input.prompt !== undefined) draft.prompt = input.prompt
       if (input.triggers !== undefined) draft.triggers = input.triggers
@@ -272,27 +271,28 @@ export namespace Routine {
     return record
   }
 
-  export async function remove(id: string): Promise<void> {
+  export async function remove(instance: InstanceContext, id: string): Promise<void> {
     unregisterScheduler(id)
-    RoutineRepo.remove(projectID(), id)
+    RoutineRepo.remove(instance.project.id, id)
     log.info("removed", { id })
   }
 
-  export async function pause(id: string): Promise<Record> {
-    return update(id, { paused: true })
+  export async function pause(instance: InstanceContext, id: string): Promise<Record> {
+    return update(instance, id, { paused: true })
   }
 
-  export async function resume(id: string): Promise<Record> {
-    return update(id, { paused: false })
+  export async function resume(instance: InstanceContext, id: string): Promise<Record> {
+    return update(instance, id, { paused: false })
   }
 
   // ── Run ────────────────────────────────────────────────────────────────────
 
   export async function run(
+    instance: InstanceContext,
     id: string,
     input?: { text?: string; model?: { providerID: string; modelID: string } },
   ): Promise<Session.Info> {
-    const routine = await get(id)
+    const routine = await get(instance, id)
     if (!routine) missing(id)
     log.info("running", { id, name: routine.name, model: input?.model ?? routine.model })
 
@@ -320,7 +320,7 @@ export namespace Routine {
       }),
     )
 
-    const updated = RoutineRepo.update(projectID(), id, (draft) => {
+    const updated = RoutineRepo.update(instance.project.id, id, (draft) => {
       draft.lastRunAt = Date.now()
       draft.lastSessionID = session.id
       draft.updatedAt = Date.now()
@@ -332,9 +332,9 @@ export namespace Routine {
 
   // ── Bootstrap: re-register all active schedules on startup ─────────────────
 
-  export async function restoreSchedulers(): Promise<void> {
+  export async function restoreSchedulers(instance: InstanceContext): Promise<void> {
     try {
-      const records = await list()
+      const records = await list(instance)
       for (const record of records) {
         registerScheduler(record)
       }

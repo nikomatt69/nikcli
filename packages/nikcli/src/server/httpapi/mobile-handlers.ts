@@ -262,25 +262,25 @@ const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handle
     .handle("loopPause", ({ params }) => routeWithInstance((i) => loops.loopPause(i, params.id), catchNotFound))
     .handle("loopResume", ({ params }) => routeWithInstance((i) => loops.loopResume(i, params.id), catchNotFound))
     // --- routines ---
-    .handle("routineList", () => fromPromise(() => loops.routineList()))
-    .handle("routineCreate", ({ payload }) => fromPromise(() => loops.routineCreate(mutable(payload))))
-    .handle("routineGet", ({ params }) => route(() => loops.routineGet(params.id), catchNotFound))
-    .handle("routineDelete", ({ params }) => route(() => loops.routineDelete(params.id), catchNotFound))
+    .handle("routineList", () => withInstance((i) => loops.routineList(i)))
+    .handle("routineCreate", ({ payload }) => withInstance((i) => loops.routineCreate(i, mutable(payload))))
+    .handle("routineGet", ({ params }) => routeWithInstance((i) => loops.routineGet(i, params.id), catchNotFound))
+    .handle("routineDelete", ({ params }) => routeWithInstance((i) => loops.routineDelete(i, params.id), catchNotFound))
     .handle("routineUpdate", ({ params, payload }) =>
-      route(() => loops.routineUpdate(params.id, mutable(payload)), catchNotFound),
+      routeWithInstance((i) => loops.routineUpdate(i, params.id, mutable(payload)), catchNotFound),
     )
     .handle("routineRun", ({ params, payload }) =>
-      route(() => loops.routineRun(params.id, mutable(payload)), catchNotFound),
+      routeWithInstance((i) => loops.routineRun(i, params.id, mutable(payload)), catchNotFound),
     )
-    .handle("routinePause", ({ params }) => route(() => loops.routinePause(params.id), catchNotFound))
-    .handle("routineResume", ({ params }) => route(() => loops.routineResume(params.id), catchNotFound))
+    .handle("routinePause", ({ params }) => routeWithInstance((i) => loops.routinePause(i, params.id), catchNotFound))
+    .handle("routineResume", ({ params }) => routeWithInstance((i) => loops.routineResume(i, params.id), catchNotFound))
     .handle("routineTrigger", ({ params, payload, request }) =>
-      route(() => {
+      routeWithInstance((i) => {
         const bearer = sourceOf(request)
           .headers.get("authorization")
           ?.match(/^Bearer\s+(.+)$/i)?.[1]
           ?.trim()
-        return loops.routineTrigger(params.token, mutable(payload), bearer)
+        return loops.routineTrigger(i, params.token, mutable(payload), bearer)
       }, catchNotFound),
     )
     // --- pty ---

@@ -20,7 +20,7 @@ import { Monitor } from "@/monitor/manager"
 import * as LoopEngine from "@/loop/engine"
 import * as MissionOrchestrator from "@/mission/orchestrator"
 import { Routine } from "@/mobile/routine"
-import { runPromiseWithLayer, runService, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, runService, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
 function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
@@ -185,7 +185,7 @@ export async function InstanceBootstrap() {
   })
   // Re-arm scheduled routine triggers for this instance. Without this, cron
   // routines silently stop firing after a process restart.
-  await Routine.restoreSchedulers().catch((error) => {
+  await Routine.restoreSchedulers(InstanceState.ambient()).catch((error) => {
     Log.Default.warn("failed to restore routines on startup", { error })
   })
 

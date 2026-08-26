@@ -50,8 +50,8 @@ export const RoutineListCommand = cmd({
       describe: "output format",
     }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const routines = await Routine.list()
+    await bootstrap(process.cwd(), async (instance) => {
+      const routines = await Routine.list(instance)
 
       if (args.format === "json") {
         console.log(JSON.stringify(routines, null, 2))
@@ -91,7 +91,7 @@ export const RoutineCreateCommand = cmd({
       .option("api", { type: "boolean", describe: "enable an API trigger with a generated token" })
       .option("api-token", { type: "string", describe: "enable an API trigger with a custom token" }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.cwd(), async (instance) => {
       prompts.intro("Create routine")
 
       const name =
@@ -151,7 +151,7 @@ export const RoutineCreateCommand = cmd({
       const spinner = prompts.spinner()
       spinner.start("Creating routine…")
       try {
-        const routine = await Routine.create({
+        const routine = await Routine.create(instance, {
           name: String(name).trim(),
           prompt: String(prompt).trim(),
           triggers,
@@ -182,8 +182,8 @@ export const RoutineGetCommand = cmd({
       default: "text",
     }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const routine = await Routine.get(String(args.id))
+    await bootstrap(process.cwd(), async (instance) => {
+      const routine = await Routine.get(instance, String(args.id))
       if (!routine) throw new Error(`Routine "${args.id}" not found.`)
 
       if (args.format === "json") {
@@ -212,11 +212,11 @@ export const RoutineRunCommand = cmd({
       .positional("id", { type: "string", demandOption: true, describe: "routine ID" })
       .option("text", { type: "string", describe: "one-off context to append to this run" }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.cwd(), async (instance) => {
       const spinner = prompts.spinner()
       spinner.start("Running routine…")
       try {
-        const session = await Routine.run(String(args.id), { text: args.text })
+        const session = await Routine.run(instance, String(args.id), { text: args.text })
         spinner.stop(`Session created: ${session.id}`)
         console.log(`Monitor with: nikcli session list`)
       } catch (error) {
@@ -232,8 +232,8 @@ export const RoutinePauseCommand = cmd({
   describe: "pause a routine (disables scheduled triggers)",
   builder: (yargs) => yargs.positional("id", { type: "string", demandOption: true, describe: "routine ID" }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const routine = await Routine.pause(String(args.id))
+    await bootstrap(process.cwd(), async (instance) => {
+      const routine = await Routine.pause(instance, String(args.id))
       console.log(`Paused: ${routine.id} (${routine.name})`)
     })
   },
@@ -244,8 +244,8 @@ export const RoutineResumeCommand = cmd({
   describe: "resume a paused routine",
   builder: (yargs) => yargs.positional("id", { type: "string", demandOption: true, describe: "routine ID" }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const routine = await Routine.resume(String(args.id))
+    await bootstrap(process.cwd(), async (instance) => {
+      const routine = await Routine.resume(instance, String(args.id))
       console.log(`Resumed: ${routine.id} (${routine.name})`)
     })
   },
@@ -260,9 +260,9 @@ export const RoutineDeleteCommand = cmd({
       .positional("id", { type: "string", demandOption: true, describe: "routine ID" })
       .option("yes", { type: "boolean", alias: "y", describe: "skip confirmation" }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.cwd(), async (instance) => {
       if (!args.yes) {
-        const routine = await Routine.get(String(args.id))
+        const routine = await Routine.get(instance, String(args.id))
         if (!routine) throw new Error(`Routine "${args.id}" not found.`)
         const confirmed = await prompts.confirm({
           message: `Delete routine "${routine.name}" (${routine.id})?`,
@@ -273,7 +273,7 @@ export const RoutineDeleteCommand = cmd({
           return
         }
       }
-      await Routine.remove(String(args.id))
+      await Routine.remove(instance, String(args.id))
       console.log(`Deleted routine ${args.id}`)
     })
   },

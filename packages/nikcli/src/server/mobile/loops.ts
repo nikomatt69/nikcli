@@ -117,52 +117,61 @@ export async function loopResume(instance: InstanceContext, id: string) {
   return { success: true as const }
 }
 
-export function routineList() {
-  return Routine.list()
+export function routineList(instance: InstanceContext) {
+  return Routine.list(instance)
 }
 
-export function routineCreate(input: typeof MobileRoutineCreateInput._output) {
-  return Routine.create(input)
+export function routineCreate(instance: InstanceContext, input: typeof MobileRoutineCreateInput._output) {
+  return Routine.create(instance, input)
 }
 
-export async function routineGet(id: string) {
-  const record = await Routine.get(id)
+export async function routineGet(instance: InstanceContext, id: string) {
+  const record = await Routine.get(instance, id)
   if (!record) throw routineNotFound(id)
   return record
 }
 
-export async function routineUpdate(id: string, input: typeof MobileRoutineUpdateInput._output) {
-  if (!(await Routine.get(id))) throw routineNotFound(id)
-  return Routine.update(id, input)
+export async function routineUpdate(
+  instance: InstanceContext,
+  id: string,
+  input: typeof MobileRoutineUpdateInput._output,
+) {
+  if (!(await Routine.get(instance, id))) throw routineNotFound(id)
+  return Routine.update(instance, id, input)
 }
 
-export async function routineDelete(id: string) {
-  if (!(await Routine.get(id))) throw routineNotFound(id)
-  await Routine.remove(id)
+export async function routineDelete(instance: InstanceContext, id: string) {
+  if (!(await Routine.get(instance, id))) throw routineNotFound(id)
+  await Routine.remove(instance, id)
   return { success: true as const }
 }
 
-export async function routineRun(id: string, input: typeof MobileRoutineRunInput._output | void) {
-  if (!(await Routine.get(id))) throw routineNotFound(id)
-  return Routine.run(id, { text: input?.text })
+export async function routineRun(
+  instance: InstanceContext,
+  id: string,
+  input: typeof MobileRoutineRunInput._output | void,
+) {
+  if (!(await Routine.get(instance, id))) throw routineNotFound(id)
+  return Routine.run(instance, id, { text: input?.text })
 }
 
-export async function routinePause(id: string) {
-  if (!(await Routine.get(id))) throw routineNotFound(id)
-  return Routine.pause(id)
+export async function routinePause(instance: InstanceContext, id: string) {
+  if (!(await Routine.get(instance, id))) throw routineNotFound(id)
+  return Routine.pause(instance, id)
 }
 
-export async function routineResume(id: string) {
-  if (!(await Routine.get(id))) throw routineNotFound(id)
-  return Routine.resume(id)
+export async function routineResume(instance: InstanceContext, id: string) {
+  if (!(await Routine.get(instance, id))) throw routineNotFound(id)
+  return Routine.resume(instance, id)
 }
 
 export async function routineTrigger(
+  instance: InstanceContext,
   token: string,
   input: typeof MobileRoutineTriggerInput._output | void,
   bearer: string | undefined,
 ) {
-  const routine = await Routine.getByToken(bearer || token)
+  const routine = await Routine.getByToken(instance, bearer || token)
   if (!routine) throw new MobileHttpError("Routine not found or API trigger disabled", 404)
-  return Routine.run(routine.id, { text: input?.text })
+  return Routine.run(instance, routine.id, { text: input?.text })
 }
