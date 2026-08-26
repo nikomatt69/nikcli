@@ -1,7 +1,6 @@
 import { EOL } from "os"
 import { FFF } from "../../../file/fff"
 import { SearchBackend } from "../../../file/searchBackend"
-import { Instance } from "../../../project/instance"
 import { bootstrap } from "../../bootstrap"
 import { cmd } from "../cmd"
 
@@ -21,8 +20,8 @@ const TreeCommand = cmd({
       description: "Max nodes to render",
     }),
   async handler(args) {
-    await bootstrap(process.cwd(), async () => {
-      const output = await SearchBackend.tree({ cwd: Instance.directory, limit: args.limit })
+    await bootstrap(process.cwd(), async (instance) => {
+      const output = await SearchBackend.tree({ cwd: instance.directory, limit: args.limit })
       process.stdout.write(output + EOL)
     })
   },
@@ -46,10 +45,10 @@ const FilesCommand = cmd({
         description: "Limit number of results",
       }),
   async handler(args) {
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.cwd(), async (instance) => {
       const limit = args.limit ?? 100
       const files = await FFF.files({
-        cwd: Instance.directory,
+        cwd: instance.directory,
         glob: args.glob ? [args.glob] : undefined,
         hidden: true,
         limit,

@@ -4,7 +4,7 @@ import { Session } from "../../session"
 import { SessionRepo } from "../../session/repo"
 import { bootstrap } from "../bootstrap"
 import { ProjectRepo } from "../../project/repo"
-import { Instance } from "../../project/instance"
+import type { Project } from "@/project/project"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Log } from "@nikcli-ai/util/log"
@@ -124,9 +124,9 @@ export const UsageCommand = cmd({
       project: args.project,
     })
 
-    await bootstrap(process.cwd(), async () => {
-      const stats = await aggregateUsageStats(args.days, args.project)
-      const sessions = await getTopSessions(args.days, args.project, args.top)
+    await bootstrap(process.cwd(), async (instance) => {
+      const stats = await aggregateUsageStats(instance.project, args.days, args.project)
+      const sessions = await getTopSessions(instance.project, args.days, args.project, args.top)
 
       displayUsage(stats, sessions, {
         days: args.days,
@@ -142,7 +142,12 @@ export const UsageCommand = cmd({
 // Data Aggregation
 // ============================================
 
-async function getTopSessions(days: number, projectFilter: string | undefined, limit: number): Promise<SessionUsage[]> {
+async function getTopSessions(
+  project: Project.Info,
+  days: number,
+  projectFilter: string | undefined,
+  limit: number,
+): Promise<SessionUsage[]> {
   const sessions = await getAllSessions()
   const MS_IN_DAY = 24 * 60 * 60 * 1000
   const cutoffTime = Date.now() - days * MS_IN_DAY
@@ -150,7 +155,7 @@ async function getTopSessions(days: number, projectFilter: string | undefined, l
   let filteredSessions = days > 0 ? sessions.filter((session) => session.time.updated >= cutoffTime) : sessions
 
   if (projectFilter !== undefined) {
-    const currentProject = await Instance.project
+    const currentProject = project
     if (projectFilter === "") {
       filteredSessions = filteredSessions.filter((session) => session.projectID === currentProject.id)
     } else {
@@ -220,7 +225,11 @@ async function getTopSessions(days: number, projectFilter: string | undefined, l
     .slice(0, limit)
 }
 
-async function aggregateUsageStats(days: number, projectFilter: string | undefined): Promise<UsageStats> {
+async function aggregateUsageStats(
+  project: Project.Info,
+  days: number,
+  projectFilter: string | undefined,
+): Promise<UsageStats> {
   const sessions = await getAllSessions()
   const MS_IN_DAY = 24 * 60 * 60 * 1000
   const cutoffTime = days > 0 ? Date.now() - days * MS_IN_DAY : 0
@@ -228,7 +237,7 @@ async function aggregateUsageStats(days: number, projectFilter: string | undefin
   let filteredSessions = cutoffTime > 0 ? sessions.filter((session) => session.time.updated >= cutoffTime) : sessions
 
   if (projectFilter !== undefined) {
-    const currentProject = await Instance.project
+    const currentProject = project
     if (projectFilter === "") {
       filteredSessions = filteredSessions.filter((session) => session.projectID === currentProject.id)
     } else {

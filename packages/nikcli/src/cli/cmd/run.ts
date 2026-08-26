@@ -13,12 +13,12 @@ import { Server } from "../../server/server"
 import { Provider } from "../../provider/provider"
 import { Agent } from "../../agent/agent"
 import { SessionRepo } from "../../session/repo"
+import type { Project } from "@/project/project"
 import { SessionDiffRepo } from "../../session/diff-repo"
 import { SessionV2Write } from "../../session/v2/write"
 import type { Session } from "../../session"
 import type { MessageV2 } from "../../session/message-v2"
 import type { Snapshot } from "../../snapshot"
-import { Instance } from "../../project/instance"
 import { Config } from "../../config/config"
 import { ShareNext } from "../../share/share-next"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -314,7 +314,7 @@ function normalizeSharePayload(payload: SharePayload): NormalizedSharePayload | 
   }
 }
 
-async function importShareReference(input: string): Promise<string | undefined> {
+async function importShareReference(project: Project.Info, input: string): Promise<string | undefined> {
   const parsed = parseShareReference(input)
   if (!parsed) return undefined
 
@@ -346,14 +346,14 @@ async function importShareReference(input: string): Promise<string | undefined> 
   const info = normalized.info
   SessionRepo.upsert({
     ...(info as Session.Info),
-    projectID: Instance.project.id,
+    projectID: project.id,
   })
 
   if (normalized.diff) {
     SessionDiffRepo.upsert(info.id, normalized.diff as Snapshot.FileDiff[])
   }
 
-  const projectID = Instance.project.id
+  const projectID = project.id
   for (const msg of normalized.messages) {
     const messageInfo = {
       ...(msg.info as MessageV2.Info),
@@ -758,7 +758,7 @@ export const RunCommand = cmd({
       return await execute(sdk, sessionID)
     }
 
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.cwd(), async (instance) => {
       log.debug("Running local nikcli session")
 
       const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -786,7 +786,7 @@ export const RunCommand = cmd({
         }
         if (args.session) {
           if (args.session.startsWith("ses_")) return args.session
-          const imported = await importShareReference(args.session)
+          const imported = await importShareReference(instance.project, args.session)
           if (!imported) invalidSessionReference()
           return imported
         }

@@ -1,7 +1,6 @@
 import { cmd } from "./cmd"
 import { Log } from "@nikcli-ai/util/log"
-import { withInstanceAsync } from "@/effect"
-import { Instance } from "@/project/instance"
+import { withInstanceAsync, type InstanceContext } from "@/effect"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Outbox } from "@/sync/outbox"
 import { RemoteSync } from "@/sync/remote-sync"
@@ -26,7 +25,7 @@ export type RemoteSyncHandleLike = { stop: () => Promise<void> }
 export type SyncConnectDeps = {
   readRemote: () => Promise<SyncRemoteConfig | undefined>
   withInstance: typeof withInstanceAsync
-  getProjectId: () => string
+  getProjectId: (instance: InstanceContext) => string
   remoteStart: (opts: { url: string; token: string; projectID: string }) => Promise<RemoteSyncHandleLike>
   onSignal: (signal: "SIGINT" | "SIGTERM", handler: () => void) => void
   offSignal: (signal: "SIGINT" | "SIGTERM", handler: () => void) => void
@@ -34,14 +33,14 @@ export type SyncConnectDeps = {
 
 /** CLI `sync connect` body (injectable for tests). */
 export async function runSyncConnect(deps: SyncConnectDeps): Promise<void> {
-  await deps.withInstance({ directory: process.cwd(), init: InstanceBootstrap }, async () => {
+  await deps.withInstance({ directory: process.cwd(), init: InstanceBootstrap }, async (instance) => {
     const remote = await deps.readRemote()
     if (!remote) {
       console.log("remote sync not configured")
       process.exitCode = 1
       return
     }
-    const projectID = deps.getProjectId()
+    const projectID = deps.getProjectId(instance)
     log.info("forcing remote sync start", {
       url: remote.url,
       projectID,
@@ -97,7 +96,7 @@ export const SyncCommand = cmd({
           await runSyncConnect({
             readRemote,
             withInstance: withInstanceAsync,
-            getProjectId: () => Instance.project.id,
+            getProjectId: (instance) => instance.project.id,
             remoteStart: (opts) =>
               RemoteSync.start({
                 ...opts,

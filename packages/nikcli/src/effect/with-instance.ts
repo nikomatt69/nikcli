@@ -12,6 +12,7 @@
 import { Effect } from "effect"
 import { AppRuntime } from "./runtime"
 import { InstanceScope, type WithInput } from "./instance-scope"
+import { instance, type InstanceContext } from "./instance-ref"
 
 /**
  * Run an Effect inside the given instance scope from a plain async caller.
@@ -44,12 +45,17 @@ export function withInstance<A, E, R>(input: WithInput, effect: Effect.Effect<A,
  * fiber's full Exit is replayed in the caller's fiber, and interrupting the
  * caller interrupts the inner fiber and waits for its finalizers.
  */
-export function withInstanceAsync<R>(input: WithInput, fn: () => Promise<R>): Promise<R> {
+export function withInstanceAsync<R>(input: WithInput, fn: (instance: InstanceContext) => Promise<R>): Promise<R> {
   return withInstance(
     input,
-    Effect.tryPromise({
-      try: fn,
-      catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-    }),
+    // The body is handed the context this scope installed, not left to read it
+    // back out of the ambient scope. It is the same value either way; the
+    // difference is that one of them is written down.
+    Effect.flatMap(instance, (context) =>
+      Effect.tryPromise({
+        try: () => fn(context),
+        catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+      }),
+    ),
   )
 }

@@ -7,7 +7,6 @@ import { Provider } from "../../provider/provider"
 import path from "path"
 import fs from "fs/promises"
 import matter from "gray-matter"
-import { Instance } from "../../project/instance"
 import { EOL } from "os"
 import type { Argv } from "yargs"
 import { Effect } from "effect"
@@ -89,7 +88,7 @@ const AgentCreateCommand = cmd({
         describe: "model to use in the format of provider/model",
       }),
   async handler(args) {
-    await withInstanceAsync({ directory: process.cwd() }, async () => {
+    await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
       const cliPath = args.path
       const cliDescription = args.description
       const cliMode = args.mode as AgentMode | undefined
@@ -102,9 +101,9 @@ const AgentCreateCommand = cmd({
         prompts.intro("Create agent")
       }
 
-      const project = Instance.project
+      const project = instance.project
       log.debug("Creating agent", {
-        projectWorktree: Instance.worktree,
+        projectWorktree: instance.worktree,
         isInteractive: !isFullyNonInteractive,
       })
 
@@ -120,7 +119,7 @@ const AgentCreateCommand = cmd({
               {
                 label: "Current project",
                 value: "project" as const,
-                hint: Instance.worktree,
+                hint: instance.worktree,
               },
               {
                 label: "Global",
@@ -136,7 +135,7 @@ const AgentCreateCommand = cmd({
           scope = scopeResult
         }
         targetPath = path.join(
-          scope === "global" ? Global.Path.config : path.join(Instance.worktree, ".nikcli"),
+          scope === "global" ? Global.Path.config : path.join(instance.worktree, ".nikcli"),
           "agent",
         )
       }

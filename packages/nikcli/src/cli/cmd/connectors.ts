@@ -4,7 +4,6 @@ import { UI } from "../ui"
 import { Connectors } from "../../connectors"
 import { ConnectorAuth } from "../../connectors/auth"
 import { Config } from "../../config/config"
-import { Instance } from "../../project/instance"
 import { modify, applyEdits } from "jsonc-parser"
 import { Global } from "@nikcli-ai/util/global"
 import path from "path"
@@ -392,15 +391,15 @@ export const ConnectorsAddCommand = cmd({
   command: "add",
   describe: "add a connector",
   async handler() {
-    await withInstanceAsync({ directory: process.cwd() }, async () => {
+    await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
       {
         UI.empty()
         prompts.intro("Add Connector")
 
-        const project = Instance.project
+        const project = instance.project
 
         const [projectConfigPath, globalConfigPath] = await Promise.all([
-          resolveConfigPath(Instance.worktree),
+          resolveConfigPath(instance.worktree),
           resolveConfigPath(Global.Path.config, true),
         ])
 

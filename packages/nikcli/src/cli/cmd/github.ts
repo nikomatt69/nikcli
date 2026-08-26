@@ -5,7 +5,6 @@ import { map, pipe, sortBy, values } from "remeda"
 import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { ModelsDev } from "../../provider/models"
-import { Instance } from "@/project/instance"
 import { withInstanceAsync } from "@/effect"
 import { MessageV2 } from "../../session/message-v2"
 import { Git } from "@/git"
@@ -42,7 +41,7 @@ export const GithubInstallCommand = cmd({
   command: "install",
   describe: "install the GitHub agent",
   async handler() {
-    await withInstanceAsync({ directory: process.cwd() }, async () => {
+    await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
       {
         UI.empty()
         prompts.intro("Install GitHub agent")
@@ -88,7 +87,7 @@ export const GithubInstallCommand = cmd({
         }
 
         async function getAppInfo() {
-          const project = Instance.project
+          const project = instance.project
           if (project.vcs !== "git") {
             prompts.log.error(`Could not find git repository. Please run this command from a git repository.`)
             throw new UI.CancelledError()
@@ -96,7 +95,7 @@ export const GithubInstallCommand = cmd({
 
           const info = (
             await Git.run(["remote", "get-url", "origin"], {
-              cwd: Instance.worktree,
+              cwd: instance.worktree,
             })
           )
             .text()
@@ -109,7 +108,7 @@ export const GithubInstallCommand = cmd({
           return {
             owner: parsed.owner,
             repo: parsed.repo,
-            root: Instance.worktree,
+            root: instance.worktree,
           }
         }
 

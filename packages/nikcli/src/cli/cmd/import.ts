@@ -4,7 +4,6 @@ import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
 import { SessionRepo } from "../../session/repo"
 import { SessionV2Write } from "../../session/v2/write"
-import { Instance } from "../../project/instance"
 import { EOL } from "os"
 
 const SHARE_ID = /^[a-zA-Z0-9_-]+$/
@@ -136,7 +135,7 @@ export const ImportCommand = cmd({
     })
   },
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.cwd(), async (instance) => {
       let exportData:
         | {
             info: Session.Info
@@ -188,10 +187,10 @@ export const ImportCommand = cmd({
       // Import into the current project regardless of where the export came from
       SessionRepo.upsert({
         ...exportData.info,
-        projectID: Instance.project.id,
+        projectID: instance.project.id,
       })
 
-      const projectID = Instance.project.id
+      const projectID = instance.project.id
       for (const msg of exportData.messages) {
         const info = { ...msg.info, sessionID: exportData.info.id }
         const parts = msg.parts.map((part) => ({

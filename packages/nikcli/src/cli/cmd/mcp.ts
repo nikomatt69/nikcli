@@ -8,7 +8,6 @@ import { MCP } from "../../mcp"
 import { McpAuth } from "../../mcp/auth"
 import { McpOAuthProvider } from "../../mcp/oauth-provider"
 import { Config } from "../../config/config"
-import { Instance } from "../../project/instance"
 import { Installation } from "../../installation"
 import path from "path"
 import { Global } from "@nikcli-ai/util/global"
@@ -479,15 +478,15 @@ export const McpAddCommand = cmd({
   command: "add",
   describe: "add an MCP server",
   async handler() {
-    await withInstanceAsync({ directory: process.cwd() }, async () => {
+    await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
       {
         UI.empty()
         prompts.intro("Add MCP server")
 
-        const project = Instance.project
+        const project = instance.project
 
         const [projectConfigPath, globalConfigPath] = await Promise.all([
-          resolveConfigPath(Instance.worktree),
+          resolveConfigPath(instance.worktree),
           resolveConfigPath(Global.Path.config, true),
         ])
 

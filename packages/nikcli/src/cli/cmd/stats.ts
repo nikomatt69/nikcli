@@ -5,7 +5,6 @@ import { SessionRepo } from "../../session/repo"
 import { bootstrap } from "../bootstrap"
 import { Project } from "../../project/project"
 import { ProjectRepo } from "../../project/repo"
-import { Instance } from "../../project/instance"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Log } from "@nikcli-ai/util/log"
@@ -80,8 +79,8 @@ export const StatsCommand = cmd({
       project: args.project,
     })
 
-    await bootstrap(process.cwd(), async () => {
-      const stats = await aggregateSessionStats(args.days, args.project)
+    await bootstrap(process.cwd(), async (instance) => {
+      const stats = await aggregateSessionStats(instance.project, args.days, args.project)
 
       let modelLimit: number | undefined
       if (args.models === true) {
@@ -94,10 +93,6 @@ export const StatsCommand = cmd({
     })
   },
 })
-
-async function getCurrentProject(): Promise<Project.Info> {
-  return Instance.project
-}
 
 async function getAllSessions(): Promise<Session.Info[]> {
   const sessions: Session.Info[] = []
@@ -113,7 +108,11 @@ async function getAllSessions(): Promise<Session.Info[]> {
   return sessions
 }
 
-export async function aggregateSessionStats(days?: number, projectFilter?: string): Promise<SessionStats> {
+export async function aggregateSessionStats(
+  project: Project.Info,
+  days?: number,
+  projectFilter?: string,
+): Promise<SessionStats> {
   const sessions = await getAllSessions()
   const MS_IN_DAY = 24 * 60 * 60 * 1000
 
@@ -137,7 +136,7 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
 
   if (projectFilter !== undefined) {
     if (projectFilter === "") {
-      const currentProject = await getCurrentProject()
+      const currentProject = project
       filteredSessions = filteredSessions.filter((session) => session.projectID === currentProject.id)
     } else {
       filteredSessions = filteredSessions.filter((session) => session.projectID === projectFilter)

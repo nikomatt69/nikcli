@@ -9,7 +9,6 @@ import { installPluginInstaller } from "../../plugin/installer"
 
 // Reachable directly (`nikcli plug …`), not only through `cli-main`.
 installPluginInstaller()
-import { Instance } from "../../project/instance"
 import { withInstanceAsync } from "@/effect"
 import { errorMessage } from "@nikcli-ai/util/error-format"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
@@ -219,11 +218,11 @@ export const PluginCommand = cmd({
     })
     let ok = true
 
-    await withInstanceAsync({ directory: process.cwd() }, async () => {
+    await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
       ok = await run({
-        vcs: Instance.project.vcs,
-        worktree: Instance.worktree,
-        directory: Instance.directory,
+        vcs: instance.project.vcs,
+        worktree: instance.worktree,
+        directory: instance.directory,
       })
     })
 
