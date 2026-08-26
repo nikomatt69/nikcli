@@ -94,8 +94,8 @@ const MissionListCommand = cmd({
       describe: "output format",
     }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const missions = await Manager.list()
+    await bootstrap(process.cwd(), async (instance) => {
+      const missions = await Manager.list(instance.project.id)
       if (args.format === "json") {
         const decorated = missions.map((m) => ({
           ...m,
@@ -162,7 +162,7 @@ const MissionNewCommand = cmd({
         describe: "start orchestration immediately",
       }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.cwd(), async (instance) => {
       let draft: MissionDefinition
       if (args.fromDescription) {
         UI.println(UI.Style.TEXT_INFO_BOLD + "▶" + UI.Style.TEXT_DIM, "Generating mission plan from description…")
@@ -211,7 +211,7 @@ const MissionNewCommand = cmd({
         }
         draft = { ...draft, models }
       }
-      const saved = await Manager.upsert(draft)
+      const saved = await Manager.upsert(instance.project.id, draft)
       console.log(`Created mission ${saved.id} (${saved.name})`)
       console.log(`Brief: ${truncate(saved.brief, 80)}`)
       console.log(
@@ -264,8 +264,8 @@ const MissionGetCommand = cmd({
         default: "text",
       }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const mission = await Manager.get(String(args.id))
+    await bootstrap(process.cwd(), async (instance) => {
+      const mission = await Manager.get(instance.project.id, String(args.id))
       if (!mission) {
         UI.error(`Mission "${args.id}" not found`)
         process.exit(1)
@@ -337,8 +337,8 @@ const MissionStartCommand = cmd({
         describe: "tail the runtime until the mission leaves the running state",
       }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const mission = await Manager.get(String(args.id))
+    await bootstrap(process.cwd(), async (instance) => {
+      const mission = await Manager.get(instance.project.id, String(args.id))
       if (!mission) {
         UI.error(`Mission "${args.id}" not found`)
         process.exit(1)
@@ -361,8 +361,8 @@ const MissionPauseCommand = cmd({
       describe: "mission ID",
     }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const mission = await Manager.get(String(args.id))
+    await bootstrap(process.cwd(), async (instance) => {
+      const mission = await Manager.get(instance.project.id, String(args.id))
       if (!mission) {
         UI.error(`Mission "${args.id}" not found`)
         process.exit(1)
@@ -384,8 +384,8 @@ const MissionResumeCommand = cmd({
       describe: "mission ID",
     }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const mission = await Manager.get(String(args.id))
+    await bootstrap(process.cwd(), async (instance) => {
+      const mission = await Manager.get(instance.project.id, String(args.id))
       if (!mission) {
         UI.error(`Mission "${args.id}" not found`)
         process.exit(1)
@@ -406,8 +406,8 @@ const MissionCancelCommand = cmd({
       describe: "mission ID",
     }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const mission = await Manager.get(String(args.id))
+    await bootstrap(process.cwd(), async (instance) => {
+      const mission = await Manager.get(instance.project.id, String(args.id))
       if (!mission) {
         UI.error(`Mission "${args.id}" not found`)
         process.exit(1)
@@ -435,12 +435,12 @@ const MissionDeleteCommand = cmd({
         describe: "skip confirmation",
       }),
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.cwd(), async (instance) => {
       if (!args.yes) {
         UI.error("Refusing to delete without --yes (mission deletion is destructive).")
         process.exit(1)
       }
-      const removed = await Manager.remove(String(args.id))
+      const removed = await Manager.remove(instance.project.id, instance.directory, String(args.id))
       console.log(removed ? `Deleted mission ${args.id}` : `Mission ${args.id} not found`)
     })
   },

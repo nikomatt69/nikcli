@@ -17,6 +17,7 @@ import {
   MobileMissionWriteInput,
 } from "./helpers"
 import { MobileHttpError } from "./request"
+import type { InstanceContext } from "@/effect"
 
 const notFound = (id: string) => new MobileHttpError(`Mission "${id}" not found`, 404)
 
@@ -40,17 +41,17 @@ export async function missionGenerate(input: typeof MobileMissionGenerateInput._
   }
 }
 
-export async function missionExecsRecent(query: { limit?: number }) {
-  const execs = await MissionManager.listRunningExecs()
+export async function missionExecsRecent(instance: InstanceContext, query: { limit?: number }) {
+  const execs = await MissionManager.listRunningExecs(instance.project.id)
   return { execs: execs.slice(0, query.limit ?? 50) }
 }
 
-export async function missionList() {
-  const missions = await MissionManager.list()
+export async function missionList(instance: InstanceContext) {
+  const missions = await MissionManager.list(instance.project.id)
   return { missions, runtimes: missions.map((mission) => runtimeOf(mission.id)) }
 }
 
-export async function missionCreate(input: typeof MobileMissionWriteInput._output) {
+export async function missionCreate(instance: InstanceContext, input: typeof MobileMissionWriteInput._output) {
   // `MobileMissionWriteInput` is the definition minus the server-assigned
   // fields, but the schema's `.default()`s (`models`, `status`, per-feature
   // `dependsOn` / `status`) only apply through the full schema — the contract
@@ -61,67 +62,72 @@ export async function missionCreate(input: typeof MobileMissionWriteInput._outpu
   const mission = parsed.data
   const error = validateDefinition(mission)
   if (error) throw new MobileHttpError(error, 400)
-  const saved = await MissionManager.upsert(mission)
+  const saved = await MissionManager.upsert(instance.project.id, mission)
   void Bus.publish(Engine.MissionEvent.Upserted, { missionID: saved.id })
   return saved
 }
 
-export async function missionGet(id: string) {
-  const existing = await MissionManager.get(id)
+export async function missionGet(instance: InstanceContext, id: string) {
+  const existing = await MissionManager.get(instance.project.id, id)
   if (!existing) throw notFound(id)
   return { mission: existing, runtime: runtimeOf(id) }
 }
 
-export async function missionUpdate(id: string, input: typeof MobileMissionUpdateInput._output) {
-  if (!(await MissionManager.get(id))) throw notFound(id)
+export async function missionUpdate(
+  instance: InstanceContext,
+  id: string,
+  input: typeof MobileMissionUpdateInput._output,
+) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
   const parsed = MissionDefinitionSchema.safeParse({ ...input, id })
   if (!parsed.success) throw new MobileHttpError("Validation failed", 400)
   const mission = parsed.data
   const error = validateDefinition(mission)
   if (error) throw new MobileHttpError(error, 400)
-  const saved = await MissionManager.upsert(mission)
+  const saved = await MissionManager.upsert(instance.project.id, mission)
   void Bus.publish(Engine.MissionEvent.Upserted, { missionID: id })
   return saved
 }
 
-export async function missionDelete(id: string) {
-  if (!(await MissionManager.get(id))) throw notFound(id)
+export async function missionDelete(instance: InstanceContext, id: string) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
   await Engine.cancel(id).catch((error) => log.warn("cancel on delete failed", { id, error }))
-  const removed = await MissionManager.remove(id)
+  const removed = await MissionManager.remove(instance.project.id, instance.directory, id)
   if (!removed) throw notFound(id)
   void Bus.publish(Engine.MissionEvent.Removed, { missionID: id })
   return { success: true as const }
 }
 
-export async function missionExecs(id: string, query: { limit?: number }) {
-  if (!(await MissionManager.get(id))) throw notFound(id)
-  return { execs: await MissionManager.listExecs(id, query.limit ?? 50) }
+export async function missionExecs(instance: InstanceContext, id: string, query: { limit?: number }) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
+  return { execs: await MissionManager.listExecs(instance.project.id, id, query.limit ?? 50) }
 }
 
-export async function missionStart(id: string) {
-  if (!(await MissionManager.get(id))) throw notFound(id)
+export async function missionStart(instance: InstanceContext, id: string) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
   void Engine.start(id).catch((error) => log.error("mission start failed", { id, error }))
   return { success: true as const }
 }
 
-export async function missionPause(id: string) {
-  if (!(await MissionManager.get(id))) throw notFound(id)
+export async function missionPause(instance: InstanceContext, id: string) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
   await Engine.pause(id)
   return { success: true as const }
 }
 
-export async function missionCancel(id: string) {
-  if (!(await MissionManager.get(id))) throw notFound(id)
+export async function missionCancel(instance: InstanceContext, id: string) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
   await Engine.cancel(id)
   return { success: true as const }
 }
 
 export async function missionFeatureMutate(
+  instance: InstanceContext,
   id: string,
   featureID: string,
   input: typeof MobileMissionFeatureMutateInput._output,
 ) {
-  const def = await MissionManager.get(id)
+  const def = await MissionManager.get(instance.project.id, id)
   if (!def) throw notFound(id)
   let foundFeature = false
   const milestones = def.milestones.map((milestone) => ({
@@ -147,7 +153,7 @@ export async function missionFeatureMutate(
   const updated: MissionDefinition = { ...def, milestones }
   const error = validateDefinition(updated)
   if (error) throw new MobileHttpError(error, 400)
-  const saved = await MissionManager.upsert(updated)
+  const saved = await MissionManager.upsert(instance.project.id, updated)
   void Bus.publish(Engine.MissionEvent.Upserted, { missionID: saved.id })
   return saved
 }

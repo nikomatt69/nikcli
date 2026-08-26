@@ -293,22 +293,37 @@ const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handle
     // it stays raw for the same reason (see `dispatchMobileRequest`).
     .handleRaw("ptyConnect", forward)
     // --- missions ---
-    .handle("missionList", () => fromPromise(() => missions.missionList()))
-    .handle("missionCreate", ({ payload }) => route(() => missions.missionCreate(mutable(payload)), catchBad))
+    .handle("missionList", () => withInstance((i) => missions.missionList(i)))
+    .handle("missionCreate", ({ payload }) =>
+      routeWithInstance((i) => missions.missionCreate(i, mutable(payload)), catchBad),
+    )
     .handle("missionTemplates", () => fromPromise(() => missions.missionTemplates()))
     .handle("missionGenerate", ({ payload }) => route(() => missions.missionGenerate(mutable(payload)), catchBad))
-    .handle("missionExecsRecent", ({ query }) => fromPromise(() => missions.missionExecsRecent(query)))
-    .handle("missionGet", ({ params }) => route(() => missions.missionGet(params.id), catchNotFound))
+    .handle("missionExecsRecent", ({ query }) => withInstance((i) => missions.missionExecsRecent(i, query)))
+    .handle("missionGet", ({ params }) => routeWithInstance((i) => missions.missionGet(i, params.id), catchNotFound))
     .handle("missionUpdate", ({ params, payload }) =>
-      route(() => missions.missionUpdate(params.id, mutable(payload)), catchBadOrNotFound),
+      routeWithInstance((i) => missions.missionUpdate(i, params.id, mutable(payload)), catchBadOrNotFound),
     )
-    .handle("missionDelete", ({ params }) => route(() => missions.missionDelete(params.id), catchNotFound))
-    .handle("missionExecs", ({ params, query }) => route(() => missions.missionExecs(params.id, query), catchNotFound))
-    .handle("missionStart", ({ params }) => route(() => missions.missionStart(params.id), catchNotFound))
-    .handle("missionPause", ({ params }) => route(() => missions.missionPause(params.id), catchNotFound))
-    .handle("missionCancel", ({ params }) => route(() => missions.missionCancel(params.id), catchNotFound))
+    .handle("missionDelete", ({ params }) =>
+      routeWithInstance((i) => missions.missionDelete(i, params.id), catchNotFound),
+    )
+    .handle("missionExecs", ({ params, query }) =>
+      routeWithInstance((i) => missions.missionExecs(i, params.id, query), catchNotFound),
+    )
+    .handle("missionStart", ({ params }) =>
+      routeWithInstance((i) => missions.missionStart(i, params.id), catchNotFound),
+    )
+    .handle("missionPause", ({ params }) =>
+      routeWithInstance((i) => missions.missionPause(i, params.id), catchNotFound),
+    )
+    .handle("missionCancel", ({ params }) =>
+      routeWithInstance((i) => missions.missionCancel(i, params.id), catchNotFound),
+    )
     .handle("missionFeatureMutate", ({ params, payload }) =>
-      route(() => missions.missionFeatureMutate(params.id, params.featureID, mutable(payload)), catchBadOrNotFound),
+      routeWithInstance(
+        (i) => missions.missionFeatureMutate(i, params.id, params.featureID, mutable(payload)),
+        catchBadOrNotFound,
+      ),
     )
     // --- live host events ---
     .handleRaw("events", forward)

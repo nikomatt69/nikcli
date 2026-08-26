@@ -11,7 +11,6 @@
  * separate change from moving the storage.
  */
 
-import { Instance } from "../project/instance"
 import { Log } from "@nikcli-ai/util/log"
 import { RunSandbox } from "../worktree/sandbox"
 import { MissionRepo } from "./repo"
@@ -30,22 +29,17 @@ import {
 
 const log = Log.create({ service: "mission.manager" })
 
-function projectID(): string {
-  return Instance.project.id
+export async function list(project: string): Promise<MissionDefinition[]> {
+  return MissionRepo.list(project)
 }
 
-export async function list(): Promise<MissionDefinition[]> {
-  return MissionRepo.list(projectID())
+export async function get(project: string, id: string): Promise<MissionDefinition | undefined> {
+  return MissionRepo.get(project, id)
 }
 
-export async function get(id: string): Promise<MissionDefinition | undefined> {
-  return MissionRepo.get(projectID(), id)
-}
-
-export async function upsert(def: MissionDefinition): Promise<MissionDefinition> {
+export async function upsert(project: string, def: MissionDefinition): Promise<MissionDefinition> {
   const sanitized = sanitizeDefinition(def)
   if (!sanitized) throw new Error("Invalid mission definition")
-  const project = projectID()
   // `worktree` is orchestrator-owned state, not part of the user-editable
   // definition. Clients that round-trip a whole definition on edit omit it,
   // and dropping it would strand the mission's sandbox and branch a fresh one
@@ -59,8 +53,7 @@ export async function upsert(def: MissionDefinition): Promise<MissionDefinition>
   return sanitized
 }
 
-export async function remove(id: string): Promise<boolean> {
-  const project = projectID()
+export async function remove(project: string, directory: string, id: string): Promise<boolean> {
   const existing = MissionRepo.get(project, id)
   if (!existing) return false
   MissionRepo.remove(project, id)
@@ -68,7 +61,7 @@ export async function remove(id: string): Promise<boolean> {
   // still holds work, so deleting a mission never destroys its output.
   if (existing.worktree) {
     await RunSandbox.release({
-      hostDirectory: Instance.directory,
+      hostDirectory: directory,
       sandbox: existing.worktree,
     }).catch(() => false)
   }
@@ -79,26 +72,35 @@ export async function remove(id: string): Promise<boolean> {
  * Record the sandbox worktree the orchestrator created for this mission so a
  * resume (or a later process) rebinds to it instead of branching a fresh one.
  */
-export async function setWorktree(id: string, worktree: MissionWorktree): Promise<MissionDefinition | undefined> {
-  const def = await get(id)
+export async function setWorktree(
+  project: string,
+  id: string,
+  worktree: MissionWorktree,
+): Promise<MissionDefinition | undefined> {
+  const def = await get(project, id)
   if (!def) return undefined
-  return upsert({ ...def, worktree })
+  return upsert(project, { ...def, worktree })
 }
 
-export async function setStatus(id: string, status: MissionStatus): Promise<MissionDefinition | undefined> {
-  const def = await get(id)
+export async function setStatus(
+  project: string,
+  id: string,
+  status: MissionStatus,
+): Promise<MissionDefinition | undefined> {
+  const def = await get(project, id)
   if (!def) return undefined
-  return upsert({ ...def, status })
+  return upsert(project, { ...def, status })
 }
 
 /** Mutate a single feature's status/error in place. Returns the updated definition. */
 export async function setFeatureStatus(
+  project: string,
   id: string,
   featureID: string,
   status: FeatureStatus,
   error?: string,
 ): Promise<MissionDefinition | undefined> {
-  const def = await get(id)
+  const def = await get(project, id)
   if (!def) return undefined
   let found = false
   const milestones = def.milestones.map((m) => ({
@@ -110,23 +112,25 @@ export async function setFeatureStatus(
     }),
   }))
   if (!found) return def
-  return upsert({ ...def, milestones })
+  return upsert(project, { ...def, milestones })
 }
 
 export async function setMilestoneStatus(
+  project: string,
   id: string,
   milestoneID: string,
   status: MilestoneStatus,
 ): Promise<MissionDefinition | undefined> {
-  const def = await get(id)
+  const def = await get(project, id)
   if (!def) return undefined
   const milestones = def.milestones.map((m) => (m.id === milestoneID ? { ...m, status } : m))
-  return upsert({ ...def, milestones })
+  return upsert(project, { ...def, milestones })
 }
 
 // ── Execution records ─────────────────────────────────────────────────────────
 
 export async function startExec(
+  project: string,
   missionID: string,
   kind: ExecKind,
   targetID: string,
@@ -148,13 +152,13 @@ export async function startExec(
   // Assigned rather than spread so the key stays absent when there is no
   // session, without an empty-object spread hiding the shape.
   if (sessionID) exec.sessionID = sessionID
-  MissionRepo.putExec(projectID(), exec)
+  MissionRepo.putExec(project, exec)
   return exec
 }
 
-export async function touchExec(missionID: string, execID: string): Promise<void> {
+export async function touchExec(project: string, missionID: string, execID: string): Promise<void> {
   try {
-    MissionRepo.updateExec(projectID(), missionID, execID, (draft) => {
+    MissionRepo.updateExec(project, missionID, execID, (draft) => {
       if (draft.status !== "running") return
       draft.heartbeatAt = Date.now()
     })
@@ -163,9 +167,14 @@ export async function touchExec(missionID: string, execID: string): Promise<void
   }
 }
 
-export async function attachExecSession(missionID: string, execID: string, sessionID: string): Promise<void> {
+export async function attachExecSession(
+  project: string,
+  missionID: string,
+  execID: string,
+  sessionID: string,
+): Promise<void> {
   try {
-    MissionRepo.updateExec(projectID(), missionID, execID, (draft) => {
+    MissionRepo.updateExec(project, missionID, execID, (draft) => {
       draft.sessionID = sessionID
     })
   } catch (error) {
@@ -174,11 +183,11 @@ export async function attachExecSession(missionID: string, execID: string, sessi
 }
 
 export async function finishExec(
+  project: string,
   missionID: string,
   execID: string,
   patch: { status: MissionExec["status"]; ok: boolean; endedAt: number; error?: string; sessionID?: string },
 ): Promise<MissionExec | undefined> {
-  const project = projectID()
   try {
     const next = MissionRepo.updateExec(project, missionID, execID, (draft) => {
       draft.status = patch.status
@@ -197,12 +206,13 @@ export async function finishExec(
 }
 
 export async function orphanExec(
+  project: string,
   missionID: string,
   execID: string,
   endedAt: number = Date.now(),
 ): Promise<MissionExec | undefined> {
   try {
-    return MissionRepo.updateExec(projectID(), missionID, execID, (draft) => {
+    return MissionRepo.updateExec(project, missionID, execID, (draft) => {
       if (draft.status === "running") {
         draft.status = "orphaned"
         draft.ok = false
@@ -216,10 +226,10 @@ export async function orphanExec(
   }
 }
 
-export async function listRunningExecs(): Promise<MissionExec[]> {
-  return MissionRepo.listExecsByStatus(projectID(), "running")
+export async function listRunningExecs(project: string): Promise<MissionExec[]> {
+  return MissionRepo.listExecsByStatus(project, "running")
 }
 
-export async function listExecs(missionID: string, limit = HISTORY_LIMIT): Promise<MissionExec[]> {
-  return MissionRepo.listExecs(projectID(), missionID, limit)
+export async function listExecs(project: string, missionID: string, limit = HISTORY_LIMIT): Promise<MissionExec[]> {
+  return MissionRepo.listExecs(project, missionID, limit)
 }
