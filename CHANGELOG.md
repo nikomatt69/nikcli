@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.320.0 (August 2026)
+
+## Core
+
+- Thread the instance into the last 22 ambient reads (R1) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(instance): thread the instance into the last 22 ambient reads (R1)
+  - refactor(instance): own instances in a ScopedCache, not a promise Map (R1)
+
 ## v1.319.0 (August 2026)
 
 ## Core
