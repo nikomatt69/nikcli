@@ -77,7 +77,7 @@ export namespace MCP {
     { visibility: "internal" },
   )
 
-  export class Failed extends Schema.TaggedErrorClass<Failed>()("MCPFailed", {
+  export class Failed extends Schema.TaggedError<Failed>()("MCPFailed", {
     name: Schema.String,
   }) {}
 

@@ -33,7 +33,7 @@ export namespace Process {
    * be caught via `Effect.catchTag("ProcessRunFailed", ...)` while keeping
    * `instanceof Process.RunFailedError` working for plain `try/catch` paths.
    */
-  export class RunFailedError extends Schema.TaggedErrorClass<RunFailedError>()("ProcessRunFailed", {
+  export class RunFailedError extends Schema.TaggedError<RunFailedError>()("ProcessRunFailed", {
     message: Schema.String,
     code: Schema.Number,
     stdout: Schema.instanceOf(Buffer),

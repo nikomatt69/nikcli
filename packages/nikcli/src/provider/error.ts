@@ -8,7 +8,7 @@ export namespace ProviderError {
    * `Effect.catchTag("ProviderHeaderTimeout", ...)` and the existing
    * `instanceof ProviderError.HeaderTimeoutError` continues to work.
    */
-  export class HeaderTimeoutError extends Schema.TaggedErrorClass<HeaderTimeoutError>()("ProviderHeaderTimeout", {
+  export class HeaderTimeoutError extends Schema.TaggedError<HeaderTimeoutError>()("ProviderHeaderTimeout", {
     ms: Schema.Number,
   }) {
     override get message() {

@@ -72,7 +72,7 @@ export namespace BunProc {
     return process.execPath
   }
 
-  export class InstallFailedError extends Schema.TaggedErrorClass<InstallFailedError>()("BunInstallFailedError", {
+  export class InstallFailedError extends Schema.TaggedError<InstallFailedError>()("BunInstallFailedError", {
     pkg: Schema.String,
     version: Schema.String,
   }) {}

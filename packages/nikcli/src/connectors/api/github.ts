@@ -2,7 +2,7 @@ import { ConnectorAuth } from "../auth"
 import { Effect, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 
-export class GithubApiError extends Schema.TaggedErrorClass<GithubApiError>()("GithubApiError", {
+export class GithubApiError extends Schema.TaggedError<GithubApiError>()("GithubApiError", {
   message: Schema.String,
   status: Schema.optional(Schema.Number),
 }) {}

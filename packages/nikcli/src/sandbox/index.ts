@@ -22,7 +22,7 @@ import { InstanceState } from "@/effect"
 export namespace Sandbox {
   const log = Log.create({ service: "sandbox" })
 
-  export class EscapeError extends Schema.TaggedErrorClass<EscapeError>()("SandboxEscapeError", {
+  export class EscapeError extends Schema.TaggedError<EscapeError>()("SandboxEscapeError", {
     cwd: Schema.String,
     project: Schema.String,
   }) {
@@ -31,7 +31,7 @@ export namespace Sandbox {
     }
   }
 
-  export class TimeoutError extends Schema.TaggedErrorClass<TimeoutError>()("SandboxTimeoutError", {
+  export class TimeoutError extends Schema.TaggedError<TimeoutError>()("SandboxTimeoutError", {
     timeoutMs: Schema.Number,
     command: Schema.String,
   }) {
@@ -40,7 +40,7 @@ export namespace Sandbox {
     }
   }
 
-  export class FailedError extends Schema.TaggedErrorClass<FailedError>()("SandboxFailedError", {
+  export class FailedError extends Schema.TaggedError<FailedError>()("SandboxFailedError", {
     exitCode: Schema.Number,
     command: Schema.String,
     stderr: Schema.String,

@@ -249,13 +249,13 @@ export namespace Question {
 
   export const defaultLayer = layer
 
-  export class RejectedError extends Schema.TaggedErrorClass<RejectedError>()("QuestionRejectedError", {}) {
+  export class RejectedError extends Schema.TaggedError<RejectedError>()("QuestionRejectedError", {}) {
     override get message() {
       return "The user dismissed this question"
     }
   }
 
-  export class AlreadyExistsError extends Schema.TaggedErrorClass<AlreadyExistsError>()("QuestionAlreadyExistsError", {
+  export class AlreadyExistsError extends Schema.TaggedError<AlreadyExistsError>()("QuestionAlreadyExistsError", {
     id: Schema.String,
   }) {
     override get message() {
@@ -263,7 +263,7 @@ export namespace Question {
     }
   }
 
-  export class InvalidIDError extends Schema.TaggedErrorClass<InvalidIDError>()("QuestionInvalidIDError", {
+  export class InvalidIDError extends Schema.TaggedError<InvalidIDError>()("QuestionInvalidIDError", {
     id: Schema.String,
   }) {
     override get message() {

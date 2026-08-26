@@ -39,7 +39,7 @@ export namespace File {
    * rejected for diagnostics. Tagged so the Effect channel can be narrowed
    * and call sites can use `Effect.catchTag("FileAccessDenied", ...)`.
    */
-  export class AccessDeniedError extends Schema.TaggedErrorClass<AccessDeniedError>()("FileAccessDenied", {
+  export class AccessDeniedError extends Schema.TaggedError<AccessDeniedError>()("FileAccessDenied", {
     path: Schema.String,
     message: Schema.String,
   }) {}
@@ -49,7 +49,7 @@ export namespace File {
    * methods. Carries the original cause so `Effect.catchTag` handlers can
    * still inspect the underlying error if needed.
    */
-  export class IOError extends Schema.TaggedErrorClass<IOError>()("FileIOError", {
+  export class IOError extends Schema.TaggedError<IOError>()("FileIOError", {
     message: Schema.String,
     path: Schema.optional(Schema.String),
     cause: Schema.optional(Schema.Unknown),

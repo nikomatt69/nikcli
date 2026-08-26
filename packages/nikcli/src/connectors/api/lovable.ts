@@ -2,7 +2,7 @@ import { ConnectorAuth } from "../auth"
 import { Effect, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 
-export class LovableApiError extends Schema.TaggedErrorClass<LovableApiError>()("LovableApiError", {
+export class LovableApiError extends Schema.TaggedError<LovableApiError>()("LovableApiError", {
   message: Schema.String,
   status: Schema.optional(Schema.Number),
 }) {}

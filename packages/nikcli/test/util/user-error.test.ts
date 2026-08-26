@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { UserFacingError, userFacingParts } from "@nikcli-ai/util/user-error"
 import { Effect, Exit } from "effect"
 
-describe("UserFacingError (Schema.TaggedErrorClass)", () => {
+describe("UserFacingError (Schema.TaggedError)", () => {
   it("constructs with the documented field shape", () => {
     const err = new UserFacingError({
       title: "Auth session expired",
