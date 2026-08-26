@@ -725,7 +725,7 @@ The `.d.ts` symbol grep missed runtime/property changes in `httpapi-codegen`: `e
 
 **E7.** Working rule points at `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src`. `.nikcli/skill/effect-v4/SKILL.md` is 34 lines and quotes none of that. Search for the old author-machine clone path under `specs` and `packages` is empty.
 
-**Verified.** Numbers filled after the test pass in this same change.
+**Verified.** `bun run typecheck` 35/35 packages clean. `packages/httpapi-codegen` 86 pass / 0 fail and `tsc --noEmit` clean. `bun test test/server/httpapi-encode-failure.test.ts test/server/httpapi-session.test.ts` 16 pass / 0 fail. Additional `httpapi-bridge`, `httpapi-bridge-401`, `httpapi-config`, `httpapi-client-compat`, `instance-scope`, `user-error` 32 pass / 0 fail. `bun run check:routes --strict` ok — 338 contracts, 315 handlers, 23 raw. `bun run generate:httpapi-clients` no tracked drift after the RC codegen adaptations. Grep for `TaggedErrorClass` / `Schema.ErrorClass` / `HttpApiEndpoint.Any` / `HttpApiGroup.Any` under `packages/**/*.ts` is 0.
 
 ## Follow working rules
 
