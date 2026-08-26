@@ -14,7 +14,7 @@ export interface WithInput {
    * instance an earlier bootstrap-free acquisition created, and shares one
    * run between concurrent askers.
    */
-  readonly init?: () => Promise<void>
+  readonly init?: (instance: InstanceContext) => Promise<void>
 }
 
 export const InstanceScope = {

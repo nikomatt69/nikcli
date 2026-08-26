@@ -320,6 +320,7 @@ export namespace SessionCompaction {
       input.ctx,
     )) as MessageV2.Assistant
     const processor = SessionProcessor.create({
+      instance: input.ctx,
       assistantMessage: msg,
       sessionID: input.sessionID,
       model,

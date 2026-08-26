@@ -1,4 +1,5 @@
 import { ChatbotWebhook } from "@/chatbot/webhook"
+import { InstanceState } from "@/effect"
 
 /**
  * `/chatbot/:platform/:name` webhook receivers for the Effect backend.
@@ -31,7 +32,9 @@ export namespace ChatbotHttp {
     const platform = PLATFORMS.find((candidate) => candidate === match[1])
     if (!platform) return null
 
-    const result = await ChatbotWebhook.handle(platform, decodeURIComponent(match[2]), request)
+    // Raw request boundary: this is where the instance the router put us
+    // in is read once, then threaded down instead of re-read per bot callback.
+    const result = await ChatbotWebhook.handle(InstanceState.ambient(), platform, decodeURIComponent(match[2]), request)
     return new Response(result.body, {
       status: result.status,
       headers: { "content-type": "text/plain; charset=UTF-8" },

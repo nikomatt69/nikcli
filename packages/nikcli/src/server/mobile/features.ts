@@ -65,7 +65,7 @@ export async function chatBotList() {
   return { bots: entries }
 }
 
-export async function chatBotStart(name: string) {
+export async function chatBotStart(instance: InstanceContext, name: string) {
   const ChatBot = await chatbot()
   const raw = (await configGetConnectors())[name]
   if (typeof raw !== "object" || raw === null) {
@@ -77,7 +77,7 @@ export async function chatBotStart(name: string) {
   }
   try {
     const { BotHandlers } = await import("@/chatbot/handlers")
-    const bot = await BotHandlers.ensureAiBot(name, entry)
+    const bot = await BotHandlers.ensureAiBot(instance, name, entry)
     if (!bot) {
       return {
         running: false,

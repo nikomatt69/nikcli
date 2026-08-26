@@ -501,7 +501,7 @@ export namespace ContractExtraHttpApi {
       .handle("reload", () =>
         Effect.gen(function* () {
           const context = yield* InstanceState.context
-          yield* Effect.promise(() => InstanceReload.reload(["api"]))
+          yield* Effect.promise(() => InstanceReload.reload(context.directory, ["api"]))
           return { reloaded: true, directory: context.directory }
         }).pipe(Effect.orDie),
       )

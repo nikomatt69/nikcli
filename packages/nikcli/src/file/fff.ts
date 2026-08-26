@@ -48,6 +48,13 @@ export namespace FFF {
     | {
         available: true
         finder: Picker
+        /**
+         * The directory the index is rooted at. Carried on the handle so
+         * callers computing paths relative to it read the root the finder was
+         * actually built with, instead of the ambient instance scope they
+         * happen to be standing in.
+         */
+        root: string
       }
     | {
         available: false
@@ -109,7 +116,7 @@ export namespace FFF {
           })
           if (retry.ok) {
             log.info("lmdb recovery succeeded", { dir, dbDir })
-            return { available: true, finder: retry.value }
+            return { available: true, finder: retry.value, root: dir }
           }
           if (retry.ok === false && isLMDBError(retry.error)) {
             log.error("lmdb recovery failed twice, giving up", {
@@ -122,7 +129,7 @@ export namespace FFF {
       }
 
       log.info("initialized", { dir, dbDir })
-      return { available: true, finder: created.value }
+      return { available: true, finder: created.value, root: dir }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       // Check for LMDB corruption during init
@@ -149,7 +156,7 @@ export namespace FFF {
     },
   )
 
-  async function ready(): Promise<{ available: true; finder: Picker } | undefined> {
+  async function ready(): Promise<{ available: true; finder: Picker; root: string } | undefined> {
     const handle = await state()
     return handle.available ? handle : undefined
   }
@@ -161,6 +168,11 @@ export namespace FFF {
 
   export async function available(): Promise<boolean> {
     return (await state()).available
+  }
+
+  /** The directory the index is rooted at, or undefined when unavailable. */
+  export async function root(): Promise<string | undefined> {
+    return (await ready())?.root
   }
 
   export async function waitForScan(timeoutMs: number = 5000): Promise<boolean> {
@@ -177,7 +189,7 @@ export namespace FFF {
   export async function files(input: FilesInput): Promise<string[] | undefined> {
     const r = await ready()
     if (!r) return undefined
-    const prefix = await FilePathFilters.relativePrefix(input.cwd)
+    const prefix = await FilePathFilters.relativePrefix(r.root, input.cwd)
     if (prefix === undefined) return undefined
 
     const output: string[] = []

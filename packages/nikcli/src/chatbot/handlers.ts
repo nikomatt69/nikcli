@@ -7,10 +7,9 @@ import { Log } from "@nikcli-ai/util/log"
 import { SystemPrompt } from "../session/system"
 import { Plugin } from "../plugin"
 import { clone } from "remeda"
-import { Instance } from "../project/instance"
 import { ProviderTransform } from "../provider/transform"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync, type InstanceContext } from "@/effect"
 
 const log = Log.create({ service: "chatbot-handlers" })
 
@@ -151,11 +150,16 @@ export namespace BotHandlers {
     return fullResponse
   }
 
-  export function registerAiHandler(bot: Chat, opts?: { prompt?: string; tools?: Record<string, any> }): void {
+  export function registerAiHandler(
+    instance: InstanceContext,
+    bot: Chat,
+    opts?: { prompt?: string; tools?: Record<string, any> },
+  ): void {
     if (registeredBots.has(bot)) return
 
-    // Capture the current Instance directory so async handlers can re-establish context
-    const directory = Instance.directory
+    // The bot's callbacks fire on the network, outside any instance scope, so
+    // they re-enter the instance the bot was registered for.
+    const directory = instance.directory
 
     ChatBot.registerMentionHandler(bot, async (thread, message) => {
       await withInstanceAsync({ directory }, () => handleMention(thread, message, opts))
@@ -169,14 +173,18 @@ export namespace BotHandlers {
     registeredBots.add(bot)
   }
 
-  export async function ensureAiBot(name: string, config: Config.Connector): Promise<Chat | null> {
+  export async function ensureAiBot(
+    instance: InstanceContext,
+    name: string,
+    config: Config.Connector,
+  ): Promise<Chat | null> {
     const bot = await ChatBot.createBot(name, config)
     if (!bot) return null
-    registerAiHandler(bot)
+    registerAiHandler(instance, bot)
     return bot
   }
 
-  export async function initializeAllBots(): Promise<void> {
+  export async function initializeAllBots(instance: InstanceContext): Promise<void> {
     const config = await configGet()
     const connectors = config.connectors ?? {}
 
@@ -187,7 +195,7 @@ export namespace BotHandlers {
       if (connector.enabled === false) continue
 
       try {
-        const bot = await ensureAiBot(name, connector as Config.Connector)
+        const bot = await ensureAiBot(instance, name, connector as Config.Connector)
         if (bot) {
           log.info("Bot initialized with AI handler", { name, platform: connector.type })
         }

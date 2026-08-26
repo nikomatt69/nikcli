@@ -4,7 +4,7 @@ import { unique } from "remeda"
 import z from "zod"
 import { ConfigPaths } from "./paths"
 import { ThemeField, TuiOptionFields } from "./tui-schema"
-import { Instance } from "@/project/instance"
+import type { InstanceContext } from "@/effect"
 import { Flag } from "@nikcli-ai/util/flag"
 import { Log } from "@nikcli-ai/util/log"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
@@ -26,6 +26,8 @@ const TuiLegacy = z
   .strip()
 
 interface MigrateInput {
+  /** The instance whose nikcli.json files are being migrated. */
+  instance: InstanceContext
   directories: string[]
   custom?: string
   managed: string
@@ -152,10 +154,10 @@ async function backupAndStripLegacy(file: string, source: string) {
     })
 }
 
-async function nikcliFiles(input: { directories: string[]; managed: string }) {
+async function nikcliFiles(input: MigrateInput) {
   const project = Flag.NIKCLI_DISABLE_PROJECT_CONFIG
     ? []
-    : await ConfigPaths.projectFiles("nikcli", Instance.directory, Instance.worktree)
+    : await ConfigPaths.projectFiles("nikcli", input.instance.directory, input.instance.worktree)
   const files = [...project, ...ConfigPaths.fileInDirectory(Global.Path.config, "nikcli")]
   for (const dir of unique(input.directories)) {
     files.push(...ConfigPaths.fileInDirectory(dir, "nikcli"))

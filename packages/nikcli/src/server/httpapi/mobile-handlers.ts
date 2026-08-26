@@ -333,7 +333,7 @@ const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handle
       withInstance((instance) => features.brainTrigger(instance, mutable(payload))),
     )
     .handle("chatBotList", () => fromPromise(() => features.chatBotList()))
-    .handle("chatBotStart", ({ params }) => fromPromise(() => features.chatBotStart(params.name)))
+    .handle("chatBotStart", ({ params }) => withInstance((instance) => features.chatBotStart(instance, params.name)))
     .handle("chatBotStop", ({ params }) => fromPromise(() => features.chatBotStop(params.name)))
     .handle("observabilityGet", () => fromPromise(() => features.observabilityGet()))
     .handle("observabilitySet", ({ payload }) => fromPromise(() => features.observabilitySet(payload)))

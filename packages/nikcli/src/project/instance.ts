@@ -58,7 +58,7 @@ function normalizeDirectory(directory: string) {
 }
 
 export const Instance = {
-  async provide<R>(input: { directory: string; init?: () => Promise<any>; fn: () => R }): Promise<R> {
+  async provide<R>(input: { directory: string; init?: (instance: Context) => Promise<any>; fn: () => R }): Promise<R> {
     const directory = normalizeDirectory(input.directory)
     let existing = cache.get(directory)
     if (!existing) {
@@ -78,7 +78,7 @@ export const Instance = {
         }
         if (input.init) {
           await context.provide(ctx, async () => {
-            await input.init!()
+            await input.init!(ctx)
           })
           // Record it on the context, not just on the closure: the next caller
           // to pass an `init` for this directory has to be able to tell that
@@ -111,10 +111,12 @@ export const Instance = {
       let pending = ctx.bootstrapped
       if (!pending) {
         const init = input.init
-        // Inside the scope: `InstanceBootstrap` reads `Instance.directory` and
-        // registers disposers on the context it is bootstrapping.
+        // Inside the scope, and handed the context it is bootstrapping:
+        // `InstanceBootstrap` registers disposers on it, and everything it
+        // starts is threaded from the context rather than read back out of
+        // the ambient scope.
         pending = context.provide(ctx, async () => {
-          await init()
+          await init(ctx)
         })
         ctx.bootstrapped = pending
       }

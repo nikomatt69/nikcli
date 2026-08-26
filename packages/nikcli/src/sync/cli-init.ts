@@ -10,7 +10,7 @@
  * `NIKCLI_REMOTE_AUTOSTART=false` (or `sync.autostart: false`) opts
  * bootstrap out while keeping the explicit commands working.
  */
-import { Instance } from "@/project/instance"
+import type { InstanceContext } from "@/effect"
 import { Log } from "@nikcli-ai/util/log"
 import { SyncConfig } from "./sync-config"
 
@@ -18,11 +18,11 @@ const log = Log.create({ service: "sync.cli-init" })
 
 export namespace SyncCliInit {
   /**
-   * Start remote sync for the current instance's project if the hub is
-   * configured. Returns a stop function for the instance disposer, or
-   * undefined when remote sync is not configured.
+   * Start remote sync for an instance's project if the hub is configured.
+   * Returns a stop function for the instance disposer, or undefined when
+   * remote sync is not configured.
    */
-  export async function initRemoteSyncFromEnv(): Promise<(() => Promise<void>) | undefined> {
+  export async function initRemoteSyncFromEnv(instance: InstanceContext): Promise<(() => Promise<void>) | undefined> {
     const resolved = await SyncConfig.resolve()
     if (!resolved.url || !resolved.token) return undefined
     if (!resolved.autostart) {
@@ -30,7 +30,7 @@ export namespace SyncCliInit {
       return undefined
     }
 
-    const projectID = Instance.project.id
+    const projectID = instance.project.id
     // Lazy import keeps the remote client out of the local-only path.
     const { RemoteSync } = await import("./remote-sync")
     const handle = await RemoteSync.start({

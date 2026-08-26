@@ -478,6 +478,7 @@ async function executeRun(
       // Push from wherever the work actually happened: the sandbox worktree
       // when there is one, the host checkout otherwise.
       const hookOptions: PR.CreatePullRequestOptions = {
+        instance,
         def,
         run: completedRun,
       }

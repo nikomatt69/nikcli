@@ -1,7 +1,6 @@
 import fs from "fs/promises"
 import path from "path"
 import { minimatch } from "minimatch"
-import { Instance } from "../project/instance"
 
 export namespace FilePathFilters {
   export function normalizeRelative(item: string) {
@@ -23,10 +22,17 @@ export namespace FilePathFilters {
     return normalizeRelative(item).split("/").filter(Boolean).length
   }
 
-  export async function relativePrefix(cwd: string): Promise<string | undefined> {
+  /**
+   * `cwd` expressed relative to `root`, or undefined when it falls outside.
+   * `root` is passed rather than read from the ambient instance scope: the
+   * callers are search backends rooted at a specific directory, and that root
+   * — not whichever scope the search runs in — is what the paths are relative
+   * to.
+   */
+  export async function relativePrefix(root: string, cwd: string): Promise<string | undefined> {
     let base: string
     try {
-      base = await fs.realpath(Instance.directory).catch(() => Instance.directory)
+      base = await fs.realpath(root).catch(() => root)
     } catch {
       return undefined
     }

@@ -1080,6 +1080,7 @@ export namespace SessionPrompt {
       })
 
       const processor = SessionProcessor.create({
+        instance: ctx,
         assistantMessage: (await sessionUpdateMessage({
           id: Identifier.ascending("message"),
           parentID: lastUser.id,

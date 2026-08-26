@@ -4,7 +4,6 @@ import { Session } from "../session"
 import { SessionRepo } from "./repo"
 import { ProjectRepo } from "../project/repo"
 import { Project } from "../project/project"
-import { Instance } from "../project/instance"
 import { bootstrap } from "@/cli/bootstrap"
 import { cmd } from "@/cli/cmd/cmd"
 import { Effect } from "effect"
@@ -71,8 +70,8 @@ export const StatsCommand = cmd({
       })
   },
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      const stats = await aggregateSessionStats(args.days, args.project)
+    await bootstrap(process.cwd(), async (instance) => {
+      const stats = await aggregateSessionStats(instance.project, args.days, args.project)
 
       let modelLimit: number | undefined
       if (args.models === true) {
@@ -86,10 +85,6 @@ export const StatsCommand = cmd({
   },
 })
 
-async function getCurrentProject(): Promise<Project.Info> {
-  return Instance.project
-}
-
 async function getAllSessions(): Promise<Session.Info[]> {
   const sessions: Session.Info[] = []
 
@@ -100,7 +95,11 @@ async function getAllSessions(): Promise<Session.Info[]> {
   return sessions
 }
 
-export async function aggregateSessionStats(days?: number, projectFilter?: string): Promise<SessionStats> {
+export async function aggregateSessionStats(
+  project: Project.Info,
+  days?: number,
+  projectFilter?: string,
+): Promise<SessionStats> {
   const sessions = await getAllSessions()
   const MS_IN_DAY = 24 * 60 * 60 * 1000
 
@@ -124,8 +123,7 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
 
   if (projectFilter !== undefined) {
     if (projectFilter === "") {
-      const currentProject = await getCurrentProject()
-      filteredSessions = filteredSessions.filter((session) => session.projectID === currentProject.id)
+      filteredSessions = filteredSessions.filter((session) => session.projectID === project.id)
     } else {
       filteredSessions = filteredSessions.filter((session) => session.projectID === projectFilter)
     }

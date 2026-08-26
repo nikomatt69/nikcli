@@ -28,7 +28,7 @@ import type { WorkspaceInfo } from "./types"
 import { SyncUnifyMigration } from "@/sync/migrate-from-workspace"
 import { zod, zodObject } from "@nikcli-ai/util/effect-zod"
 import { Effect, Schema } from "effect"
-import { runService, withInstanceAsync, withCurrentInstance } from "@/effect"
+import { InstanceState, runService, withInstanceAsync, withCurrentInstance } from "@/effect"
 import path from "path"
 import fs from "fs/promises"
 
@@ -164,14 +164,14 @@ export namespace Workspace {
     Event.Status.type,
   ])
 
-  async function listRootSessions(workspaceID: string) {
-    return SessionRepo.getByProject(Instance.project.id)
+  async function listRootSessions(projectID: string, workspaceID: string) {
+    return SessionRepo.getByProject(projectID)
       .filter((session) => session.workspaceID === workspaceID && !session.parentID)
       .toSorted((a, b) => b.time.updated - a.time.updated)
       .map((session) => session.id)
   }
 
-  async function buildRestorePayload(workspaceID: string): Promise<Restore> {
+  async function buildRestorePayload(projectID: string, workspaceID: string): Promise<Restore> {
     // The unified log also journals lifecycle events (workspace.created,
     // workspace.removed, ...) for cold-start projection; the restore payload
     // only carries the client-facing restore events.
@@ -181,7 +181,7 @@ export namespace Workspace {
     })
     return {
       workspaceID,
-      sessions: await listRootSessions(workspaceID),
+      sessions: await listRootSessions(projectID, workspaceID),
       events,
     }
   }
@@ -407,10 +407,11 @@ export namespace Workspace {
   })
 
   export const remove = fn(Identifier.schema("workspace"), async (id) => {
+    const instance = InstanceState.ambient()
     const info = await get(id)
     if (info) {
       stopSpaceSync(id)
-      for (const sessionID of await listRootSessions(id)) {
+      for (const sessionID of await listRootSessions(instance.project.id, id)) {
         await runSession(
           Effect.gen(function* () {
             const session = yield* Session.Service
@@ -525,6 +526,9 @@ export namespace Workspace {
       signal: z.any().optional(),
     }),
     async ({ workspaceID, timeoutMs, signal }) => {
+      // Entry point: the scope is read once here and threaded down, so nothing
+      // underneath has to ask which instance it is running in.
+      const projectID = InstanceState.ambient().project.id
       const info = await get(workspaceID)
       if (!info)
         throw new NotFoundError({
@@ -532,11 +536,11 @@ export namespace Workspace {
         })
       if (info.config.type === "worktree") {
         WorkspaceConnection.set(workspaceID, "connected")
-        return buildRestorePayload(workspaceID)
+        return buildRestorePayload(projectID, workspaceID)
       }
       startSpaceSync(info)
       const currentStatus = WorkspaceConnection.current(workspaceID)
-      if (currentStatus === "connected") return buildRestorePayload(workspaceID)
+      if (currentStatus === "connected") return buildRestorePayload(projectID, workspaceID)
       if (currentStatus === "error") {
         throw new Error(`Workspace failed to connect: ${workspaceID}`)
       }
@@ -550,7 +554,7 @@ export namespace Workspace {
       if (settled.status !== "connected") {
         throw new Error(`Workspace failed to connect: ${workspaceID}`)
       }
-      return buildRestorePayload(workspaceID)
+      return buildRestorePayload(projectID, workspaceID)
     },
   )
 
@@ -567,9 +571,10 @@ export namespace Workspace {
       signal: z.any().optional(),
     }),
     async ({ workspaceID, sessionID, timeoutMs, signal }) => {
+      const instance = InstanceState.ambient()
       await restore({ workspaceID, timeoutMs, signal })
       const target = await targetWorkspace(workspaceID)
-      const directory = target?.type === "local" ? target.directory : Instance.project.worktree
+      const directory = target?.type === "local" ? target.directory : instance.project.worktree
       await runSession(
         Effect.gen(function* () {
           const session = yield* Session.Service
@@ -580,7 +585,7 @@ export namespace Workspace {
         }),
       )
       InstructionRepo.removeSession(sessionID)
-      const payload = await buildRestorePayload(workspaceID)
+      const payload = await buildRestorePayload(instance.project.id, workspaceID)
       return {
         ...payload,
         sessionID,
@@ -601,6 +606,7 @@ export namespace Workspace {
       signal: z.any().optional(),
     }),
     async ({ sessionID, workspaceID, copyChanges, timeoutMs, signal }) => {
+      const instance = InstanceState.ambient()
       const current = await runSession(
         Effect.gen(function* () {
           const session = yield* Session.Service
@@ -651,7 +657,7 @@ export namespace Workspace {
       const target = workspaceID
         ? await restore({ workspaceID, timeoutMs, signal }).then(() => targetWorkspace(workspaceID))
         : undefined
-      const targetDirectory = target?.type === "local" ? target.directory : Instance.project.worktree
+      const targetDirectory = target?.type === "local" ? target.directory : instance.project.worktree
 
       const sourcePatch =
         copyChanges && current.workspaceID

@@ -14,7 +14,7 @@
  * and journaling them twice would inflate the log with duplicates.
  */
 import { Bus } from "@/bus"
-import { Instance } from "@/project/instance"
+import type { InstanceContext } from "@/effect"
 import { Log } from "@nikcli-ai/util/log"
 import { Sync } from "@/sync"
 import { SNAPSHOT_INTERVAL } from "@/sync/snapshot"
@@ -70,11 +70,11 @@ export namespace SessionSyncBridge {
   }
 
   /**
-   * Subscribe the current instance's bus to the unified log. Returns the
-   * unsubscribe function; the caller registers it as an instance disposer.
+   * Subscribe an instance's bus to the unified log. Returns the unsubscribe
+   * function; the caller registers it as an instance disposer.
    */
-  export function init(): () => void {
-    const projectID = Instance.project.id
+  export function init(instance: InstanceContext): () => void {
+    const projectID = instance.project.id
     return Bus.subscribeAll((event: { type?: string; properties?: any }) => {
       if (!event?.type || !JOURNAL_EVENT_TYPES.has(event.type)) return
       const sessionID = eventSessionID(event.properties)

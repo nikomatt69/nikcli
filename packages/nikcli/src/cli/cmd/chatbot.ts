@@ -253,7 +253,7 @@ export const BotStartCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await withInstanceAsync({ directory: process.cwd() }, async () => {
+    await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
       {
         UI.empty()
         prompts.intro("Start Chat Bot")
@@ -298,7 +298,7 @@ export const BotStartCommand = cmd({
 
         try {
           const BotHandlers = await getBotHandlers()
-          const bot = await BotHandlers.ensureAiBot(botName, connectorConfig)
+          const bot = await BotHandlers.ensureAiBot(instance, botName, connectorConfig)
           if (!bot) {
             spinner.stop("Failed to create bot", 1)
             prompts.log.error("Check credentials: nikcli connectors auth " + botName)

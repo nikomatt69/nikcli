@@ -4,7 +4,7 @@ import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { Global } from "@nikcli-ai/util/global"
 import { Log } from "@nikcli-ai/util/log"
-import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 import { Effect, Schema } from "effect"
 import { Instance } from "./instance"
 
@@ -59,11 +59,11 @@ export namespace InstanceReload {
   const inflight = new Map<string, Promise<void>>()
 
   /**
-   * Reload the current instance's reloadable state. Must run inside an
-   * instance context (route handler, bootstrap, watcher callback).
+   * Reload one instance's reloadable state. The directory is passed rather
+   * than read from the ambient scope: the watcher fires on a timer, where
+   * "which instance am I in" is whatever scope the watch was armed in.
    */
-  export function reload(files: string[] = []): Promise<void> {
-    const directory = Instance.directory
+  export function reload(directory: string, files: string[] = []): Promise<void> {
     const previous = inflight.get(directory) ?? Promise.resolve()
     const next = previous.catch(() => undefined).then(() => run(directory, files))
     inflight.set(directory, next)
@@ -100,9 +100,9 @@ export namespace InstanceReload {
    * Start watching the instance's config surface. Returns a stop function;
    * the caller is responsible for registering it as an instance disposer.
    */
-  export async function watch(): Promise<() => void> {
-    const directory = Instance.directory
-    const worktree = Instance.worktree
+  export async function watch(instance: InstanceContext): Promise<() => void> {
+    const directory = instance.directory
+    const worktree = instance.worktree
 
     // Watch parent directories rather than files: editors and `Config.update`
     // replace files atomically (write + rename), which ends a file watch.
@@ -139,7 +139,7 @@ export namespace InstanceReload {
       if (stopped || !Instance.has(directory)) return
       void Instance.provide({
         directory,
-        fn: () => reload(files),
+        fn: () => reload(directory, files),
       }).catch((error) => {
         log.warn("hot reload failed", { directory, error })
       })

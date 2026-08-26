@@ -114,7 +114,7 @@ export async function extraRequest(request: Request): Promise<Response | undefin
   }
 
   if (pathname === "/config/reload" && method === "POST") {
-    await InstanceReload.reload(["api"])
+    await InstanceReload.reload(instance.directory, ["api"])
     return json({ reloaded: true, directory: instance.directory })
   }
 

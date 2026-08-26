@@ -19,10 +19,10 @@
 
 import { $ } from "bun"
 import { Log } from "@nikcli-ai/util/log"
-import { Instance } from "../project/instance"
 import { Git } from "../git"
 import { parseGitHubRemote } from "../util/repository"
 import type { LoopDefinition, LoopPullRequestRef, LoopRun } from "./schema"
+import type { InstanceContext } from "@/effect"
 
 const log = Log.create({ service: "loop.pr" })
 
@@ -36,6 +36,8 @@ export function pullRequestBranch(def: LoopDefinition): string {
 }
 
 export type CreatePullRequestOptions = {
+  /** The instance the loop belongs to: its vcs kind and worktree decide the push. */
+  instance: InstanceContext
   def: LoopDefinition
   run: LoopRun
   /** Body text to use for the PR (auto-generated if undefined). */
@@ -55,14 +57,14 @@ export type CreatePullRequestOptions = {
  * precondition fails (non-git, no diff, missing tool, etc.) — never throws.
  */
 export async function createLoopPullRequest(opts: CreatePullRequestOptions): Promise<LoopPullRequestRef | undefined> {
-  if (Instance.project.vcs !== "git") {
+  if (opts.instance.project.vcs !== "git") {
     log.info("createPR skipped: project is not a git repo", {
       loopID: opts.def.id,
     })
     return undefined
   }
 
-  const cwd = opts.directory ?? Instance.worktree
+  const cwd = opts.directory ?? opts.instance.worktree
   const branch = opts.branch ?? pullRequestBranch(opts.def)
   const base = await detectDefaultBranch(cwd)
   if (!base) {

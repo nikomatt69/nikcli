@@ -18,17 +18,18 @@ import { Question } from "@/question"
 import { DeltaCoalescer } from "./delta-coalescer"
 import { SessionSync } from "./projectors"
 import { SyncEvent } from "@/sync/sync-event"
-import { Instance } from "@/project/instance"
 import { ContentLoop } from "@/util/content-loop"
 import { Context, Effect, Layer } from "effect"
 import { stripDanglingXmlArtifacts } from "@/util/dangling-xml"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
   const log = Log.create({ service: "session.processor" })
 
   export type CreateInput = {
+    /** The instance this response belongs to. */
+    instance: InstanceContext
     assistantMessage: MessageV2.Assistant
     sessionID: string
     model: Provider.Model
@@ -221,7 +222,7 @@ export namespace SessionProcessor {
         SyncEvent.run(
           SessionSync.PartUpdated,
           { sessionID: flushed.sessionID, part: flushed },
-          { publish: false, projectID: Instance.project.id },
+          { publish: false, projectID: input.instance.project.id },
         )
       })
     }
