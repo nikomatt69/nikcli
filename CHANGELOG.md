@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.321.0 (August 2026)
+
+## Core
+
+- Refill the queue from the Effect pin measurement (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - docs(roadmap): refill the queue from the Effect pin measurement
+
 ## v1.320.0 (August 2026)
 
 ## Core
