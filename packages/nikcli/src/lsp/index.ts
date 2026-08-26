@@ -238,7 +238,7 @@ export namespace LSP {
 
     async function schedule(server: LSPServer.Info, root: string, key: string) {
       const handle = await server
-        .spawn(root)
+        .spawn(root, s.context)
         .then((value) => {
           if (!value) s.broken.add(key)
           return value
@@ -256,6 +256,7 @@ export namespace LSP {
         serverID: server.id,
         server: handle,
         root,
+        directory: s.context.directory,
       }).catch((err) => {
         s.broken.add(key)
         handle.process.kill()
@@ -283,7 +284,7 @@ export namespace LSP {
     for (const server of Object.values(s.servers)) {
       if (server.extensions.length && !server.extensions.includes(extension)) continue
 
-      const root = await server.root(file)
+      const root = await server.root(file, s.context)
       if (!root) continue
       if (s.broken.has(root + server.id)) continue
 
@@ -324,7 +325,7 @@ export namespace LSP {
     const extension = path.parse(file).ext || file
     for (const server of Object.values(s.servers)) {
       if (server.extensions.length && !server.extensions.includes(extension)) continue
-      const root = await server.root(file)
+      const root = await server.root(file, s.context)
       if (!root) continue
       if (s.broken.has(root + server.id)) continue
       return true

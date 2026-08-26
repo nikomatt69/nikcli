@@ -1,4 +1,5 @@
 import { Effect, Layer } from "effect"
+import { InstanceState } from "@/effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { dispatchMobileRequest } from "../mobile/dispatcher"
@@ -56,6 +57,30 @@ const mutable = <T>(value: T): any => value
 
 /** Endpoint with no declared error: a rejection or throw answers 500, as before. */
 const fromPromise = <A>(fn: () => Promise<A>): Effect.Effect<A> => Effect.promise(fn).pipe(Effect.orDie)
+
+/**
+ * Endpoint whose body needs the request's instance directory.
+ *
+ * The mobile git helpers used to open their own `withInstanceAsync({
+ * directory: Instance.directory })` — reading the ambient scope in order to
+ * re-enter the scope they were already in, which only worked because the
+ * caller had put them there. The handler resolves it once and passes it down.
+ */
+const withDirectory = <A>(fn: (directory: string) => Promise<A>): Effect.Effect<A> =>
+  InstanceState.directory.pipe(
+    Effect.flatMap((directory) => Effect.promise(() => fn(directory))),
+    Effect.orDie,
+  )
+
+/** The `withDirectory` shape for an endpoint that declares errors. */
+const routeWithDirectory = <A, E>(
+  fn: (directory: string) => Promise<A>,
+  map: (error: MobileHttpError) => Effect.Effect<never, E>,
+): Effect.Effect<A, E> =>
+  InstanceState.directory.pipe(
+    Effect.flatMap((directory) => Effect.promise(() => fn(directory))),
+    Effect.catchDefect((cause) => (cause instanceof MobileHttpError ? map(cause) : Effect.die(cause))),
+  )
 
 /** Endpoint with declared errors: map a `MobileHttpError` onto the schema. */
 const route = <A, E>(
@@ -181,17 +206,19 @@ const MobileHandlers = HttpApiBuilder.group(MobileHttpApi.Api, "mobile", (handle
     .handle("worktreeRemove", ({ payload }) => fromPromise(() => worktree.remove(mutable(payload))))
     .handle("worktreeReset", ({ payload }) => fromPromise(() => worktree.reset(mutable(payload))))
     // --- git ---
-    .handle("gitStatus", () => fromPromise(() => git.gitStatus()))
-    .handle("gitDiff", ({ query }) => fromPromise(() => git.gitDiff(query)))
-    .handle("gitCommits", ({ query }) => fromPromise(() => git.gitCommits(query)))
-    .handle("gitBranches", () => fromPromise(() => git.gitBranches()))
-    .handle("gitCommit", ({ payload }) => route(() => git.gitCommit(payload), catchBad))
-    .handle("gitCheckout", ({ payload }) => fromPromise(() => git.gitCheckout(payload)))
-    .handle("gitStage", ({ payload }) => fromPromise(() => git.gitFiles(payload, "stage")))
-    .handle("gitUnstage", ({ payload }) => fromPromise(() => git.gitFiles(payload, "unstage")))
-    .handle("gitDiscard", ({ payload }) => fromPromise(() => git.gitFiles(payload, "discard")))
-    .handle("gitPush", ({ query }) => fromPromise(() => git.gitPush(query)))
-    .handle("gitPull", () => fromPromise(() => git.gitPull()))
+    .handle("gitStatus", () => withDirectory((directory) => git.gitStatus(directory)))
+    .handle("gitDiff", ({ query }) => withDirectory((directory) => git.gitDiff(directory, query)))
+    .handle("gitCommits", ({ query }) => withDirectory((directory) => git.gitCommits(directory, query)))
+    .handle("gitBranches", () => withDirectory((directory) => git.gitBranches(directory)))
+    .handle("gitCommit", ({ payload }) =>
+      routeWithDirectory((directory) => git.gitCommit(directory, payload), catchBad),
+    )
+    .handle("gitCheckout", ({ payload }) => withDirectory((directory) => git.gitCheckout(directory, payload)))
+    .handle("gitStage", ({ payload }) => withDirectory((directory) => git.gitFiles(directory, payload, "stage")))
+    .handle("gitUnstage", ({ payload }) => withDirectory((directory) => git.gitFiles(directory, payload, "unstage")))
+    .handle("gitDiscard", ({ payload }) => withDirectory((directory) => git.gitFiles(directory, payload, "discard")))
+    .handle("gitPush", ({ query }) => withDirectory((directory) => git.gitPush(directory, query)))
+    .handle("gitPull", () => withDirectory((directory) => git.gitPull(directory)))
     // --- loops ---
     .handle("loopList", () => fromPromise(() => loops.loopList()))
     .handle("loopCreate", ({ payload }) => route(() => loops.loopCreate(mutable(payload)), catchBad))

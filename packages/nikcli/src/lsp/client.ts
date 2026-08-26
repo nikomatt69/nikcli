@@ -9,7 +9,6 @@ import { LANGUAGE_EXTENSIONS } from "@nikcli-ai/util/language"
 import type { LSPServer } from "./server"
 import { withTimeout } from "../util/timeout"
 import { Schema } from "effect"
-import { Instance } from "../project/instance"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 
 const DIAGNOSTICS_DEBOUNCE_MS = 150
@@ -45,8 +44,15 @@ export namespace LSPClient {
     ),
   }
 
-  export async function create(input: { serverID: string; server: LSPServer.Handle; root: string }) {
+  export async function create(input: {
+    serverID: string
+    server: LSPServer.Handle
+    root: string
+    /** Base for relative paths a caller hands to `notify.open` / `notify.change`. */
+    directory: string
+  }) {
     const l = log.clone().tag("serverID", input.serverID)
+    const directory = input.directory
     l.info("starting client")
 
     const connection = createMessageConnection(
@@ -146,7 +152,7 @@ export namespace LSPClient {
       },
       notify: {
         async open(input: { path: string }) {
-          input.path = path.isAbsolute(input.path) ? input.path : path.resolve(Instance.directory, input.path)
+          input.path = path.isAbsolute(input.path) ? input.path : path.resolve(directory, input.path)
           const file = Bun.file(input.path)
           const text = await file.text()
           const extension = path.extname(input.path)
@@ -209,7 +215,7 @@ export namespace LSPClient {
       },
       async waitForDiagnostics(input: { path: string }) {
         const normalizedPath = Filesystem.normalizePath(
-          path.isAbsolute(input.path) ? input.path : path.resolve(Instance.directory, input.path),
+          path.isAbsolute(input.path) ? input.path : path.resolve(directory, input.path),
         )
         log.info("waiting for diagnostics", { path: normalizedPath })
         let unsub: () => void
