@@ -101,7 +101,7 @@ export namespace Profile {
   export const InputSchema = Schema.Struct(EditableFields).annotate({ identifier: "ProfileInput" })
   export type Input = DeepMutable<Schema.Schema.Type<typeof InputSchema>>
 
-  export class IOError extends Schema.TaggedErrorClass<IOError>()("ProfileIOError", {
+  export class IOError extends Schema.TaggedError<IOError>()("ProfileIOError", {
     message: Schema.String,
     cause: Schema.optional(Schema.Unknown),
   }) {}

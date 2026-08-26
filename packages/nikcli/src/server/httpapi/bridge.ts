@@ -243,7 +243,7 @@ export namespace HttpApiBridge {
    * broke `POST /mission/:id/feature/:id`, both silently. This keeps the
    * silence for successful requests — `ServerRouter.dispatch` already logs
    * those — and logs only the failures, with the `SchemaError` path intact
-   * (`Expected string, got null at ["workspaceID"]`).
+   * (`Expected string` at `["workspaceID"]`).
    */
   const logFailures = <A, E, R>(httpApp: Effect.Effect<A, E, R>) =>
     Effect.tapCause(httpApp, (cause) => Effect.logError("encoded route failed", cause))

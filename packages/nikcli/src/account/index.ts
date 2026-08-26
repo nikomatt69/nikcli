@@ -24,48 +24,48 @@ export namespace Account {
 
   /**
    * Tagged errors that the account service can surface through the Effect
-   * error channel. Each is a `Schema.TaggedErrorClass` so call sites can use
+   * error channel. Each is a `Schema.TaggedError` so call sites can use
    * `Effect.catchTag("AccountNotFound", ...)` and `instanceof` continues to
    * work for plain `try/catch` paths.
    */
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("AccountNotFound", {
+  export class NotFoundError extends Schema.TaggedError<NotFoundError>()("AccountNotFound", {
     message: Schema.String,
     accountID: Schema.String,
   }) {}
 
-  export class LoginFlowError extends Schema.TaggedErrorClass<LoginFlowError>()("AccountLoginFlow", {
+  export class LoginFlowError extends Schema.TaggedError<LoginFlowError>()("AccountLoginFlow", {
     message: Schema.String,
     status: Schema.optional(Schema.Number),
     responseBody: Schema.optional(Schema.String),
   }) {}
 
-  export class LoginTimeoutError extends Schema.TaggedErrorClass<LoginTimeoutError>()("AccountLoginTimeout", {
+  export class LoginTimeoutError extends Schema.TaggedError<LoginTimeoutError>()("AccountLoginTimeout", {
     message: Schema.String,
   }) {}
 
-  export class LoginDeniedError extends Schema.TaggedErrorClass<LoginDeniedError>()("AccountLoginDenied", {
+  export class LoginDeniedError extends Schema.TaggedError<LoginDeniedError>()("AccountLoginDenied", {
     message: Schema.String,
   }) {}
 
-  export class TokenExpiredError extends Schema.TaggedErrorClass<TokenExpiredError>()("AccountTokenExpired", {
+  export class TokenExpiredError extends Schema.TaggedError<TokenExpiredError>()("AccountTokenExpired", {
     message: Schema.String,
   }) {}
 
-  export class TokenRefreshError extends Schema.TaggedErrorClass<TokenRefreshError>()("AccountTokenRefresh", {
-    message: Schema.String,
-    accountID: Schema.String,
-    status: Schema.optional(Schema.Number),
-    responseBody: Schema.optional(Schema.String),
-  }) {}
-
-  export class FetchOrgsError extends Schema.TaggedErrorClass<FetchOrgsError>()("AccountFetchOrgs", {
+  export class TokenRefreshError extends Schema.TaggedError<TokenRefreshError>()("AccountTokenRefresh", {
     message: Schema.String,
     accountID: Schema.String,
     status: Schema.optional(Schema.Number),
     responseBody: Schema.optional(Schema.String),
   }) {}
 
-  export class IOError extends Schema.TaggedErrorClass<IOError>()("AccountIOError", {
+  export class FetchOrgsError extends Schema.TaggedError<FetchOrgsError>()("AccountFetchOrgs", {
+    message: Schema.String,
+    accountID: Schema.String,
+    status: Schema.optional(Schema.Number),
+    responseBody: Schema.optional(Schema.String),
+  }) {}
+
+  export class IOError extends Schema.TaggedError<IOError>()("AccountIOError", {
     message: Schema.String,
     cause: Schema.optional(Schema.Unknown),
   }) {}

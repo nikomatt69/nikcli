@@ -2381,13 +2381,13 @@ export namespace Provider {
 
   export const parseModel = parseModelLight
 
-  export class ModelNotFoundError extends Schema.TaggedErrorClass<ModelNotFoundError>()("ProviderModelNotFoundError", {
+  export class ModelNotFoundError extends Schema.TaggedError<ModelNotFoundError>()("ProviderModelNotFoundError", {
     providerID: Schema.String,
     modelID: Schema.String,
     suggestions: Schema.optional(Schema.Array(Schema.String)),
   }) {}
 
-  export class InitError extends Schema.TaggedErrorClass<InitError>()("ProviderInitError", {
+  export class InitError extends Schema.TaggedError<InitError>()("ProviderInitError", {
     providerID: Schema.String,
   }) {}
 

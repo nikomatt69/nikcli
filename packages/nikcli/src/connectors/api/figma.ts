@@ -2,7 +2,7 @@ import { ConnectorAuth } from "../auth"
 import { Effect, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 
-export class FigmaApiError extends Schema.TaggedErrorClass<FigmaApiError>()("FigmaApiError", {
+export class FigmaApiError extends Schema.TaggedError<FigmaApiError>()("FigmaApiError", {
   message: Schema.String,
   status: Schema.optional(Schema.Number),
 }) {}

@@ -71,32 +71,32 @@ export namespace Auth {
 
   /**
    * Tagged errors that the auth service can surface through the Effect
-   * error channel. Each is a `Schema.TaggedErrorClass` so call sites can use
+   * error channel. Each is a `Schema.TaggedError` so call sites can use
    * `Effect.catchTag("AuthNotFound", ...)` and `instanceof` continues to
    * work for plain `try/catch` paths.
    */
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("AuthNotFound", {
+  export class NotFoundError extends Schema.TaggedError<NotFoundError>()("AuthNotFound", {
     message: Schema.String,
     providerID: Schema.String,
   }) {}
 
-  export class NotOAuthProviderError extends Schema.TaggedErrorClass<NotOAuthProviderError>()("AuthNotOAuthProvider", {
+  export class NotOAuthProviderError extends Schema.TaggedError<NotOAuthProviderError>()("AuthNotOAuthProvider", {
     message: Schema.String,
     providerID: Schema.String,
   }) {}
 
-  export class TokenRefreshError extends Schema.TaggedErrorClass<TokenRefreshError>()("AuthTokenRefresh", {
+  export class TokenRefreshError extends Schema.TaggedError<TokenRefreshError>()("AuthTokenRefresh", {
     message: Schema.String,
     providerID: Schema.String,
     status: Schema.optional(Schema.Number),
     responseBody: Schema.optional(Schema.String),
   }) {}
 
-  export class WellKnownError extends Schema.TaggedErrorClass<WellKnownError>()("AuthWellKnown", {
+  export class WellKnownError extends Schema.TaggedError<WellKnownError>()("AuthWellKnown", {
     message: Schema.String,
   }) {}
 
-  export class IOError extends Schema.TaggedErrorClass<IOError>()("AuthIOError", {
+  export class IOError extends Schema.TaggedError<IOError>()("AuthIOError", {
     message: Schema.String,
     cause: Schema.optional(Schema.Unknown),
   }) {}

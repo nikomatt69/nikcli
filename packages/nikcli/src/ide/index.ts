@@ -23,12 +23,12 @@ export namespace Ide {
     ),
   }
 
-  export class AlreadyInstalledError extends Schema.TaggedErrorClass<AlreadyInstalledError>()(
+  export class AlreadyInstalledError extends Schema.TaggedError<AlreadyInstalledError>()(
     "AlreadyInstalledError",
     {},
   ) {}
 
-  export class InstallFailedError extends Schema.TaggedErrorClass<InstallFailedError>()("InstallFailedError", {
+  export class InstallFailedError extends Schema.TaggedError<InstallFailedError>()("InstallFailedError", {
     stderr: Schema.String,
   }) {}
 
@@ -38,7 +38,7 @@ export namespace Ide {
    * `Effect.catchTag("UnknownIdeError", ...)` and the existing `instanceof
    * Ide.UnknownIdeError` continues to work.
    */
-  export class UnknownIdeError extends Schema.TaggedErrorClass<UnknownIdeError>()("UnknownIdeError", {
+  export class UnknownIdeError extends Schema.TaggedError<UnknownIdeError>()("UnknownIdeError", {
     ide: Schema.String,
   }) {}
 

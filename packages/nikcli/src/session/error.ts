@@ -19,12 +19,12 @@ import { Schema } from "effect"
 
 export namespace SessionError {
   /** A session, message, or part was addressed by an ID that does not exist. */
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("SessionNotFoundError", {
+  export class NotFoundError extends Schema.TaggedError<NotFoundError>()("SessionNotFoundError", {
     message: Schema.String,
   }) {}
 
   /** A session read or write failed for a reason that is not "missing". */
-  export class IOError extends Schema.TaggedErrorClass<IOError>()("SessionIOError", {
+  export class IOError extends Schema.TaggedError<IOError>()("SessionIOError", {
     message: Schema.String,
     cause: Schema.optional(Schema.Unknown),
   }) {}

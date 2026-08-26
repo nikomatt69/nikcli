@@ -18,7 +18,7 @@ export function formatStack(error: Error): string | null {
  *
  * Each entry receives the typed error instance and returns the user-facing
  * string the CLI should print. Adding a new domain error is one line:
- * declare the `Schema.TaggedErrorClass`, then add a formatter here.
+ * declare the `Schema.TaggedError`, then add a formatter here.
  *
  * Falls through to `defaultFormat` (which keeps the `UserFacingError.format()`
  * legacy path) when `_tag` is not present.

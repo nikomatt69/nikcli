@@ -13,11 +13,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "4.0.0-beta.83",
+    "effect": "4.0.0-rc.112",
     "prettier": "3.6.2"
   },
   "devDependencies": {
-    "@effect/platform-bun": "4.0.0-beta.83",
+    "@effect/platform-bun": "4.0.0-rc.112",
     "typescript": "catalog:",
     "@types/bun": "catalog:"
   }

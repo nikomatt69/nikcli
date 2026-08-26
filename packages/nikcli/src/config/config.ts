@@ -2126,12 +2126,12 @@ export namespace Config {
       issues: parsed.error.issues,
     })
   }
-  export class JsonError extends Schema.TaggedErrorClass<JsonError>()("ConfigJsonError", {
+  export class JsonError extends Schema.TaggedError<JsonError>()("ConfigJsonError", {
     path: Schema.String,
     message: Schema.optional(Schema.String),
   }) {}
 
-  export class ConfigDirectoryTypoError extends Schema.TaggedErrorClass<ConfigDirectoryTypoError>()(
+  export class ConfigDirectoryTypoError extends Schema.TaggedError<ConfigDirectoryTypoError>()(
     "ConfigDirectoryTypoError",
     {
       path: Schema.String,
@@ -2140,7 +2140,7 @@ export namespace Config {
     },
   ) {}
 
-  export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("ConfigInvalidError", {
+  export class InvalidError extends Schema.TaggedError<InvalidError>()("ConfigInvalidError", {
     path: Schema.optional(Schema.String),
     issues: Schema.optional(Schema.Unknown),
     message: Schema.optional(Schema.String),
@@ -2152,7 +2152,7 @@ export namespace Config {
    * `Effect.catchTag("ConfigRemoteFetch", ...)` and the existing
    * `instanceof Config.RemoteFetchError` continues to work.
    */
-  export class RemoteFetchError extends Schema.TaggedErrorClass<RemoteFetchError>()("ConfigRemoteFetch", {
+  export class RemoteFetchError extends Schema.TaggedError<RemoteFetchError>()("ConfigRemoteFetch", {
     url: Schema.String,
     status: Schema.Number,
   }) {}
