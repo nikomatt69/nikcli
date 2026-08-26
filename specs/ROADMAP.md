@@ -40,6 +40,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | **R1**  | Done    | Keyed scoped instance runtime (2026-08-26)                                     |
 | **T3**  | Done    | Output codecs on `todowrite` / `todoread` / `browser_control` (2026-08-24)         |
 | **P3**  | Done    | `normalizeMessages` characterized; kept as-is on the measurement (2026-08-24)      |
+| **E6**  | Done    | Declared failures raised with `Effect.fail`, not `throw` inside `Effect.gen`        |
 
 ### Release integrity (C1) — landed 2026-08-23
 
@@ -149,7 +150,7 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 
 ### Execute next
 
-- **Order** — Nothing is queued. E5, P2 and H8 landed on 2026-08-24; the three `Later` items below each state the coverage they wait on.
+- **Order** — Nothing is queued. E5, P2 and H8 landed on 2026-08-24; E6 closed E5's own recorded caveat on 2026-08-26; the three `Later` items below each state the coverage they wait on.
 - **H8.1 — Put auth on the contract.** Landed 2026-08-24; see the dated log.
 - **P2.1 — Push list work into SQL.** Landed 2026-08-24, measured below. P2.2 is now unblocked, but it is a separate decision: read the measurement before scheduling it.
 - **P2.2 — Decided 2026-08-24 against the measurement.** The logging policy landed; the parsed-URL carry-through is **rejected** and the benches are **not scheduled**. Reasoning and numbers in the dated log below.
@@ -160,12 +161,26 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 - **Evidence** — `httpapi/session.ts` applied `Effect.catchDefect(asSessionError)` after mapping the typed failure channel, `SessionRevert.Interface` and the route-facing `SessionSummary` methods exposed `unknown`, and both modules used the untyped `Effect.tryPromise(() => ...)` form, so `Effect.tryPromise` wrapped `SessionNotFoundError` in `UnknownError` and missing-session revert and diff answered 500. `Session.BusyError` was already a `Schema.TaggedErrorClass`, so the contract vocabulary existed.
 - **Implementation** — E5.2 / E5.3 landed in `ff061973ec`: `Session.asSessionError` is exported, `SessionRevert.Interface` and `SessionSummary.summarize` / `diff` carry `Session.Error`, and the domain-rejecting handler bridges (`MessageV2.get` ×2, `SessionContext.breakdown` ×2, `SessionV2.entries`, `Monitor.get` / `readLog` / `cancel`) use `Effect.tryPromise({ catch: Session.asSessionError })`. `computeDiff` keeps `unknown` — it is real dependency I/O. E5.1 / E5.4 closed it: `declaredErrors` is a single `Effect.catch(asSessionError)`, and the `background` handler dropped its defect arm. The ten remaining `Effect.promise` sites are the audited unknown-I/O set — `Array.fromAsync`, the two session-delete cancels, the `collectSystemPaths` import and call, and the four `Delegation` job routes — and stay on `orDie`. The one `catchDefect` left in the file is the best-effort MCP toggle log, which swallows both channels on purpose and is not part of this boundary.
 
-  **Caveat for the next reader.** `SessionPrompt.assertNotBusy` is still declared `Effect.Effect<void>` and raises by `throw` inside `Effect.gen`. It reaches callers typed only because `SessionRevert` runs it through `runPromiseWithLayer` and re-maps the rejection with `Session.asSessionError`; the busy assertion below pins that behavior. Narrowing that signature to `Session.BusyError` with an explicit `Effect.fail` is a separate cleanup, not a reopening of E5.
+  **Caveat for the next reader — closed 2026-08-26 as E6.1.** `SessionPrompt.assertNotBusy` was declared `Effect.Effect<void>` and raised by `throw` inside `Effect.gen`. It reached callers typed only because `SessionRevert` ran it through `runPromiseWithLayer` and re-mapped the rejection with `Session.asSessionError`; the busy assertion below pins that behavior. Narrowing that signature to `Session.BusyError` with an explicit `Effect.fail` was called a separate cleanup rather than a reopening of E5, and it is one — see E6.
 
   **Corrected 2026-08-18 for `loop.ts` / `mission.ts`.** Both already carry the typed channel: declared 404/400 schemas plus `failNotFound` / `failValidation`, and their managers use the return-`undefined` convention the handlers already check. The `fromPromise` `orDie` wraps genuine I/O, not domain errors. There are no `Engine.LoopNotFoundError` / `MissionNotFoundError` / `MissionAlreadyExistsError` tags to fail with — an earlier draft of this item invented them. The one real gap there is fixed (see landed work).
 
 - **Depends on** — nothing. H4 landed, so there was already one boundary to fix. H8 waited for this typed vocabulary and no longer does.
 - **Done when** — Met. Domain methods map `Session.Error` on the typed channel; return-`undefined` plus an explicit `Effect.fail` remains valid for loop/mission. Session handlers map schema-declared errors without `catchDefect`, and `Effect.promise` / `orDie` remains only for genuinely unknown I/O. The service-level assertions in `test/session/session-lifecycle.test.ts` assert `Cause.hasDies === false` before squashing, so they separate `Effect.fail` from `Effect.die` instead of reading through both; route tests separately pin the unchanged 404/409 wire bodies.
+
+### Declared failures on the typed channel (E6) — landed 2026-08-26
+
+E5 closed the session HTTP boundary: declared errors are mapped from the typed channel and `catchDefect(asSessionError)` is gone. It recorded one remainder in its own text and did not claim it. E6 is that remainder plus the one other place in `src` with the same shape. It is a separate item because E5's acceptance gate is about the session boundary, and reopening a met gate to absorb new work is how a gate stops meaning anything.
+
+- **Buys** — A declared domain error is a failure, not a defect, at the point it is raised. A handler that maps it needs one arm, not two, and a caller that forgets to map it gets a type error rather than a 500.
+- **Evidence** — Two sites, both in the repository at the time of writing:
+  - `session/prompt.ts` declared `assertNotBusy(sessionID): Effect.Effect<void>` and raised `Session.BusyError` with `throw` inside `Effect.gen`. `Session.BusyError` is already a `Schema.TaggedErrorClass` and already has a declared 409 body (`httpapi/session.ts`), so the vocabulary existed; only the signature and the raise did not use it. It reached `SessionRevert`'s callers typed purely by accident of the Promise bridge — `runPromiseWithLayer` rejects with the squashed cause and `Session.asSessionError` passes a `BusyError` straight through.
+  - `server/httpapi/pty.ts` raised the declared `Pty.NotFoundError` with `throw` inside `Effect.gen` in `handlers.get` and `handlers.update`, so the only reason `GET /pty/:id` answered 404 rather than 500 was that `catchNotFound` carried `Effect.catchDefect(asNotFound)` beside its typed arm. `catchCreateError` carried the same pair, and there its defect arm was dead: `Pty.Service.create` builds `CreateError` in the `catch` of an `Effect.try` around `spawnPty`, so it is always typed.
+- **Implementation** — `assertNotBusy` is `Effect.Effect<void, Session.BusyError>` and fails with `Effect.fail`. The pty handlers fail with `Effect.fail`, and `catchNotFound` / `catchCreateError` narrow their input to `Pty.NotFoundError` / `Pty.Error` and drop the `catchDefect` arm — so a re-introduced `throw` is a 500, visibly, instead of being silently absorbed.
+- **Depends on** — E5, for the vocabulary and for the `Cause.hasDies` assertion style that separates a `fail` from a `die`.
+- **Done when** — Met 2026-08-26. No HTTP wire change: `test/server/httpapi-pty.test.ts` still pins the 404 body byte-for-byte, and `test/session/session-lifecycle.test.ts` still pins the busy revert as `Session.BusyError`. Service-level assertions read `Cause.hasDies === false` on `SessionPrompt.assertNotBusy` and on both pty handlers, which is the check that goes red if the `throw` comes back — with the defect arms removed there is nothing left to recover it.
+
+  **What E6 deliberately does not cover.** The `throw`s in `codemode/interpreter/` are not this: the interpreter unwinds by throwing `InterpreterRuntimeError` on purpose and catches it at its own boundary (`codemode/interpreter/errors.ts` matches on it twice), which is a design, not a leak. `session/prompt-commands.ts` throws `Session.BusyError` from an `async` function, which is the Promise side of the bridge and is the normal way to reject there. `httpapi/session.ts:908` throws a bare `Error` on a part-id mismatch; turning that into a declared 400 is a wire change (500 today) and needs its own item with a regenerated client, so it is not folded in here.
 
 ### Request-path cuts (P2)
 

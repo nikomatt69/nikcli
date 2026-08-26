@@ -125,11 +125,13 @@ export namespace PtyHttpApi {
   export const ApiLive = HttpApiBuilder.layer(Api)
 
   /**
-   * Translate a `Pty.NotFoundError` to the declared 404 body. Anything
-   * else propagates as a defect — the service surfaces `never` on success
-   * channels for these handlers, so the only expected failure is "missing".
+   * Translate a `Pty.NotFoundError` to the declared 404 body. The parameter
+   * is the handler's declared failure type, so the `instanceof` guard is
+   * total today; it stays as the defect arm for the day the channel grows a
+   * second member, because mislabelling that member as a 404 is worse than
+   * a 500 that names it.
    */
-  const asNotFound = (cause: unknown): Effect.Effect<never, NotFoundErrorBody> => {
+  const asNotFound = (cause: Pty.NotFoundError): Effect.Effect<never, NotFoundErrorBody> => {
     if (cause instanceof Pty.NotFoundError) {
       return Effect.fail({
         name: "NotFoundError" as const,
@@ -139,14 +141,21 @@ export namespace PtyHttpApi {
     return Effect.die(cause)
   }
 
-  const catchNotFound = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.catch(asNotFound), Effect.catchDefect(asNotFound))
+  /**
+   * E6.2: the 404 arrives on the typed channel, so there is no defect arm.
+   * `handlers.get` / `handlers.update` `Effect.fail` a `Pty.NotFoundError`
+   * rather than `throw`ing it inside `Effect.gen`, which is what used to
+   * make a declared error reach this boundary as a defect.
+   */
+  const catchNotFound = <A, R>(effect: Effect.Effect<A, Pty.NotFoundError, R>) =>
+    effect.pipe(Effect.catch(asNotFound))
 
   /**
-   * Translate a `Pty.CreateError` to the declared 400 body. Anything else
-   * propagates as a defect.
+   * Translate a `Pty.CreateError` to the declared 400 body. `Pty.Error` is
+   * `CreateError` alone today, so the guard is total; it stays for the same
+   * reason `asNotFound`'s does.
    */
-  const asCreateError = (cause: unknown): Effect.Effect<never, CreateErrorBody> => {
+  const asCreateError = (cause: Pty.Error): Effect.Effect<never, CreateErrorBody> => {
     if (cause instanceof Pty.CreateError) {
       return Effect.fail({
         name: "PtyCreateError" as const,
@@ -159,8 +168,14 @@ export namespace PtyHttpApi {
     return Effect.die(cause)
   }
 
-  const catchCreateError = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.catch(asCreateError), Effect.catchDefect(asCreateError))
+  /**
+   * E6.2: `Pty.Service.create` already declares `Pty.Error` (`CreateError`)
+   * on its failure channel — `src/pty/index.ts` builds it in the `catch` of
+   * the `Effect.try` around `spawnPty`. Nothing produces it as a defect, so
+   * the defect arm this used to carry was dead compensation.
+   */
+  const catchCreateError = <A, R>(effect: Effect.Effect<A, Pty.Error, R>) =>
+    effect.pipe(Effect.catch(asCreateError))
 
   /**
    * Cast helpers — safe because `PtyCreateInput`/`PtyUpdateInput` are
@@ -190,7 +205,7 @@ export namespace PtyHttpApi {
         const pty = yield* Pty.Service
         const info = yield* pty.get(params.ptyID)
         if (!info) {
-          throw new Pty.NotFoundError({ message: "Session not found" })
+          return yield* Effect.fail(new Pty.NotFoundError({ message: "Session not found" }))
         }
         return info
       }).pipe(catchNotFound),
@@ -200,7 +215,7 @@ export namespace PtyHttpApi {
         const pty = yield* Pty.Service
         const info = yield* pty.update(params.ptyID, toPtyUpdateInput(payload))
         if (!info) {
-          throw new Pty.NotFoundError({ message: "Session not found" })
+          return yield* Effect.fail(new Pty.NotFoundError({ message: "Session not found" }))
         }
         return info
       }).pipe(catchNotFound),

@@ -424,6 +424,47 @@ describe("session lifecycle", () => {
       })
     })
 
+    it("SessionPrompt.assertNotBusy fails with SessionBusyError on the typed channel", async () => {
+      await withProject(async () => {
+        const { PromptState } = await import("../../src/session/prompt-state")
+        const { SessionPrompt } = await import("../../src/session/prompt")
+        const session = await createSession()
+
+        // Not reserved: the assertion is a plain success, not an absent
+        // failure that happens to be swallowed somewhere.
+        const idle = await runPromiseExitWithLayer(
+          SessionPrompt.defaultLayer,
+          withCurrentInstance(
+            Effect.gen(function* () {
+              const prompt = yield* SessionPrompt.Service
+              return yield* prompt.assertNotBusy(session.id)
+            }),
+          ),
+        )
+        expect(idle._tag).toBe("Success")
+
+        PromptState.reserve(session.id)
+        const exit = await runPromiseExitWithLayer(
+          SessionPrompt.defaultLayer,
+          withCurrentInstance(
+            Effect.gen(function* () {
+              const prompt = yield* SessionPrompt.Service
+              return yield* prompt.assertNotBusy(session.id)
+            }),
+          ),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        // E6.1. The busy assertion used to `throw` inside `Effect.gen`, which
+        // is a defect: it only reached callers typed because `SessionRevert`
+        // ran it through `runPromiseWithLayer` and re-mapped the rejection.
+        // `hasDies` is what separates the two, so this assertion is the one
+        // that goes red if the `throw` comes back.
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        expect(Cause.squash(exit.cause)).toBeInstanceOf(Session.BusyError)
+      })
+    })
+
     it("SessionSummary.diff rejects with SessionNotFoundError on a typed failure channel", async () => {
       await withProject(async () => {
         const { SessionSummary } = await import("../../src/session/summary")

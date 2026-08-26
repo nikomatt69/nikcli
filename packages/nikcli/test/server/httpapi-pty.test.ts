@@ -1,6 +1,7 @@
 import { preserveTestEnv } from "../helpers/env"
 import { removeTestDir } from "../helpers/fs"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
+import { Cause, Effect } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -14,6 +15,9 @@ preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 const { Instance } = await import("@/project/instance")
 const { HttpApiBridge } = await import("@/server/httpapi/bridge")
 const { Server } = await import("@/server/server")
+const { Pty } = await import("@/pty")
+const { PtyHttpApi } = await import("@/server/httpapi/pty")
+const { runPromiseExitWithLayer, withCurrentInstance } = await import("@/effect")
 
 const projectDirs: string[] = []
 
@@ -99,6 +103,73 @@ describe("Pty HttpApi (Wave 4 Path B)", () => {
     expect(response.status).toBe(200)
     const body = (await response.json()) as boolean
     expect(body).toBe(true)
+  })
+
+  /**
+   * E6.2. `handlers.get` / `handlers.update` used to raise the declared
+   * `Pty.NotFoundError` with `throw` inside `Effect.gen`, so it reached the
+   * boundary as a *defect* and only became a 404 because `catchNotFound`
+   * carried an `Effect.catchDefect` arm alongside its typed one. The defect
+   * arm is gone; these assertions are what goes red if the `throw` returns,
+   * because a die is no longer recovered into the declared body.
+   */
+  it("handlers.get maps a missing session on the typed channel, with no defect", async () => {
+    const directory = await makeProjectDir()
+    await Instance.provide({
+      directory,
+      fn: async () => {
+        const exit = await runPromiseExitWithLayer(
+          Pty.defaultLayer,
+          withCurrentInstance(PtyHttpApi.handlers.get({ params: { ptyID: "pty_definitely_missing" } })),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        expect(Cause.squash(exit.cause)).toEqual({
+          name: "NotFoundError",
+          data: { message: "Session not found" },
+        })
+      },
+    })
+  })
+
+  it("handlers.update maps a missing session on the typed channel, with no defect", async () => {
+    const directory = await makeProjectDir()
+    await Instance.provide({
+      directory,
+      fn: async () => {
+        const exit = await runPromiseExitWithLayer(
+          Pty.defaultLayer,
+          withCurrentInstance(
+            PtyHttpApi.handlers.update({
+              params: { ptyID: "pty_definitely_missing" },
+              payload: { title: "renamed" },
+            }),
+          ),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        expect(Cause.squash(exit.cause)).toEqual({
+          name: "NotFoundError",
+          data: { message: "Session not found" },
+        })
+      },
+    })
+  })
+
+  it("handlers.list stays total — a success carries no failure channel to map", async () => {
+    const directory = await makeProjectDir()
+    await Instance.provide({
+      directory,
+      fn: async () => {
+        const exit = await runPromiseExitWithLayer(
+          Pty.defaultLayer,
+          withCurrentInstance(Effect.map(PtyHttpApi.handlers.list(), (list) => list.length)),
+        )
+        expect(exit._tag).toBe("Success")
+      },
+    })
   })
 
   it("POST /pty rejects a malformed payload with 400 (schema layer)", async () => {
