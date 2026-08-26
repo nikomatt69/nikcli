@@ -205,6 +205,15 @@ describe("effect-zod walker", () => {
     expect(s.safeParse("abcde").success).toBe(false)
   })
 
+  it("refinement: startsWith / endsWith", () => {
+    const prefix = zod(Schema.String.pipe(Schema.check(Schema.isStartsWith("ses"))))
+    expect(prefix.safeParse("ses_abc").success).toBe(true)
+    expect(prefix.safeParse("invalid-id").success).toBe(false)
+    const suffix = zod(Schema.String.pipe(Schema.check(Schema.isEndsWith("_ok"))))
+    expect(suffix.safeParse("x_ok").success).toBe(true)
+    expect(suffix.safeParse("x_no").success).toBe(false)
+  })
+
   it("Schema.optional inside Struct produces JSON-Schema-safe Zod (no z.undefined())", () => {
     const s = zod(
       Schema.Struct({
