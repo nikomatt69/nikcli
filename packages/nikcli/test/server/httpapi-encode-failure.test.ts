@@ -82,7 +82,7 @@ describe("encoded-route failure log", () => {
       fn: async () => {
         const info = SessionRepo.get(created.id)
         if (!info) throw new Error(`session ${created.id} missing after create`)
-        SessionRepo.upsert({ ...info, workspaceID: null } as Session.Info)
+        SessionRepo.upsert({ ...info, workspaceID: null } as unknown as Session.Info)
       },
     })
 
