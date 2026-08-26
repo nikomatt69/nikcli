@@ -25,11 +25,11 @@ import {
 import { it } from "./effect"
 import { Api as FixtureApi, Missing } from "./fixture"
 
-function api(endpoint: HttpApiEndpoint.Top) {
+function api(endpoint: HttpApiEndpoint.Constraint) {
   return HttpApi.make("test").add(HttpApiGroup.make("session").add(endpoint))
 }
 
-function compile<Id extends string, Groups extends HttpApiGroup.Top>(source: HttpApi.HttpApi<Id, Groups>) {
+function compile<Id extends string, Groups extends HttpApiGroup.Constraint>(source: HttpApi.HttpApi<Id, Groups>) {
   return emitEffect(compileContract(source))
 }
 
@@ -1533,7 +1533,7 @@ describe("HttpApiCodegen.generate", () => {
       new SchemaAST.Link(Schema.String.check(Schema.isMinLength(2)).ast, link.transformation),
     ])
     if (!SchemaAST.isAST(ast)) throw new Error("Expected altered schema AST")
-    const Altered = Schema.make(ast)
+    const Altered = Schema.make(ast) as Schema.Top
 
     expect(() => compile(api(HttpApiEndpoint.get("get", "/session", { success: Altered })))).toThrow(
       "Effect schema requires authoritative import: session.get",
