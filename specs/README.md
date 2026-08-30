@@ -24,7 +24,7 @@ Authority follows the concern. When a document and the code disagree, the code w
 | ------------------------------------------------------------------ | ----------- | ---------------------------------------------------------------------- |
 | [ROADMAP](./ROADMAP.md)                                            | Live        | The ordered plan: what is done, what is next, and what each step buys. |
 | [Product roadmap](./PRODUCT_ROADMAP.md)                            | Proposed    | Outcome priorities, evidence gates, and promotion into engineering.    |
-| [Effect 4 release candidate](./research-effect-4-rc.md)            | Current     | The measured break surface behind the `beta.83` pin: what E6 costs.    |
+| [Effect 4 release candidate](./research-effect-4-rc.md)            | Landed      | Historical measurement of the `beta.83` → `rc.112` break surface (E6). |
 | [Project / multi-directory](./project.md)                          | Historical  | Why the HTTP surface is flat instead of nested under `/project/:id`.   |
 | [TUI package extraction](./tui-package.md)                         | Complete    | TUI lives in `packages/tui`; host files stay in `packages/nikcli`.     |
 | [v2 contracts](./v2/README.md)                                     | Index       | Session, tools, events, instructions, catalog, provider policy.        |
