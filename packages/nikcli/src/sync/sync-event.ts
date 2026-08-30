@@ -285,6 +285,7 @@ export namespace SyncEvent {
     })
   }
 
+  /** R2 boundary: module funnel for run/history/remove. Production `run` already passes `projectID`. */
   function currentProject(): string {
     // Read in caller scope: `Instance` is AsyncLocalStorage-backed and a
     // lookup from inside an Effect fiber loses the context.
