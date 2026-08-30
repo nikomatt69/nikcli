@@ -102,8 +102,10 @@ export type Endpoint = {
   readonly errors: ReadonlyArray<{
     readonly status: number
     readonly schema: Schema.Top
+    readonly headers?: Schema.Top
   }>
   readonly successes: ReadonlyArray<Schema.Top>
+  readonly successHeaders?: Schema.Top
   readonly effectPortable: boolean
 }
 
@@ -192,10 +194,12 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Constrain
         })
       }
       const payloads = sourcePayloads.map((schema) => normalizeTransport(schema, "payload", endpoint, name)!)
+      const successHeaders = responseHeaderSchema(successSchemas[0])
       const success = normalizeTransport(successSchemas[0], "success", endpoint, name)!
       const errorSchemas = Array.from(errors).flatMap(([status, schemas]) =>
         schemas.map((schema) => ({
           status,
+          headers: responseHeaderSchema(schema),
           ...normalizeTransport(schema, "error", endpoint, name)!,
         })),
       )
@@ -252,11 +256,13 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Constrain
         optionalPayload,
         input: inputs,
         clientPath,
-        unwrapData: isDataEnvelope(success.schema),
+        unwrapData: isDataEnvelope(success.schema) && successHeaders === undefined,
         successes: [success.schema],
+        successHeaders,
         errors: errorSchemas.map((item) => ({
           status: item.status,
           schema: item.schema,
+          headers: item.headers,
         })),
         effectPortable,
         operation: {
@@ -692,6 +698,7 @@ function assertPromiseEndpoint(endpoint: Endpoint) {
     }
   }
   for (const error of endpoint.errors) {
+    if (HttpApiSchema.isNoContent(error.schema.ast)) continue
     if ((resolveHttpApiEncoding(error.schema.ast)?._tag ?? "Json") !== "Json") {
       throw new GenerationError({
         reason: `Unsupported Promise error encoding: ${name}`,
@@ -872,6 +879,7 @@ function renderPromiseTypes(
     {
       readonly schema: Schema.Top
       readonly tagged: ReturnType<typeof declaredErrorFields>
+      readonly headers?: Schema.Top
     }
   >()
   for (const group of groups) {
@@ -880,15 +888,24 @@ function renderPromiseTypes(
         const tagged = declaredErrorFields(error.schema)
         const identifier = tagged?.identifier ?? SchemaAST.resolveIdentifier(error.schema.ast)
         if (identifier !== undefined && !errors.has(identifier))
-          errors.set(identifier, { schema: error.schema, tagged })
+          errors.set(identifier, { schema: error.schema, tagged, headers: error.headers })
       }
     }
   }
   const errorTypes = Array.from(errors, ([identifier, error]) => {
-    if (error.tagged === undefined) return `export type ${identifier} = ${typeOf(error.schema)}`
-    const fields = error.tagged.fields
-      .map(([name, schema, optional]) => `readonly ${JSON.stringify(name)}${optional ? "?" : ""}: ${typeOf(schema)}`)
-      .join("; ")
+    const headerType = error.headers === undefined ? undefined : typeOf(error.headers)
+    if (error.tagged === undefined) {
+      const body = HttpApiSchema.isNoContent(error.schema.ast) ? "void" : typeOf(error.schema)
+      if (headerType === undefined) return `export type ${identifier} = ${body}`
+      if (body === "void") return `export type ${identifier} = { readonly headers: ${headerType} }`
+      return `export type ${identifier} = { readonly body: ${body}; readonly headers: ${headerType} }`
+    }
+    const fields = [
+      ...error.tagged.fields.map(
+        ([name, schema, optional]) => `readonly ${JSON.stringify(name)}${optional ? "?" : ""}: ${typeOf(schema)}`,
+      ),
+      ...(headerType === undefined ? [] : [`readonly headers: ${headerType}`]),
+    ].join("; ")
     return `export type ${identifier} = { readonly ${JSON.stringify(error.tagged.key)}: ${JSON.stringify(error.tagged.tag)}; ${fields} }\nexport const is${identifier} = (value: unknown): value is ${identifier} => typeof value === "object" && value !== null && ${JSON.stringify(error.tagged.key)} in value && value[${JSON.stringify(error.tagged.key)}] === ${JSON.stringify(error.tagged.tag)}`
   })
   const payloadAliases: Array<string> = []
@@ -925,7 +942,7 @@ function renderPromiseTypes(
           })
           .join("; ")
         const successSchema = endpoint.successes[0]
-        const success =
+        const successBody =
           outputTypes?.[clientOperationKey(group, endpoint)]?.name ??
           outputTypeOf(
             isStreamSchema(successSchema) && successSchema._tag === "StreamSse"
@@ -934,6 +951,11 @@ function renderPromiseTypes(
                 : (successSchema.events as Schema.Top)
               : successSchema,
           )
+        const successHeaders = endpoint.successHeaders === undefined ? undefined : typeOf(endpoint.successHeaders)
+        const success =
+          successHeaders === undefined
+            ? successBody
+            : `{ readonly body: ${endpoint.operation.success === "void" ? "void" : successBody}; readonly headers: ${successHeaders} }`
         return [
           ...(promiseInputMode(endpoint) === "none" ? [] : [`export type ${prefix}Input = { ${input} }`]),
           `export type ${prefix}Output = ${endpoint.unwrapData ? `(${success})["data"]` : success}`,
@@ -1005,7 +1027,17 @@ function renderPromiseClient(groups: ReadonlyArray<Group>) {
         endpoint.payloads.length === 0 ? undefined : `body: ${part("payload")}`,
       ].filter((value): value is string => value !== undefined)
       const declaredStatuses = [...new Set(endpoint.errors.map((error) => error.status))]
-      const descriptor = `{ method: ${JSON.stringify(endpoint.endpoint.method)}, path: ${path}${parts.length === 0 ? "" : `, ${parts.join(", ")}`}, successStatus: ${resolveHttpApiStatus(endpoint.successes[0].ast) ?? 200}, declaredStatuses: [${declaredStatuses.join(", ")}], empty: ${endpoint.operation.success === "void"}${isBinarySchema(endpoint.successes[0]) ? ", binary: true" : ""}${isTextSchema(endpoint.successes[0]) ? ", text: true" : ""} }`
+      const successHeaderNames = responseHeaderNames(endpoint.successHeaders)
+      const errorHeaderEntries = endpoint.errors.flatMap((error) => {
+        const names = responseHeaderNames(error.headers)
+        return names === undefined ? [] : [[String(error.status), names] as const]
+      })
+      const emptyErrors = [
+        ...new Set(
+          endpoint.errors.filter((error) => HttpApiSchema.isNoContent(error.schema.ast)).map((error) => error.status),
+        ),
+      ]
+      const descriptor = `{ method: ${JSON.stringify(endpoint.endpoint.method)}, path: ${path}${parts.length === 0 ? "" : `, ${parts.join(", ")}`}, successStatus: ${resolveHttpApiStatus(endpoint.successes[0].ast) ?? 200}, declaredStatuses: [${declaredStatuses.join(", ")}]${successHeaderNames === undefined ? "" : `, responseHeaders: ${JSON.stringify(successHeaderNames)}`}${errorHeaderEntries.length === 0 ? "" : `, errorHeaders: ${JSON.stringify(Object.fromEntries(errorHeaderEntries))}`}${emptyErrors.length === 0 ? "" : `, emptyErrors: ${JSON.stringify(emptyErrors)}`}, empty: ${endpoint.operation.success === "void"}${isBinarySchema(endpoint.successes[0]) ? ", binary: true" : ""}${isTextSchema(endpoint.successes[0]) ? ", text: true" : ""} }`
       if (endpoint.operation.success === "stream") {
         const success = endpoint.successes[0]
         if (!isStreamSchema(success) || success._tag !== "StreamSse" || success.sseMode !== "data") {
@@ -1027,7 +1059,7 @@ function renderPromiseClient(groups: ReadonlyArray<Group>) {
     if (group.endpoints[0]?.topLevel) return fields
     return `${JSON.stringify(group.identifier)}: { ${fields} }`
   })
-  return `import type { ${imports.join(", ")} } from "./types"\nimport { ClientError } from "./client-error"\n\nexport interface ClientOptions {\n  readonly baseUrl: string\n  readonly fetch?: typeof globalThis.fetch\n  readonly headers?: RequestInit["headers"]\n}\n\nexport interface RequestOptions {\n  readonly signal?: AbortSignal\n  readonly headers?: RequestInit["headers"]\n}\n\ninterface RequestDescriptor {\n  readonly method: string\n  readonly path: string\n  readonly query?: Record<string, unknown>\n  readonly headers?: Record<string, unknown>\n  readonly body?: unknown\n  readonly successStatus: number\n  readonly declaredStatuses: ReadonlyArray<number>\n  readonly empty: boolean\n}\n\nconst maxSseEventBytes = 16 * 1024 * 1024\n\nexport function make(options: ClientOptions) {\n  const fetch = options.fetch ?? globalThis.fetch\n\n  const prepare = (descriptor: RequestDescriptor, requestOptions?: RequestOptions) => {\n    const url = new URL(descriptor.path, options.baseUrl)\n    for (const [key, value] of Object.entries(descriptor.query ?? {})) appendQuery(url.searchParams, key, value)\n    const headers = new Headers(options.headers)\n    for (const [key, value] of Object.entries(descriptor.headers ?? {})) {\n      if (value !== undefined && value !== null) headers.set(key, String(value))\n    }\n    for (const [key, value] of new Headers(requestOptions?.headers)) headers.set(key, value)\n    if (descriptor.body !== undefined && !headers.has("content-type")) headers.set("content-type", "application/json")\n    return {\n      url,\n      init: {\n        method: descriptor.method,\n        signal: requestOptions?.signal,\n        headers,\n        body: descriptor.body === undefined ? undefined : JSON.stringify(descriptor.body),\n      } satisfies RequestInit,\n    }\n  }\n\n  const execute = async (descriptor: RequestDescriptor, requestOptions?: RequestOptions) => {\n    try {\n      const prepared = prepare(descriptor, requestOptions)\n      return await fetch(prepared.url, prepared.init)\n    } catch (cause) {\n      throw new ClientError("Transport", { cause })\n    }\n  }\n\n  const responseError = async (response: Response, descriptor: RequestDescriptor): Promise<never> => {\n    if (descriptor.declaredStatuses.includes(response.status)) throw await json(response)\n    try {\n      await response.body?.cancel()\n    } catch {}\n    throw new ClientError("UnexpectedStatus", { cause: { status: response.status } })\n  }\n\n  const request = async <A>(descriptor: RequestDescriptor, requestOptions?: RequestOptions): Promise<A> => {\n    const response = await execute(descriptor, requestOptions)\n    if (response.status !== descriptor.successStatus) return responseError(response, descriptor)\n    if (descriptor.empty) {\n      try {\n        await response.body?.cancel()\n      } catch {}\n      return undefined as A\n    }\n    return await json(response) as A\n  }\n\n  const sse = <A>(descriptor: RequestDescriptor, requestOptions?: RequestOptions): AsyncIterable<A> => ({\n    async *[Symbol.asyncIterator]() {\n      const response = await execute(descriptor, requestOptions)\n      if (response.status !== descriptor.successStatus) await responseError(response, descriptor)\n      if (!isContentType(response, "text/event-stream")) {\n        try {\n          await response.body?.cancel()\n        } catch {}\n        throw new ClientError("UnsupportedContentType")\n      }\n      if (response.body === null) throw new ClientError("MalformedResponse")\n      const reader = response.body.getReader()\n      const decoder = new TextDecoder()\n      let buffer = ""\n      try {\n        while (true) {\n          let next: ReadableStreamReadResult<Uint8Array>\n          try {\n            next = await reader.read()\n          } catch (cause) {\n            throw new ClientError("Transport", { cause })\n          }\n          buffer += decoder.decode(next.value, { stream: !next.done })\n          if (buffer.length > maxSseEventBytes) throw new ClientError("SseEventTooLarge")\n          const trailingCarriageReturn = !next.done && buffer.endsWith("\\r")\n          if (trailingCarriageReturn) buffer = buffer.slice(0, -1)\n          buffer = buffer.replaceAll("\\r\\n", "\\n").replaceAll("\\r", "\\n")\n          if (trailingCarriageReturn) buffer += "\\r"\n          if (next.done && buffer !== "") buffer += "\\n\\n"\n          let boundary = buffer.indexOf("\\n\\n")\n          while (boundary >= 0) {\n            const block = buffer.slice(0, boundary)\n            buffer = buffer.slice(boundary + 2)\n            const data = block.split("\\n").flatMap((line) => line.startsWith("data:") ? [line.slice(5).trimStart()] : []).join("\\n")\n            if (data !== "") {\n              try {\n                yield JSON.parse(data) as A\n              } catch (cause) {\n                throw new ClientError("MalformedResponse", { cause })\n              }\n            }\n            boundary = buffer.indexOf("\\n\\n")\n          }\n          if (next.done) return\n        }\n      } finally {\n        try {\n          await reader.cancel()\n        } catch {}\n        reader.releaseLock()\n      }\n    },\n  })\n\n  return { ${fields.join(", ")} }\n}\n\nfunction appendQuery(params: URLSearchParams, key: string, value: unknown): void {\n  if (value === undefined) return\n  if (value === null) {\n    params.append(key, "null")\n    return\n  }\n  if (Array.isArray(value)) {\n    for (const item of value) appendQuery(params, key, item)\n    return\n  }\n  if (typeof value === "object") {\n    for (const [child, item] of Object.entries(value)) appendQuery(params, \`\${key}[\${child}]\`, item)\n    return\n  }\n  params.append(key, String(value))\n}\n\nasync function json(response: Response): Promise<unknown> {\n  if (!isContentType(response, "application/json") && !response.headers.get("content-type")?.includes("+json")) {\n    try {\n      await response.body?.cancel()\n    } catch {}\n    throw new ClientError("UnsupportedContentType")\n  }\n  let text: string\n  try {\n    text = await response.text()\n  } catch (cause) {\n    throw new ClientError("Transport", { cause })\n  }\n  if (text === "") throw new ClientError("MalformedResponse")\n  try {\n    return JSON.parse(text)\n  } catch (cause) {\n    throw new ClientError("MalformedResponse", { cause })\n  }\n}\n\nfunction isContentType(response: Response, expected: string) {\n  return response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() === expected\n}\n`
+  return `import type { ${imports.join(", ")} } from "./types"\nimport { ClientError } from "./client-error"\n\nexport interface ClientOptions {\n  readonly baseUrl: string\n  readonly fetch?: typeof globalThis.fetch\n  readonly headers?: RequestInit["headers"]\n}\n\nexport interface RequestOptions {\n  readonly signal?: AbortSignal\n  readonly headers?: RequestInit["headers"]\n}\n\ninterface RequestDescriptor {\n  readonly method: string\n  readonly path: string\n  readonly query?: Record<string, unknown>\n  readonly headers?: Record<string, unknown>\n  readonly body?: unknown\n  readonly successStatus: number\n  readonly declaredStatuses: ReadonlyArray<number>\n  readonly responseHeaders?: ReadonlyArray<string>\n  readonly errorHeaders?: { readonly [status: string]: ReadonlyArray<string> }\n  readonly emptyErrors?: ReadonlyArray<number>\n  readonly empty: boolean\n}\n\nconst maxSseEventBytes = 16 * 1024 * 1024\n\nexport function make(options: ClientOptions) {\n  const fetch = options.fetch ?? globalThis.fetch\n\n  const prepare = (descriptor: RequestDescriptor, requestOptions?: RequestOptions) => {\n    const url = new URL(descriptor.path, options.baseUrl)\n    for (const [key, value] of Object.entries(descriptor.query ?? {})) appendQuery(url.searchParams, key, value)\n    const headers = new Headers(options.headers)\n    for (const [key, value] of Object.entries(descriptor.headers ?? {})) {\n      if (value !== undefined && value !== null) headers.set(key, String(value))\n    }\n    for (const [key, value] of new Headers(requestOptions?.headers)) headers.set(key, value)\n    if (descriptor.body !== undefined && !headers.has("content-type")) headers.set("content-type", "application/json")\n    return {\n      url,\n      init: {\n        method: descriptor.method,\n        signal: requestOptions?.signal,\n        headers,\n        body: descriptor.body === undefined ? undefined : JSON.stringify(descriptor.body),\n      } satisfies RequestInit,\n    }\n  }\n\n  const execute = async (descriptor: RequestDescriptor, requestOptions?: RequestOptions) => {\n    try {\n      const prepared = prepare(descriptor, requestOptions)\n      return await fetch(prepared.url, prepared.init)\n    } catch (cause) {\n      throw new ClientError("Transport", { cause })\n    }\n  }\n\n  const responseError = async (response: Response, descriptor: RequestDescriptor): Promise<never> => {\n    if (descriptor.declaredStatuses.includes(response.status)) {\n      const names = descriptor.errorHeaders?.[String(response.status)]\n      if (descriptor.emptyErrors?.includes(response.status)) {\n        try {\n          await response.body?.cancel()\n        } catch {}\n        throw { headers: readDeclaredHeaders(response, names) ?? {} }\n      }\n      throw await json(response)\n    }\n    try {\n      await response.body?.cancel()\n    } catch {}\n    throw new ClientError("UnexpectedStatus", { cause: { status: response.status } })\n  }\n\n  const request = async <A>(descriptor: RequestDescriptor, requestOptions?: RequestOptions): Promise<A> => {\n    const response = await execute(descriptor, requestOptions)\n    if (response.status !== descriptor.successStatus) return responseError(response, descriptor)\n    if (descriptor.empty) {\n      try {\n        await response.body?.cancel()\n      } catch {}\n      return attachDeclaredHeaders(undefined, response, descriptor.responseHeaders) as A\n    }\n    return attachDeclaredHeaders(await json(response), response, descriptor.responseHeaders) as A\n  }\n\n  const sse = <A>(descriptor: RequestDescriptor, requestOptions?: RequestOptions): AsyncIterable<A> => ({\n    async *[Symbol.asyncIterator]() {\n      const response = await execute(descriptor, requestOptions)\n      if (response.status !== descriptor.successStatus) await responseError(response, descriptor)\n      if (!isContentType(response, "text/event-stream")) {\n        try {\n          await response.body?.cancel()\n        } catch {}\n        throw new ClientError("UnsupportedContentType")\n      }\n      if (response.body === null) throw new ClientError("MalformedResponse")\n      const reader = response.body.getReader()\n      const decoder = new TextDecoder()\n      let buffer = ""\n      try {\n        while (true) {\n          let next: ReadableStreamReadResult<Uint8Array>\n          try {\n            next = await reader.read()\n          } catch (cause) {\n            throw new ClientError("Transport", { cause })\n          }\n          buffer += decoder.decode(next.value, { stream: !next.done })\n          if (buffer.length > maxSseEventBytes) throw new ClientError("SseEventTooLarge")\n          const trailingCarriageReturn = !next.done && buffer.endsWith("\\r")\n          if (trailingCarriageReturn) buffer = buffer.slice(0, -1)\n          buffer = buffer.replaceAll("\\r\\n", "\\n").replaceAll("\\r", "\\n")\n          if (trailingCarriageReturn) buffer += "\\r"\n          if (next.done && buffer !== "") buffer += "\\n\\n"\n          let boundary = buffer.indexOf("\\n\\n")\n          while (boundary >= 0) {\n            const block = buffer.slice(0, boundary)\n            buffer = buffer.slice(boundary + 2)\n            const data = block.split("\\n").flatMap((line) => line.startsWith("data:") ? [line.slice(5).trimStart()] : []).join("\\n")\n            if (data !== "") {\n              try {\n                yield JSON.parse(data) as A\n              } catch (cause) {\n                throw new ClientError("MalformedResponse", { cause })\n              }\n            }\n            boundary = buffer.indexOf("\\n\\n")\n          }\n          if (next.done) return\n        }\n      } finally {\n        try {\n          await reader.cancel()\n        } catch {}\n        reader.releaseLock()\n      }\n    },\n  })\n\n  return { ${fields.join(", ")} }\n}\n\nfunction appendQuery(params: URLSearchParams, key: string, value: unknown): void {\n  if (value === undefined) return\n  if (value === null) {\n    params.append(key, "null")\n    return\n  }\n  if (Array.isArray(value)) {\n    for (const item of value) appendQuery(params, key, item)\n    return\n  }\n  if (typeof value === "object") {\n    for (const [child, item] of Object.entries(value)) appendQuery(params, \`\${key}[\${child}]\`, item)\n    return\n  }\n  params.append(key, String(value))\n}\n\nasync function json(response: Response): Promise<unknown> {\n  if (!isContentType(response, "application/json") && !response.headers.get("content-type")?.includes("+json")) {\n    try {\n      await response.body?.cancel()\n    } catch {}\n    throw new ClientError("UnsupportedContentType")\n  }\n  let text: string\n  try {\n    text = await response.text()\n  } catch (cause) {\n    throw new ClientError("Transport", { cause })\n  }\n  if (text === "") throw new ClientError("MalformedResponse")\n  try {\n    return JSON.parse(text)\n  } catch (cause) {\n    throw new ClientError("MalformedResponse", { cause })\n  }\n}\n\nfunction isContentType(response: Response, expected: string) {\n  return response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() === expected\n}\n\nfunction readDeclaredHeaders(response: Response, names: ReadonlyArray<string> | undefined) {\n  if (names === undefined) return undefined\n  const headers: { [key: string]: string } = {}\n  for (const name of names) {\n    const value = response.headers.get(name)\n    if (value !== null) headers[name] = value\n  }\n  return headers\n}\n\nfunction attachDeclaredHeaders<A>(body: A, response: Response, names: ReadonlyArray<string> | undefined): A {\n  const headers = readDeclaredHeaders(response, names)\n  return headers === undefined ? body : { body, headers } as A\n}\n`
 }
 
 function promiseTypePrefix(group: string, path: ReadonlyArray<string>) {
@@ -1297,6 +1329,22 @@ function uniqueModule(base: string, index: number, modules: ReadonlySet<string>)
   return `${seed}${suffix === 0 ? "" : `-${suffix}`}`
 }
 
+function unwrapResponseSchema(schema: Schema.Top): Schema.Top {
+  return HttpApiSchema.isWithHeaders(schema) ? schema.schema : schema
+}
+
+function responseHeaderSchema(schema: Schema.Top | undefined): Schema.Top | undefined {
+  return schema !== undefined && HttpApiSchema.isWithHeaders(schema) ? schema.headers : undefined
+}
+
+function responseHeaderNames(schema: Schema.Top | undefined): ReadonlyArray<string> | undefined {
+  if (schema === undefined) return undefined
+  const ast = Schema.toEncoded(schema).ast
+  if (!SchemaAST.isObjects(ast)) return undefined
+  const names = ast.propertySignatures.map((field) => String(field.name))
+  return names.length === 0 ? undefined : names
+}
+
 function normalizeTransport(
   schema: Schema.Top | undefined,
   source: InputField["source"] | "success" | "error",
@@ -1304,6 +1352,7 @@ function normalizeTransport(
   operation: string,
 ) {
   if (schema === undefined) return undefined
+  if (source === "success" || source === "error") schema = unwrapResponseSchema(schema)
   if (isStreamSchema(schema)) return { schema, effectPortable: true } as const
   if (!metadataPortable(schema.ast, new Set())) {
     throw new GenerationError({
