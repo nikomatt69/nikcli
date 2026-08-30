@@ -186,6 +186,7 @@ export const Instance = {
   has(directory: string) {
     return Effect.runSync(ScopedCache.has(cache, normalizeDirectory(directory)))
   },
+  /** R2 boundary: ALS definition site. Callers that still need a getter come through here. */
   get directory() {
     return useLive().directory
   },
@@ -207,6 +208,7 @@ export const Instance = {
   },
   containsPath(filepath: string) {
     try {
+      // R2 boundary: sync containment API; threading would hit tool/bash and external-directory.
       const canonicalInstance = realpathSync(Instance.directory)
       const canonicalPath = Filesystem.canonicalizePath(filepath)
       if (Filesystem.contains(canonicalInstance, canonicalPath)) return true
@@ -227,6 +229,7 @@ export const Instance = {
     }
   },
   state<S>(init: () => S, dispose?: (state: Awaited<S>) => Promise<void>): () => S {
+    // R2 boundary: per-directory state key is the ambient directory by construction.
     return State.create(() => Instance.directory, init, dispose)
   },
   registerDisposer(disposer: () => void | Promise<void>) {

@@ -88,6 +88,7 @@ export namespace BackgroundRun {
     })
   }
 
+  /** R2 boundary: module funnel — one repo key for every export; threading would leave this file. */
   function projectID() {
     return Instance.project.id
   }

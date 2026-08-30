@@ -43,6 +43,7 @@ export const InstanceScope = {
         directory: input.directory,
         init: input.init,
         fn: () => {
+          // R2 boundary: builds InstanceContext inside provide after lookup/bootstrap.
           const ctx: InstanceContext = {
             directory: Instance.directory,
             worktree: Instance.worktree,
