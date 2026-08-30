@@ -3,6 +3,20 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.322.0 (August 2026)
+
+## Core
+
+- E6/E7: pin Effect 4.0.0-rc.112 and fix generated SseError mapping (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - E6/E7: pin Effect 4.0.0-rc.112 and fix generated SseError mapping
+  - H9: declare location, retry-after, and www-authenticate on the contract
+  - H10: matchOrElse does not un-force SessionV2 Unknown
+  - R2: name remaining instance ALS reads as boundaries
+
 ## v1.321.0 (August 2026)
 
 ## Core
