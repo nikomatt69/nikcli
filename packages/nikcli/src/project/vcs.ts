@@ -47,7 +47,7 @@ export namespace Vcs {
   export const ApplyResult = zodObject(ApplyResultSchema)
   export type ApplyResult = Schema.Schema.Type<typeof ApplyResultSchema>
 
-  export class PatchApplyError extends Schema.TaggedErrorClass<PatchApplyError>()("VcsPatchApplyError", {
+  export class PatchApplyError extends Schema.TaggedError<PatchApplyError>()("VcsPatchApplyError", {
     message: Schema.String,
     reason: Schema.Literals(["non-git", "not-clean"]),
   }) {}

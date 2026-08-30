@@ -1,7 +1,14 @@
 import { describe, expect, it } from "bun:test"
 import { Effect, Schema } from "effect"
 import z from "zod"
-import { zod, zodObject, zodObjectMode, zodOverride, ZodOverrideId } from "@nikcli-ai/util/effect-zod"
+import {
+  patternFromPayload,
+  zod,
+  zodObject,
+  zodObjectMode,
+  zodOverride,
+  ZodOverrideId,
+} from "@nikcli-ai/util/effect-zod"
 
 describe("effect-zod walker", () => {
   it("primitives", () => {
@@ -197,12 +204,27 @@ describe("effect-zod walker", () => {
     expect(s.safeParse("abc").success).toBe(false)
   })
 
+  it("refinement: pattern payload without regExp/source throws", () => {
+    expect(() => patternFromPayload({})).toThrow("isPattern check is missing regExp/source payload")
+    expect(patternFromPayload({ source: "^[A-Z]+$" }).test("ABC")).toBe(true)
+    expect(patternFromPayload({ regExp: /^x$/ }).test("x")).toBe(true)
+  })
+
   it("refinement: minLength / maxLength", () => {
     const s = zod(Schema.String.pipe(Schema.check(Schema.isMinLength(2)), Schema.check(Schema.isMaxLength(4))))
     expect(s.safeParse("a").success).toBe(false)
     expect(s.safeParse("ab").success).toBe(true)
     expect(s.safeParse("abcd").success).toBe(true)
     expect(s.safeParse("abcde").success).toBe(false)
+  })
+
+  it("refinement: startsWith / endsWith", () => {
+    const prefix = zod(Schema.String.pipe(Schema.check(Schema.isStartsWith("ses"))))
+    expect(prefix.safeParse("ses_abc").success).toBe(true)
+    expect(prefix.safeParse("invalid-id").success).toBe(false)
+    const suffix = zod(Schema.String.pipe(Schema.check(Schema.isEndsWith("_ok"))))
+    expect(suffix.safeParse("x_ok").success).toBe(true)
+    expect(suffix.safeParse("x_no").success).toBe(false)
   })
 
   it("Schema.optional inside Struct produces JSON-Schema-safe Zod (no z.undefined())", () => {

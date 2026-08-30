@@ -173,13 +173,13 @@ export namespace ProviderAuth {
 
   export const defaultLayer = layer
 
-  export class OauthMissing extends Schema.TaggedErrorClass<OauthMissing>()("ProviderAuthOauthMissing", {
+  export class OauthMissing extends Schema.TaggedError<OauthMissing>()("ProviderAuthOauthMissing", {
     providerID: Schema.String,
   }) {}
-  export class OauthCodeMissing extends Schema.TaggedErrorClass<OauthCodeMissing>()("ProviderAuthOauthCodeMissing", {
+  export class OauthCodeMissing extends Schema.TaggedError<OauthCodeMissing>()("ProviderAuthOauthCodeMissing", {
     providerID: Schema.String,
   }) {}
-  export class OauthCallbackFailed extends Schema.TaggedErrorClass<OauthCallbackFailed>()(
+  export class OauthCallbackFailed extends Schema.TaggedError<OauthCallbackFailed>()(
     "ProviderAuthOauthCallbackFailed",
     {},
   ) {}

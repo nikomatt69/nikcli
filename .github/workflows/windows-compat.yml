@@ -74,6 +74,11 @@ jobs:
 
       - name: typecheck
         shell: pwsh
+        env:
+          # tsc on windows-latest hits the default 4GB V8 heap and exits 134
+          # (Allocation failed). The check is the same; only the cap is raised.
+          # 8GB fits the 16GB windows-latest runner; do not lower this back.
+          NODE_OPTIONS: --max-old-space-size=8192
         run: bun run typecheck
 
       - name: tests — double-ESC interrupt state machine

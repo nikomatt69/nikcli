@@ -880,7 +880,7 @@ export namespace Session {
     }
   })
 
-  export class BusyError extends Schema.TaggedErrorClass<BusyError>()("SessionBusyError", {
+  export class BusyError extends Schema.TaggedError<BusyError>()("SessionBusyError", {
     sessionID: Schema.String,
     message: Schema.String,
   }) {

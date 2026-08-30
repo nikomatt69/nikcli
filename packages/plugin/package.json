@@ -68,7 +68,7 @@
     "@nikcli-ai/sdk": "workspace:*",
     "@opentui/core": "0.4.5",
     "@opentui/solid": "0.4.5",
-    "effect": "4.0.0-beta.83",
+    "effect": "4.0.0-rc.112",
     "solid-js": "catalog:",
     "zod": "catalog:"
   },

@@ -141,7 +141,7 @@ export namespace Installation {
     return "unknown"
   }
 
-  export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
+  export class UpgradeFailedError extends Schema.TaggedError<UpgradeFailedError>()("UpgradeFailedError", {
     stderr: Schema.String,
   }) {}
 

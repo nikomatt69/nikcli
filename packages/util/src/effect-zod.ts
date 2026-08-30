@@ -23,8 +23,9 @@
  * - `Schema.Refinement` for the canonical checks listed in `schema.md`:
  *   `isInt`, `isGreaterThan`, `isGreaterThanOrEqualTo`, `isLessThan`,
  *   `isLessThanOrEqualTo`, `isPattern`, `isMinLength`, `isMaxLength`,
- *   `isStartsWith`, `isEndsWith`, `isUUID`. Detection is via the standard
- *   `JSONSchemaAnnotation` produced by `Schema.is*` checks.
+ *   `isStartsWith`, `isEndsWith`, `isUUID`. Detection is via the RC
+ *   `annotations.representation` (`id: "effect/schema/isStartsWith"` plus
+ *   `payload`); `annotations.meta._tag` is still accepted as a fallback.
  * - `Schema.Brand` → branded zod type with the same JSON Schema shape.
  * - Annotations: `identifier` → `z.meta({ ref })`, `description` → `.describe()`,
  *   `default` → `.default(...)`, `examples` (passed through `.meta` so
@@ -305,38 +306,74 @@ function refineArray(
   return zod
 }
 
-function applyCheck(zodType: z.ZodType, check: unknown): z.ZodType {
+function checkKind(check: unknown): { tag: string; payload: Record<string, unknown> } | undefined {
   const annotations = (check as { annotations?: Record<string, unknown> } | undefined)?.annotations
+  const representation = annotations?.representation as { id?: unknown; payload?: unknown } | undefined
+  if (typeof representation?.id === "string") {
+    const id = representation.id
+    const tag = id.startsWith("effect/schema/") ? id.slice("effect/schema/".length) : id
+    const raw = representation.payload
+    const payload =
+      raw !== null && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+    return { tag, payload }
+  }
   const meta = annotations?.meta as Record<string, unknown> | undefined
-  switch (meta?._tag) {
+  if (typeof meta?._tag === "string") {
+    return { tag: meta._tag, payload: meta }
+  }
+  return undefined
+}
+
+/**
+ * Resolve the RC `isPattern` payload to a `RegExp`.
+ *
+ * Other check arms read their payload key directly and fail visibly when it is
+ * missing (`NaN` bounds, a zod throw). A quiet `return zodType` here would emit
+ * an unconstrained string — a validation hole that still parses every input.
+ */
+export function patternFromPayload(payload: Record<string, unknown>): RegExp {
+  if (payload.regExp instanceof RegExp) return payload.regExp
+  if (typeof payload.source === "string") {
+    return new RegExp(payload.source, typeof payload.flags === "string" ? payload.flags : "")
+  }
+  throw new Error("effect-zod: isPattern check is missing regExp/source payload")
+}
+
+function applyCheck(zodType: z.ZodType, check: unknown): z.ZodType {
+  const kind = checkKind(check)
+  if (!kind) return zodType
+  const { tag, payload } = kind
+  switch (tag) {
     case "isInt":
       return refineNumber(zodType, undefined, (n) => n.int())
     case "isGreaterThan":
-      return refineNumber(zodType, undefined, (n) => n.gt(meta.exclusiveMinimum as number))
+      return refineNumber(zodType, undefined, (n) => n.gt(payload.exclusiveMinimum as number))
     case "isGreaterThanOrEqualTo":
-      return refineNumber(zodType, undefined, (n) => n.gte(meta.minimum as number))
+      return refineNumber(zodType, undefined, (n) => n.gte(payload.minimum as number))
     case "isLessThan":
-      return refineNumber(zodType, undefined, (n) => n.lt(meta.exclusiveMaximum as number))
+      return refineNumber(zodType, undefined, (n) => n.lt(payload.exclusiveMaximum as number))
     case "isLessThanOrEqualTo":
-      return refineNumber(zodType, undefined, (n) => n.lte(meta.maximum as number))
+      return refineNumber(zodType, undefined, (n) => n.lte(payload.maximum as number))
     case "isPattern":
-      return refineString(zodType, undefined, (s) => s.regex(meta.regExp as RegExp))
+      return refineString(zodType, undefined, (s) => s.regex(patternFromPayload(payload)))
     case "isMinLength":
       return refineString(
-        refineArray(zodType, undefined, (a) => a.min(meta.minLength as number)),
+        refineArray(zodType, undefined, (a) => a.min(payload.minLength as number)),
         undefined,
-        (s) => s.min(meta.minLength as number),
+        (s) => s.min(payload.minLength as number),
       )
     case "isMaxLength":
       return refineString(
-        refineArray(zodType, undefined, (a) => a.max(meta.maxLength as number)),
+        refineArray(zodType, undefined, (a) => a.max(payload.maxLength as number)),
         undefined,
-        (s) => s.max(meta.maxLength as number),
+        (s) => s.max(payload.maxLength as number),
       )
     case "isStartsWith":
-      return refineString(zodType, undefined, (s) => s.startsWith(meta.startsWith as string))
+      return refineString(zodType, undefined, (s) => s.startsWith(payload.startsWith as string))
     case "isEndsWith":
-      return refineString(zodType, undefined, (s) => s.endsWith(meta.endsWith as string))
+      return refineString(zodType, undefined, (s) => s.endsWith(payload.endsWith as string))
+    case "isUUID":
+      return refineString(zodType, undefined, (s) => s.uuid())
     default:
       return zodType
   }

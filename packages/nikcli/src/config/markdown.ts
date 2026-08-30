@@ -77,7 +77,7 @@ export namespace ConfigMarkdown {
     }
   }
 
-  export class FrontmatterError extends Schema.TaggedErrorClass<FrontmatterError>()("ConfigFrontmatterError", {
+  export class FrontmatterError extends Schema.TaggedError<FrontmatterError>()("ConfigFrontmatterError", {
     path: Schema.String,
     message: Schema.String,
   }) {}

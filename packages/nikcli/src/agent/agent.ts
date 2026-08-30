@@ -61,7 +61,7 @@ export namespace Agent {
    * `Effect.catchTag("AgentNotFound", ...)` and the existing `instanceof
    * Agent.NotFoundError` continues to work.
    */
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("AgentNotFound", {
+  export class NotFoundError extends Schema.TaggedError<NotFoundError>()("AgentNotFound", {
     name: Schema.String,
   }) {}
 
