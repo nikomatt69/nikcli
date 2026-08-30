@@ -9,7 +9,10 @@ import { ClientError } from "./client-error"
 type RawClient = HttpApiClient.ForApi<typeof PublicApi>
 
 const mapClientError = <E>(error: E) =>
-  HttpClientError.isHttpClientError(error) || Schema.isSchemaError(error) || Sse.Retry.is(error)
+  HttpClientError.isHttpClientError(error) ||
+  Schema.isSchemaError(error) ||
+  Sse.Retry.is(error) ||
+  error instanceof Sse.SseError
     ? new ClientError({ cause: error })
     : error
 

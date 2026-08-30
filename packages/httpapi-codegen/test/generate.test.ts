@@ -229,6 +229,23 @@ describe("HttpApiCodegen.generate", () => {
     )
   })
 
+  test("imported Effect client maps SseError into ClientError", () => {
+    const client = emitEffectImported(
+      compileContract(
+        api(
+          HttpApiEndpoint.get("get", "/session/:sessionID", {
+            params: { sessionID: Schema.String },
+            success: Schema.Struct({ data: Schema.String }),
+          }),
+        ),
+      ),
+      { module: "@example/api", api: "Api" },
+    ).files.find((file) => file.path === "client.ts")?.content
+
+    expect(client).toContain("error instanceof Sse.SseError")
+    expect(client).toContain("Sse.Retry.is(error)")
+  })
+
   test("projects imported endpoint constants into a generated API", () => {
     const output = emitEffectImported(
       compileContract(

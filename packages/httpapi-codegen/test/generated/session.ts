@@ -45,7 +45,10 @@ type RawGroup = HttpApiClient.Client.Group<typeof Group0, never, never>
 
 const Endpoint0DeclaredError = Schema.Never
 const mapEndpoint0Error = (error: unknown) =>
-  HttpClientError.isHttpClientError(error) || Schema.isSchemaError(error) || Sse.Retry.is(error)
+  HttpClientError.isHttpClientError(error) ||
+  Schema.isSchemaError(error) ||
+  Sse.Retry.is(error) ||
+  error instanceof Sse.SseError
     ? new ClientError({ cause: error })
     : Schema.is(Endpoint0DeclaredError)(error)
       ? error
@@ -55,7 +58,10 @@ const Endpoint0 = (raw: RawGroup) => () => raw["health"]({}).pipe(Effect.mapErro
 type Endpoint1Input = { readonly archived?: (typeof Endpoint1Query.Type)["archived"] }
 const Endpoint1DeclaredError = Schema.Never
 const mapEndpoint1Error = (error: unknown) =>
-  HttpClientError.isHttpClientError(error) || Schema.isSchemaError(error) || Sse.Retry.is(error)
+  HttpClientError.isHttpClientError(error) ||
+  Schema.isSchemaError(error) ||
+  Sse.Retry.is(error) ||
+  error instanceof Sse.SseError
     ? new ClientError({ cause: error })
     : Schema.is(Endpoint1DeclaredError)(error)
       ? error
@@ -66,7 +72,10 @@ const Endpoint1 = (raw: RawGroup) => (input?: Endpoint1Input) =>
 type Endpoint2Input = { readonly sessionID: (typeof Endpoint2Params.Type)["sessionID"] }
 const Endpoint2DeclaredError = Schema.Union([Endpoint2Error0])
 const mapEndpoint2Error = (error: unknown) =>
-  HttpClientError.isHttpClientError(error) || Schema.isSchemaError(error) || Sse.Retry.is(error)
+  HttpClientError.isHttpClientError(error) ||
+  Schema.isSchemaError(error) ||
+  Sse.Retry.is(error) ||
+  error instanceof Sse.SseError
     ? new ClientError({ cause: error })
     : Schema.is(Endpoint2DeclaredError)(error)
       ? error
@@ -80,7 +89,10 @@ const Endpoint2 = (raw: RawGroup) => (input: Endpoint2Input) =>
 type Endpoint3Input = { readonly sessionID: (typeof Endpoint3Params.Type)["sessionID"] }
 const Endpoint3DeclaredError = Schema.Never
 const mapEndpoint3Error = (error: unknown) =>
-  HttpClientError.isHttpClientError(error) || Schema.isSchemaError(error) || Sse.Retry.is(error)
+  HttpClientError.isHttpClientError(error) ||
+  Schema.isSchemaError(error) ||
+  Sse.Retry.is(error) ||
+  error instanceof Sse.SseError
     ? new ClientError({ cause: error })
     : Schema.is(Endpoint3DeclaredError)(error)
       ? error

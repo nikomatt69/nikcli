@@ -23,7 +23,10 @@ type RawGroup = HttpApiClient.Client.Group<typeof Group1, never, never>
 
 const Endpoint0DeclaredError = Schema.Union([Endpoint0SuccessError])
 const mapEndpoint0Error = (error: unknown) =>
-  HttpClientError.isHttpClientError(error) || Schema.isSchemaError(error) || Sse.Retry.is(error)
+  HttpClientError.isHttpClientError(error) ||
+  Schema.isSchemaError(error) ||
+  Sse.Retry.is(error) ||
+  error instanceof Sse.SseError
     ? new ClientError({ cause: error })
     : Schema.is(Endpoint0DeclaredError)(error)
       ? error
