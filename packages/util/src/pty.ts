@@ -68,7 +68,9 @@ export function spawnPty(options: NativePtyOptions): NativePty {
   const proc = bunUtils.spawn([options.command, ...(options.args ?? [])], {
     cwd: options.cwd,
     env: envRecord(options.env ?? {}),
-    windowsHide: true,
+    // ConPTY on Windows Server (GHA windows-latest) delivers no frames when
+    // the console window is hidden. POSIX ignores this flag.
+    windowsHide: false,
     terminal: {
       cols: options.cols ?? 80,
       rows: options.rows ?? 24,
