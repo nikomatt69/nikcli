@@ -12,8 +12,9 @@ import { instance, type InstanceContext } from "./instance-ref"
  * `ManagedRuntime` whose only job was to read these three getters out of the
  * ambient scope, bind them to `InstanceRef`, and immediately read them back —
  * a round trip through the Effect runtime for a synchronous property access.
+ *
+ * R2 boundary: promise-side ambient API. Effect code uses `context` / `InstanceRef`.
  */
-/** R2 boundary: promise-side ambient API. Effect code uses `context` / `InstanceRef`. */
 export function ambient(): InstanceContext {
   return {
     directory: Instance.directory,
