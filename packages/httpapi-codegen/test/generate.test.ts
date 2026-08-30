@@ -230,7 +230,7 @@ describe("HttpApiCodegen.generate", () => {
   })
 
   test("imported Effect client maps SseError into ClientError", () => {
-    const client = emitEffectImported(
+    const output = emitEffectImported(
       compileContract(
         api(
           HttpApiEndpoint.get("get", "/session/:sessionID", {
@@ -240,26 +240,35 @@ describe("HttpApiCodegen.generate", () => {
         ),
       ),
       { module: "@example/api", api: "Api" },
-    ).files.find((file) => file.path === "client.ts")?.content
+    )
+    const client = output.files.find((file) => file.path === "client.ts")?.content
+    const errors = output.files.find((file) => file.path === "client-error.ts")?.content
 
-    expect(client).toContain("error instanceof Sse.SseError")
-    expect(client).toContain("Sse.Retry.is(error)")
-    expect(client).toContain("const mapClientError")
+    expect(errors).toContain("error instanceof Sse.SseError")
+    expect(errors).toContain("Sse.Retry.is(error)")
+    expect(errors).toContain("export const mapClientError")
+    expect(client).toContain('import { mapClientError } from "./client-error"')
+    expect(client).toContain("Effect.mapError(mapClientError)")
+    expect(client).not.toContain("const mapClientError")
   })
 
   test("in-tree Effect client maps SseError through mapTransportError", () => {
-    const session = compile(
+    const output = compile(
       api(
         HttpApiEndpoint.get("get", "/session/:sessionID", {
           params: { sessionID: Schema.String },
           success: Schema.Struct({ data: Schema.String }),
         }),
       ),
-    ).files.find((file) => file.path === "session.ts")?.content
+    )
+    const session = output.files.find((file) => file.path === "session.ts")?.content
+    const errors = output.files.find((file) => file.path === "client-error.ts")?.content
 
-    expect(session).toContain("const mapTransportError")
-    expect(session).toContain("error instanceof Sse.SseError")
+    expect(errors).toContain("export const mapTransportError")
+    expect(errors).toContain("error instanceof Sse.SseError")
+    expect(session).toContain('import { ClientError, mapTransportError } from "./client-error"')
     expect(session).toContain("mapTransportError(error)")
+    expect(session).not.toContain("const mapTransportError")
     expect(session).not.toMatch(/mapEndpoint\d+Error = \(error: unknown\) =>\s*HttpClientError/)
   })
 
