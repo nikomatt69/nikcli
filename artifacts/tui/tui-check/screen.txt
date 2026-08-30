@@ -1,0 +1,33 @@
+
+ NIKCLI                                                                                                 ┃ + new
+                Welcome to Nikcli                                                         nikcli        ┃ × all
+────────────                                                                                        ────────────
+                1. Welcome  ·  2. Account  ·  3. Filesystem  ·  4. AI provider  ·  5. Extras
+                  ·  6. Image
+
+                ────────────────────────────────────────────────────────────────────────
+
+                A terminal-native AI coding assistant. Chat with AI models, run autonomous
+                agents and automate development tasks — all without leaving your terminal.
+
+
+                What you can do
+
+                ● Read, write and refactor code across your entire project
+                ● Execute shell commands, run tests and manage processes
+                ● Review git diffs, stage changes and manage commits
+                ● Search the web and fetch live documentation on demand
+                ● Work in parallel sessions across multiple workspaces
+                ● Run proactive background agents via Brain sessions
+                ● Extend capabilities via MCP server integrations
+
+
+                Core concepts
+
+                Sessions    Persistent AI conversations with full access to your codebase,
+                            files and tools.
+
+                Providers   AI services you connect (Anthropic, OpenAI, Google…). At least one
+                ────────────────────────────────────────────────────────────────────────
+
+  /tmp/tui-p    ↵ sign in on the web                                                    step 1/6         local
