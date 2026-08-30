@@ -37,7 +37,7 @@ Authority follows the concern. When a document and the code disagree, the code w
 `Schema.Unknown` on an endpoint `success` or a domain object compiles to `any` in the SDK. Keep it only for payloads that are genuinely open, and name the reason here rather than in a side document:
 
 - **Upstream passthrough** — a third-party body the server does not interpret.
-- **Polymorphic event-sourced entries** — `session_entry` / sync frames whose variant set grows without a contract bump.
+- **Polymorphic event-sourced entries** — `session_entry` / sync frames whose variant set grows without a contract bump. Re-checked 2026-08-30 (H10): `Schema.TaggedUnion.matchOrElse` does not change this. A half-open union of known variants plus a catch-all was measured and rejected — a malformed known member decodes as the fallback.
 - **SSE frames** — the encoded event feed; the wire is `{ type, properties }`, not a closed union at the HTTP layer.
 - **Bodyless redirects** — share short-links used to stay `Unknown` so a 308 did not invent a JSON body. H9 (2026-08-30) declared `location` with `HttpApiSchema.WithHeaders`, so `ShareShortOutput` is `{ body: void, headers: { location } }` and this category is empty.
 

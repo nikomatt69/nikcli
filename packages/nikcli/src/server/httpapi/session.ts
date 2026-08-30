@@ -244,6 +244,12 @@ export namespace SessionHttpApi {
     identifier: "SessionMonitorLogOutput",
   })
 
+  // H10 (2026-08-30): still Unknown. `Schema.TaggedUnion.matchOrElse` is a
+  // consume-time matcher on a closed union — it does not decode a new
+  // variant. A half-open `Union(known, catch-all)` does, but a malformed
+  // known member (e.g. `type: "user"` missing required fields) also
+  // succeeds as the catch-all, which is worse than Unknown. SessionEntry
+  // remains a zod discriminated union, not an Effect TaggedUnion.
   const SessionV2EntryList = Schema.Array(Schema.Unknown).annotate({
     identifier: "SessionV2EntryList",
   })

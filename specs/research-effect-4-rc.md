@@ -111,8 +111,9 @@ are the two that got roadmap entries, and both are gated.
   of `{ healthy, version }` and no revision header.
 - **`Schema.TaggedUnion.matchOrElse` (rc.112)** — partial case matching with a typed fallback. The
   reason `SessionV2EntryList`, `SessionV2State` and `SessionV2EventList` are open in the SDK is that
-  a closed union would freeze the contract to a variant set that grows without a bump. That is a
-  decision taken against an API that did not exist. See H10; it is a measurement, not a build.
+  a closed union would freeze the contract to a variant set that grows without a bump. H10
+  (2026-08-30) re-checked that against `matchOrElse` and kept the non-goal: the matcher is
+  consume-time, and a half-open catch-all accepts malformed known members.
 - **`SchemaBinary` and schema-aware RPC `codecFor` (rc.112).** Relevant in principle to sync frames
   and the browser-control daemon socket, whose payloads are validated loosely on purpose. No
   evidence of a problem either causes today. Not proposed.
