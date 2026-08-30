@@ -244,6 +244,23 @@ describe("HttpApiCodegen.generate", () => {
 
     expect(client).toContain("error instanceof Sse.SseError")
     expect(client).toContain("Sse.Retry.is(error)")
+    expect(client).toContain("const mapClientError")
+  })
+
+  test("in-tree Effect client maps SseError through mapTransportError", () => {
+    const session = compile(
+      api(
+        HttpApiEndpoint.get("get", "/session/:sessionID", {
+          params: { sessionID: Schema.String },
+          success: Schema.Struct({ data: Schema.String }),
+        }),
+      ),
+    ).files.find((file) => file.path === "session.ts")?.content
+
+    expect(session).toContain("const mapTransportError")
+    expect(session).toContain("error instanceof Sse.SseError")
+    expect(session).toContain("mapTransportError(error)")
+    expect(session).not.toMatch(/mapEndpoint\d+Error = \(error: unknown\) =>\s*HttpClientError/)
   })
 
   test("projects imported endpoint constants into a generated API", () => {

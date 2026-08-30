@@ -1,7 +1,14 @@
 import { describe, expect, it } from "bun:test"
 import { Effect, Schema } from "effect"
 import z from "zod"
-import { zod, zodObject, zodObjectMode, zodOverride, ZodOverrideId } from "@nikcli-ai/util/effect-zod"
+import {
+  patternFromPayload,
+  zod,
+  zodObject,
+  zodObjectMode,
+  zodOverride,
+  ZodOverrideId,
+} from "@nikcli-ai/util/effect-zod"
 
 describe("effect-zod walker", () => {
   it("primitives", () => {
@@ -195,6 +202,12 @@ describe("effect-zod walker", () => {
     const s = zod(Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Z]+$/))))
     expect(s.safeParse("ABC").success).toBe(true)
     expect(s.safeParse("abc").success).toBe(false)
+  })
+
+  it("refinement: pattern payload without regExp/source throws", () => {
+    expect(() => patternFromPayload({})).toThrow("isPattern check is missing regExp/source payload")
+    expect(patternFromPayload({ source: "^[A-Z]+$" }).test("ABC")).toBe(true)
+    expect(patternFromPayload({ regExp: /^x$/ }).test("x")).toBe(true)
   })
 
   it("refinement: minLength / maxLength", () => {

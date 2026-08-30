@@ -324,6 +324,21 @@ function checkKind(check: unknown): { tag: string; payload: Record<string, unkno
   return undefined
 }
 
+/**
+ * Resolve the RC `isPattern` payload to a `RegExp`.
+ *
+ * Other check arms read their payload key directly and fail visibly when it is
+ * missing (`NaN` bounds, a zod throw). A quiet `return zodType` here would emit
+ * an unconstrained string — a validation hole that still parses every input.
+ */
+export function patternFromPayload(payload: Record<string, unknown>): RegExp {
+  if (payload.regExp instanceof RegExp) return payload.regExp
+  if (typeof payload.source === "string") {
+    return new RegExp(payload.source, typeof payload.flags === "string" ? payload.flags : "")
+  }
+  throw new Error("effect-zod: isPattern check is missing regExp/source payload")
+}
+
 function applyCheck(zodType: z.ZodType, check: unknown): z.ZodType {
   const kind = checkKind(check)
   if (!kind) return zodType
@@ -339,16 +354,8 @@ function applyCheck(zodType: z.ZodType, check: unknown): z.ZodType {
       return refineNumber(zodType, undefined, (n) => n.lt(payload.exclusiveMaximum as number))
     case "isLessThanOrEqualTo":
       return refineNumber(zodType, undefined, (n) => n.lte(payload.maximum as number))
-    case "isPattern": {
-      const re =
-        payload.regExp instanceof RegExp
-          ? payload.regExp
-          : typeof payload.source === "string"
-            ? new RegExp(payload.source, typeof payload.flags === "string" ? payload.flags : "")
-            : undefined
-      if (!re) return zodType
-      return refineString(zodType, undefined, (s) => s.regex(re))
-    }
+    case "isPattern":
+      return refineString(zodType, undefined, (s) => s.regex(patternFromPayload(payload)))
     case "isMinLength":
       return refineString(
         refineArray(zodType, undefined, (a) => a.min(payload.minLength as number)),

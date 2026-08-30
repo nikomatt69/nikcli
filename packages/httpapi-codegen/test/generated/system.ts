@@ -13,16 +13,23 @@ export const Group2 = HttpApiGroup.make("system", { topLevel: true }).add(
 
 type RawGroup = HttpApiClient.Client<typeof Group2>
 
-const Endpoint0DeclaredError = Schema.Never
-const mapEndpoint0Error = (error: unknown) =>
+const mapTransportError = (error: unknown) =>
   HttpClientError.isHttpClientError(error) ||
   Schema.isSchemaError(error) ||
   Sse.Retry.is(error) ||
   error instanceof Sse.SseError
     ? new ClientError({ cause: error })
+    : error
+
+const Endpoint0DeclaredError = Schema.Never
+const mapEndpoint0Error = (error: unknown) => {
+  const transported = mapTransportError(error)
+  return transported instanceof ClientError
+    ? transported
     : Schema.is(Endpoint0DeclaredError)(error)
       ? error
       : new ClientError({ cause: error })
+}
 const Endpoint0 = (raw: RawGroup) => () => raw["status"]({}).pipe(Effect.mapError(mapEndpoint0Error))
 
 export const adaptGroup2 = (raw: RawGroup) => ({ status: Endpoint0(raw) })

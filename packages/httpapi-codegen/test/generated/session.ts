@@ -43,43 +43,48 @@ export const Group0 = HttpApiGroup.make("session", { topLevel: false })
 
 type RawGroup = HttpApiClient.Client.Group<typeof Group0, never, never>
 
-const Endpoint0DeclaredError = Schema.Never
-const mapEndpoint0Error = (error: unknown) =>
+const mapTransportError = (error: unknown) =>
   HttpClientError.isHttpClientError(error) ||
   Schema.isSchemaError(error) ||
   Sse.Retry.is(error) ||
   error instanceof Sse.SseError
     ? new ClientError({ cause: error })
+    : error
+
+const Endpoint0DeclaredError = Schema.Never
+const mapEndpoint0Error = (error: unknown) => {
+  const transported = mapTransportError(error)
+  return transported instanceof ClientError
+    ? transported
     : Schema.is(Endpoint0DeclaredError)(error)
       ? error
       : new ClientError({ cause: error })
+}
 const Endpoint0 = (raw: RawGroup) => () => raw["health"]({}).pipe(Effect.mapError(mapEndpoint0Error))
 
 type Endpoint1Input = { readonly archived?: (typeof Endpoint1Query.Type)["archived"] }
 const Endpoint1DeclaredError = Schema.Never
-const mapEndpoint1Error = (error: unknown) =>
-  HttpClientError.isHttpClientError(error) ||
-  Schema.isSchemaError(error) ||
-  Sse.Retry.is(error) ||
-  error instanceof Sse.SseError
-    ? new ClientError({ cause: error })
+const mapEndpoint1Error = (error: unknown) => {
+  const transported = mapTransportError(error)
+  return transported instanceof ClientError
+    ? transported
     : Schema.is(Endpoint1DeclaredError)(error)
       ? error
       : new ClientError({ cause: error })
+}
 const Endpoint1 = (raw: RawGroup) => (input?: Endpoint1Input) =>
   raw["list"]({ query: { archived: input?.["archived"] } }).pipe(Effect.mapError(mapEndpoint1Error))
 
 type Endpoint2Input = { readonly sessionID: (typeof Endpoint2Params.Type)["sessionID"] }
 const Endpoint2DeclaredError = Schema.Union([Endpoint2Error0])
-const mapEndpoint2Error = (error: unknown) =>
-  HttpClientError.isHttpClientError(error) ||
-  Schema.isSchemaError(error) ||
-  Sse.Retry.is(error) ||
-  error instanceof Sse.SseError
-    ? new ClientError({ cause: error })
+const mapEndpoint2Error = (error: unknown) => {
+  const transported = mapTransportError(error)
+  return transported instanceof ClientError
+    ? transported
     : Schema.is(Endpoint2DeclaredError)(error)
       ? error
       : new ClientError({ cause: error })
+}
 const Endpoint2 = (raw: RawGroup) => (input: Endpoint2Input) =>
   raw["get"]({ params: { sessionID: input["sessionID"] } }).pipe(
     Effect.mapError(mapEndpoint2Error),
@@ -88,15 +93,14 @@ const Endpoint2 = (raw: RawGroup) => (input: Endpoint2Input) =>
 
 type Endpoint3Input = { readonly sessionID: (typeof Endpoint3Params.Type)["sessionID"] }
 const Endpoint3DeclaredError = Schema.Never
-const mapEndpoint3Error = (error: unknown) =>
-  HttpClientError.isHttpClientError(error) ||
-  Schema.isSchemaError(error) ||
-  Sse.Retry.is(error) ||
-  error instanceof Sse.SseError
-    ? new ClientError({ cause: error })
+const mapEndpoint3Error = (error: unknown) => {
+  const transported = mapTransportError(error)
+  return transported instanceof ClientError
+    ? transported
     : Schema.is(Endpoint3DeclaredError)(error)
       ? error
       : new ClientError({ cause: error })
+}
 const Endpoint3 = (raw: RawGroup) => (input: Endpoint3Input) =>
   raw["interrupt"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapEndpoint3Error))
 

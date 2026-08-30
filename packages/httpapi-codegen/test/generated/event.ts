@@ -21,16 +21,23 @@ export const Group1 = HttpApiGroup.make("event", { topLevel: false }).add(
 
 type RawGroup = HttpApiClient.Client.Group<typeof Group1, never, never>
 
-const Endpoint0DeclaredError = Schema.Union([Endpoint0SuccessError])
-const mapEndpoint0Error = (error: unknown) =>
+const mapTransportError = (error: unknown) =>
   HttpClientError.isHttpClientError(error) ||
   Schema.isSchemaError(error) ||
   Sse.Retry.is(error) ||
   error instanceof Sse.SseError
     ? new ClientError({ cause: error })
+    : error
+
+const Endpoint0DeclaredError = Schema.Union([Endpoint0SuccessError])
+const mapEndpoint0Error = (error: unknown) => {
+  const transported = mapTransportError(error)
+  return transported instanceof ClientError
+    ? transported
     : Schema.is(Endpoint0DeclaredError)(error)
       ? error
       : new ClientError({ cause: error })
+}
 const Endpoint0 = (raw: RawGroup) => () =>
   Stream.unwrap(
     raw["subscribe"]({}).pipe(
