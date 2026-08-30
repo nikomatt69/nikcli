@@ -4497,6 +4497,10 @@ export type SessionBackgroundNotFound = { readonly error: "Session not found" }
 
 export type AccountError = { readonly error: string }
 
+export type SyncRateLimited = { readonly headers: { readonly "retry-after": string } }
+
+export type UnauthorizedChallenge = { readonly headers: { readonly "www-authenticate"?: string | undefined } }
+
 export type TuiValidationError = { readonly data: unknown; readonly error: unknown; readonly success: false }
 
 export type TuiNotFoundError = { readonly name: "NotFoundError"; readonly data: { readonly [x: string]: any } }
@@ -8776,7 +8780,7 @@ export type SessionPromptPromptAsyncOutput = void
 
 export type ShareShortInput = { readonly shareID: { readonly shareID: string }["shareID"] }
 
-export type ShareShortOutput = unknown
+export type ShareShortOutput = { readonly body: void; readonly headers: { readonly location: string } }
 
 export type SharePageInput = { readonly shareID: { readonly shareID: string }["shareID"] }
 

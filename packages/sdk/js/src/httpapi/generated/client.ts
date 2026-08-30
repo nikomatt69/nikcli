@@ -597,6 +597,9 @@ interface RequestDescriptor {
   readonly body?: unknown
   readonly successStatus: number
   readonly declaredStatuses: ReadonlyArray<number>
+  readonly responseHeaders?: ReadonlyArray<string>
+  readonly errorHeaders?: { readonly [status: string]: ReadonlyArray<string> }
+  readonly emptyErrors?: ReadonlyArray<number>
   readonly empty: boolean
   readonly text?: true
 }
@@ -636,7 +639,16 @@ export function make(options: ClientOptions) {
   }
 
   const responseError = async (response: Response, descriptor: RequestDescriptor): Promise<never> => {
-    if (descriptor.declaredStatuses.includes(response.status)) throw await json(response)
+    if (descriptor.declaredStatuses.includes(response.status)) {
+      const names = descriptor.errorHeaders?.[String(response.status)]
+      if (descriptor.emptyErrors?.includes(response.status)) {
+        try {
+          await response.body?.cancel()
+        } catch {}
+        throw { headers: readDeclaredHeaders(response, names) ?? {} }
+      }
+      throw await json(response)
+    }
     try {
       await response.body?.cancel()
     } catch {}
@@ -651,9 +663,9 @@ export function make(options: ClientOptions) {
       try {
         await response.body?.cancel()
       } catch {}
-      return undefined as A
+      return attachDeclaredHeaders(undefined, response, descriptor.responseHeaders) as A
     }
-    return (await json(response)) as A
+    return attachDeclaredHeaders(await json(response), response, descriptor.responseHeaders) as A
   }
 
   const sse = <A>(descriptor: RequestDescriptor, requestOptions?: RequestOptions): AsyncIterable<A> => ({
@@ -3804,7 +3816,9 @@ export function make(options: ClientOptions) {
             path: `/sync/event`,
             body: { event: input["event"], projectID: input["projectID"] },
             successStatus: 204,
-            declaredStatuses: [],
+            declaredStatuses: [429, 401],
+            errorHeaders: { "401": ["www-authenticate"], "429": ["retry-after"] },
+            emptyErrors: [429, 401],
             empty: true,
           },
           requestOptions,
@@ -4257,9 +4271,10 @@ export function make(options: ClientOptions) {
           {
             method: "GET",
             path: `/s/${encodeURIComponent(input.shareID)}`,
-            successStatus: 200,
+            successStatus: 308,
             declaredStatuses: [],
-            empty: false,
+            responseHeaders: ["location"],
+            empty: true,
           },
           requestOptions,
         ),
@@ -4425,4 +4440,19 @@ async function json(response: Response): Promise<unknown> {
 
 function isContentType(response: Response, expected: string) {
   return response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() === expected
+}
+
+function readDeclaredHeaders(response: Response, names: ReadonlyArray<string> | undefined) {
+  if (names === undefined) return undefined
+  const headers: { [key: string]: string } = {}
+  for (const name of names) {
+    const value = response.headers.get(name)
+    if (value !== null) headers[name] = value
+  }
+  return headers
+}
+
+function attachDeclaredHeaders<A>(body: A, response: Response, names: ReadonlyArray<string> | undefined): A {
+  const headers = readDeclaredHeaders(response, names)
+  return headers === undefined ? body : ({ body, headers } as A)
 }

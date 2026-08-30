@@ -229,6 +229,44 @@ describe("HttpApiCodegen.generate", () => {
     )
   })
 
+  test("Promise client returns declared WithHeaders on an empty success", async () => {
+    const output = emitPromise(
+      compileContract(
+        api(
+          HttpApiEndpoint.get("short", "/s/:shareID", {
+            params: { shareID: Schema.String },
+            success: HttpApiSchema.WithHeaders(HttpApiSchema.Empty(308), {
+              location: Schema.String,
+            }),
+          }),
+        ),
+      ),
+    )
+    const types = output.files.find((file) => file.path === "types.ts")?.content
+    const client = output.files.find((file) => file.path === "client.ts")?.content
+    expect(types).toContain('readonly "location": string')
+    expect(types).toContain("readonly headers:")
+    expect(client).toContain('responseHeaders: ["location"]')
+    expect(client).toContain("attachDeclaredHeaders")
+
+    const directory = await mkdtemp(join(tmpdir(), "nikcli-httpapi-codegen-"))
+    try {
+      await Promise.all(output.files.map((file) => Bun.write(join(directory, file.path), file.content)))
+      const generated = await import(`${join(directory, "index.ts")}?t=${crypto.randomUUID()}`)
+      const result = await generated.NikCli.make({
+        baseUrl: "https://example.com",
+        fetch: async () =>
+          new Response(null, {
+            status: 308,
+            headers: { location: "/share/abc" },
+          }),
+      }).session.short({ shareID: "abc" })
+      expect(result).toEqual({ body: undefined, headers: { location: "/share/abc" } })
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   test("imported Effect client maps SseError into ClientError", () => {
     const output = emitEffectImported(
       compileContract(

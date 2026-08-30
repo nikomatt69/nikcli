@@ -39,7 +39,7 @@ Authority follows the concern. When a document and the code disagree, the code w
 - **Upstream passthrough** — a third-party body the server does not interpret.
 - **Polymorphic event-sourced entries** — `session_entry` / sync frames whose variant set grows without a contract bump.
 - **SSE frames** — the encoded event feed; the wire is `{ type, properties }`, not a closed union at the HTTP layer.
-- **Bodyless redirects** — share short-links and similar 3xx responses.
+- **Bodyless redirects** — share short-links used to stay `Unknown` so a 308 did not invent a JSON body. H9 (2026-08-30) declared `location` with `HttpApiSchema.WithHeaders`, so `ShareShortOutput` is `{ body: void, headers: { location } }` and this category is empty.
 
 Everything else gets a real schema. Measure top-level leftovers with:
 
@@ -49,7 +49,7 @@ grep -cE '^export type [A-Za-z0-9_]+ = (unknown|Array<unknown>)$' packages/sdk/j
 
 That command only sees an alias whose **whole** right-hand side is open. It is the headline number, not the whole count, and an item is not done because it reached zero. An open payload nested inside a struct is invisible to it.
 
-Measured **2026-08-19** (H1 closed; unchanged since H6 landed): open payloads emit `unknown`, not `any` — the codegen no longer rewrites `\bunknown\b` → `any`. Index-signature catchalls still emit `{ [x: string]: any }`. Top-level open aliases are now `SessionV2EntryList = Array<unknown>`, `SessionV2State = unknown`, `SessionV2EventList = Array<unknown>`, `AccountResponse = unknown`, `WorkspaceJournalEvent = unknown`, `MobileGithubReposOutput = Array<unknown>`, `MobileSessionStreamOutput = unknown`, `MobileEventsOutput = unknown`, `SyncStreamOutput = unknown`, `ShareShortOutput = unknown` (all justified in the categories above). Flattened write inputs are `{ name: OpPayload["name"]; … }` plus path params. Loop/mission create-update, `MobileProject`, and `ProfilePatchInput` are real structs.
+Measured **2026-08-19** (H1 closed; unchanged since H6 landed): open payloads emit `unknown`, not `any` — the codegen no longer rewrites `\bunknown\b` → `any`. Index-signature catchalls still emit `{ [x: string]: any }`. Top-level open aliases as of H9 (2026-08-30) are `SessionV2EntryList = Array<unknown>`, `SessionV2State = unknown`, `SessionV2EventList = Array<unknown>`, `AccountResponse = unknown`, `WorkspaceJournalEvent = unknown`, `MobileGithubReposOutput = Array<unknown>`, `MobileSessionStreamOutput = unknown`, `MobileEventsOutput = unknown`, `SyncStreamOutput = unknown` (all justified in the categories above). `ShareShortOutput` left that list when H9 declared `location`. Flattened write inputs are `{ name: OpPayload["name"]; … }` plus path params. Loop/mission create-update, `MobileProject`, and `ProfilePatchInput` are real structs.
 
 ```sh
 grep -nE '(\[x: string\]: any|Array<unknown>|: unknown\b)' packages/sdk/js/src/httpapi/generated/types.ts
