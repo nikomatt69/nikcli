@@ -77,7 +77,7 @@ export namespace Pty {
     readonly onClose: () => void
   }
 
-  export class CreateError extends Schema.TaggedErrorClass<CreateError>()("PtyCreateError", {
+  export class CreateError extends Schema.TaggedError<CreateError>()("PtyCreateError", {
     command: Schema.String,
     cause: Schema.optional(Schema.Unknown),
   }) {
@@ -92,7 +92,7 @@ export namespace Pty {
    * The HTTP wire name stays the literal `"NotFoundError"` — boundaries must
    * emit that string rather than forwarding `_tag` (`PtyNotFoundError`).
    */
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("PtyNotFoundError", {
+  export class NotFoundError extends Schema.TaggedError<NotFoundError>()("PtyNotFoundError", {
     message: Schema.String,
   }) {}
 

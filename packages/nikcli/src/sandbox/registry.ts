@@ -7,7 +7,7 @@ import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "sandbox.registry" })
 
-export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("SandboxNotFoundError", {
+export class NotFoundError extends Schema.TaggedError<NotFoundError>()("SandboxNotFoundError", {
   workspaceID: Schema.String,
 }) {}
 

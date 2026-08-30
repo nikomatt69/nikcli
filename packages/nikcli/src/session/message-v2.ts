@@ -39,7 +39,7 @@ export namespace MessageV2 {
 
   /**
    * Declared `{ name, data }` error bodies. These are the wire shapes persisted on
-   * assistant messages and served over HTTP; the `TaggedErrorClass`es below are the
+   * assistant messages and served over HTTP; the `TaggedError` classes below are the
    * runtime error channel counterparts and derive their zod statics from these.
    */
   const AuthErrorBody = Schema.Struct({
@@ -89,16 +89,13 @@ export namespace MessageV2 {
     }).annotate(strip),
   }).annotate({ ...strip, identifier: "APIError" })
 
-  export class OutputLengthError extends Schema.TaggedErrorClass<OutputLengthError>()("MessageOutputLengthError", {}) {}
-  export class ContextOverflowError extends Schema.TaggedErrorClass<ContextOverflowError>()(
-    "MessageContextOverflowError",
-    {
-      message: Schema.String,
-      statusCode: Schema.optionalKey(Schema.Number),
-      responseBody: Schema.optionalKey(Schema.String),
-    },
-  ) {}
-  export class AbortedError extends Schema.TaggedErrorClass<AbortedError>()("MessageAbortedError", {
+  export class OutputLengthError extends Schema.TaggedError<OutputLengthError>()("MessageOutputLengthError", {}) {}
+  export class ContextOverflowError extends Schema.TaggedError<ContextOverflowError>()("MessageContextOverflowError", {
+    message: Schema.String,
+    statusCode: Schema.optionalKey(Schema.Number),
+    responseBody: Schema.optionalKey(Schema.String),
+  }) {}
+  export class AbortedError extends Schema.TaggedError<AbortedError>()("MessageAbortedError", {
     message: Schema.String,
   }) {
     static readonly Schema = zodObject(AbortedErrorBody)
@@ -106,7 +103,7 @@ export namespace MessageV2 {
       return NamedErrorEnvelope.safeParse(error).data?.name === "MessageAbortedError"
     }
   }
-  export class StructuredOutputError extends Schema.TaggedErrorClass<StructuredOutputError>()("StructuredOutputError", {
+  export class StructuredOutputError extends Schema.TaggedError<StructuredOutputError>()("StructuredOutputError", {
     message: Schema.String,
     retries: Schema.Number,
   }) {
@@ -115,7 +112,7 @@ export namespace MessageV2 {
       return NamedErrorEnvelope.safeParse(error).data?.name === "StructuredOutputError"
     }
   }
-  export class AuthError extends Schema.TaggedErrorClass<AuthError>()("ProviderAuthError", {
+  export class AuthError extends Schema.TaggedError<AuthError>()("ProviderAuthError", {
     providerID: Schema.String,
     message: Schema.String,
   }) {
@@ -124,7 +121,7 @@ export namespace MessageV2 {
       return NamedErrorEnvelope.safeParse(error).data?.name === "ProviderAuthError"
     }
   }
-  export class APIError extends Schema.TaggedErrorClass<APIError>()("APIError", {
+  export class APIError extends Schema.TaggedError<APIError>()("APIError", {
     message: Schema.String,
     statusCode: Schema.optionalKey(Schema.Number),
     isRetryable: Schema.Boolean,

@@ -12,7 +12,7 @@ export namespace Image {
   const JPEG_QUALITIES = [80, 85, 70, 55, 40]
   const log = Log.create({ service: "image" })
 
-  export class ResizerUnavailableError extends Schema.TaggedErrorClass<ResizerUnavailableError>()(
+  export class ResizerUnavailableError extends Schema.TaggedError<ResizerUnavailableError>()(
     "ImageResizerUnavailableError",
     {},
   ) {
@@ -21,7 +21,7 @@ export namespace Image {
     }
   }
 
-  export class InvalidDataUrlError extends Schema.TaggedErrorClass<InvalidDataUrlError>()("ImageInvalidDataUrlError", {
+  export class InvalidDataUrlError extends Schema.TaggedError<InvalidDataUrlError>()("ImageInvalidDataUrlError", {
     url: Schema.String,
   }) {
     override get message() {
@@ -29,13 +29,13 @@ export namespace Image {
     }
   }
 
-  export class DecodeError extends Schema.TaggedErrorClass<DecodeError>()("ImageDecodeError", {}) {
+  export class DecodeError extends Schema.TaggedError<DecodeError>()("ImageDecodeError", {}) {
     override get message() {
       return "Image could not be decoded"
     }
   }
 
-  export class SizeError extends Schema.TaggedErrorClass<SizeError>()("ImageSizeError", {
+  export class SizeError extends Schema.TaggedError<SizeError>()("ImageSizeError", {
     bytes: Schema.Number,
     max: Schema.Number,
     width: Schema.Number,

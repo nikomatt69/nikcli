@@ -143,6 +143,7 @@ export namespace FFF {
     }
   }
 
+  /** R2 boundary: module funnel — ~15 search exports share this cell; a param on each would leave this file. */
   const state = Instance.state(
     () => initializeHandle(Instance.directory),
     async (handle) => {

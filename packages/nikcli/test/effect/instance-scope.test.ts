@@ -91,7 +91,7 @@ describe("InstanceScope", () => {
   })
 
   it("preserves typed failures across the bridge instead of squashing to Error", async () => {
-    class MarkerError extends Schema.TaggedErrorClass<MarkerError>()("MarkerError", {
+    class MarkerError extends Schema.TaggedError<MarkerError>()("MarkerError", {
       detail: Schema.String,
     }) {}
 

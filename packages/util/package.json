@@ -1,6 +1,6 @@
 {
   "name": "@nikcli-ai/util",
-  "version": "1.321.0",
+  "version": "1.322.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -14,7 +14,7 @@
   "dependencies": {
     "@nikcli-ai/remote": "workspace:*",
     "@silvia-odwyer/photon-node": "0.3.4",
-    "effect": "4.0.0-beta.83",
+    "effect": "4.0.0-rc.112",
     "jsonc-parser": "3.3.1",
     "semver": "7.7.4",
     "xdg-basedir": "5.1.0",

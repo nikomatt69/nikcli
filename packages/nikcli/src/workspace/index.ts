@@ -96,7 +96,7 @@ export namespace Workspace {
    * The HTTP wire name stays the literal `"NotFoundError"` — boundaries must
    * emit that string rather than forwarding `_tag` (`WorkspaceNotFoundError`).
    */
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("WorkspaceNotFoundError", {
+  export class NotFoundError extends Schema.TaggedError<NotFoundError>()("WorkspaceNotFoundError", {
     message: Schema.String,
   }) {}
 

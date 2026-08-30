@@ -26,6 +26,7 @@ export namespace BrowserControl {
    */
   const sockets = new Map<string | undefined, Promise<string>>()
 
+  /** R2 boundary: scoped callers plus unscoped shutdown; four external files would have to pass a directory. */
   function currentDirectory(): string | undefined {
     try {
       return Instance.directory

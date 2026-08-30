@@ -43,6 +43,7 @@ export async function handleEventsRequest(request: Request): Promise<Response | 
   const path = new URL(request.url).pathname
   if (path !== "/mobile/events" || request.method !== "GET") return
 
+  // R2 boundary: raw mobile SSE — same constraint as httpapi/event.ts.
   const directory = Instance.directory
   const feed = instanceFeed(directory)
 

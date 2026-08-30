@@ -84,7 +84,7 @@ export namespace HttpApiEvent {
    */
   export function handleInstance(): Response {
     log.info("event connected")
-    // Read the instance key in the caller's scope, not inside the stream.
+    // R2 boundary: raw SSE — `Bus.subscribeAll` binds the instance at subscription time.
     const directory = Instance.directory
     const feed = instanceFeed(directory)
 

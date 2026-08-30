@@ -2,7 +2,7 @@ import { ConnectorAuth } from "../auth"
 import { Effect, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 
-export class SlackApiError extends Schema.TaggedErrorClass<SlackApiError>()("SlackApiError", {
+export class SlackApiError extends Schema.TaggedError<SlackApiError>()("SlackApiError", {
   message: Schema.String,
 }) {}
 

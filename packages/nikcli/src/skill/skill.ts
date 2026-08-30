@@ -35,23 +35,23 @@ export namespace Skill {
     content: string
   }
 
-  export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("SkillInvalidError", {
+  export class InvalidError extends Schema.TaggedError<InvalidError>()("SkillInvalidError", {
     path: Schema.String,
     message: Schema.optional(Schema.String),
     issues: Schema.optional(Schema.Unknown),
   }) {}
 
-  export class NameMismatchError extends Schema.TaggedErrorClass<NameMismatchError>()("SkillNameMismatchError", {
+  export class NameMismatchError extends Schema.TaggedError<NameMismatchError>()("SkillNameMismatchError", {
     path: Schema.String,
     expected: Schema.String,
     actual: Schema.String,
   }) {}
 
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("SkillNotFoundError", {
+  export class NotFoundError extends Schema.TaggedError<NotFoundError>()("SkillNotFoundError", {
     name: Schema.String,
   }) {}
 
-  export class AlreadyExistsError extends Schema.TaggedErrorClass<AlreadyExistsError>()("SkillAlreadyExistsError", {
+  export class AlreadyExistsError extends Schema.TaggedError<AlreadyExistsError>()("SkillAlreadyExistsError", {
     name: Schema.String,
     location: Schema.String,
   }) {}

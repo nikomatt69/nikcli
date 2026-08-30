@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "version": "1.321.0",
+  "version": "1.322.0",
   "name": "@nikcli-ai/llm",
   "type": "module",
   "license": "MIT",
@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@clack/prompts": "1.0.0-alpha.1",
-    "@effect/platform-node": "4.0.0-beta.83",
+    "@effect/platform-node": "4.0.0-rc.112",
     "@nikcli-ai/http-recorder": "workspace:*",
     "@tsconfig/bun": "catalog:",
     "@types/bun": "catalog:",
@@ -51,7 +51,7 @@
     "@smithy/util-utf8": "4.2.2",
     "aws4fetch": "1.0.20",
     "ai": "catalog:",
-    "effect": "4.0.0-beta.83",
+    "effect": "4.0.0-rc.112",
     "zod": "catalog:"
   }
 }

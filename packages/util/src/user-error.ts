@@ -10,12 +10,12 @@ import { Schema } from "effect"
  * render its `title`, `what`, and `try` fields separately instead of dumping
  * a stack trace.
  *
- * Implemented as a `Schema.TaggedErrorClass` so it integrates with the Effect
+ * Implemented as a `Schema.TaggedError` so it integrates with the Effect
  * error channel: the instance carries `_tag === "UserFacingError"`,
  * `instanceof UserFacingError` continues to work for plain `try/catch` paths,
  * and `Effect.catchTag("UserFacingError", ...)` works on the Effect side.
  */
-export class UserFacingError extends Schema.TaggedErrorClass<UserFacingError>()("UserFacingError", {
+export class UserFacingError extends Schema.TaggedError<UserFacingError>()("UserFacingError", {
   title: Schema.String,
   what: Schema.String,
   try: Schema.String,

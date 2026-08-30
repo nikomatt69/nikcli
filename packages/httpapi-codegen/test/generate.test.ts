@@ -25,11 +25,11 @@ import {
 import { it } from "./effect"
 import { Api as FixtureApi, Missing } from "./fixture"
 
-function api(endpoint: HttpApiEndpoint.Any) {
+function api(endpoint: HttpApiEndpoint.Constraint) {
   return HttpApi.make("test").add(HttpApiGroup.make("session").add(endpoint))
 }
 
-function compile<Id extends string, Groups extends HttpApiGroup.Any>(source: HttpApi.HttpApi<Id, Groups>) {
+function compile<Id extends string, Groups extends HttpApiGroup.Constraint>(source: HttpApi.HttpApi<Id, Groups>) {
   return emitEffect(compileContract(source))
 }
 
@@ -227,6 +227,87 @@ describe("HttpApiCodegen.generate", () => {
     expect(output.files.find((file) => file.path === "client.ts")?.content).toContain(
       "HttpApiClient.ForApi<typeof Api>",
     )
+  })
+
+  test("Promise client returns declared WithHeaders on an empty success", async () => {
+    const output = emitPromise(
+      compileContract(
+        api(
+          HttpApiEndpoint.get("short", "/s/:shareID", {
+            params: { shareID: Schema.String },
+            success: HttpApiSchema.WithHeaders(HttpApiSchema.Empty(308), {
+              location: Schema.String,
+            }),
+          }),
+        ),
+      ),
+    )
+    const types = output.files.find((file) => file.path === "types.ts")?.content
+    const client = output.files.find((file) => file.path === "client.ts")?.content
+    expect(types).toContain('readonly "location": string')
+    expect(types).toContain("readonly headers:")
+    expect(client).toContain('responseHeaders: ["location"]')
+    expect(client).toContain("attachDeclaredHeaders")
+
+    const directory = await mkdtemp(join(tmpdir(), "nikcli-httpapi-codegen-"))
+    try {
+      await Promise.all(output.files.map((file) => Bun.write(join(directory, file.path), file.content)))
+      const generated = await import(`${join(directory, "index.ts")}?t=${crypto.randomUUID()}`)
+      const result = await generated.NikCli.make({
+        baseUrl: "https://example.com",
+        fetch: async () =>
+          new Response(null, {
+            status: 308,
+            headers: { location: "/share/abc" },
+          }),
+      }).session.short({ shareID: "abc" })
+      expect(result).toEqual({ body: undefined, headers: { location: "/share/abc" } })
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  test("imported Effect client maps SseError into ClientError", () => {
+    const output = emitEffectImported(
+      compileContract(
+        api(
+          HttpApiEndpoint.get("get", "/session/:sessionID", {
+            params: { sessionID: Schema.String },
+            success: Schema.Struct({ data: Schema.String }),
+          }),
+        ),
+      ),
+      { module: "@example/api", api: "Api" },
+    )
+    const client = output.files.find((file) => file.path === "client.ts")?.content
+    const errors = output.files.find((file) => file.path === "client-error.ts")?.content
+
+    expect(errors).toContain("error instanceof Sse.SseError")
+    expect(errors).toContain("Sse.Retry.is(error)")
+    expect(errors).toContain("export const mapClientError")
+    expect(client).toContain('import { mapClientError } from "./client-error"')
+    expect(client).toContain("Effect.mapError(mapClientError)")
+    expect(client).not.toContain("const mapClientError")
+  })
+
+  test("in-tree Effect client maps SseError through mapTransportError", () => {
+    const output = compile(
+      api(
+        HttpApiEndpoint.get("get", "/session/:sessionID", {
+          params: { sessionID: Schema.String },
+          success: Schema.Struct({ data: Schema.String }),
+        }),
+      ),
+    )
+    const session = output.files.find((file) => file.path === "session.ts")?.content
+    const errors = output.files.find((file) => file.path === "client-error.ts")?.content
+
+    expect(errors).toContain("export const mapTransportError")
+    expect(errors).toContain("error instanceof Sse.SseError")
+    expect(session).toContain('import { ClientError, mapTransportError } from "./client-error"')
+    expect(session).toContain("mapTransportError(error)")
+    expect(session).not.toContain("const mapTransportError")
+    expect(session).not.toMatch(/mapEndpoint\d+Error = \(error: unknown\) =>\s*HttpClientError/)
   })
 
   test("projects imported endpoint constants into a generated API", () => {
@@ -562,7 +643,7 @@ describe("HttpApiCodegen.generate", () => {
 
     expect(
       contract.groups.flatMap((group) =>
-        group.endpoints.map((endpoint) => `${group.identifier}.${endpoint.endpoint.name}`),
+        group.endpoints.map((endpoint) => `${group.identifier}.${endpoint.endpoint.identifier}`),
       ),
     ).toEqual(["pty.get", "other.connect"])
   })
@@ -666,7 +747,7 @@ describe("HttpApiCodegen.generate", () => {
   })
 
   test("preserves optional keys in Promise error types", () => {
-    class OptionalError extends Schema.TaggedErrorClass<OptionalError>()(
+    class OptionalError extends Schema.TaggedError<OptionalError>()(
       "OptionalError",
       { message: Schema.String, detail: Schema.String.pipe(Schema.optional) },
       { httpApiStatus: 400 },
@@ -688,7 +769,7 @@ describe("HttpApiCodegen.generate", () => {
   })
 
   test("supports name-discriminated Promise errors", () => {
-    class NamedError extends Schema.ErrorClass<NamedError>("NamedError")(
+    class NamedError extends Schema.Error<NamedError>("NamedError")(
       { name: Schema.Literal("NamedError"), message: Schema.String },
       { httpApiStatus: 400 },
     ) {}
@@ -733,7 +814,7 @@ describe("HttpApiCodegen.generate", () => {
   })
 
   test("preserves reflected default error statuses", () => {
-    class MissingStatus extends Schema.TaggedErrorClass<MissingStatus>()("MissingStatus", {
+    class MissingStatus extends Schema.TaggedError<MissingStatus>()("MissingStatus", {
       message: Schema.String,
     }) {}
     const output = emitPromise(
@@ -1533,7 +1614,7 @@ describe("HttpApiCodegen.generate", () => {
       new SchemaAST.Link(Schema.String.check(Schema.isMinLength(2)).ast, link.transformation),
     ])
     if (!SchemaAST.isAST(ast)) throw new Error("Expected altered schema AST")
-    const Altered = Schema.make(ast)
+    const Altered = Schema.make(ast) as Schema.Top
 
     expect(() => compile(api(HttpApiEndpoint.get("get", "/session", { success: Altered })))).toThrow(
       "Effect schema requires authoritative import: session.get",
@@ -1557,7 +1638,7 @@ describe("HttpApiCodegen.generate", () => {
   })
 
   test("preserves errors from server-only middleware", () => {
-    class Unauthorized extends Schema.TaggedErrorClass<Unauthorized>()("Unauthorized", {}) {}
+    class Unauthorized extends Schema.TaggedError<Unauthorized>()("Unauthorized", {}) {}
     class Authorization extends HttpApiMiddleware.Service<Authorization>()("Authorization", {
       error: Unauthorized,
     }) {}
@@ -1572,12 +1653,12 @@ describe("HttpApiCodegen.generate", () => {
 
     expect(output.operations[0]).toBeDefined()
     expect(output.files.find((file) => file.path === "session.ts")?.content).toContain(
-      'extends Schema.TaggedErrorClass<Endpoint0Error0Class>("Unauthorized")',
+      'extends Schema.TaggedError<Endpoint0Error0Class>("Unauthorized")',
     )
   })
 
   test("preserves tagged error response statuses", () => {
-    class Missing extends Schema.TaggedErrorClass<Missing>()("Missing", {}) {}
+    class Missing extends Schema.TaggedError<Missing>()("Missing", {}) {}
     const output = compile(
       api(
         HttpApiEndpoint.get("get", "/session", {

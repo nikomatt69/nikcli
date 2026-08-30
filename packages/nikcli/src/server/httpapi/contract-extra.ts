@@ -205,7 +205,10 @@ export namespace ContractExtraHttpApi {
     .add(
       HttpApiEndpoint.get("short", "/s/:shareID", {
         params: SharePath,
-        success: Schema.Unknown.annotate({
+        success: HttpApiSchema.WithHeaders(HttpApiSchema.Empty(308), {
+          location: Schema.String,
+        }).annotate({
+          identifier: "ShareShortRedirect",
           description: "308 redirect to /share/:shareID",
         }),
       }).annotate(OpenApi.Identifier, "getS:shareID"),

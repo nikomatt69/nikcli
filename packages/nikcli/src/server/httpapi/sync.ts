@@ -97,11 +97,21 @@ export namespace SyncHttpApi {
     events: Schema.Array(StatsEvent),
   }).annotate({ identifier: "SyncStatsOutput" })
 
+  const RateLimited = HttpApiSchema.WithHeaders(HttpApiSchema.Empty(429).annotate({ identifier: "SyncRateLimited" }), {
+    "retry-after": Schema.NumberFromString,
+  })
+
+  const UnauthorizedChallenge = HttpApiSchema.WithHeaders(
+    HttpApiSchema.Empty(401).annotate({ identifier: "UnauthorizedChallenge" }),
+    { "www-authenticate": Schema.optional(Schema.String) },
+  )
+
   export const Group = HttpApiGroup.make("sync")
     .add(
       HttpApiEndpoint.post("event", "/event", {
         payload: EventPushPayload,
         success: HttpApiSchema.NoContent,
+        error: [RateLimited, UnauthorizedChallenge],
       }).annotate(OpenApi.Identifier, "sync.event.push"),
     )
     .add(

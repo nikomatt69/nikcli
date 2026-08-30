@@ -23,7 +23,7 @@ export namespace ManagedWorktree {
   export type ID = string
 
   // Error types
-  export class WorktreeError extends Schema.TaggedErrorClass<WorktreeError>()("ManagedWorktreeError", {
+  export class WorktreeError extends Schema.TaggedError<WorktreeError>()("ManagedWorktreeError", {
     message: Schema.String,
     code: Schema.optional(Schema.String),
   }) {}

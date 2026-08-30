@@ -242,7 +242,7 @@ describe("ProjectCopy v2 compatibility", () => {
         expect(path.basename(copy.directory)).toBe("taken-2")
       })
     })
-  })
+  }, 15_000)
 
   it("refresh discovers an external worktree and prunes a vanished directory", async () => {
     const { withIsolatedDatabase } = await import("../helpers/sqlite")

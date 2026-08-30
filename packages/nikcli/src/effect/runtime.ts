@@ -84,6 +84,7 @@ export function withCurrentInstance<A, E, R>(effect: Effect.Effect<A, E, R>) {
     if (Option.isSome(fiberCtx)) {
       return yield* effect
     }
+    // R2 boundary: Promise→Effect bridge. Do not delete — ~165 call sites have no context.
     const ctx: InstanceContext = {
       directory: Instance.directory,
       worktree: Instance.worktree,

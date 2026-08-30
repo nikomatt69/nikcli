@@ -24,7 +24,7 @@ export namespace ProjectCopy {
   })
   export type RemoveInput = Schema.Schema.Type<typeof RemoveInputSchema>
 
-  export class CopyError extends Schema.TaggedErrorClass<CopyError>()("ProjectCopyError", {
+  export class CopyError extends Schema.TaggedError<CopyError>()("ProjectCopyError", {
     message: Schema.String,
     directory: Schema.optional(Schema.String),
     forceRequired: Schema.optional(Schema.Boolean),

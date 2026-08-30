@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@nikcli-ai/sdk": "workspace:*",
-    "effect": "4.0.0-beta.83",
+    "effect": "4.0.0-rc.112",
     "nikcli-ai": "workspace:*"
   },
   "devDependencies": {

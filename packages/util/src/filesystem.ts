@@ -16,7 +16,7 @@ export namespace Filesystem {
    * candidate path, the root it was checked against, and the structured
    * reason so callers can discriminate via `Effect.catchTag`.
    */
-  export class ContainmentError extends Schema.TaggedErrorClass<ContainmentError>()("FilesystemContainment", {
+  export class ContainmentError extends Schema.TaggedError<ContainmentError>()("FilesystemContainment", {
     candidate: Schema.String,
     root: Schema.String,
     reason: Schema.Literals(["symlink", "cross-drive", "escape"]),
