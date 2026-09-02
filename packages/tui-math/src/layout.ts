@@ -545,11 +545,7 @@ function withVariant(context: LayoutContext, variant: MathVariant): LayoutContex
       ? { bold: true }
       : variant === "italic"
         ? { italic: true }
-        : variant === "sans"
-          ? {}
-          : variant === "monospace"
-            ? {}
-            : {}
+        : {}
   return { ...context, variant, style: mergeStyle(context.style, style) }
 }
 

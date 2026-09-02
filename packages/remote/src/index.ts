@@ -40,7 +40,7 @@ export async function connectToTerminal(url: string, token?: string): Promise<Te
   return new Promise((resolve, reject) => {
     ws.on("message", (data: RawData) => {
       try {
-        const text = data instanceof Buffer ? data.toString() : data.toString()
+        const text = data.toString()
         const parsed = JSON.parse(text)
 
         if (parsed.type === "auth:required" && token) {

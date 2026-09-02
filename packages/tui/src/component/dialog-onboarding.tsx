@@ -199,9 +199,7 @@ function FsRow(props: {
 }) {
   const { theme } = useTheme()
   const icon = props.icon ?? (props.sensitive ? "●" : props.ephemeral ? "◦" : "·")
-  const iconFg =
-    props.iconFg ??
-    (props.sensitive ? theme.status.warning.fg : props.ephemeral ? theme.foreground.muted : theme.foreground.muted)
+  const iconFg = props.iconFg ?? (props.sensitive ? theme.status.warning.fg : theme.foreground.muted)
   const pathFg = theme.foreground.default
   const indent = "  ".repeat(props.indent)
   return (
@@ -647,7 +645,7 @@ function ImageContent(props: {
                 </text>
                 <box width={28} flexShrink={0}>
                   <text
-                    fg={isCursor() ? theme.foreground.default : theme.foreground.default}
+                    fg={isCursor() ? theme.foreground.default : theme.foreground.muted}
                     attributes={isCursor() ? TextAttributes.BOLD : undefined}
                   >
                     {item.title}
@@ -857,7 +855,7 @@ function RemoteContent(props: {
                 </text>
                 <box width={16} flexShrink={0}>
                   <text
-                    fg={isCursor() ? theme.foreground.default : theme.foreground.default}
+                    fg={isCursor() ? theme.foreground.default : theme.foreground.muted}
                     attributes={isCursor() ? TextAttributes.BOLD : undefined}
                   >
                     {p.name}
