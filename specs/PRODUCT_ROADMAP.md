@@ -40,7 +40,7 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 
 ### Phase 3 — Run continuity and automation discovery against existing seams
 
-- **Engineering** — No new engineering items admitted yet. H8 is the current engineering priority and any continuity/automation code lands only after its evidence is in ROADMAP with an ID.
+- **Engineering** — The 2026-08-26 refill and E8 are closed. No new engineering items are admitted from product discovery until a brief records evidence in ROADMAP with an ID. Continuity/automation code waits on that gate.
 - **Product** — Run the **cross-device continuity** discovery against the generated HttpApi clients and the existing event/session/pending-input/workspace seams defined in [v2/](./v2/README.md); reuse the current transport instead of building a second. In parallel, run the **trusted-automation** discovery against the existing Loop, Mission, background-run, and graceful-restart seams (S2 / D2a / D2b) using their already-collected completion and intervention metrics.
 - **Phase exit** — Each discovery brief records the smallest evidenced reliability gap with a proposed engineering ID (or an explicit rejection with a reason), and the existing user-promise / baseline-events / promotion-rule table for that horizon is updated.
 
