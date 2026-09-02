@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "createdAt": "2026-08-30T01:25:00.481Z",
+  "result": "passed",
+  "title": "TUI verification after 2026-08-26 refill",
+  "summary": "Real OpenTUI session on post-merge live-main: welcome wizard painted with no error overlay. Arrow keys were sent; device-auth was not opened.",
+  "capture": {
+    "marker": "verified",
+    "final": false
+  },
+  "sourceRecordingSha256": "6258773883c9d6b1a60898f91c3e330fd8e655764ea4fca52e61f97ca2f17757",
+  "artifacts": [
+    {
+      "kind": "screen-text",
+      "path": "screen.txt",
+      "bytes": 2095,
+      "sha256": "21c63bee446ac75629eabcba77104e57fa7a3d63a99166b30b5e5a40c003cdaf"
+    },
+    {
+      "kind": "screen-frame",
+      "path": "screen.json",
+      "bytes": 1747870,
+      "sha256": "e9eb89759eb85818a31afc09dae3a9d2d4291afb0c4d356a3bcdf7e68d48b54d"
+    },
+    {
+      "kind": "screen-svg",
+      "path": "screen.svg",
+      "bytes": 411662,
+      "sha256": "86bc49f3ae7bcdc52b23834db87cd6d77777922ee7554484e840c106cac4f55d"
+    },
+    {
+      "kind": "screen-png",
+      "path": "screen.png",
+      "bytes": 100074,
+      "sha256": "46f9b023dc659b846f4dfc0e19628c489652ec13467aed3b8153c827383b5dd5"
+    },
+    {
+      "kind": "video",
+      "path": "demo.mp4",
+      "bytes": 101635,
+      "sha256": "83ff2ed2f2326ed13aead83dccc8af4ce6f29a107fdef4d44a67ba21976dfc4f"
+    },
+    {
+      "kind": "preview",
+      "path": "preview.gif",
+      "bytes": 166849,
+      "sha256": "7578312321118c28c55486ce14b145cf1f5f94e2227e7cc10fed84c9198e3ac6"
+    },
+    {
+      "kind": "recording",
+      "path": "recording.termctrl",
+      "bytes": 108383,
+      "sha256": "6258773883c9d6b1a60898f91c3e330fd8e655764ea4fca52e61f97ca2f17757"
+    },
+    {
+      "kind": "pr-markdown",
+      "path": "pr.md",
+      "bytes": 463,
+      "sha256": "db507fd1b9745063f257b4bd5eaaefd2539f75f62d81535ec38df68448180803"
+    }
+  ]
+}

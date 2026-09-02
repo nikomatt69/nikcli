@@ -9,24 +9,25 @@ against `effect@4.0.0-rc.112` and grepping the result against this repository. C
 
 ---
 
-## 1. Where the pin sits
+## 1. Where the pin sat, and where it sits now
 
-Nine workspace packages pin `effect` (and, in `packages/nikcli`, `@effect/platform-bun`) at
-`4.0.0-beta.83`: `http-recorder`, `httpapi-codegen`, `llm`, `nikcli`, `plugin`, `sdk-next`,
-`simulation`, `tui`, `util`. `bun.lock` resolves a single copy.
+Until E6, nine workspace packages pinned `effect` (and, in `packages/nikcli`,
+`@effect/platform-bun`) at `4.0.0-beta.83`: `http-recorder`, `httpapi-codegen`, `llm`, `nikcli`,
+`plugin`, `sdk-next`, `simulation`, `tui`, `util`. E6 moved every one of those pins to
+`4.0.0-rc.112`. `bun.lock` still resolves a single copy.
 
-Upstream has moved on and changed channel:
+The table below is the pre-landing channel gap that dated the item. It is not the current pin.
 
-| Version          | Published  |
-| ---------------- | ---------- |
-| `4.0.0-beta.83`  | the pin    |
-| `4.0.0-beta.107` | 2026-08-10 |
-| `4.0.0-rc.108`   | 2026-08-12 |
-| `4.0.0-rc.112`   | 2026-08-25 |
+| Version          | Published     |
+| ---------------- | ------------- |
+| `4.0.0-beta.83`  | the old pin   |
+| `4.0.0-beta.107` | 2026-08-10    |
+| `4.0.0-rc.108`   | 2026-08-12    |
+| `4.0.0-rc.112`   | 2026-08-25; E6 |
 
-The beta line ended at `beta.107`; `rc.108` opened the release-candidate line on 2026-08-12. The
-pin is 29 releases and one channel behind, which is the fact that dates every "prefer the Effect v4
-API already in the tree" judgement made since.
+The beta line ended at `beta.107`; `rc.108` opened the release-candidate line on 2026-08-12. Before
+E6 the pin was 29 releases and one channel behind, which is the fact that dated every "prefer the
+Effect v4 API already in the tree" judgement made while `beta.83` still stood.
 
 The exposed surface: **448** `from "effect"` statements, plus **96** from `effect/unstable/*`
 (49 `httpapi`, 39 `http`, 7 `encoding`, 1 `observability`) and **15** from `@effect/platform-bun`.
@@ -148,11 +149,12 @@ clone made "per the `effect` skill"). **No such directory exists in this reposit
 reading the old rule had nothing to check against, and `oxlint.slop.config.ts` still ignores the
 `.opencode` tree. E7 replaces the dangling clone with the docs the package now ships.
 
-## 6. Why the upgrade is the first item and not the fifth
+## 6. Why the upgrade was the first item and not the fifth
 
-Not urgency — order. Every other Effect-facing item in section 4 names an API that does not exist
-at `beta.83`, so none of them can be started, prototyped or measured while the pin stands. The
-upgrade is also the cheapest it will ever be: the break surface is two mechanical renames plus six
-type-level sites in one package, and it grows with every release the pin skips. Waiting for `4.0.0`
-final does not reduce the work — the renames already happened at `beta.104`, inside the window
-already skipped.
+Not urgency — order. Every other Effect-facing item in section 4 named an API that did not exist
+at `beta.83`, so none of them could be started, prototyped or measured while that pin stood. The
+upgrade was also the cheapest it would ever be: the break surface was two mechanical renames plus
+six type-level sites in one package, and it grew with every release the pin skipped. Waiting for
+`4.0.0` final would not have reduced the work — the renames already happened at `beta.104`, inside
+the window already skipped. H9, H10 and E7 ran after E6 on that pin. The refill they belonged to
+closed on 2026-08-30.
