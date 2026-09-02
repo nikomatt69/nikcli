@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.326.0 (September 2026)
+
+## Mobile
+
+- Resolve static scan defects and broken test fixtures (#234, #228) (#254) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix: resolve static scan defects and broken test fixtures (#234, #228) (#254)
+
 ## v1.324.0 (September 2026)
 
 ## Core

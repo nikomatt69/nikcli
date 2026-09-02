@@ -18,11 +18,11 @@ Until E6, nine workspace packages pinned `effect` (and, in `packages/nikcli`,
 
 The table below is the pre-landing channel gap that dated the item. It is not the current pin.
 
-| Version          | Published     |
-| ---------------- | ------------- |
-| `4.0.0-beta.83`  | the old pin   |
-| `4.0.0-beta.107` | 2026-08-10    |
-| `4.0.0-rc.108`   | 2026-08-12    |
+| Version          | Published      |
+| ---------------- | -------------- |
+| `4.0.0-beta.83`  | the old pin    |
+| `4.0.0-beta.107` | 2026-08-10     |
+| `4.0.0-rc.108`   | 2026-08-12     |
 | `4.0.0-rc.112`   | 2026-08-25; E6 |
 
 The beta line ended at `beta.107`; `rc.108` opened the release-candidate line on 2026-08-12. Before

@@ -540,12 +540,7 @@ function mapScript(value: string, table: Readonly<Record<string, string>>): stri
 }
 
 function withVariant(context: LayoutContext, variant: MathVariant): LayoutContext {
-  const style =
-    variant === "bold"
-      ? { bold: true }
-      : variant === "italic"
-        ? { italic: true }
-        : {}
+  const style = variant === "bold" ? { bold: true } : variant === "italic" ? { italic: true } : {}
   return { ...context, variant, style: mergeStyle(context.style, style) }
 }
 
