@@ -10,11 +10,11 @@ Read upstream in the pin, not a vendored copy:
 - `node_modules/effect/AGENTS.md`
 - `node_modules/effect/ai-docs/src`
 
-Those files exist after `bun install` and move with the Effect version. Do not copy them into this repository.
+Those files exist after `bun install` and move with the Effect version. Effect is not hoisted to the repository root — resolve the paths from a workspace that pins it (`packages/nikcli/node_modules/effect/…`). Do not copy them into this repository.
 
 ## Errors
 
-Use `Schema.TaggedError` for expected domain failures. The old constructor name `TaggedErrorClass` is gone as of `4.0.0-beta.104`. Put the class on the Effect error channel; do not `throw` expected failures inside `Effect.gen`.
+Use `Schema.TaggedError` for expected domain failures. The old constructor name `TaggedErrorClass` is gone as of `4.0.0-beta.104`. Put the class on the Effect error channel with `Effect.fail` and declare it in the service interface (`Effect.Effect<void, Session.BusyError>`); do not `throw` expected failures inside `Effect.gen` — that is a defect, and `Cause.squash` at a Promise boundary hides the difference until a test asserts `Cause.hasDies === false`.
 
 ## Layers and the Promise boundary
 

@@ -639,14 +639,14 @@
         <div>
           <div class="mark">nikcli · project roadmap · live-main</div>
           <h1>NIK<span class="accent">CLI</span> ROADMAP</h1>
-          <p class="role"><strong>engineering + product</strong> · reconciled <strong>2026-08-24</strong></p>
+          <p class="role"><strong>engineering + product</strong> · reconciled <strong>2026-09-02</strong></p>
           <div class="tag">
             Two truths held separately: engineering admits only evidenced leftovers, product orders user outcomes —
             promotion between them requires a runnable gate.
           </div>
         </div>
         <div class="hero-right">
-          <div class="stamp">v1.313.0 · STABLE</div>
+          <div class="stamp">v1.322.0 · STABLE</div>
           <div>github.com/nikomatt69/nikcli</div>
           <div>27 packages · fork of opencode</div>
         </div>
@@ -657,15 +657,15 @@
         <h2><span class="idx">01</span> At a glance</h2>
         <div class="stats">
           <div class="stat">
-            <div class="num">15</div>
+            <div class="num">22</div>
             <div class="label">engineering items done</div>
           </div>
           <div class="stat">
-            <div class="num">1</div>
-            <div class="label">ready (gate met)</div>
+            <div class="num">0</div>
+            <div class="label">ready (queue empty)</div>
           </div>
           <div class="stat">
-            <div class="num">1</div>
+            <div class="num">0</div>
             <div class="label">later</div>
           </div>
           <div class="stat">
@@ -683,14 +683,14 @@
       <section class="section">
         <h2>
           <span class="idx">02</span> Engineering status board
-          <span class="meta">specs/ROADMAP.md · reconciled 2026-08-24</span>
+          <span class="meta">specs/ROADMAP.md · reconciled 2026-09-02</span>
         </h2>
         <div class="status-board">
           <!-- DONE -->
           <div class="lane done">
             <div class="lane-head">
               <h3>Done</h3>
-              <span class="count">15</span>
+              <span class="count">22</span>
             </div>
 
             <div class="item done">
@@ -826,29 +826,91 @@
               </div>
               <div class="date">landed 2026-08-17/18</div>
             </div>
+
+            <div class="item done">
+              <div class="id">R1</div>
+              <div class="title">Keyed scoped instance runtime</div>
+              <div class="desc">
+                Process-lifetime `ScopedCache` owns the per-directory instance; a per-directory `ManagedRuntime`
+                provides `InstanceRef`; accessors throw after `dispose()`. Ambient reads 194 → 22.
+              </div>
+              <div class="date">landed 2026-08-26</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">T3</div>
+              <div class="title">Output codecs on structured built-ins</div>
+              <div class="desc">
+                `todowrite` / `todoread` / `browser_control` declare a codec and return `value`. Codecs stay opt-in.
+              </div>
+              <div class="date">landed 2026-08-24</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">E6 · E7</div>
+              <div class="title">Effect pin on the release candidate · working rule points at shipped docs</div>
+              <div class="desc">
+                Nine workspaces pin `effect@4.0.0-rc.112`; `TaggedErrorClass` → `TaggedError` (112 sites / 53 files).
+                Rule names `node_modules/effect/AGENTS.md` + `ai-docs/src`.
+              </div>
+              <div class="date">landed 2026-08-26</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">H9</div>
+              <div class="title">Response headers on the contract</div>
+              <div class="desc">
+                `location` (share 308), `retry-after` (sync 429), `www-authenticate` (sync 401) declared with
+                `HttpApiSchema.WithHeaders`; visible in OpenAPI and both generated clients.
+              </div>
+              <div class="date">landed 2026-08-30</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">H10</div>
+              <div class="title">`matchOrElse` vs the open SessionV2 payloads</div>
+              <div class="desc">
+                Negative measurement: a consume-time matcher on a closed union does not un-force `Unknown`; a half-open
+                union accepts malformed known members. Non-goal stands.
+              </div>
+              <div class="date">closed 2026-08-30</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">R2</div>
+              <div class="title">Remaining instance ALS reads named as boundaries</div>
+              <div class="desc">
+                19 production reads in 10 files, each a definition site, Promise→Effect bridge, raw SSE entry, or module
+                funnel. Closed by naming, not threading.
+              </div>
+              <div class="date">closed 2026-08-30</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">E8</div>
+              <div class="title">`assertNotBusy` on the typed channel</div>
+              <div class="desc">
+                `Effect.Effect&lt;void, Session.BusyError&gt;` with `Effect.fail`; the last `throw` inside `Effect.gen`
+                that E5 left standing is gone. Lifecycle test pins `hasDies === false`.
+              </div>
+              <div class="date">landed 2026-09-02</div>
+            </div>
           </div>
 
           <!-- READY -->
           <div class="lane ready">
             <div class="lane-head">
               <h3>Ready</h3>
-              <span class="count">1</span>
+              <span class="count">0</span>
             </div>
 
-            <div class="item ready">
-              <div class="id">R1</div>
-              <div class="title">Keyed scoped instance runtime</div>
-              <div class="desc">
-                One instance key, `InstanceRef` without ALS fallback, `withInstanceAsync({ init })` can die. Two
-                production importers remain: `project/instance.ts:2` and `workspace/workspace-context.ts:1`.
-              </div>
-              <div class="date">lifecycle gate met 2026-08-24 · migration open</div>
-            </div>
-
-            <div class="item ready" style="opacity: 0.4; margin-top: 18px">
+            <div class="item ready" style="opacity: 0.4">
               <div class="id">—</div>
-              <div class="title">No further items queued</div>
-              <div class="desc">E5, P2, H8 all closed 2026-08-24. R1 is the next eligible start.</div>
+              <div class="title">Queue empty</div>
+              <div class="desc">
+                The 2026-08-26 refill (E6, E7, H9, H10, R2) and E8 all closed. The next engineering item enters through
+                PRODUCT_ROADMAP Phase 3 discovery with a runnable gate.
+              </div>
             </div>
           </div>
 
@@ -856,24 +918,15 @@
           <div class="lane later">
             <div class="lane-head">
               <h3>Later</h3>
-              <span class="count">1</span>
+              <span class="count">0</span>
             </div>
 
-            <div class="item later">
-              <div class="id">T3</div>
-              <div class="title">Output codecs on structured built-ins</div>
-              <div class="desc">
-                Built-ins that already emit JSON declare a codec and return `value`. T2 was opt-in; do not promote
-                codecs to mandatory.
-              </div>
-              <div class="date">awaiting characterization coverage</div>
-            </div>
-
-            <div class="item later" style="opacity: 0.4; margin-top: 18px">
+            <div class="item later" style="opacity: 0.4">
               <div class="id">—</div>
-              <div class="title">No Later items behind T3</div>
+              <div class="title">Nothing deferred</div>
               <div class="desc">
-                Coverage gate written; lifecycle or characterization needs to mature before admission.
+                T3 landed 2026-08-24. Non-goals (SessionV2 `Unknown` payloads, raw SSE/prompt routes, `fromZod` rewrite)
+                are recorded so they are not re-proposed.
               </div>
             </div>
           </div>
@@ -926,7 +979,8 @@
               <h4>Run continuity · automation discovery against existing seams</h4>
               <p>
                 Cross-device continuity (HttpApi/event/session/pending-input/workspace) and trusted-automation
-                (Loop/Mission/background-run/S2) discovery briefs active. No new engineering items admitted yet.
+                (Loop/Mission/background-run/S2) discovery briefs active. Engineering queue empty since 2026-08-30; this
+                phase is the only source of the next engineering ID.
               </p>
             </div>
             <div class="pill">in progress</div>
@@ -1032,88 +1086,88 @@
         </h2>
         <div class="timeline">
           <div class="ev">
-            <div class="date">2026-08-24</div>
-            <div class="kind feat">H8.1</div>
-            <div class="text">Auth declared on the contract with HttpApiMiddleware</div>
-            <div class="ref">48c9e2d6</div>
+            <div class="date">2026-09-02</div>
+            <div class="kind refactor">E8</div>
+            <div class="text">assertNotBusy fails on the typed channel; roadmap reconciled</div>
+            <div class="ref">—</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-24</div>
-            <div class="kind perf">P2.2</div>
-            <div class="text">Hot-poll request logs gated; closes P2.2 on the measurement</div>
-            <div class="ref">67f3b945</div>
+            <div class="date">2026-09-01</div>
+            <div class="kind release">REL</div>
+            <div class="text">v1.322.0</div>
+            <div class="ref">63788bd</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-24</div>
-            <div class="kind perf">P2.1</div>
-            <div class="text">Session list filter, order, limit pushed into SQL</div>
-            <div class="ref">5f5ff3c4</div>
+            <div class="date">2026-08-30</div>
+            <div class="kind refactor">R2</div>
+            <div class="text">Name remaining instance ALS reads as boundaries</div>
+            <div class="ref">5638056</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-24</div>
-            <div class="kind refactor">E5</div>
-            <div class="text">Session boundary: declared errors on the typed channel only</div>
-            <div class="ref">302d9da9</div>
+            <div class="date">2026-08-30</div>
+            <div class="kind docs">H10</div>
+            <div class="text">matchOrElse does not un-force SessionV2 Unknown</div>
+            <div class="ref">6230b3a</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-24</div>
-            <div class="kind feat">test</div>
-            <div class="text">Pin the instance lifecycle before R1 replaces it (lifecycle gate)</div>
-            <div class="ref">04abf331</div>
+            <div class="date">2026-08-30</div>
+            <div class="kind feat">H9</div>
+            <div class="text">Declare location, retry-after, and www-authenticate on the contract</div>
+            <div class="ref">1eda0fd</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-24</div>
-            <div class="kind chore">ci</div>
-            <div class="text">Run the root typecheck serially by default</div>
-            <div class="ref">9971c68e</div>
+            <div class="date">2026-08-26</div>
+            <div class="kind chore">E6/E7</div>
+            <div class="text">Pin Effect 4.0.0-rc.112 and fix generated SseError mapping</div>
+            <div class="ref">894d536</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-24</div>
+            <div class="date">2026-08-26</div>
+            <div class="kind release">REL</div>
+            <div class="text">v1.321.0</div>
+            <div class="ref">522252a</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-26</div>
             <div class="kind docs">docs</div>
-            <div class="text">Record the H8 typecheck result on the roadmap</div>
-            <div class="ref">53b6bc69</div>
+            <div class="text">Refill the queue from the Effect pin measurement</div>
+            <div class="ref">480b872</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-23</div>
+            <div class="date">2026-08-26</div>
             <div class="kind release">REL</div>
-            <div class="text">v1.313.0 · formatting cleanup, session error handling, browser-control daemon</div>
-            <div class="ref">2e3a144b</div>
+            <div class="text">v1.320.0</div>
+            <div class="ref">7add249</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-23</div>
-            <div class="kind fix">fix</div>
-            <div class="text">Stop prettier from collapsing the httpapi codegen manifest</div>
-            <div class="ref">1e72ae09</div>
+            <div class="date">2026-08-26</div>
+            <div class="kind refactor">R1</div>
+            <div class="text">Close R1 with a per-directory runtime and blinded accessors</div>
+            <div class="ref">6e411a4</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-23</div>
-            <div class="kind fix">fix</div>
-            <div class="text">Bind the browser-control daemon on the main thread so sessions can start (#236)</div>
-            <div class="ref">991f20e3</div>
+            <div class="date">2026-08-26</div>
+            <div class="kind refactor">R1</div>
+            <div class="text">Own instances in a ScopedCache, not a promise Map</div>
+            <div class="ref">ae9d550</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-23</div>
-            <div class="kind fix">fix</div>
-            <div class="text">Strip BOM and reap a session once its live view ends</div>
-            <div class="ref">fea5f02d</div>
+            <div class="date">2026-08-25</div>
+            <div class="kind refactor">R1</div>
+            <div class="text">Thread the instance into the last 22 ambient reads</div>
+            <div class="ref">51e8542</div>
           </div>
           <div class="ev">
-            <div class="date">2026-08-23</div>
-            <div class="kind fix">fix</div>
-            <div class="text">Only count driving a session as using it</div>
-            <div class="ref">c5637b31</div>
-          </div>
-          <div class="ev">
-            <div class="date">2026-08-23</div>
-            <div class="kind fix">fix</div>
-            <div class="text">Stop idle sessions and stop close-all from bricking the browser</div>
-            <div class="ref">bd238a44</div>
-          </div>
-          <div class="ev">
-            <div class="date">2026-08-22</div>
+            <div class="date">2026-08-25</div>
             <div class="kind release">REL</div>
-            <div class="text">v1.312.0 · country tracking in community stats, oxlint 66→0</div>
-            <div class="ref">88a30922</div>
+            <div class="text">v1.319.0</div>
+            <div class="ref">0decbf2</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-25</div>
+            <div class="kind refactor">R1</div>
+            <div class="text">Routines take the instance they belong to</div>
+            <div class="ref">f52b9ea</div>
           </div>
         </div>
       </section>

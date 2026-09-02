@@ -1,6 +1,6 @@
 # Product Roadmap
 
-Status: **Proposed** (2026-08-23).
+Status: **Proposed** (2026-08-23; engineering references reconciled 2026-09-02).
 
 This document orders user outcomes, not implementation projects. [ROADMAP.md](./ROADMAP.md) remains the canonical engineering plan and admits work only when the repository contains a verifiable structural leftover. A product priority promotes or creates engineering work only after discovery identifies the smallest evidenced change.
 
@@ -40,7 +40,7 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 
 ### Phase 3 — Run continuity and automation discovery against existing seams
 
-- **Engineering** — No new engineering items admitted yet. H8 is the current engineering priority and any continuity/automation code lands only after its evidence is in ROADMAP with an ID.
+- **Engineering** — No new engineering items admitted yet. H8 landed 2026-08-24 and the engineering queue emptied on 2026-08-30 (R1, T3, P3, E6, E7, H9, H10, R2 closed; E8 closed the last E5 remainder on 2026-09-02), so this phase is the only source of the next engineering item: continuity/automation code lands only after its evidence is in ROADMAP with an ID and a runnable gate.
 - **Product** — Run the **cross-device continuity** discovery against the generated HttpApi clients and the existing event/session/pending-input/workspace seams defined in [v2/](./v2/README.md); reuse the current transport instead of building a second. In parallel, run the **trusted-automation** discovery against the existing Loop, Mission, background-run, and graceful-restart seams (S2 / D2a / D2b) using their already-collected completion and intervention metrics.
 - **Phase exit** — Each discovery brief records the smallest evidenced reliability gap with a proposed engineering ID (or an explicit rejection with a reason), and the existing user-promise / baseline-events / promotion-rule table for that horizon is updated.
 

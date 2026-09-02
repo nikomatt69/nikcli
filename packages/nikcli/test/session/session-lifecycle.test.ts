@@ -399,6 +399,32 @@ describe("session lifecycle", () => {
       })
     })
 
+    it("SessionPrompt.assertNotBusy fails with SessionBusyError on the typed channel, not as a defect", async () => {
+      await withProject(async () => {
+        const { PromptState } = await import("../../src/session/prompt-state")
+        const { SessionPrompt } = await import("../../src/session/prompt")
+        const session = await createSession()
+        PromptState.reserve(session.id)
+        const exit = await runPromiseExitWithLayer(
+          SessionPrompt.defaultLayer,
+          withCurrentInstance(
+            Effect.gen(function* () {
+              const prompt = yield* SessionPrompt.Service
+              return yield* prompt.assertNotBusy(session.id)
+            }),
+          ),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        // The assertion used to `throw` inside `Effect.gen`, which is a die;
+        // `Cause.squash` hid the difference. Pin the failure channel directly.
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        expect(Cause.hasFails(exit.cause)).toBe(true)
+        const error = Cause.squash(exit.cause)
+        expect(error).toBeInstanceOf(Session.BusyError)
+      })
+    })
+
     it("SessionRevert.revert rejects with SessionBusyError on a typed failure channel", async () => {
       await withProject(async () => {
         const { PromptState } = await import("../../src/session/prompt-state")

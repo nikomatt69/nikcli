@@ -4,11 +4,11 @@ These documents explain V2 behavior that is difficult to recover from one source
 
 "V2" in nikcli names three separate, partially-landed things. Keep them apart when reading:
 
-| Name           | What it is                                                                                                                            | Where                       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `MessageV2`    | The message/part shape the LLM layer and every client already use. Authoritative.                                                     | `src/session/message-v2.ts` |
-| `SessionV2`    | The flat entry model. Reads are native; writes persist entries first and derive v1 from them. HTTP create/prompt go through this API. | `src/session/v2/*`          |
-| HttpApi ("v2") | The Effect `HttpApi` server surface that replaced Hono. Fully landed.                                                                 | `src/server/httpapi/*`      |
+| Name           | What it is                                                                                                                                                                      | Where                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `MessageV2`    | The message/part shape the LLM layer and every client already use. Authoritative.                                                                                               | `src/session/message-v2.ts` |
+| `SessionV2`    | The flat entry model. Reads are native; writes persist entries first and derive v1 from them. HTTP create/prompt, share import, `nikcli import`, and teleport write through it. | `src/session/v2/*`          |
+| HttpApi ("v2") | The Effect `HttpApi` server surface that replaced Hono. Fully landed.                                                                                                           | `src/server/httpapi/*`      |
 
 ## Current Contracts
 

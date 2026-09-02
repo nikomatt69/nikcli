@@ -369,7 +369,12 @@ export namespace SessionPrompt {
   }
 
   export interface Interface {
-    assertNotBusy(sessionID: string): Effect.Effect<void>
+    /**
+     * Fail with `Session.BusyError` on the typed channel when a loop already
+     * owns the session. Callers map it like any other declared session error;
+     * it is never a defect.
+     */
+    assertNotBusy(sessionID: string): Effect.Effect<void, Session.BusyError>
     /**
      * Persist the user message (and optional tool permissions) without starting
      * the model loop. Used by `prompt_async` so clients can observe the message
@@ -2034,11 +2039,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       assertNotBusy: (sessionID) =>
         Effect.gen(function* () {
           const match = (yield* PromptState.getServiceStateEffect())[sessionID]
-          if (match)
-            throw new Session.BusyError({
-              sessionID,
-              message: "Session is busy",
-            })
+          if (match) return yield* Effect.fail(new Session.BusyError({ sessionID, message: "Session is busy" }))
         }),
       admit: (input) => withInstanceContext(() => admit(input)),
       steerPending: (input) => withInstanceContext(() => steerPending(input)),
