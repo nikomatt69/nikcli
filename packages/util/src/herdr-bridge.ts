@@ -35,7 +35,7 @@
  *     from being hooked while the user has no pane registered.
  */
 import { spawnSync } from "node:child_process"
-import { createConnection, type NetConnectOpts, type Socket } from "node:net"
+import { createConnection, type Socket } from "node:net"
 import { platform } from "node:os"
 import fs from "fs/promises"
 import { homedir } from "os"
@@ -230,31 +230,22 @@ export function resolveSocketPath(): string {
 }
 
 /**
- * Build the `net.createConnection` argument for the current OS.
+ * Translate a herdr socket path into the endpoint `net` expects.
  *
- * Node's `createConnection(path)` overload treats the string as a TCP host
- * (`port: 0`), which on macOS/Linux silently tries to resolve a hostname
- * and never opens the Unix socket. Unix sockets need `{ path }`. Windows
- * named pipes need `{ host: "\\\\.\\pipe", port: socketPath }`.
+ * Both sides are `{ path }` — Node's bare-string overload treats the
+ * argument as a TCP host, which never opens a unix socket. On Windows
+ * herdr names its pipe after the full `.sock` path, so the endpoint is
+ * `\\.\pipe\C:\Users\...\herdr.sock`.
  *
- * Keeping the cross-platform dance here means the rest of the bridge can
- * stay OS-agnostic.
+ * Exported so a test server can listen on the same endpoint the bridge
+ * dials.
  */
-function socketOptions(socketPath: string): NetConnectOpts {
-  if (platform() === "win32") {
-    // Named pipes on Windows go through the host/port combination.
-    // Node's `NetConnectOpts.port` is typed as `number`; for pipes we
-    // cast through `unknown` because the actual transport doesn't care —
-    // the OS dispatches by host+port where the port slot is the pipe
-    // name string. This is the same shape the Node docs use for `net`
-    // IPC over a named pipe.
-    return { host: "\\\\.\\pipe", port: socketPath as unknown as number }
-  }
-  return { path: socketPath }
+export function socketEndpoint(socketPath: string): string {
+  return platform() === "win32" ? `\\\\.\\pipe\\${socketPath}` : socketPath
 }
 
 function openSocket(socketPath: string): Socket {
-  return createConnection(socketOptions(socketPath))
+  return createConnection({ path: socketEndpoint(socketPath) })
 }
 
 /**
