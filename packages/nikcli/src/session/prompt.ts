@@ -369,7 +369,13 @@ export namespace SessionPrompt {
   }
 
   export interface Interface {
-    assertNotBusy(sessionID: string): Effect.Effect<void>
+    /**
+     * Fails with `Session.BusyError` when the session already has a running
+     * turn. Declared on the typed channel (E8.1): a busy session is an
+     * expected 409, not a defect, so every caller — Effect-side or through
+     * the Promise bridge — sees it without a `catchDefect` arm.
+     */
+    assertNotBusy(sessionID: string): Effect.Effect<void, Session.BusyError>
     /**
      * Persist the user message (and optional tool permissions) without starting
      * the model loop. Used by `prompt_async` so clients can observe the message
@@ -2035,10 +2041,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         Effect.gen(function* () {
           const match = (yield* PromptState.getServiceStateEffect())[sessionID]
           if (match)
-            throw new Session.BusyError({
-              sessionID,
-              message: "Session is busy",
-            })
+            return yield* Effect.fail(
+              new Session.BusyError({
+                sessionID,
+                message: "Session is busy",
+              }),
+            )
         }),
       admit: (input) => withInstanceContext(() => admit(input)),
       steerPending: (input) => withInstanceContext(() => steerPending(input)),
