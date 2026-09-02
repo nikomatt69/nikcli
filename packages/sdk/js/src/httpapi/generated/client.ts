@@ -34,6 +34,11 @@ import type {
   ChatbotStartOutput,
   ChatbotStopInput,
   ChatbotStopOutput,
+  DiscordStatusOutput,
+  DiscordSetupInput,
+  DiscordSetupOutput,
+  DiscordStartOutput,
+  DiscordStopOutput,
   VoiceTranscribeInput,
   VoiceTranscribeOutput,
   ProfileGetOutput,
@@ -592,6 +597,9 @@ interface RequestDescriptor {
   readonly body?: unknown
   readonly successStatus: number
   readonly declaredStatuses: ReadonlyArray<number>
+  readonly responseHeaders?: ReadonlyArray<string>
+  readonly errorHeaders?: { readonly [status: string]: ReadonlyArray<string> }
+  readonly emptyErrors?: ReadonlyArray<number>
   readonly empty: boolean
   readonly text?: true
 }
@@ -631,7 +639,16 @@ export function make(options: ClientOptions) {
   }
 
   const responseError = async (response: Response, descriptor: RequestDescriptor): Promise<never> => {
-    if (descriptor.declaredStatuses.includes(response.status)) throw await json(response)
+    if (descriptor.declaredStatuses.includes(response.status)) {
+      const names = descriptor.errorHeaders?.[String(response.status)]
+      if (descriptor.emptyErrors?.includes(response.status)) {
+        try {
+          await response.body?.cancel()
+        } catch {}
+        throw { headers: readDeclaredHeaders(response, names) ?? {} }
+      }
+      throw await json(response)
+    }
     try {
       await response.body?.cancel()
     } catch {}
@@ -646,9 +663,9 @@ export function make(options: ClientOptions) {
       try {
         await response.body?.cancel()
       } catch {}
-      return undefined as A
+      return attachDeclaredHeaders(undefined, response, descriptor.responseHeaders) as A
     }
-    return (await json(response)) as A
+    return attachDeclaredHeaders(await json(response), response, descriptor.responseHeaders) as A
   }
 
   const sse = <A>(descriptor: RequestDescriptor, requestOptions?: RequestOptions): AsyncIterable<A> => ({
@@ -885,7 +902,7 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/brain/trigger`,
-            body: { force: input?.["force"] },
+            body: { force: input?.["force"], sessionID: input?.["sessionID"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -919,6 +936,35 @@ export function make(options: ClientOptions) {
             declaredStatuses: [],
             empty: false,
           },
+          requestOptions,
+        ),
+    },
+    discord: {
+      status: (requestOptions?: RequestOptions) =>
+        request<DiscordStatusOutput>(
+          { method: "GET", path: `/discord`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      setup: (input: DiscordSetupInput, requestOptions?: RequestOptions) =>
+        request<DiscordSetupOutput>(
+          {
+            method: "POST",
+            path: `/discord/setup`,
+            body: { botToken: input["botToken"] },
+            successStatus: 200,
+            declaredStatuses: [400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      start: (requestOptions?: RequestOptions) =>
+        request<DiscordStartOutput>(
+          { method: "POST", path: `/discord/start`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      stop: (requestOptions?: RequestOptions) =>
+        request<DiscordStopOutput>(
+          { method: "POST", path: `/discord/stop`, successStatus: 200, declaredStatuses: [], empty: false },
           requestOptions,
         ),
     },
@@ -1438,7 +1484,12 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mission/generate`,
-            body: { description: input["description"], model: input["model"], agent: input["agent"] },
+            body: {
+              description: input["description"],
+              model: input["model"],
+              agent: input["agent"],
+              sessionID: input["sessionID"],
+            },
             successStatus: 200,
             declaredStatuses: [400],
             empty: false,
@@ -1664,14 +1715,20 @@ export function make(options: ClientOptions) {
             method: "DELETE",
             path: `/mobile/memory/stash/${encodeURIComponent(input.id)}`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
         ),
       githubRepos: (requestOptions?: RequestOptions) =>
         request<MobileGithubReposOutput>(
-          { method: "GET", path: `/mobile/github/repos`, successStatus: 200, declaredStatuses: [], empty: false },
+          {
+            method: "GET",
+            path: `/mobile/github/repos`,
+            successStatus: 200,
+            declaredStatuses: [401, 400],
+            empty: false,
+          },
           requestOptions,
         ),
       githubBranches: (input: MobileGithubBranchesInput, requestOptions?: RequestOptions) =>
@@ -1680,7 +1737,7 @@ export function make(options: ClientOptions) {
             method: "GET",
             path: `/mobile/github/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/branches`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [401, 400],
             empty: false,
           },
           requestOptions,
@@ -1708,7 +1765,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/github/oauth/device`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400],
             empty: false,
           },
           requestOptions,
@@ -1720,7 +1777,7 @@ export function make(options: ClientOptions) {
             path: `/mobile/github/oauth/device/poll`,
             body: { deviceCode: input["deviceCode"] },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400],
             empty: false,
           },
           requestOptions,
@@ -1755,7 +1812,7 @@ export function make(options: ClientOptions) {
               private: input["private"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [401],
             empty: false,
           },
           requestOptions,
@@ -1777,7 +1834,7 @@ export function make(options: ClientOptions) {
               executionTarget: input["executionTarget"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [401],
             empty: false,
           },
           requestOptions,
@@ -1869,7 +1926,7 @@ export function make(options: ClientOptions) {
               variant: input["variant"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400],
             empty: false,
           },
           requestOptions,
@@ -1881,6 +1938,7 @@ export function make(options: ClientOptions) {
             path: `/mobile/session/${encodeURIComponent(input.sessionID)}/message`,
             body: {
               messageID: input["messageID"],
+              delivery: input["delivery"],
               model: input["model"],
               agent: input["agent"],
               noReply: input["noReply"],
@@ -1889,9 +1947,10 @@ export function make(options: ClientOptions) {
               system: input["system"],
               variant: input["variant"],
               parts: input["parts"],
+              parentSessionID: input["parentSessionID"],
             },
-            successStatus: 200,
-            declaredStatuses: [],
+            successStatus: 202,
+            declaredStatuses: [400],
             empty: false,
           },
           requestOptions,
@@ -1949,7 +2008,7 @@ export function make(options: ClientOptions) {
             path: `/mobile/session/${encodeURIComponent(input.sessionID)}/publish`,
             body: { title: input["title"], body: input["body"], commitMessage: input["commitMessage"] },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [401, 400],
             empty: false,
           },
           requestOptions,
@@ -1960,7 +2019,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/session/${encodeURIComponent(input.sessionID)}/cleanup`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400],
             empty: false,
           },
           requestOptions,
@@ -1986,7 +2045,7 @@ export function make(options: ClientOptions) {
             path: `/mobile/session/${encodeURIComponent(input.sessionID)}/rename`,
             body: { title: input["title"] },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2032,7 +2091,7 @@ export function make(options: ClientOptions) {
               uploadID: input["uploadID"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400],
             empty: false,
           },
           requestOptions,
@@ -2049,7 +2108,7 @@ export function make(options: ClientOptions) {
               includeGit: input["includeGit"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400, 404],
             empty: false,
           },
           requestOptions,
@@ -2146,7 +2205,7 @@ export function make(options: ClientOptions) {
               stagedOnly: input["stagedOnly"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400],
             empty: false,
           },
           requestOptions,
@@ -2239,7 +2298,7 @@ export function make(options: ClientOptions) {
               enabled: input["enabled"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400],
             empty: false,
           },
           requestOptions,
@@ -2254,7 +2313,12 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mobile/loops/generate`,
-            body: { description: input["description"], model: input["model"], agent: input["agent"] },
+            body: {
+              description: input["description"],
+              model: input["model"],
+              agent: input["agent"],
+              sessionID: input["sessionID"],
+            },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -2279,7 +2343,7 @@ export function make(options: ClientOptions) {
             method: "GET",
             path: `/mobile/loops/${encodeURIComponent(input.id)}`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2290,7 +2354,7 @@ export function make(options: ClientOptions) {
             method: "DELETE",
             path: `/mobile/loops/${encodeURIComponent(input.id)}`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2313,7 +2377,7 @@ export function make(options: ClientOptions) {
               enabled: input["enabled"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400, 404],
             empty: false,
           },
           requestOptions,
@@ -2325,7 +2389,7 @@ export function make(options: ClientOptions) {
             path: `/mobile/loops/${encodeURIComponent(input.id)}/runs`,
             query: { limit: input["limit"] },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2336,7 +2400,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/loops/${encodeURIComponent(input.id)}/run`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2347,7 +2411,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/loops/${encodeURIComponent(input.id)}/abort`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2359,7 +2423,7 @@ export function make(options: ClientOptions) {
             path: `/mobile/loops/${encodeURIComponent(input.id)}/toggle`,
             body: { enabled: input["enabled"] },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2370,7 +2434,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/loops/${encodeURIComponent(input.id)}/pause`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2381,7 +2445,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/loops/${encodeURIComponent(input.id)}/resume`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2409,7 +2473,7 @@ export function make(options: ClientOptions) {
             method: "GET",
             path: `/mobile/routines/${encodeURIComponent(input.id)}`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2420,7 +2484,7 @@ export function make(options: ClientOptions) {
             method: "DELETE",
             path: `/mobile/routines/${encodeURIComponent(input.id)}`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2438,7 +2502,7 @@ export function make(options: ClientOptions) {
               paused: input["paused"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2450,7 +2514,7 @@ export function make(options: ClientOptions) {
             path: `/mobile/routines/${encodeURIComponent(input.id)}/run`,
             body: { text: input["text"] },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2461,7 +2525,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/routines/${encodeURIComponent(input.id)}/pause`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2472,7 +2536,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/routines/${encodeURIComponent(input.id)}/resume`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2484,7 +2548,7 @@ export function make(options: ClientOptions) {
             path: `/mobile/routines/trigger/${encodeURIComponent(input.token)}`,
             body: { text: input["text"] },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2566,7 +2630,7 @@ export function make(options: ClientOptions) {
               worktree: input["worktree"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400],
             empty: false,
           },
           requestOptions,
@@ -2581,9 +2645,14 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/mobile/missions/generate`,
-            body: { description: input["description"], model: input["model"], agent: input["agent"] },
+            body: {
+              description: input["description"],
+              model: input["model"],
+              agent: input["agent"],
+              sessionID: input["sessionID"],
+            },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [400],
             empty: false,
           },
           requestOptions,
@@ -2606,7 +2675,7 @@ export function make(options: ClientOptions) {
             method: "GET",
             path: `/mobile/missions/${encodeURIComponent(input.id)}`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2628,7 +2697,7 @@ export function make(options: ClientOptions) {
               createdAt: input["createdAt"],
             },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404, 400],
             empty: false,
           },
           requestOptions,
@@ -2639,7 +2708,7 @@ export function make(options: ClientOptions) {
             method: "DELETE",
             path: `/mobile/missions/${encodeURIComponent(input.id)}`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2651,7 +2720,7 @@ export function make(options: ClientOptions) {
             path: `/mobile/missions/${encodeURIComponent(input.id)}/execs`,
             query: { limit: input["limit"] },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2662,7 +2731,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/missions/${encodeURIComponent(input.id)}/start`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2673,7 +2742,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/missions/${encodeURIComponent(input.id)}/pause`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2684,7 +2753,7 @@ export function make(options: ClientOptions) {
             method: "POST",
             path: `/mobile/missions/${encodeURIComponent(input.id)}/cancel`,
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404],
             empty: false,
           },
           requestOptions,
@@ -2696,7 +2765,7 @@ export function make(options: ClientOptions) {
             path: `/mobile/missions/${encodeURIComponent(input.id)}/feature/${encodeURIComponent(input.featureID)}`,
             body: { status: input["status"], error: input["error"], appendDependsOn: input["appendDependsOn"] },
             successStatus: 200,
-            declaredStatuses: [],
+            declaredStatuses: [404, 400],
             empty: false,
           },
           requestOptions,
@@ -3080,7 +3149,12 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/loop/generate`,
-            body: { description: input["description"], model: input["model"], agent: input["agent"] },
+            body: {
+              description: input["description"],
+              model: input["model"],
+              agent: input["agent"],
+              sessionID: input["sessionID"],
+            },
             successStatus: 200,
             declaredStatuses: [400],
             empty: false,
@@ -3742,7 +3816,9 @@ export function make(options: ClientOptions) {
             path: `/sync/event`,
             body: { event: input["event"], projectID: input["projectID"] },
             successStatus: 204,
-            declaredStatuses: [],
+            declaredStatuses: [429, 401],
+            errorHeaders: { "401": ["www-authenticate"], "429": ["retry-after"] },
+            emptyErrors: [429, 401],
             empty: true,
           },
           requestOptions,
@@ -4195,9 +4271,10 @@ export function make(options: ClientOptions) {
           {
             method: "GET",
             path: `/s/${encodeURIComponent(input.shareID)}`,
-            successStatus: 200,
+            successStatus: 308,
             declaredStatuses: [],
-            empty: false,
+            responseHeaders: ["location"],
+            empty: true,
           },
           requestOptions,
         ),
@@ -4363,4 +4440,19 @@ async function json(response: Response): Promise<unknown> {
 
 function isContentType(response: Response, expected: string) {
   return response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() === expected
+}
+
+function readDeclaredHeaders(response: Response, names: ReadonlyArray<string> | undefined) {
+  if (names === undefined) return undefined
+  const headers: { [key: string]: string } = {}
+  for (const name of names) {
+    const value = response.headers.get(name)
+    if (value !== null) headers[name] = value
+  }
+  return headers
+}
+
+function attachDeclaredHeaders<A>(body: A, response: Response, names: ReadonlyArray<string> | undefined): A {
+  const headers = readDeclaredHeaders(response, names)
+  return headers === undefined ? body : ({ body, headers } as A)
 }

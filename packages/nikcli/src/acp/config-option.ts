@@ -125,7 +125,7 @@ export function buildModeSelectOption(input: {
     options: input.modes.map((mode) => ({
       value: mode.id,
       name: mode.name,
-      ...(mode.description ? { description: mode.description } : {}),
+      ...(mode.description ? { description: mode.description } : undefined),
     })),
   }
 }

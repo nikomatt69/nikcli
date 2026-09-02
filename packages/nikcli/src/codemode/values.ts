@@ -34,6 +34,26 @@ export class CodeModeURL {
   }
 }
 
+/**
+ * A data value the CodeMode interpreter can hold or produce: JSON data plus
+ * the CodeMode host classes. The named domain the interpreter hands its
+ * callers instead of a bare `unknown`.
+ */
+export type CodeModeData =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | CodeModeDate
+  | CodeModeRegExp
+  | CodeModeMap
+  | CodeModeSet
+  | CodeModeURL
+  | CodeModeURLSearchParams
+  | CodeModeData[]
+  | { readonly [key: string]: CodeModeData }
+
 export const isCodeModeValue = (
   value: unknown,
 ): value is CodeModeDate | CodeModeRegExp | CodeModeMap | CodeModeSet | CodeModeURL | CodeModeURLSearchParams =>

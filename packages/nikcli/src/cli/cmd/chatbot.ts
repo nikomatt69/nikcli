@@ -4,7 +4,6 @@ import { UI } from "../ui"
 import { Connectors } from "../../connectors"
 import { ConnectorAuth } from "../../connectors/auth"
 import { Config } from "../../config/config"
-import { Instance } from "../../project/instance"
 import { modify, applyEdits } from "jsonc-parser"
 import { Global } from "@nikcli-ai/util/global"
 import { Server } from "../../server/server"
@@ -148,15 +147,15 @@ export const BotAddCommand = cmd({
   command: "add",
   describe: "add a new chat bot",
   async handler() {
-    await withInstanceAsync({ directory: process.cwd() }, async () => {
+    await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
       {
         UI.empty()
         prompts.intro("Add Chat Bot")
 
-        const project = Instance.project
+        const project = instance.project
 
         const [projectConfigPath, globalConfigPath] = await Promise.all([
-          resolveConfigPath(Instance.worktree),
+          resolveConfigPath(instance.worktree),
           resolveConfigPath(Global.Path.config, true),
         ])
 
@@ -254,7 +253,7 @@ export const BotStartCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await withInstanceAsync({ directory: process.cwd() }, async () => {
+    await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
       {
         UI.empty()
         prompts.intro("Start Chat Bot")
@@ -299,7 +298,7 @@ export const BotStartCommand = cmd({
 
         try {
           const BotHandlers = await getBotHandlers()
-          const bot = await BotHandlers.ensureAiBot(botName, connectorConfig)
+          const bot = await BotHandlers.ensureAiBot(instance, botName, connectorConfig)
           if (!bot) {
             spinner.stop("Failed to create bot", 1)
             prompts.log.error("Check credentials: nikcli connectors auth " + botName)

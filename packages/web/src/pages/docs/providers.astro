@@ -278,7 +278,7 @@ export NIKCLI_INFERENCE_KEY=nik-...
     <table class="doc-table">
       <thead><tr><th>Mutation</th><th>Refresh path</th></tr></thead>
       <tbody>
-        <tr><td>Save provider API key</td><td><code>server/routes/provider.ts</code> or <code>httpapi/provider.ts</code> writes auth and refreshes provider cache.</td></tr>
+        <tr><td>Save provider API key</td><td><code>server/httpapi/provider.ts</code> or <code>httpapi/provider.ts</code> writes auth and refreshes provider cache.</td></tr>
         <tr><td>Remove provider auth</td><td>Auth removal clears the saved record and refreshes.</td></tr>
         <tr><td>Config provider update</td><td>Config route update invalidates provider state through route helper.</td></tr>
         <tr><td>Plugin auth loader change</td><td>Provider service rebuilds plugin-derived options during refresh.</td></tr>
@@ -308,7 +308,7 @@ export NIKCLI_INFERENCE_KEY=nik-...
       <tbody>
         <tr><td>Provider catalog and SDK cache</td><td><code>packages/nikcli/src/provider/provider.ts</code></td></tr>
         <tr><td>Provider transforms</td><td><code>packages/nikcli/src/provider/transform.ts</code></td></tr>
-        <tr><td>Provider auth routes</td><td><code>packages/nikcli/src/server/routes/provider.ts</code>, <code>packages/nikcli/src/server/httpapi/provider.ts</code></td></tr>
+        <tr><td>Provider auth routes</td><td><code>packages/nikcli/src/server/httpapi/provider.ts</code>, <code>packages/nikcli/src/server/httpapi/provider.ts</code></td></tr>
         <tr><td>Session runtime hot path</td><td><code>packages/nikcli/src/session/llm.ts</code></td></tr>
         <tr><td>Native runtime</td><td><code>packages/nikcli/src/session/llm/native-runtime.ts</code></td></tr>
         <tr><td>LLM package providers</td><td><code>packages/llm/src/providers</code></td></tr>

@@ -77,6 +77,9 @@ export const ExecCodeTool = Tool.define<typeof ExecCodeParameters, Tool.Metadata
       for (const t of bridgeable) {
         bridge[t.id] = async (args) => {
           try {
+            // SAFETY: the bridge is built over heterogeneous tools, so the args
+            // type differs per tool and cannot be named here; each tool parses
+            // its own arguments against its schema inside `executeAsync`.
             const result = await t.executeAsync(args as any, ctx)
             return result.output
           } catch (e) {

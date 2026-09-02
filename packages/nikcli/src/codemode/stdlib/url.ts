@@ -68,7 +68,7 @@ export const invokeUriFunction = (ref: UriFunction, args: Array<unknown>, node: 
 export const urlArgument = (value: unknown, label: string): string =>
   value instanceof CodeModeURL ? value.url.href : uriArgument(value, label)
 
-export const invokeURLStatic = (name: string, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeURLStatic = (name: string, args: Array<unknown>, node: AstNode): boolean | CodeModeURL | null => {
   if (!urlStatics.has(name)) throw new InterpreterRuntimeError(`URL.${name} is not available in CodeMode.`, node)
   if (args.length === 0) throw new InterpreterRuntimeError(`URL.${name} requires a URL argument.`, node).as("TypeError")
   const input = urlArgument(args[0], `URL.${name} input`)

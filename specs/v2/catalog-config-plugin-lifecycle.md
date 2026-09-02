@@ -7,7 +7,7 @@
 
 The question this records: when provider, model, config, or plugin inputs change while an instance is open, what rebuilds, and who decides?
 
-nikcli's answer is **per-instance caches with two invalidation channels** — a broad file-driven one and a narrow explicit one — rather than a service reload graph or a transform pipeline.
+nikcli's answer is **per-instance caches with three invalidation channels** — a broad file-driven one, the same channel reached synchronously by the request that made the change, and a narrow provider-specific one — rather than a service reload graph or a transform pipeline.
 
 ## The Inputs That Change
 
@@ -46,6 +46,12 @@ Changes debounce for 300ms, then `reload(files)`:
 Both events reach clients over SSE, so the TUI and desktop refetch config, agents, and commands instead of polling or restarting.
 
 Reloads serialize per directory: concurrent triggers chain behind the in-flight one rather than interleaving invalidations. A cache whose owning scope has already closed is dropped from the registry instead of failing the reload — a disposed runtime must not poison later reloads.
+
+**The same channel is reachable synchronously from a request**, through `Instance.invalidate(directory?)`. A handler that has just written the config surface — `POST /config/update`, and the two provider auth mutations — does not want to wait ~300ms for the watcher to notice its own write, and it must not tear the instance down to force a rebuild. `Instance.invalidate` runs `InstanceState.invalidateReloadable` directly: reloadable caches rebuild lazily on the next read, while the cache entry, the registered disposers, the non-reloadable state cells, and every live subscription survive, so the request that triggered it keeps a working instance. With no argument it reads the ambient instance scope like `dispose`; with a directory it can be addressed by key from outside a scope.
+
+It is deliberately quieter than the watcher path: no `instance.reload.started` / `instance.reloaded` pair, because the caller is a request that returns its own result to the client that caused the change. If a future call site needs clients to refetch, it should publish the reload events itself rather than making this verb announce.
+
+**This is not `dispose`.** `dispose` is teardown — it runs disposers, drops all state, and evicts the entry — and the three handlers above used it as invalidation until 2026-08-25 because there was nothing else, leaving each request holding an instance the cache no longer knew about. Invalidation drops derived state; teardown ends a life. Do not substitute one for the other.
 
 ### 3. Narrow invalidation is explicit and provider-specific
 

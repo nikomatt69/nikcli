@@ -102,6 +102,9 @@ function createGlobalSync() {
     paused,
     bootstrap,
     bootstrapInstance,
+    onError(error) {
+      console.error("Failed to refresh global sync", error)
+    },
   })
 
   const children = createChildStoreManager({
@@ -168,7 +171,10 @@ function createGlobalSync() {
     const [store, setStore] = children.child(directory, { bootstrap: false })
     const meta = sessionMeta.get(directory)
     if (meta && meta.limit >= store.limit) {
-      const next = trimSessions(store.session, { limit: store.limit, permission: store.permission })
+      const next = trimSessions(store.session, {
+        limit: store.limit,
+        permission: store.permission,
+      })
       if (next.length !== store.session.length) {
         setStore("session", reconcile(next, { key: "id" }))
       }
@@ -193,10 +199,17 @@ function createGlobalSync() {
           .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
         const limit = store.limit
         const childSessions = store.session.filter((s) => !!s.parentID)
-        const sessions = trimSessions([...nonArchived, ...childSessions], { limit, permission: store.permission })
+        const sessions = trimSessions([...nonArchived, ...childSessions], {
+          limit,
+          permission: store.permission,
+        })
         setStore(
           "sessionTotal",
-          estimateRootSessionTotal({ count: nonArchived.length, limit: x.limit, limited: x.limited }),
+          estimateRootSessionTotal({
+            count: nonArchived.length,
+            limit: x.limit,
+            limited: x.limited,
+          }),
         )
         setStore("session", reconcile(sessions, { key: "id" }))
         sessionMeta.set(directory, { limit })
@@ -204,7 +217,10 @@ function createGlobalSync() {
       .catch((err) => {
         console.error("Failed to load sessions", err)
         const project = getFilename(directory)
-        showToast({ title: language.t("toast.session.listFailed.title", { project }), description: err.message })
+        showToast({
+          title: language.t("toast.session.listFailed.title", { project }),
+          description: err.message,
+        })
       })
 
     sessionLoads.set(directory, promise)
@@ -297,7 +313,9 @@ function createGlobalSync() {
     await bootstrapGlobal({
       globalSDK: globalSDK.client,
       connectErrorTitle: language.t("dialog.server.add.error"),
-      connectErrorDescription: language.t("error.globalSync.connectFailed", { url: globalSDK.url }),
+      connectErrorDescription: language.t("error.globalSync.connectFailed", {
+        url: globalSDK.url,
+      }),
       requestFailedTitle: language.t("common.requestFailed"),
       setGlobalStore,
     })

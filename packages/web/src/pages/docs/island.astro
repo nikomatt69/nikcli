@@ -54,7 +54,7 @@ const toc = [
     <ol>
       <li>
         <strong>The bridge.</strong>
-        <code>packages/nikcli/src/plugin/island/bridge.ts</code> is started unconditionally
+        <code>@nikcli-ai/util/island-bridge</code> is started unconditionally
         from <code>src/index.ts</code>'s top-level middleware. It listens on
         <code>GlobalBus</code> (<code>src/bus/global.ts</code>), which every
         <code>Bus.publish(...)</code> call already forwards to regardless of mode — so the
@@ -247,11 +247,11 @@ curl -X POST http://127.0.0.1:4096/permission/per_example/reply \\
         </tr>
         <tr>
           <td>Bridge (write side)</td>
-          <td><code>packages/nikcli/src/plugin/island/bridge.ts</code></td>
+          <td><code>@nikcli-ai/util/island-bridge</code></td>
         </tr>
         <tr>
           <td>TUI plugin (toggle)</td>
-          <td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/island/index.tsx</code></td>
+          <td><code>packages/tui/src/feature-plugins/island/index.tsx</code></td>
         </tr>
         <tr>
           <td>Worker shutdown hook</td>

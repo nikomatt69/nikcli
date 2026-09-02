@@ -11,7 +11,6 @@ import { FileTime } from "../file/time"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Bom } from "../util/bom"
 import { Format } from "../format"
-import { Instance } from "../project/instance"
 import { buildFileDiff, readAfterMutation, trimDiff } from "./file-diff"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -22,7 +21,7 @@ import { Effect } from "effect"
  * The user-supplied `content` string is checked for a BOM and the dominant line
  * ending; both are restored after the diff/patch pipeline normalizes to LF.
  */
-export function preserveOriginalShape(original: string, written: string): string {
+export function preserveLineEndingsAndBom(original: string, written: string): string {
   if (!original) return written
   const hasCRLF = original.includes("\r\n")
   const hasLF = original.includes("\n") && !hasCRLF
@@ -58,7 +57,9 @@ export const WriteTool = Tool.define("write", {
   description: DESCRIPTION,
   parameters: zod(Parameters),
   async execute(params, ctx) {
-    const filepath = path.isAbsolute(params.filePath) ? params.filePath : path.join(Instance.directory, params.filePath)
+    const filepath = path.isAbsolute(params.filePath)
+      ? params.filePath
+      : path.join(ctx.instance.directory, params.filePath)
     await assertExternalDirectory(ctx, filepath)
 
     const file = Bun.file(filepath)
@@ -74,7 +75,7 @@ export const WriteTool = Tool.define("write", {
     const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, contentText))
     await ctx.ask({
       permission: "edit",
-      patterns: [path.relative(Instance.worktree, filepath)],
+      patterns: [path.relative(ctx.instance.worktree, filepath)],
       always: ["*"],
       metadata: {
         filepath,
@@ -92,7 +93,7 @@ export const WriteTool = Tool.define("write", {
     })
 
     const writtenBom = original.bom || contentBom
-    const written = Bom.join(preserveOriginalShape(contentOld, contentText), writtenBom)
+    const written = Bom.join(preserveLineEndingsAndBom(contentOld, contentText), writtenBom)
     await Bun.write(filepath, written)
     await Format.formatFile(filepath, writtenBom)
     await Bus.publish(File.Event.Edited, {
@@ -135,7 +136,7 @@ export const WriteTool = Tool.define("write", {
     }
 
     return {
-      title: path.relative(Instance.worktree, filepath),
+      title: path.relative(ctx.instance.worktree, filepath),
       metadata: {
         diagnostics,
         filepath,

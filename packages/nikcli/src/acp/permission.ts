@@ -3,7 +3,7 @@ import { applyPatch } from "diff"
 import type { AgentSideConnection, PermissionOption, RequestPermissionResponse } from "@agentclientprotocol/sdk"
 import type { Event, NikcliClient } from "@nikcli-ai/sdk/httpapi"
 import { Log } from "@nikcli-ai/util/log"
-import { toLocations, toToolKind, type ToolInput } from "./tool"
+import { toLocations, toToolKind } from "./tool"
 
 const log = Log.create({ service: "acp-permission" })
 

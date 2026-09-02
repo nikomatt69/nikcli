@@ -16,6 +16,8 @@ describe("SessionPrompt.Service", () => {
 
       const parts = await Effect.runPromise(
         locallyInstance(
+          // SAFETY: the code under test reads only `project.id` off the
+          // instance context.
           { directory, worktree: directory, project: { id: "test" } as any },
           Effect.gen(function* () {
             const prompt = yield* SessionPrompt.Service

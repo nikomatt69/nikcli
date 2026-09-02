@@ -42,8 +42,17 @@ const out = (value: string) => process.stdout.write(value)
  * Every mapping in the live view — viewport size, click coordinates — is
  * derived from this, so guessing is a last resort rather than the plan.
  */
-async function cellSize(): Promise<{ width: number; height: number; measured: boolean }> {
-  if (!process.stdin.isTTY) return { width: DEFAULT_CELL_WIDTH, height: DEFAULT_CELL_HEIGHT, measured: false }
+async function cellSize(): Promise<{
+  width: number
+  height: number
+  measured: boolean
+}> {
+  if (!process.stdin.isTTY)
+    return {
+      width: DEFAULT_CELL_WIDTH,
+      height: DEFAULT_CELL_HEIGHT,
+      measured: false,
+    }
   process.stdin.setRawMode(true)
   process.stdin.resume()
   out("\x1b[16t")
@@ -62,8 +71,13 @@ async function cellSize(): Promise<{ width: number; height: number; measured: bo
     }
     process.stdin.on("data", onData)
   })
-  const match = /\x1b\[6;(\d+);(\d+)t/.exec(answer)
-  if (!match) return { width: DEFAULT_CELL_WIDTH, height: DEFAULT_CELL_HEIGHT, measured: false }
+  const match = new RegExp(`${String.fromCharCode(27)}\\[6;(\\d+);(\\d+)t`).exec(answer)
+  if (!match)
+    return {
+      width: DEFAULT_CELL_WIDTH,
+      height: DEFAULT_CELL_HEIGHT,
+      measured: false,
+    }
   return { width: Number(match[2]), height: Number(match[1]), measured: true }
 }
 
@@ -140,7 +154,12 @@ if (process.stdin.isTTY) {
     if (scroll !== 0) {
       void rpc(socket, "pointer", {
         name,
-        input: { type: "wheel", x: viewport.width / 2, y: viewport.height / 2, deltaY: scroll },
+        input: {
+          type: "wheel",
+          x: viewport.width / 2,
+          y: viewport.height / 2,
+          deltaY: scroll,
+        },
       }).catch(() => {})
     }
   })
@@ -166,7 +185,11 @@ try {
 
     const command =
       inline || !frame.path
-        ? encodeKittyVirtualPng(Uint8Array.fromBase64(frame.pngBase64 ?? ""), { id: IMAGE_ID, columns, rows })
+        ? encodeKittyVirtualPng(Uint8Array.fromBase64(frame.pngBase64 ?? ""), {
+            id: IMAGE_ID,
+            columns,
+            rows,
+          })
         : encodeKittyVirtualFile(frame.path, { id: IMAGE_ID, columns, rows })
     bytes += command.length
     out(command)

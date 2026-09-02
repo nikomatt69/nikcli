@@ -56,7 +56,7 @@ export async function work<T>(concurrency: number, items: T[], fn: (item: T) => 
  * same order as the input items array.
  */
 export async function workMap<T, R>(concurrency: number, items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results = new Array<R | undefined>(items.length)
+  const results = Array.from<R | undefined>({ length: items.length })
   const pending = items.map((item, index) => ({ item, index }))
   await Promise.all(
     Array.from({ length: concurrency }, async () => {

@@ -5,8 +5,9 @@ import { SessionSync } from "../projectors"
 /**
  * The conversation write helper.
  *
- * Slice 3 of the v2 write path: HTTP and `SessionV2.prompt` share this so
- * every admitted user message (idle persist and pending promotion) goes
+ * Slice 3 of the v2 write path: HTTP, `SessionV2.prompt`, share import,
+ * `nikcli import`, and teleport share this so every conversation write
+ * (idle persist, pending promotion, and imported transcripts) goes
  * through the same entry-first projector. `SyncEvent.run` nests into an
  * outer `Database.transaction`, which is how promotion stays one
  * transaction and one `step` reset (S1).

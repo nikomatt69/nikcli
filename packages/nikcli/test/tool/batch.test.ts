@@ -40,6 +40,9 @@ describe("BatchTool", () => {
       def.parameters.parse({ tool_calls: [] })
       expect.unreachable("expected parse to throw")
     } catch (error) {
+      // SAFETY: `error` is whatever the parse above threw, and
+      // `formatValidationError` accepts the validation error of its own
+      // parser — `never` is how the tool contract spells that opaque input.
       const formatted = def.formatValidationError?.(error as never)
       expect(formatted).toContain("Invalid parameters for tool 'batch'")
       expect(formatted).toContain("Expected payload format")

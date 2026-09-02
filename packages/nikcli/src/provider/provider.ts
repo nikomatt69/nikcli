@@ -16,15 +16,8 @@ import { Account } from "../account"
 import { Env } from "../env"
 import { Flag } from "@nikcli-ai/util/flag"
 import { iife } from "@nikcli-ai/util/iife"
-import { type DeepMutable, zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Exit, Layer, Schema, ScopedCache } from "effect"
-import {
-  InstanceState,
-  locallyInstance,
-  runPromiseWithLayer,
-  withCurrentInstance,
-  type InstanceContext,
-} from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 
 // Bundled provider SDKs are loaded lazily (see BUNDLED_PROVIDERS): evaluating
 // all twenty packages eagerly costs ~2s at process start, while a session only
@@ -36,6 +29,7 @@ import { ProviderTransform } from "./transform"
 import * as CachePolicy from "./cache-policy"
 import { ProviderError } from "./error"
 import { Policy } from "@/policy/policy"
+import { spreadIf } from "@/util/optional-key"
 import {
   NIKCLI_INFERENCE_DEFAULT_URL,
   NIKCLI_INFERENCE_ENV,
@@ -64,8 +58,8 @@ function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service | Config.Service
   return runPromiseWithLayer(Layer.merge(Auth.defaultLayer, Config.defaultLayer), effect)
 }
 
-function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>, ctx?: InstanceContext) {
-  return runPromiseWithLayer(Plugin.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
+function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>, ctx: InstanceContext) {
+  return runPromiseWithLayer(Plugin.defaultLayer, locallyInstance(ctx, effect))
 }
 
 function authGet(providerID: string): Promise<Auth.Info | undefined> {
@@ -96,7 +90,7 @@ function authAll(): Promise<Record<string, Auth.Info>> {
   )
 }
 
-function pluginList(ctx?: InstanceContext): Promise<PluginHooks[]> {
+function pluginList(ctx: InstanceContext): Promise<PluginHooks[]> {
   return runPlugin(
     Effect.gen(function* () {
       const plugin = yield* Plugin.Service
@@ -106,12 +100,12 @@ function pluginList(ctx?: InstanceContext): Promise<PluginHooks[]> {
   )
 }
 
-function configGet(ctx?: InstanceContext): Promise<Config.Info> {
+function configGet(ctx: InstanceContext): Promise<Config.Info> {
   const effect = Effect.gen(function* () {
     const config = yield* Config.Service
     return yield* config.get()
   })
-  return runPromiseWithLayer(Config.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
+  return runPromiseWithLayer(Config.defaultLayer, locallyInstance(ctx, effect))
 }
 
 export namespace Provider {
@@ -129,15 +123,33 @@ export namespace Provider {
     return baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL
   }
 
+  const RequestyPrice = z
+    .number()
+    .refine((value) => Number.isFinite(value) && value >= 0)
+    .transform((value) => value * 1_000_000)
+    .catch(0)
+
+  const RequestyEpochSeconds = z
+    .number()
+    .refine((value) => Number.isFinite(value))
+    .nullable()
+    .catch(null)
+
+  const RequestyPositiveInt = (fallback: number) =>
+    z
+      .number()
+      .refine((value) => value > 0)
+      .catch(fallback)
+
   const RequestyModel = z
     .object({
       id: z.string().trim().min(1),
-      created: z.unknown().optional(),
-      input_price: z.unknown().optional(),
-      output_price: z.unknown().optional(),
-      cached_price: z.unknown().optional(),
-      context_window: z.unknown().optional(),
-      max_output_tokens: z.unknown().optional(),
+      created: RequestyEpochSeconds,
+      input_price: RequestyPrice,
+      output_price: RequestyPrice,
+      cached_price: RequestyPrice,
+      context_window: RequestyPositiveInt(128_000),
+      max_output_tokens: RequestyPositiveInt(4096),
       supports_reasoning: z.boolean().optional(),
       supports_vision: z.boolean().optional(),
       supports_tool_calling: z.boolean().optional(),
@@ -149,10 +161,6 @@ export namespace Provider {
     const url = normalizeBaseURL(baseURL)
     if (url.endsWith("/v1")) return url
     return `${url}/v1`
-  }
-
-  function requestyPrice(value: unknown): number {
-    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value * 1_000_000 : 0
   }
 
   function isProbablyOllamaImageModel(modelID: string): boolean {
@@ -174,7 +182,7 @@ export namespace Provider {
   }
 
   function wrapSSE(res: Response, ms: number, ctl: AbortController) {
-    if (typeof ms !== "number" || ms <= 0) return res
+    if (ms <= 0) return res
     if (!res.body) return res
     if (!res.headers.get("content-type")?.includes("text/event-stream")) return res
 
@@ -223,10 +231,12 @@ export namespace Provider {
 
   async function loadOllamaProvider(config: Config.Info): Promise<Info | undefined> {
     const configured = config.provider?.["ollama"]
+    // SAFETY: provider options come from user config and Env.get reads process env; both are strings when present
     const configuredBaseURL =
       (configured?.options?.baseURL as string | undefined) ?? (Env.get("OLLAMA_BASE_URL") as string | undefined)
     const baseURL = normalizeOllamaV1BaseURL(configuredBaseURL ?? "http://127.0.0.1:11434/v1")
 
+    // SAFETY: apiKey comes from user config or process env, both string-valued when set
     const apiKey = (configured?.options?.apiKey as string | undefined) ?? Env.get("OLLAMA_API_KEY") ?? "ollama"
 
     // Avoid hitting external networks unless explicitly configured by the user.
@@ -245,9 +255,11 @@ export namespace Provider {
     }).catch(() => undefined)
     if (!modelsRes?.ok) return undefined
 
+    // SAFETY: modelsRes.ok was checked above; res.json() is untyped so all fields are accessed defensively below
     const listJson = (await modelsRes.json().catch(() => undefined)) as
       | { data?: Array<{ id?: string; created?: number }> }
       | undefined
+    // SAFETY: filter(Boolean) drops the undefined ids produced by the map before this point
     const modelIDs = listJson?.data?.map((x) => x.id).filter(Boolean) as string[] | undefined
 
     if (!modelIDs || modelIDs.length === 0) return undefined
@@ -341,12 +353,14 @@ export namespace Provider {
   async function nikcliInferenceCredential(ctx: InstanceContext) {
     const config = await configGet(ctx)
     const configured = config.provider?.[NIKCLI_INFERENCE_ID]
+    // SAFETY: provider option and env values are strings when present, widened by the loose config options shape
     const baseURL = normalizeBaseURL(
       (configured?.options?.baseURL as string | undefined) ??
         Env.get("NIKCLI_INFERENCE_URL") ??
         NIKCLI_INFERENCE_DEFAULT_URL,
     )
     const auth = await authGet(NIKCLI_INFERENCE_ID)
+    // SAFETY: apiKey comes from user config or process env, both string-valued when set
     const explicitKey =
       (configured?.options?.apiKey as string | undefined) ??
       Env.get(NIKCLI_INFERENCE_ENV) ??
@@ -369,6 +383,7 @@ export namespace Provider {
       signal: AbortSignal.timeout(4000),
     }).catch(() => undefined)
     if (!res?.ok) return undefined
+    // SAFETY: res.ok was checked above; res.json() is untyped so data is accessed defensively below
     const json = (await res.json().catch(() => undefined)) as { data?: GatewayModel[] } | undefined
     const data = json?.data
     if (!data?.length) return undefined
@@ -376,7 +391,10 @@ export namespace Provider {
     for (const m of data) {
       if (!m.id) continue
       const seed = toModelsDevModel(m)
+      // SAFETY: seed.limit is built by toModelsDevModel above; context/output are numeric there
       const context = (seed.limit as { context: number }).context
+      // SAFETY: seed fields come from toModelsDevModel(m), which normalizes each gateway model
+      // to the internal Model shape (family/release_date strings, reasoning/attachment booleans)
       models[m.id] = {
         id: m.id,
         providerID: NIKCLI_INFERENCE_ID,
@@ -432,7 +450,9 @@ export namespace Provider {
     return isGpt5OrLater(modelID) && !modelID.startsWith("gpt-5-mini")
   }
 
-  type BundledFactory = (options: Record<string, unknown>) => SDK
+  type ProviderSdkOptions = ProviderSchema.Info["options"]
+  type BundledFactory = (options: ProviderSdkOptions) => SDK
+
   const BUNDLED_PROVIDERS: Record<string, () => Promise<BundledFactory>> = {
     "@ai-sdk/amazon-bedrock": () => import("@ai-sdk/amazon-bedrock").then((m) => m.createAmazonBedrock),
     "@ai-sdk/anthropic": () => import("@ai-sdk/anthropic").then((m) => m.createAnthropic),
@@ -460,21 +480,16 @@ export namespace Provider {
       import("./sdk/copilot").then((m) => m.createOpenaiCompatible as unknown as BundledFactory),
   }
 
-  type CustomModelLoader = (sdk: SDK, modelID: string, options?: Record<string, unknown>) => Promise<unknown>
+  type CustomModelLoader = (sdk: SDK, modelID: string, options?: ProviderSdkOptions) => Promise<LanguageModelV2>
+  // Loaders receive the converted Provider.Info entry held in `database` — nikcli's
+  // own model shape with nested `capabilities` — not the raw ModelsDev catalog.
   type CustomLoader = (
-    provider: {
-      id: string
-      name: string
-      source: string
-      env: string[]
-      options: Record<string, unknown>
-      models: Record<string, unknown>
-    },
+    provider: Pick<Info, "id" | "name" | "source" | "env" | "options" | "models">,
     ctx: InstanceContext,
   ) => Promise<{
     autoload: boolean
     getModel?: CustomModelLoader
-    options?: Record<string, unknown>
+    options?: ProviderSdkOptions
   }>
 
   const CUSTOM_LOADERS = {
@@ -489,7 +504,7 @@ export namespace Provider {
         },
       }
     },
-    async nikcli(input: { id: string; env: string[]; models: Record<string, unknown> }, ctx: InstanceContext) {
+    async nikcli(input: { id: string; env: string[]; models: Record<string, Model> }, ctx: InstanceContext) {
       const hasKey = await (async () => {
         const env = Env.all()
         if (input.env.some((item) => env[item])) return true
@@ -540,7 +555,11 @@ export namespace Provider {
               const token = (await accountAccessToken()) ?? apiKey
               const headers = new Headers(init?.headers)
               headers.set("Authorization", `Bearer ${token}`)
-              return globalThis.fetch(url, { ...init, headers })
+              return globalThis.fetch(url, {
+                ...init,
+                headers,
+                compress: "gzip",
+              } as RequestInit)
             },
           }),
         },
@@ -549,7 +568,7 @@ export namespace Provider {
     openai: async () => {
       return {
         autoload: false,
-        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+        async getModel(sdk: any, modelID: string, _options?: ProviderSdkOptions) {
           return sdk.responses(modelID)
         },
         options: { headerTimeout: OPENAI_HEADER_TIMEOUT_DEFAULT },
@@ -569,7 +588,7 @@ export namespace Provider {
         // absent `options` is ignored by the loader merge (so it can never wipe the
         // OAuth `apiKey`/`fetch` merged earlier by the xai auth plugin).
         options: {},
-        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+        async getModel(sdk: any, modelID: string, _options?: ProviderSdkOptions) {
           return sdk.responses(modelID)
         },
       }
@@ -577,7 +596,7 @@ export namespace Provider {
     "github-copilot": async () => {
       return {
         autoload: false,
-        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+        async getModel(sdk: any, modelID: string, _options?: ProviderSdkOptions) {
           return shouldUseCopilotResponsesApi(modelID) ? sdk.responses(modelID) : sdk.chat(modelID)
         },
         options: {},
@@ -586,7 +605,7 @@ export namespace Provider {
     "github-copilot-enterprise": async () => {
       return {
         autoload: false,
-        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+        async getModel(sdk: any, modelID: string, _options?: ProviderSdkOptions) {
           return shouldUseCopilotResponsesApi(modelID) ? sdk.responses(modelID) : sdk.chat(modelID)
         },
         options: {},
@@ -595,7 +614,7 @@ export namespace Provider {
     azure: async () => {
       return {
         autoload: false,
-        async getModel(sdk: any, modelID: string, options?: Record<string, any>) {
+        async getModel(sdk: any, modelID: string, options?: ProviderSdkOptions) {
           if (options?.["useCompletionUrls"]) {
             return sdk.chat(modelID)
           } else {
@@ -609,7 +628,7 @@ export namespace Provider {
       const resourceName = Env.get("AZURE_COGNITIVE_SERVICES_RESOURCE_NAME")
       return {
         autoload: false,
-        async getModel(sdk: any, modelID: string, options?: Record<string, any>) {
+        async getModel(sdk: any, modelID: string, options?: ProviderSdkOptions) {
           if (options?.["useCompletionUrls"]) {
             return sdk.chat(modelID)
           } else {
@@ -622,7 +641,7 @@ export namespace Provider {
       }
     },
     "amazon-bedrock": async (
-      _input: { id: string; env: string[]; models: Record<string, unknown> },
+      _input: { id: string; env: string[]; models: Record<string, Model> },
       ctx: InstanceContext,
     ) => {
       const config = await configGet(ctx)
@@ -680,7 +699,7 @@ export namespace Provider {
       return {
         autoload: true,
         options: providerOptions,
-        async getModel(sdk: any, modelID: string, options?: Record<string, any>) {
+        async getModel(sdk: any, modelID: string, options?: ProviderSdkOptions) {
           // Skip region prefixing if model already has a cross-region inference profile prefix
           if (modelID.startsWith("global.") || modelID.startsWith("jp.")) {
             return sdk.languageModel(modelID)
@@ -862,7 +881,7 @@ export namespace Provider {
         },
       }
     },
-    gitlab: async (input: { id: string; env: string[]; models: Record<string, unknown> }, ctx: InstanceContext) => {
+    gitlab: async (input: { id: string; env: string[]; models: Record<string, Model> }, ctx: InstanceContext) => {
       const instanceUrl = Env.get("GITLAB_INSTANCE_URL") || "https://gitlab.com"
 
       const auth = await authGet(input.id)
@@ -914,7 +933,7 @@ export namespace Provider {
 
       return {
         autoload: true,
-        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+        async getModel(sdk: any, modelID: string, _options?: ProviderSdkOptions) {
           return sdk.languageModel(modelID)
         },
         options: {
@@ -922,7 +941,7 @@ export namespace Provider {
           headers: {
             // Cloudflare AI Gateway uses cf-aig-authorization for authenticated gateways
             // This enables Unified Billing where Cloudflare handles upstream provider auth
-            ...(apiToken ? { "cf-aig-authorization": `Bearer ${apiToken}` } : {}),
+            ...(apiToken ? { "cf-aig-authorization": `Bearer ${apiToken}` } : undefined),
             "HTTP-Referer": "https://nikcli.store/",
             "X-Title": "nikcli",
           },
@@ -946,7 +965,11 @@ export namespace Provider {
               }
             }
 
-            return fetch(input, { ...init, headers })
+            return fetch(input, {
+              ...init,
+              headers,
+              compress: "gzip",
+            } as RequestInit)
           },
         },
       }
@@ -983,10 +1006,13 @@ export namespace Provider {
       api: {
         id: model.api?.id ?? fallback?.api.id ?? modelID,
         npm: model.api?.npm ?? fallback?.api.npm ?? "@ai-sdk/openai-compatible",
-        url: model.api?.url ?? fallback?.api.url,
+        // `url` / `family` / `experimentalOver200K` / `limit.input` are
+        // `optionalKey`: a present `undefined` fails the response encode on
+        // `GET /provider` and `GET /config/providers` instead of omitting them.
+        ...spreadIf("url", model.api?.url ?? fallback?.api.url),
       },
       name: model.name ?? fallback?.name ?? modelID,
-      family: model.family ?? fallback?.family,
+      ...spreadIf("family", model.family ?? fallback?.family),
       capabilities: {
         temperature: model.capabilities?.temperature ?? fallback?.capabilities.temperature ?? false,
         reasoning: model.capabilities?.reasoning ?? fallback?.capabilities.reasoning ?? false,
@@ -1015,11 +1041,11 @@ export namespace Provider {
           read: model.cost?.cache?.read ?? fallback?.cost.cache.read ?? 0,
           write: model.cost?.cache?.write ?? fallback?.cost.cache.write ?? 0,
         },
-        experimentalOver200K: model.cost?.experimentalOver200K ?? fallback?.cost.experimentalOver200K,
+        ...spreadIf("experimentalOver200K", model.cost?.experimentalOver200K ?? fallback?.cost.experimentalOver200K),
       },
       limit: {
         context: model.limit?.context ?? fallback?.limit.context ?? 0,
-        input: model.limit?.input ?? fallback?.limit.input,
+        ...spreadIf("input", model.limit?.input ?? fallback?.limit.input),
         output: model.limit?.output ?? fallback?.limit.output ?? 0,
       },
       status: model.status ?? fallback?.status ?? "active",
@@ -1035,7 +1061,7 @@ export namespace Provider {
       id: model.id,
       providerID: provider.id,
       name: model.name,
-      family: model.family,
+      ...spreadIf("family", model.family),
       api: {
         id: model.id,
         url: model.provider?.api ?? provider.api!,
@@ -1054,20 +1080,22 @@ export namespace Provider {
           read: model.cost?.cache_read ?? 0,
           write: model.cost?.cache_write ?? 0,
         },
-        experimentalOver200K: model.cost?.context_over_200k
+        ...(model.cost?.context_over_200k
           ? {
-              cache: {
-                read: model.cost.context_over_200k.cache_read ?? 0,
-                write: model.cost.context_over_200k.cache_write ?? 0,
+              experimentalOver200K: {
+                cache: {
+                  read: model.cost.context_over_200k.cache_read ?? 0,
+                  write: model.cost.context_over_200k.cache_write ?? 0,
+                },
+                input: model.cost.context_over_200k.input,
+                output: model.cost.context_over_200k.output,
               },
-              input: model.cost.context_over_200k.input,
-              output: model.cost.context_over_200k.output,
             }
-          : undefined,
+          : {}),
       },
       limit: {
         context: model.limit.context,
-        input: model.limit.input,
+        ...spreadIf("input", model.limit.input),
         output: model.limit.output,
       },
       capabilities: {
@@ -1150,8 +1178,7 @@ export namespace Provider {
         const parsed = RequestyModel.safeParse(value)
         if (!parsed.success) continue
         const item = parsed.data
-        const created =
-          typeof item.created === "number" && Number.isFinite(item.created) ? new Date(item.created * 1000) : undefined
+        const created = item.created === null ? undefined : new Date(item.created * 1000)
         const releaseDate = created && Number.isFinite(created.getTime()) ? created.toISOString().slice(0, 10) : ""
         const model: Model = {
           id: item.id,
@@ -1167,14 +1194,13 @@ export namespace Provider {
           headers: {},
           options: {},
           cost: {
-            input: requestyPrice(item.input_price),
-            output: requestyPrice(item.output_price),
-            cache: { read: requestyPrice(item.cached_price), write: 0 },
+            input: item.input_price,
+            output: item.output_price,
+            cache: { read: item.cached_price, write: 0 },
           },
           limit: {
-            context: typeof item.context_window === "number" && item.context_window > 0 ? item.context_window : 128_000,
-            output:
-              typeof item.max_output_tokens === "number" && item.max_output_tokens > 0 ? item.max_output_tokens : 4096,
+            context: item.context_window,
+            output: item.max_output_tokens,
           },
           capabilities: {
             temperature: true,
@@ -1425,7 +1451,10 @@ export namespace Provider {
           api: {
             id: apiID,
             npm: apiNpm,
-            url: model.provider?.api ?? provider?.api ?? existingModel?.api.url ?? modelsDev[providerID]?.api,
+            ...spreadIf(
+              "url",
+              model.provider?.api ?? provider?.api ?? existingModel?.api.url ?? modelsDev[providerID]?.api,
+            ),
           },
           status: model.status ?? existingModel?.status ?? "active",
           name,
@@ -1520,7 +1549,7 @@ export namespace Provider {
       if (!apiKey) continue
       mergeProvider(providerID, {
         source: "env",
-        key: provider.env.length === 1 ? apiKey : undefined,
+        ...spreadIf("key", provider.env.length === 1 ? apiKey : undefined),
       })
     }
 
@@ -1530,7 +1559,7 @@ export namespace Provider {
       if (provider.type === "api") {
         mergeProvider(providerID, {
           source: "api",
-          key: provider.key,
+          ...spreadIf("key", provider.key),
         })
       }
     }
@@ -1766,7 +1795,7 @@ export namespace Provider {
     return out
   }
 
-  function sdkCacheKey(npm: string, options: Record<string, any>): number {
+  function sdkCacheKey(npm: string, options: ProviderSdkOptions): number {
     const baseURL = options["baseURL"] ?? ""
     const apiKey = options["apiKey"] ?? ""
     const includeUsage = options["includeUsage"] ?? ""
@@ -1807,7 +1836,7 @@ export namespace Provider {
       if (options["apiKey"] === undefined && provider.key) options["apiKey"] = provider.key
       if (model.headers)
         options["headers"] = {
-          ...((options["headers"] as Record<string, unknown> | undefined) ?? {}),
+          ...(options["headers"] as Model["headers"] | undefined),
           ...model.headers,
         }
 
@@ -2028,7 +2057,7 @@ export namespace Provider {
             const resourceName =
               (providerInfo.options?.["resourceName"] as string | undefined) ?? extractAzureResource(baseURL ?? "")
             return Azure.model(id, {
-              ...(resourceName ? { resourceName } : {}),
+              ...(resourceName ? { resourceName } : undefined),
               baseURL,
               apiKey,
             } as any)
@@ -2352,13 +2381,13 @@ export namespace Provider {
 
   export const parseModel = parseModelLight
 
-  export class ModelNotFoundError extends Schema.TaggedErrorClass<ModelNotFoundError>()("ProviderModelNotFoundError", {
+  export class ModelNotFoundError extends Schema.TaggedError<ModelNotFoundError>()("ProviderModelNotFoundError", {
     providerID: Schema.String,
     modelID: Schema.String,
     suggestions: Schema.optional(Schema.Array(Schema.String)),
   }) {}
 
-  export class InitError extends Schema.TaggedErrorClass<InitError>()("ProviderInitError", {
+  export class InitError extends Schema.TaggedError<InitError>()("ProviderInitError", {
     providerID: Schema.String,
   }) {}
 

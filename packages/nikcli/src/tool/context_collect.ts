@@ -7,7 +7,7 @@ import { SearchBackend } from "@/file/searchBackend"
 import { assertExternalDirectory } from "./external-directory"
 import { FileIgnore } from "@/file/ignore"
 import { LSP } from "@/lsp"
-import { AppRuntime, InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { Effect } from "effect"
 
 const parameters = z.object({
@@ -19,13 +19,8 @@ const parameters = z.object({
   includeDiagnostics: z.boolean().optional().describe("Include LSP diagnostics for files"),
 })
 
-function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
-  return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
-}
-
-async function instancePaths() {
-  const ctx = await AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
-  return { directory: ctx.directory, worktree: ctx.worktree }
+function runLSP<A, E>(instance: InstanceContext, effect: Effect.Effect<A, E, LSP.Service>) {
+  return runPromiseWithLayer(LSP.defaultLayer, locallyInstance(instance, effect))
 }
 
 export const ContextCollectTool = Tool.define<typeof parameters, { count: number; truncated: boolean }>(
@@ -34,7 +29,8 @@ export const ContextCollectTool = Tool.define<typeof parameters, { count: number
     description: DESCRIPTION,
     parameters,
     async execute(params, ctx) {
-      const { directory } = await instancePaths()
+      const instance = InstanceState.ambient()
+      const { directory } = instance
       const roots = params.paths?.length ? params.paths : [directory]
       const limitFiles = params.maxFiles ?? 20
       const limitLines = params.maxLines ?? 200
@@ -66,6 +62,7 @@ export const ContextCollectTool = Tool.define<typeof parameters, { count: number
       const files = await collectFiles(resolved, limitFiles, directory)
       const diagnostics = includeDiagnostics
         ? await runLSP(
+            instance,
             Effect.gen(function* () {
               const lsp = yield* LSP.Service
               return yield* lsp.diagnostics()
@@ -96,7 +93,7 @@ export const ContextCollectTool = Tool.define<typeof parameters, { count: number
         lines.push(snippet)
 
         if (includeSymbols) {
-          const symbols = await collectSymbols(file)
+          const symbols = await collectSymbols(instance, file)
           if (symbols.length > 0) {
             lines.push("")
             lines.push("symbols:")
@@ -166,9 +163,10 @@ async function readSnippet(filePath: string, limit: number, regex?: RegExp) {
   return filtered.slice(0, limit).join("\n")
 }
 
-async function collectSymbols(filePath: string) {
+async function collectSymbols(instance: InstanceContext, filePath: string) {
   const uri = pathToFileURL(filePath).href
   const symbols = await runLSP(
+    instance,
     Effect.gen(function* () {
       const lsp = yield* LSP.Service
       return yield* lsp.documentSymbol(uri)

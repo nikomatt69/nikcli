@@ -5,8 +5,11 @@
  * it for the lifetime of one process": terminal-control gets that property
  * from a compiled native driver process; here it's this daemon.
  *
- * The daemon self-terminates after `IDLE_SHUTDOWN_MS` with zero open sessions,
- * so a forgotten `start` doesn't leave a headless Chromium running forever.
+ * Nothing here runs forever on its own account. A session nobody has touched
+ * for {@link idleMinutes} is stopped, and once no session is running the daemon
+ * itself exits `IDLE_SHUTDOWN_MS` later — so a forgotten `start` does not leave
+ * a headless browser (eleven OS processes on Windows) alive for the uptime of
+ * the machine.
  */
 import { mkdir, rm, unlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -17,6 +20,29 @@ import type { ScreencastFrame } from "./screencast"
 
 const IDLE_SHUTDOWN_MS = 10 * 60 * 1000 // 10 minutes with no sessions.
 const IDLE_CHECK_MS = 30_000
+
+/**
+ * How long a session may sit untouched before it is stopped.
+ *
+ * Generous on purpose: an agent that opens a page, goes away to think, and
+ * comes back must find its session, so this is measured in "gave up on it"
+ * time rather than "paused" time. A session streaming a live view or recording
+ * is never reaped — see {@link SessionManager.reapIdle}.
+ *
+ * `NIKCLI_BROWSER_IDLE_MINUTES` overrides it; `0` disables reaping, restoring
+ * the old behavior for anyone who wants a session to outlive their attention.
+ */
+const ENV_IDLE_MINUTES = "NIKCLI_BROWSER_IDLE_MINUTES"
+const DEFAULT_IDLE_MINUTES = 30
+
+export function idleMinutes(raw = process.env[ENV_IDLE_MINUTES]): number {
+  if (raw === undefined || raw.trim() === "") return DEFAULT_IDLE_MINUTES
+  const parsed = Number(raw)
+  // A malformed value must not silently disable the reaper — that is the leak
+  // this exists to prevent.
+  if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_IDLE_MINUTES
+  return parsed
+}
 
 /**
  * How many temp files a `file`-mode screencast rotates through. Kitty deletes
@@ -211,7 +237,7 @@ function positiveNumber(value: string | null): number | undefined {
  * `GET /screencast?name=&mode=&maxWidth=&maxHeight=&fps=&everyNthFrame=`
  *
  * One live view per request: the screencast starts when the request opens and
- * stops when it closes, so a client that goes away never leaves Chromium
+ * stops when it closes, so a client that goes away never leaves the WebView
  * capturing into the void.
  */
 async function streamScreencast(manager: SessionManager, url: URL, signal: AbortSignal): Promise<Response> {
@@ -238,7 +264,11 @@ async function streamScreencast(manager: SessionManager, url: URL, signal: Abort
   const finish = async () => {
     if (closed) return
     closed = true
+    // Stop this view's object, not `manager.stopScreencast(name)`: a replacement
+    // stream may already own the session. Then drop it from the session so
+    // `isBusy` does not keep the browser alive after the client has gone.
     await screencast.stop().catch(() => {})
+    manager.get(name)?.detachScreencast(screencast)
     await files?.dispose()
   }
 
@@ -321,10 +351,29 @@ export async function startDaemon(socketPath: string, options: StartDaemonOption
   let lastActivity = Date.now()
   let shuttingDown = false
 
+  // Sweeping less often than the idle window would let a session outlive it by
+  // most of a check interval; with the default window the cap is what matters.
+  const sweepMs = Math.max(1_000, Math.min(IDLE_CHECK_MS, idleMinutes() * 60 * 1000 || IDLE_CHECK_MS))
   const idleTimer = setInterval(() => {
-    if (manager.runningCount === 0 && Date.now() - lastActivity > IDLE_SHUTDOWN_MS) void shutdown()
-  }, IDLE_CHECK_MS)
+    void sweep()
+  }, sweepMs)
   idleTimer.unref()
+
+  /**
+   * Reap abandoned sessions first, then decide whether the daemon itself has
+   * anything left to do. The order matters: the shutdown check below waits for
+   * zero running sessions, so without the reap a single forgotten session keeps
+   * both the daemon and its browser alive for as long as the machine is up.
+   */
+  async function sweep(): Promise<void> {
+    if (shuttingDown) return
+    // Silent on purpose. `ensureDaemon` spawns this process with `stderr: "pipe"`
+    // and stops reading once the client is up, so writing here after the client
+    // has gone kills the daemon on a broken pipe — taking the sessions it was
+    // hosting with it. A reaped session already reports itself as "closed".
+    await manager.reapIdle(idleMinutes() * 60 * 1000).catch(() => {})
+    if (manager.runningCount === 0 && Date.now() - lastActivity > IDLE_SHUTDOWN_MS) void shutdown()
+  }
 
   async function shutdown(): Promise<void> {
     if (shuttingDown) return

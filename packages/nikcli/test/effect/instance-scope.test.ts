@@ -22,7 +22,7 @@ preserveTestEnv([
   "XDG_STATE_HOME",
 ])
 
-const { InstanceRef, InstanceScope, InstanceState, WorkspaceRef } = await import("@/effect")
+const { InstanceRef, InstanceScope, InstanceState, WorkspaceRef, withInstanceAsync } = await import("@/effect")
 const { Instance } = await import("@/project/instance")
 
 const projectDirs: string[] = []
@@ -91,7 +91,7 @@ describe("InstanceScope", () => {
   })
 
   it("preserves typed failures across the bridge instead of squashing to Error", async () => {
-    class MarkerError extends Schema.TaggedErrorClass<MarkerError>()("MarkerError", {
+    class MarkerError extends Schema.TaggedError<MarkerError>()("MarkerError", {
       detail: Schema.String,
     }) {}
 
@@ -110,6 +110,8 @@ describe("InstanceScope", () => {
       const failure = Cause.findErrorOption(exit.cause)
       expect(failure._tag).toBe("Some")
       if (failure._tag === "Some") {
+        // SAFETY: the effect under test fails with exactly `MarkerError`, and
+        // the `_tag === "Some"` guard above proves a failure was found.
         const error = failure.value as MarkerError
         expect(error._tag).toBe("MarkerError")
         expect(error.detail).toBe("kept")
@@ -149,6 +151,94 @@ describe("InstanceScope", () => {
 
 afterEach(async () => {
   await Instance.disposeAll().catch(() => undefined)
+})
+
+/**
+ * `withInstanceAsync` used to have two implementations: callers passing an
+ * `init` went through `Instance.provide` directly and a hand-rolled fork onto
+ * `AppRuntime`, everyone else went through `InstanceScope.with`. The busiest
+ * callers in the codebase — the HTTP router, the websocket upgrade, workspace
+ * connection — were all on the first one, so the bridge with the weaker
+ * guarantees carried the most traffic. There is one path now; these pin what
+ * an `init` caller must still get.
+ */
+describe("withInstanceAsync with an init", () => {
+  it("runs init once per directory and provides the instance to the body", async () => {
+    const directory = await makeProjectDir()
+    let inits = 0
+    const init = async () => {
+      inits++
+    }
+
+    const first = await withInstanceAsync({ directory, init }, async () => Instance.directory)
+    const second = await withInstanceAsync({ directory, init }, async () => Instance.directory)
+
+    expect(first).toBe(directory)
+    expect(second).toBe(directory)
+    expect(inits).toBe(1)
+  })
+
+  it("bootstraps retroactively through this entry point too", async () => {
+    const directory = await makeProjectDir()
+    let inits = 0
+
+    // An acquisition with no init no longer decides that the directory is
+    // never bootstrapped.
+    await withInstanceAsync({ directory }, async () => undefined)
+    await withInstanceAsync(
+      {
+        directory,
+        init: async () => {
+          inits++
+        },
+      },
+      async () => undefined,
+    )
+
+    expect(inits).toBe(1)
+  })
+
+  it("rejects with the body's own error, not a re-wrapped one", async () => {
+    const directory = await makeProjectDir()
+    class Sentinel extends Error {}
+    const thrown = new Sentinel("body exploded")
+
+    // The old init branch squashed the Cause to get here; the shared bridge
+    // replays the Exit. Both preserve identity, and that is what callers
+    // catching a specific error depend on.
+    const caught = await withInstanceAsync({ directory, init: async () => {} }, async () => {
+      throw thrown
+    }).catch((error) => error)
+
+    expect(caught).toBe(thrown)
+  })
+
+  it("provides WorkspaceRef alongside init", async () => {
+    const directory = await makeProjectDir()
+    const seen = await withInstanceAsync({ directory, workspaceID: "wrk_init", init: async () => {} }, async () =>
+      Effect.runPromise(
+        Effect.gen(function* () {
+          return yield* WorkspaceRef
+        }).pipe(Effect.provideService(WorkspaceRef, { id: "wrk_init" })),
+      ),
+    )
+    expect(seen.id).toBe("wrk_init")
+  })
+
+  it("forks onto a per-directory runtime whose layer provides InstanceRef", async () => {
+    const directory = await makeProjectDir()
+    const fromLayer = await Instance.provide({
+      directory,
+      fn: () =>
+        Instance.runtime.runPromise(
+          Effect.gen(function* () {
+            const ref = yield* InstanceRef
+            return ref.directory
+          }),
+        ),
+    })
+    expect(fromLayer).toBe(directory)
+  })
 })
 
 afterAll(async () => {

@@ -3,12 +3,28 @@ import { Log } from "@nikcli-ai/util/log"
 import path from "path"
 import { readableStreamToText } from "bun"
 import { Schema } from "effect"
-import { createRequire } from "module"
 import { Lock } from "../util/lock"
+
+export {
+  bunUtils,
+  parseJsonl,
+  stripAnsi,
+  fetchCompressed,
+  createWebView,
+  defaultWebViewBackend,
+  onMemoryPressure,
+} from "@nikcli-ai/util/bun-utils"
+export type {
+  BunUtils,
+  CronJob,
+  FetchInit,
+  FetchCompress,
+  WebViewInstance,
+  WebViewBackend,
+} from "@nikcli-ai/util/bun-utils"
 
 export namespace BunProc {
   const log = Log.create({ service: "bun" })
-  const req = createRequire(import.meta.url)
 
   export async function run(cmd: string[], options?: Bun.SpawnOptions.OptionsObject<any, any, any>) {
     log.info("running", {
@@ -56,7 +72,7 @@ export namespace BunProc {
     return process.execPath
   }
 
-  export class InstallFailedError extends Schema.TaggedErrorClass<InstallFailedError>()("BunInstallFailedError", {
+  export class InstallFailedError extends Schema.TaggedError<InstallFailedError>()("BunInstallFailedError", {
     pkg: Schema.String,
     version: Schema.String,
   }) {}

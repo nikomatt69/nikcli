@@ -1,18 +1,17 @@
 import { eq } from "drizzle-orm"
 import { Database } from "@/database/database"
-import { Log } from "@nikcli-ai/util/log"
 import { account, config } from "./account.sql"
 import type { AccountRow, ConfigRow } from "./schema"
 
-/** Drizzle's .run() returns void in types but actually returns {changes, lastInsertRowid} at runtime */
 type RunResult = { changes: number; lastInsertRowid: number | bigint }
 function getChanges(result: void | RunResult): number {
+  // SAFETY: drizzle types `.run()` as returning void, but bun:sqlite always
+  // returns `{ changes, lastInsertRowid }` at runtime. Callers only pass the
+  // result of a `.run()` on this driver, so the void half is a typing artefact.
   return (result as RunResult).changes
 }
 
 export namespace AccountDB {
-  const log = Log.create({ service: "account-db" })
-
   /**
    * Get the shared Drizzle database instance from the central Database.Service.
    */

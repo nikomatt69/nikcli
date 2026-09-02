@@ -2,17 +2,11 @@
  * Image decoders. A {@link Decoder} takes a raw byte buffer (PNG, JPEG, GIF,
  * WebP, BMP, …) and returns a {@link PixelImage}.
  *
- * The package ships with **two** decoders out of the box:
+ * The package ships with three decoders out of the box:
  *
- *  - {@link jimpDecoder} — pure-JS, always available. Uses the `jimp`
- *    dependency declared in `package.json`. A good default for Node / Bun.
- *  - {@link photonDecoder} — WASM-backed, faster on large images. Uses
- *    `@silvia-odwyer/photon-node`. The optional dependency is loaded lazily
- *    and falls back to a clear error when it isn't installed.
- *
- * Callers (including nikcli's `image-preview.tsx`) can pass any custom decoder
- * function. The {@link pickDecoder} helper chooses the right one for the
- * environment.
+ *  - {@link bunDecoder} — Bun.Image (1.4+) to PNG, then Jimp for RGBA pixels.
+ *  - {@link jimpDecoder} — pure-JS, always available.
+ *  - {@link photonDecoder} — WASM fallback when Bun.Image / Jimp cannot read a container.
  */
 import type { PixelImage } from "./pixels"
 
@@ -32,6 +26,22 @@ interface DecodedBitmap {
   width: number
   height: number
   data: Uint8ClampedArray | Uint8Array | Buffer
+}
+
+/**
+ * Bun.Image decoder. Converts any supported container to PNG off-thread, then
+ * reuses Jimp for RGBA pixels (Bun.Image has no raw-pixel terminal).
+ */
+export const bunDecoder: Decoder = async (bytes) => {
+  const Image = (Bun as unknown as { Image?: new (input: Uint8Array) => { png(): { bytes(): Promise<Uint8Array> } } })
+    .Image
+  if (typeof Image !== "function") throw new DecodeError("Bun.Image is not available")
+  try {
+    const png = await new Image(bytes.slice()).png().bytes()
+    return jimpDecoder(png)
+  } catch (error) {
+    throw new DecodeError("Bun.Image failed to decode image", error)
+  }
 }
 
 /**
@@ -153,13 +163,20 @@ function reason(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function hasBunImage() {
+  return typeof (Bun as unknown as { Image?: unknown }).Image === "function"
+}
+
 function candidates(format: ImageFormat | undefined, preferWasm: boolean) {
+  const bun = { name: "bun", decoder: bunDecoder }
   const jimp = { name: "jimp", decoder: jimpDecoder }
   const photon = { name: "photon", decoder: photonDecoder }
-  if (format === "svg") return [{ name: "resvg", decoder: resvgDecoder }, photon]
-  // Jimp has no WebP support at all, so anything it cannot read has to reach
-  // for the WASM decoder first — otherwise a file the picker happily offered
-  // fails with a bare "jimp failed to decode image".
+  if (format === "svg") {
+    return [{ name: "resvg", decoder: resvgDecoder }, ...(hasBunImage() ? [bun] : []), photon]
+  }
+  if (hasBunImage()) {
+    return preferWasm || (format !== undefined && !JIMP_FORMATS.has(format)) ? [bun, photon, jimp] : [bun, jimp, photon]
+  }
   if (preferWasm || (format !== undefined && !JIMP_FORMATS.has(format))) return [photon, jimp]
   return [jimp, photon]
 }

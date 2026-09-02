@@ -140,6 +140,8 @@ describe("Shell.killTree branch coverage (src/shell/shell.ts)", () => {
     //   try { process.kill(-pid, 'SIGTERM'); ... } catch { proc.kill('SIGKILL') }
     // Here we re-encode that contract as an assertion so a future regression
     // (e.g. removing the early return) would fail this test on any platform.
+    // SAFETY: `readFileSync` with a "utf8" encoding returns a string; the
+    // untyped `require` is what loses that.
     const source = require("node:fs").readFileSync(
       require("node:path").join(__dirname, "../src/shell/shell.ts"),
       "utf8",

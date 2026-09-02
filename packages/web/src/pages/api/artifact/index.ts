@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro"
 import {
   artifactJson,
+  artifactShareUrl,
   listArtifactsByOwner,
   parseArtifactPayload,
   resolveViewerUserId,
@@ -11,9 +12,9 @@ import {
 export const prerender = false
 
 /**
- * Create a published artifact. Returns { id, url, secret, viewKey }: the
- * secret authorizes updates, the viewKey grants read access without a login
- * (capability link, used by the CLI and for mobile previews).
+ * Create a published artifact. Returns { id, url, secret, viewKey }: `url`
+ * is the `?key=` capability link, `secret` authorizes updates, and `viewKey`
+ * is the same read capability for clients that build the link themselves.
  *
  * Auth is optional so the CLI can always publish without a password. When a
  * verifiable nikcli token is present (Bearer + optional X-Nikcli-Server), the
@@ -62,9 +63,7 @@ export const POST: APIRoute = async (context) => {
     parsed.content,
   )
 
-  const url = new URL(`/artifact/${id}`, context.url)
-  url.search = ""
-  return artifactJson({ id, url: url.toString(), secret, viewKey, version: 1 }, 201)
+  return artifactJson({ id, url: artifactShareUrl(id, viewKey, context.url), secret, viewKey, version: 1 }, 201)
 }
 
 /** List the logged-in user's artifacts (newest first). */

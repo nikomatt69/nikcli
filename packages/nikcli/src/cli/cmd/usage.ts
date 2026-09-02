@@ -4,7 +4,7 @@ import { Session } from "../../session"
 import { SessionRepo } from "../../session/repo"
 import { bootstrap } from "../bootstrap"
 import { ProjectRepo } from "../../project/repo"
-import { Instance } from "../../project/instance"
+import type { Project } from "@/project/project"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Log } from "@nikcli-ai/util/log"
@@ -19,34 +19,6 @@ function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>): Promise
 // ============================================
 // Schemas
 // ============================================
-
-const TokenBreakdownSchema = z.object({
-  input: z.number(),
-  output: z.number(),
-  reasoning: z.number(),
-  cache: z.object({
-    read: z.number(),
-    write: z.number(),
-  }),
-})
-
-const MessageSchema = z.object({
-  id: z.string(),
-  sessionID: z.string(),
-  time: z.object({
-    created: z.number(),
-    updated: z.number(),
-  }),
-  info: z.object({
-    role: z.enum(["user", "assistant", "system"]),
-    tokens: TokenBreakdownSchema.optional(),
-    cost: z.number().optional(),
-    providerID: z.string().optional(),
-    modelID: z.string().optional(),
-    finishReason: z.string().optional(),
-  }),
-  parts: z.array(z.any()),
-})
 
 const SessionSchema = z.object({
   id: z.string(),
@@ -152,9 +124,9 @@ export const UsageCommand = cmd({
       project: args.project,
     })
 
-    await bootstrap(process.cwd(), async () => {
-      const stats = await aggregateUsageStats(args.days, args.project)
-      const sessions = await getTopSessions(args.days, args.project, args.top)
+    await bootstrap(process.cwd(), async (instance) => {
+      const stats = await aggregateUsageStats(instance.project, args.days, args.project)
+      const sessions = await getTopSessions(instance.project, args.days, args.project, args.top)
 
       displayUsage(stats, sessions, {
         days: args.days,
@@ -170,7 +142,12 @@ export const UsageCommand = cmd({
 // Data Aggregation
 // ============================================
 
-async function getTopSessions(days: number, projectFilter: string | undefined, limit: number): Promise<SessionUsage[]> {
+async function getTopSessions(
+  project: Project.Info,
+  days: number,
+  projectFilter: string | undefined,
+  limit: number,
+): Promise<SessionUsage[]> {
   const sessions = await getAllSessions()
   const MS_IN_DAY = 24 * 60 * 60 * 1000
   const cutoffTime = Date.now() - days * MS_IN_DAY
@@ -178,7 +155,7 @@ async function getTopSessions(days: number, projectFilter: string | undefined, l
   let filteredSessions = days > 0 ? sessions.filter((session) => session.time.updated >= cutoffTime) : sessions
 
   if (projectFilter !== undefined) {
-    const currentProject = await Instance.project
+    const currentProject = project
     if (projectFilter === "") {
       filteredSessions = filteredSessions.filter((session) => session.projectID === currentProject.id)
     } else {
@@ -248,7 +225,11 @@ async function getTopSessions(days: number, projectFilter: string | undefined, l
     .slice(0, limit)
 }
 
-async function aggregateUsageStats(days: number, projectFilter: string | undefined): Promise<UsageStats> {
+async function aggregateUsageStats(
+  project: Project.Info,
+  days: number,
+  projectFilter: string | undefined,
+): Promise<UsageStats> {
   const sessions = await getAllSessions()
   const MS_IN_DAY = 24 * 60 * 60 * 1000
   const cutoffTime = days > 0 ? Date.now() - days * MS_IN_DAY : 0
@@ -256,7 +237,7 @@ async function aggregateUsageStats(days: number, projectFilter: string | undefin
   let filteredSessions = cutoffTime > 0 ? sessions.filter((session) => session.time.updated >= cutoffTime) : sessions
 
   if (projectFilter !== undefined) {
-    const currentProject = await Instance.project
+    const currentProject = project
     if (projectFilter === "") {
       filteredSessions = filteredSessions.filter((session) => session.projectID === currentProject.id)
     } else {
@@ -266,7 +247,12 @@ async function aggregateUsageStats(days: number, projectFilter: string | undefin
 
   const stats: UsageStats = {
     sessionCount: filteredSessions.length,
-    totalTokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+    totalTokens: {
+      input: 0,
+      output: 0,
+      reasoning: 0,
+      cache: { read: 0, write: 0 },
+    },
     totalCost: 0,
     duration: 0,
     avgTokensPerSession: 0,
@@ -281,9 +267,24 @@ async function aggregateUsageStats(days: number, projectFilter: string | undefin
 
   const modelMap = new Map<
     string,
-    { messages: number; input: number; output: number; reasoning: number; cost: number }
+    {
+      messages: number
+      input: number
+      output: number
+      reasoning: number
+      cost: number
+    }
   >()
-  const dayMap = new Map<string, { input: number; output: number; reasoning: number; cache: number; total: number }>()
+  const dayMap = new Map<
+    string,
+    {
+      input: number
+      output: number
+      reasoning: number
+      cache: number
+      total: number
+    }
+  >()
 
   let totalSessionTokens = 0
 
@@ -296,7 +297,13 @@ async function aggregateUsageStats(days: number, projectFilter: string | undefin
         }),
       )
 
-      let sessionTokens = { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 }
+      let sessionTokens = {
+        input: 0,
+        output: 0,
+        reasoning: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+      }
       let sessionCost = 0
       let model = "unknown"
 
@@ -521,7 +528,10 @@ function displayUsage(stats: UsageStats, sessions: SessionUsage[], args: Display
 
       const tokensStr = formatTokens(totalTokens)
       const costStr = `$${session.cost.toFixed(2)}`
-      const dateStr = session.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      const dateStr = session.date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      })
 
       console.log(
         `  \x1b[1;36m│\x1b[0m ${dateStr} ${session.name.padEnd(10)} ${bar} ${tokensStr.padStart(6)} ${costStr.padStart(7)} \x1b[1;36m│\x1b[0m`,

@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect"
 import { resolve } from "effect/SchemaAST"
 import { zodObject, zodObjectMode } from "@nikcli-ai/util/effect-zod"
 import { Log } from "@nikcli-ai/util/log"
+import type { JsonValue } from "@/util/json"
 
 export namespace BusEvent {
   const log = Log.create({ service: "event" })
@@ -97,27 +98,36 @@ export namespace BusEvent {
 
   /** Encoder per event type, built on first use. `null` marks a type that has no
    *  Effect Schema (legacy `define`) or whose encoder could not be built. */
-  const encoders = new Map<string, ((value: unknown) => unknown) | null>()
+  const encoders = new Map<string, ((value: unknown) => WireData) | null>()
 
   /** Encoded payload per event object. `Bus.subscribeAll` hands the same object to
    *  every subscriber, so this collapses N SSE connections into one encode. */
   const encoded = new WeakMap<object, Wire>()
 
-  type Wire = { readonly type: string; readonly properties: unknown }
+  /** JSON-serializable wire payload: what a client decodes after encoding. */
+  type WireData = JsonValue
+
+  type Wire = { readonly type: string; readonly properties: WireData }
 
   function encoderFor(type: string) {
     const cached = encoders.get(type)
     if (cached !== undefined) return cached
     const definition = registry.get(type)
-    let encoder: ((value: unknown) => unknown) | null = null
+    let encoder: ((value: unknown) => WireData) | null = null
     if (definition?.schema) {
       try {
         // `Definition.schema` is a `Schema.Top`, whose EncodingServices is
         // `unknown`; every registered event encodes without services, so narrow
         // to the service-free codec the sync encoder requires.
-        encoder = Schema.encodeUnknownSync(definition.schema as Schema.Codec<unknown, unknown, never, never>)
+        // SAFETY: Effect Schema encoding produces JSON-serializable data by construction.
+        encoder = Schema.encodeUnknownSync(definition.schema as Schema.Codec<unknown, unknown, never, never>) as (
+          value: unknown,
+        ) => WireData
       } catch (error) {
-        log.warn("failed to build event encoder; sending payloads raw", { type, error })
+        log.warn("failed to build event encoder; sending payloads raw", {
+          type,
+          error,
+        })
       }
     }
     encoders.set(type, encoder)
@@ -178,7 +188,10 @@ export namespace BusEvent {
       encoded.set(event, wire)
       return wire
     } catch (error) {
-      log.warn("event payload failed to encode; sending raw", { type: event.type, error })
+      log.warn("event payload failed to encode; sending raw", {
+        type: event.type,
+        error,
+      })
       encoded.set(event, event)
       return event
     }

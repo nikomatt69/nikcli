@@ -11,12 +11,16 @@ process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 
 preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
-const [{ RunSandbox }] = await Promise.all([import("../../src/worktree/sandbox")])
+const { RunSandbox } = await import("../../src/worktree/sandbox")
 
 const projectDirs: string[] = []
 
 async function git(directory: string, ...args: string[]) {
-  const proc = Bun.spawn(["git", ...args], { cwd: directory, stdout: "pipe", stderr: "pipe" })
+  const proc = Bun.spawn(["git", ...args], {
+    cwd: directory,
+    stdout: "pipe",
+    stderr: "pipe",
+  })
   const [exitCode, stdout, stderr] = await Promise.all([
     proc.exited,
     new Response(proc.stdout).text(),
@@ -156,7 +160,12 @@ describe("RunSandbox.release", () => {
           name: "loop-clean",
           branchPrefix: "nikcli/loop",
         })
-        expect(await RunSandbox.release({ hostDirectory: projectDir, sandbox: sandbox! })).toBe(true)
+        expect(
+          await RunSandbox.release({
+            hostDirectory: projectDir,
+            sandbox: sandbox!,
+          }),
+        ).toBe(true)
         expect(await exists(sandbox!.directory)).toBe(false)
       })
     })
@@ -173,7 +182,12 @@ describe("RunSandbox.release", () => {
         })
         await fs.writeFile(path.join(sandbox!.directory, "README.md"), "# edited by the agent\n")
 
-        expect(await RunSandbox.release({ hostDirectory: projectDir, sandbox: sandbox! })).toBe(false)
+        expect(
+          await RunSandbox.release({
+            hostDirectory: projectDir,
+            sandbox: sandbox!,
+          }),
+        ).toBe(false)
         expect(await exists(sandbox!.directory)).toBe(true)
       })
     })
@@ -201,7 +215,12 @@ describe("RunSandbox.release", () => {
           "agent work",
         )
 
-        expect(await RunSandbox.release({ hostDirectory: projectDir, sandbox: sandbox! })).toBe(false)
+        expect(
+          await RunSandbox.release({
+            hostDirectory: projectDir,
+            sandbox: sandbox!,
+          }),
+        ).toBe(false)
         expect(await exists(sandbox!.directory)).toBe(true)
       })
     })

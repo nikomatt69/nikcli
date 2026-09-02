@@ -2,10 +2,25 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { EditTool, replace, replaceWithCount } from "@/tool/edit"
-import { FileTime } from "@/file/time"
-import { Instance } from "@/project/instance"
-import { makeToolContext, withProjectDirectory } from "../helpers/tool-context"
+import { preserveTestEnv } from "../helpers/env"
+
+/**
+ * Without a private home this file resolved the project row against the
+ * developer's real `~/.local/share/nikcli/nikcli.db`, which a running nikcli
+ * (or another test file tearing its own home down) has open at the same time —
+ * surfacing as an intermittent `SQLITE_IOERR_VNODE` from `fromDirectoryImpl`.
+ * Set before the nikcli modules below are imported so the path singletons pick
+ * it up.
+ */
+const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-edit-home-"))
+process.env.NIKCLI_TEST_HOME = testHome
+process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
+
+const { EditTool, replace, replaceWithCount } = await import("@/tool/edit")
+const { FileTime } = await import("@/file/time")
+const { Instance } = await import("@/project/instance")
+const { makeToolContext, withProjectDirectory } = await import("../helpers/tool-context")
 
 describe("EditTool", () => {
   let projectDir: string
@@ -19,6 +34,7 @@ describe("EditTool", () => {
   afterAll(async () => {
     await Instance.disposeAll().catch(() => undefined)
     await fs.rm(projectDir, { recursive: true, force: true }).catch(() => {})
+    await fs.rm(testHome, { recursive: true, force: true }).catch(() => {})
   })
 
   it("replaces a unique string in an existing file", async () => {

@@ -3,6 +3,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   ARTIFACT_MAX_BYTES,
+  artifactShareUrl,
   canViewArtifact,
   parseArtifactPayload,
   parseByteRange,
@@ -62,6 +63,12 @@ describe("artifact payloads", () => {
     expect(canViewArtifact(stored, { userId: "owner-id", key: null })).toBe(true)
     expect(canViewArtifact(stored, { userId: null, key: "view-key" })).toBe(true)
     expect(canViewArtifact(stored, { userId: "another-user", key: null })).toBe(false)
+  })
+
+  test("share URL includes the view key (the bare page is login-gated)", () => {
+    expect(artifactShareUrl("artifact-id", "view-key", "https://nikcli.store")).toBe(
+      "https://nikcli.store/artifact/artifact-id?key=view-key",
+    )
   })
 
   test("normalizes video byte ranges and rejects invalid ranges", () => {

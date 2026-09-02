@@ -9,11 +9,10 @@
  * function body in an Effect would force unrelated churn.
  */
 
-import { Instance } from "@/project/instance"
-import { Cause, Effect, Exit } from "effect"
-import { locallyInstance, locallyWorkspace, type InstanceContext } from "./instance-ref"
+import { Effect } from "effect"
 import { AppRuntime } from "./runtime"
 import { InstanceScope, type WithInput } from "./instance-scope"
+import { instance, type InstanceContext } from "./instance-ref"
 
 /**
  * Run an Effect inside the given instance scope from a plain async caller.
@@ -36,44 +35,27 @@ export function withInstance<A, E, R>(input: WithInput, effect: Effect.Effect<A,
  * helper exists to keep large legacy CLI bodies compiling while their
  * surrounding callers progressively migrate.
  *
- * If `init` is provided, it runs once per directory before `fn` (matches the
- * legacy `Instance.provide({ init, fn })` semantics — InstanceBootstrap and
- * similar one-time per-directory hooks). Removed in Phase G when the keyed
- * scoped runtime replaces the promise cache.
+ * `input.init` is a property of the instance rather than of this call — see
+ * `WithInput` — so it is passed straight through to `InstanceScope.with`.
+ * There used to be a second implementation here for the `init` case, which
+ * reached for `Instance.provide` directly and hand-rolled its own fork onto
+ * `AppRuntime`; that meant the busiest callers in the codebase (the HTTP
+ * router, the websocket upgrade, workspace connection) took a different
+ * bridge from everyone else. They now take the structured one: the inner
+ * fiber's full Exit is replayed in the caller's fiber, and interrupting the
+ * caller interrupts the inner fiber and waits for its finalizers.
  */
-export function withInstanceAsync<R>(
-  input: WithInput & { init?: () => Promise<unknown> },
-  fn: () => Promise<R>,
-): Promise<R> {
-  if (input.init) {
-    return Instance.provide({
-      directory: input.directory,
-      init: input.init,
-      fn: (): Promise<R> => {
-        const ctx: InstanceContext = {
-          directory: Instance.directory,
-          worktree: Instance.worktree,
-          project: Instance.project,
-        }
-        const effect = Effect.tryPromise({
-          try: fn,
-          catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-        })
-        const scoped = input.workspaceID
-          ? locallyWorkspace({ id: input.workspaceID }, locallyInstance(ctx, effect))
-          : locallyInstance(ctx, effect)
-        return AppRuntime.runPromiseExit(scoped as Effect.Effect<R, Error, never>).then((exit) => {
-          if (Exit.isSuccess(exit)) return exit.value
-          throw Cause.squash(exit.cause)
-        })
-      },
-    }) as Promise<R>
-  }
+export function withInstanceAsync<R>(input: WithInput, fn: (instance: InstanceContext) => Promise<R>): Promise<R> {
   return withInstance(
     input,
-    Effect.tryPromise({
-      try: fn,
-      catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-    }),
+    // The body is handed the context this scope installed, not left to read it
+    // back out of the ambient scope. It is the same value either way; the
+    // difference is that one of them is written down.
+    Effect.flatMap(instance, (context) =>
+      Effect.tryPromise({
+        try: () => fn(context),
+        catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+      }),
+    ),
   )
 }

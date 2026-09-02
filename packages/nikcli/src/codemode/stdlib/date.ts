@@ -36,7 +36,7 @@ export const invokeDateStatic = (name: string, args: Array<unknown>, node: AstNo
   }
 }
 
-export const invokeDateMethod = (value: CodeModeDate, name: string, node: AstNode): unknown => {
+export const invokeDateMethod = (value: CodeModeDate, name: string, node: AstNode): number | string | null => {
   const hosted = new Date(value.time)
   switch (name) {
     case "getTime":

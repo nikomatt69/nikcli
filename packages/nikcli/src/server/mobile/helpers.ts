@@ -1,5 +1,7 @@
 import path from "path"
 import z from "zod"
+import type { JsonValue } from "@/util/json"
+import { zod } from "@nikcli-ai/util/effect-zod"
 import { Project } from "@/project/project"
 import { Pty } from "@/pty"
 import { PluginPtyEnvironment } from "@/plugin/pty-environment"
@@ -30,7 +32,9 @@ import { Command } from "@/command"
 import { Workspace } from "@/workspace"
 import { getContainerRuntimeInfo } from "@/workspace/adaptors"
 import { PromptStashStore } from "@nikcli-ai/util/prompt-stash"
+import { parseJsonl } from "@/bun"
 import { Artifact } from "@/artifact"
+import { Snapshot } from "@/snapshot"
 import { Log } from "@nikcli-ai/util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstance, withInstanceAsync } from "@/effect"
@@ -101,7 +105,9 @@ export function runSessionForSession<A, E>(
   )
 }
 
-export function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service>) {
+export function runSummary<A, E>(
+  effect: Effect.Effect<A, E, SessionSummary.Service | Snapshot.Service | Session.Service>,
+) {
   return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
 }
 
@@ -250,7 +256,7 @@ export function toMobileArtifact(info: Artifact.Info): z.infer<typeof MobileArti
     filename: info.filename,
     contentType: info.contentType,
     kind: info.kind,
-    url: info.url,
+    url: Artifact.viewerUrl(info),
     viewerUrl: Artifact.viewerUrl(info),
     previewUrl: Artifact.previewUrl(info),
     version: info.version,
@@ -286,25 +292,6 @@ export const MobileGithubBranch = z
 
 export const MobileGithubImport = MobileGithubRepo.Import.meta({ ref: "MobileGithubImport" })
 
-export const MobileSessionMessageInput = z
-  .object({
-    messageID: z.string().optional(),
-    model: z
-      .object({
-        providerID: z.string(),
-        modelID: z.string(),
-      })
-      .optional(),
-    agent: z.string().optional(),
-    noReply: z.boolean().optional(),
-    tools: z.record(z.string(), z.boolean()).optional(),
-    format: z.unknown().optional(),
-    system: z.string().optional(),
-    variant: z.string().optional(),
-    parts: z.array(MessageV2.Part),
-  })
-  .meta({ ref: "MobileSessionMessageInput" })
-
 export const MobileGithubSessionCreateInput = z
   .object({
     owner: MobileGithubRepo.Owner,
@@ -330,10 +317,10 @@ export const MobileGithubSessionCreateInput = z
 
 export const MobileSessionCreateInput = z
   .object({
-    parentID: Session.Info.shape.parentID,
-    title: Session.Info.shape.title.optional(),
-    permission: Session.Info.shape.permission,
-    github: Session.Info.shape.github.optional(),
+    parentID: zod(Session.InfoSchema.fields.parentID).optional(),
+    title: zod(Session.InfoSchema.fields.title).optional(),
+    permission: zod(Session.InfoSchema.fields.permission).optional(),
+    github: zod(Session.InfoSchema.fields.github).optional(),
     executionTarget: MobileExecutionTarget.default("local"),
   })
   .meta({ ref: "MobileSessionCreateInput" })
@@ -500,6 +487,8 @@ export const MobileLoopGenerateInput = z
       .regex(/^[^/]+\/[^/]+$/)
       .optional(),
     agent: z.string().trim().min(1).optional(),
+    /** Inherit the drafting model from this session when `model` is absent. */
+    sessionID: z.string().trim().min(1).optional(),
   })
   .meta({ ref: "MobileLoopGenerateInput" })
 export const MobileMissionWriteInput = MissionDefinitionSchema.omit({
@@ -549,9 +538,6 @@ export const MobileLoopTemplate = z
  * endpoint instead of `Schema.Unknown` → `any`. Aliases that already carry
  * a `meta({ref})` are wired through as-is; the rest are typed below.
  */
-export const MobilePermissionRespondInput = z
-  .object({ response: z.string() })
-  .meta({ ref: "MobilePermissionRespondInput" })
 export const MobileGithubImportRequest = MobileGithubRepo.ImportRequest.meta({
   ref: "MobileGithubImportRequest",
 })
@@ -565,27 +551,18 @@ export const MobileWorktreeResetInput = Worktree.ResetInput.meta({
   ref: "MobileWorktreeResetInput",
 })
 
-export type PromptHistoryRecord = {
-  input: string
-  mode?: "normal" | "shell"
-  parts?: unknown[]
-}
+export const PromptHistoryRecordSchema = z.object({
+  input: z.string(),
+  mode: z.enum(["normal", "shell"]).optional().catch(undefined),
+  parts: z.array(z.unknown()).optional().catch(undefined),
+})
+export type PromptHistoryRecord = z.infer<typeof PromptHistoryRecordSchema>
 
 export async function readJsonLines<T>(filePath: string) {
   const text = await Bun.file(filePath)
     .text()
     .catch(() => "")
-  return text
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      try {
-        return JSON.parse(line) as T
-      } catch {
-        return null
-      }
-    })
-    .filter((item): item is T => item !== null)
+  return parseJsonl(text).filter((item): item is T => item !== null)
 }
 
 export function historyFilePath() {
@@ -595,14 +572,17 @@ export function historyFilePath() {
 export async function listPromptHistory() {
   const entries = await readJsonLines<PromptHistoryRecord>(historyFilePath())
   return entries
-    .filter((entry): entry is PromptHistoryRecord => typeof entry.input === "string")
+    .flatMap((entry) => {
+      const parsed = PromptHistoryRecordSchema.safeParse(entry)
+      return parsed.success ? [parsed.data] : []
+    })
     .slice(-50)
     .reverse()
     .map((entry, index) => ({
       id: `${index}`,
       input: entry.input,
-      mode: entry.mode === "shell" ? "shell" : entry.mode === "normal" ? "normal" : undefined,
-      partsCount: Array.isArray(entry.parts) ? entry.parts.length : 0,
+      mode: entry.mode,
+      partsCount: entry.parts?.length ?? 0,
     }))
 }
 
@@ -747,20 +727,24 @@ export async function resolveMobilePromptDefaults(session: Session.Info) {
   })
 }
 
-export function extractSessionIDs(value: unknown): string[] {
-  if (!value || typeof value !== "object") return []
+const JsonObjectSchema = z.record(z.string(), z.custom<JsonValue>())
+const SessionIDValue = z.string().startsWith("ses_")
+
+export function extractSessionIDs(value: JsonValue): string[] {
   const result = new Set<string>()
-  const visit = (input: unknown) => {
-    if (!input || typeof input !== "object") return
+  const visit = (input: JsonValue) => {
     if (Array.isArray(input)) {
       for (const item of input) visit(item)
       return
     }
-    for (const [key, current] of Object.entries(input)) {
-      if ((key === "sessionID" || key === "id") && typeof current === "string" && current.startsWith("ses_")) {
-        result.add(current)
+    const parsed = JsonObjectSchema.safeParse(input)
+    if (!parsed.success) return
+    for (const [key, current] of Object.entries(parsed.data)) {
+      if (key === "sessionID" || key === "id") {
+        const sessionID = SessionIDValue.safeParse(current)
+        if (sessionID.success) result.add(sessionID.data)
       }
-      if (current && typeof current === "object") visit(current)
+      visit(current)
     }
   }
   visit(value)
@@ -772,8 +756,10 @@ export type GithubConnectorEntry = {
   connector: Config.ConnectorGithub
 }
 
-export function isGithubConnector(value: unknown): value is Config.ConnectorGithub {
-  return typeof value === "object" && value !== null && "type" in value && value.type === "github"
+export type ConnectorEntry = Config.Connector | { enabled: boolean }
+
+export function isGithubConnector(value: ConnectorEntry): value is Config.ConnectorGithub {
+  return "type" in value && value.type === "github"
 }
 
 export function githubConnectorEntry(config?: Config.Info): GithubConnectorEntry {
@@ -817,8 +803,7 @@ export type GithubTokenGrant = {
   refreshTokenExpiresAt?: number
 }
 
-export async function storeGithubToken(tokenOrGrant: string | GithubTokenGrant) {
-  const grant: GithubTokenGrant = typeof tokenOrGrant === "string" ? { accessToken: tokenOrGrant } : tokenOrGrant
+export async function storeGithubToken(grant: GithubTokenGrant) {
   const { key } = await ensureGlobalGithubConnector({ enabled: true })
   const entryUpdate = {
     token: grant.accessToken,
@@ -923,10 +908,7 @@ export async function githubToken() {
 export async function githubOAuthClientID() {
   const fallback = Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID_DEFAULT
   const config = await configGet().catch(() => undefined)
-  const githubConnector = Object.values(config?.connectors ?? {}).find(
-    (connector): connector is Config.ConnectorGithub =>
-      typeof connector === "object" && connector !== null && "type" in connector && connector.type === "github",
-  )
+  const githubConnector = Object.values(config?.connectors ?? {}).find(isGithubConnector)
 
   const flagValue = Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID?.trim()
   if (flagValue) {

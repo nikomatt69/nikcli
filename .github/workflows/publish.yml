@@ -16,6 +16,11 @@ on:
         description: "Channel"
         required: false
         type: string
+      prevalidated:
+        description: "The calling workflow already completed ci-pipeline validation"
+        required: false
+        type: boolean
+        default: false
     outputs:
       tag:
         description: "Release tag created by the publish job (e.g. v1.106.0)"
@@ -70,6 +75,22 @@ jobs:
 
       - uses: ./.github/actions/setup-bun
 
+      - name: Validate direct publish
+        if: ${{ !inputs.prevalidated }}
+        env:
+          NIKCLI_TEST_HOME: ${{ runner.temp }}/nikcli-publish/home
+          XDG_DATA_HOME: ${{ runner.temp }}/nikcli-publish/share
+          XDG_CACHE_HOME: ${{ runner.temp }}/nikcli-publish/cache
+          XDG_CONFIG_HOME: ${{ runner.temp }}/nikcli-publish/config
+          XDG_STATE_HOME: ${{ runner.temp }}/nikcli-publish/state
+          NIKCLI_DISABLE_MODELS_FETCH: "true"
+          NIKCLI_DISABLE_SHARE: "true"
+          NIKCLI_DISABLE_LSP_DOWNLOAD: "true"
+          NIKCLI_DISABLE_DEFAULT_PLUGINS: "true"
+          NIKCLI_DISABLE_AUTOUPDATE: "true"
+          NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER: "true"
+        run: bun run script/ci-validate.ts
+
       - name: Install nikcli
         if: inputs.bump || inputs.version
         run: bun i -g nikcli-ai@latest || true
@@ -100,6 +121,17 @@ jobs:
           git config --global user.email "nikcli-ci@users.noreply.github.com"
           git config --global user.name "nikcli"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+
+      # bun 1.4's `--compile` emits darwin binaries whose ad-hoc signature macOS
+      # rejects at exec (SIGKILL, "killed: 9"). The build re-signs them, and this
+      # ubuntu runner has no `codesign`, so give it rcodesign instead.
+      - name: Install rcodesign
+        run: |
+          curl -fsSL -o /tmp/rcodesign.tar.gz \
+            https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.29.0/apple-codesign-0.29.0-x86_64-unknown-linux-musl.tar.gz
+          tar -xzf /tmp/rcodesign.tar.gz -C /tmp
+          install -m 0755 /tmp/apple-codesign-0.29.0-x86_64-unknown-linux-musl/rcodesign /usr/local/bin/rcodesign
+          rcodesign --version
 
       - name: Generate SDK
         run: ./script/generate.ts

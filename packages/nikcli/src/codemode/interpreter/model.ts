@@ -1,5 +1,5 @@
-import type { SafeObject } from "../tool-runtime"
-import type { CodeModePromise, CodeModeURL } from "../values"
+import type { SafeObject, ToolReference } from "../tool-runtime"
+import type { CodeModeData, CodeModePromise, CodeModeURL } from "../values"
 
 export type SourcePosition = {
   line: number
@@ -24,7 +24,7 @@ export type ProgramNode = AstNode & {
 
 export type Binding = {
   mutable: boolean
-  value: unknown
+  value: CodeModeValue
   initialized?: boolean
 }
 
@@ -47,6 +47,28 @@ export class CodeModeFunction {
     readonly async: boolean,
   ) {}
 }
+
+/**
+ * A value a CodeMode program can bind, produce, or throw: interpreter data,
+ * host classes, and the runtime reference objects the interpreter itself owns.
+ */
+export type CodeModeValue =
+  | CodeModeData
+  | CodeModeFunction
+  | CoercionFunction
+  | UriFunction
+  | SearchFunction
+  | GlobalNamespace
+  | PromiseNamespace
+  | ErrorConstructorReference
+  | CodeModePromise
+  | ToolReference
+  | PromiseMethodReference
+  | PromiseInstanceMethodReference
+  | MemberReference
+  | IntrinsicReference
+  | GlobalMethodReference
+  | ComputedValue
 
 export class IntrinsicReference {
   constructor(

@@ -367,15 +367,15 @@ export function definitionFromGeneratedText(text: string): LoopDefinition {
     .filter((s): s is Record<string, unknown> => typeof s === "object" && s !== null)
     .map((s) => ({
       objective: typeof s.objective === "string" ? s.objective : "",
-      ...(typeof s.name === "string" && s.name.trim() ? { name: s.name } : {}),
-      ...(typeof s.agent === "string" && s.agent.trim() ? { agent: s.agent } : {}),
-      ...(typeof s.model === "string" && isValidModel(s.model) ? { model: s.model } : {}),
-      ...(typeof s.tokenBudget === "number" ? { tokenBudget: s.tokenBudget } : {}),
+      ...(typeof s.name === "string" && s.name.trim() ? { name: s.name } : undefined),
+      ...(typeof s.agent === "string" && s.agent.trim() ? { agent: s.agent } : undefined),
+      ...(typeof s.model === "string" && isValidModel(s.model) ? { model: s.model } : undefined),
+      ...(typeof s.tokenBudget === "number" ? { tokenBudget: s.tokenBudget } : undefined),
     }))
   return definitionFromGenerated({
     stages,
-    ...(typeof v.name === "string" && v.name.trim() ? { name: v.name } : {}),
-    ...(typeof v.intervalMs === "number" ? { intervalMs: v.intervalMs } : {}),
-    ...(typeof v.maxRuns === "number" ? { maxRuns: v.maxRuns } : {}),
+    ...(typeof v.name === "string" && v.name.trim() ? { name: v.name } : undefined),
+    ...(typeof v.intervalMs === "number" ? { intervalMs: v.intervalMs } : undefined),
+    ...(typeof v.maxRuns === "number" ? { maxRuns: v.maxRuns } : undefined),
   })
 }

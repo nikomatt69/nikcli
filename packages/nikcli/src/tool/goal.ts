@@ -4,6 +4,7 @@ import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Session } from "@/session"
 import { SessionGoal } from "@/session/goal"
 import { Tool } from "./tool"
+import { setOptional } from "@/util/optional-key"
 
 const CreateGoalParams = z.object({
   objective: z.string().min(1).describe("The goal to achieve in this session"),
@@ -45,7 +46,7 @@ function setActiveCommand(sessionID: string, activeCommand: string | undefined) 
       yield* session.update(
         sessionID,
         (draft) => {
-          draft.activeCommand = activeCommand
+          setOptional(draft, "activeCommand", activeCommand)
         },
         { touch: false },
       )

@@ -80,6 +80,7 @@ export namespace Artifact {
   }
 
   export function viewerUrl(info: Pick<Info, "url" | "viewKey">): string {
+    if (!info.viewKey) return info.url
     const url = new URL(info.url)
     url.searchParams.set("key", info.viewKey)
     return url.toString()
@@ -199,6 +200,8 @@ export namespace Artifact {
         filename: input.filename,
         contentType: input.contentType,
         kind: kindFor(input.contentType),
+        url: viewerUrl({ url: payload.url ?? existing.url, viewKey: payload.viewKey ?? existing.viewKey }),
+        viewKey: payload.viewKey ?? existing.viewKey,
         size: input.content.byteLength,
         version: payload.version ?? existing.version + 1,
         time: { ...existing.time, updated: Date.now() },
@@ -238,7 +241,7 @@ export namespace Artifact {
       filename: input.filename,
       contentType: input.contentType,
       kind: kindFor(input.contentType),
-      url: payload.url,
+      url: viewerUrl({ url: payload.url, viewKey: payload.viewKey }),
       viewKey: payload.viewKey,
       secret: payload.secret,
       version: payload.version ?? 1,

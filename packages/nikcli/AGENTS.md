@@ -43,11 +43,13 @@ This file contains guidelines for AI agents operating in the nikcli repository.
 
 Consumers import `@nikcli-ai/sdk/httpapi`, which exposes the generated Promise
 client (`NikCli.make`) plus `createNikcliClient`, a namespaced view of it
-defined in `src/httpapi/compat.ts`. Every entry there is a typed reference into
-the generated client, so a codegen rename fails the SDK typecheck instead of
-404ing at runtime. Calls resolve to `{ data, error }` rather than rejecting
-(pass `throwOnError` to opt out), and accept `directory` / `workspace` for
-instance selection.
+declared exhaustively in `src/server/httpapi/client-compat.ts` and emitted to
+`packages/sdk/js/src/httpapi/generated/compat.ts`. Generation rejects missing,
+unknown, duplicate, colliding, or adapter-incompatible entries, so adding an
+endpoint requires an explicit stable caller path. `src/httpapi/compat.ts` keeps
+only the request-selection and `{ data, error }` adapters. Calls resolve rather
+than rejecting (pass `throwOnError` to opt out), and accept `directory` /
+`workspace` for instance selection.
 
 ## Server architecture
 
@@ -80,10 +82,12 @@ Adding or changing an endpoint:
    it in `src/server/httpapi/inventory.ts` so coverage stays accounted for.
 5. **Regenerate** — `bun run generate:httpapi-clients`. It compiles `PublicApi`
    directly (no OpenAPI round-trip) and writes three targets:
-   - `packages/sdk/js/src/httpapi/generated` (Promise client)
+   - `packages/sdk/js/src/httpapi/generated` (Promise client and namespaced compatibility view)
    - `src/server/httpapi/client/generated` (Effect client)
    - `src/server/httpapi/client/api` (Effect shape)
-     Commit the generated output with the change.
+     Add every new Promise endpoint to `PublicClientCompat`; generation fails
+     exhaustively when an endpoint is missing. Commit the generated output with
+     the change.
 6. **Verify** — `bun run check:routes`, `bun run typecheck`, and
    `bun test test/server/`.
 
@@ -117,8 +121,15 @@ Adding or changing an endpoint:
   routes, which serialised whatever they were given. A schema that does not
   match what the service actually returns turns into a failed request, not a
   dropped field. Verify a new schema against real data, not just typecheck.
-  Handlers that push bodies through `jsonSafe` drop `undefined` properties, so
-  optional fields are genuinely absent; model them with `Schema.optional`.
+  Pick the optional flavour from what the **producer** actually writes:
+  `Schema.optionalKey` rejects a present `undefined` and fails the whole
+  request with an empty 400, while `Schema.optional` accepts it and puts
+  `null` on the wire. So a service that assigns `field: cond ? x : undefined`
+  needs either `Schema.optional`, or a producer that omits the key. Handlers
+  that still push bodies through `jsonSafe` get absent keys for free — that
+  helper is load-bearing, not decoration (see ROADMAP §E4). Two shipped 400s
+  came from exactly this: `mission.ts` `featureMutate` and `config/tui.ts`
+  `plugin_meta`.
 - `handleRaw` endpoints and contract-only groups are **not** encoded at
   runtime, so their schemas shape the SDK without any request-time risk.
 

@@ -1,6 +1,7 @@
 import { AnalyticsShare } from "@/analytics/share"
 import { runPromiseWithLayer } from "@/effect"
 import { Flag } from "@nikcli-ai/util/flag"
+import { bunUtils, onMemoryPressure } from "@/bun"
 import { Installation } from "@/installation"
 import { Project } from "@/project/project"
 import { Workspace } from "@/workspace"
@@ -23,6 +24,7 @@ globalThis.AI_SDK_LOG_WARNINGS = false
 export namespace Server {
   const log = Log.create({ service: "server" })
   const STOP_DRAIN_MS = 3000
+  let memoryPressureBound = false
 
   let _url: URL | undefined
   let _corsWhitelist: string[] = []
@@ -118,6 +120,13 @@ export namespace Server {
 
     _url = server.url
     AnalyticsShare.start()
+    if (!memoryPressureBound) {
+      memoryPressureBound = true
+      onMemoryPressure(() => {
+        log.warn("os memory pressure")
+        bunUtils.gc?.(true)
+      })
+    }
 
     const port = server.port
     const shouldPublishMDNS = Boolean(opts.mdns && port && !isLoopbackHostname(opts.hostname))
@@ -141,6 +150,9 @@ export namespace Server {
       if (shouldPublishMDNS) MDNS.unpublish()
       Workspace.stopAllSyncing()
       if (closeActiveConnections) return originalStop(true)
+
+      const idle = server as typeof server & { closeIdleConnections?: () => void }
+      idle.closeIdleConnections?.()
 
       let drained = false
       const drain = Promise.resolve(originalStop())

@@ -5,6 +5,7 @@ import os from "os"
 import path from "path"
 import { afterAll, describe, expect, it } from "bun:test"
 import z from "zod"
+import { InstanceState } from "@/effect"
 
 const testDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-bridge-"))
 process.env.NIKCLI_TEST_HOME = testDir
@@ -45,13 +46,17 @@ describe("SessionSyncBridge", () => {
       await Instance.provide({
         directory,
         fn: async () => {
-          const projectID = Instance.project.id
-          const unsubscribe = SessionSyncBridge.init()
+          const instance = InstanceState.ambient()
+          const projectID = instance.project.id
+          const unsubscribe = SessionSyncBridge.init(instance)
           try {
             await Bus.publish(SessionStatus.Event.Idle, { sessionID })
             const events = await waitForEvents(projectID, sessionID, 1)
             expect(events).toHaveLength(1)
             expect(events[0].type).toBe("session.idle")
+            // SAFETY: the assertion above pins this to the single
+            // `session.idle` event the bridge under test just published, whose
+            // payload carries `properties.sessionID`.
             expect((events[0].data as any).properties.sessionID).toBe(sessionID)
 
             // Event types outside the restore set are not journaled.

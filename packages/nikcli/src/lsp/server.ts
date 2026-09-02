@@ -7,9 +7,9 @@ import { BunProc } from "../bun"
 import { $, readableStreamToText } from "bun"
 import fs from "fs/promises"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
-import { Instance } from "../project/instance"
 import { Flag } from "@nikcli-ai/util/flag"
 import { Archive } from "../util/archive"
+import type { InstanceContext } from "@/effect"
 
 export namespace LSPServer {
   const log = Log.create({ service: "lsp.server" })
@@ -24,15 +24,23 @@ export namespace LSPServer {
     initialization?: Record<string, any>
   }
 
-  type RootFunction = (file: string) => Promise<string | undefined>
+  /**
+   * Resolve the project root a language server should be started for.
+   *
+   * Takes the instance rather than reading the ambient scope: a root function
+   * runs from `LSP.Service`, on whatever fiber happened to touch a file, and
+   * the directory it stops the upward walk at is not something to leave to
+   * whichever scope that fiber resumed in.
+   */
+  type RootFunction = (file: string, instance: InstanceContext) => Promise<string | undefined>
 
   const NearestRoot = (includePatterns: string[], excludePatterns?: string[]): RootFunction => {
-    return async (file) => {
+    return async (file, instance) => {
       if (excludePatterns) {
         const excludedFiles = Filesystem.up({
           targets: excludePatterns,
           start: path.dirname(file),
-          stop: Instance.directory,
+          stop: instance.directory,
         })
         const excluded = await excludedFiles.next()
         await excludedFiles.return()
@@ -41,11 +49,11 @@ export namespace LSPServer {
       const files = Filesystem.up({
         targets: includePatterns,
         start: path.dirname(file),
-        stop: Instance.directory,
+        stop: instance.directory,
       })
       const first = await files.next()
       await files.return()
-      if (!first.value) return Instance.directory
+      if (!first.value) return instance.directory
       return path.dirname(first.value)
     }
   }
@@ -60,16 +68,16 @@ export namespace LSPServer {
      * 1=Error (default), 2=Warning, 3=Info, 4=Hint.
      */
     min_severity?: number
-    spawn(root: string): Promise<Handle | undefined>
+    spawn(root: string, instance: InstanceContext): Promise<Handle | undefined>
   }
 
   export const Deno: Info = {
     id: "deno",
-    root: async (file) => {
+    root: async (file, instance) => {
       const files = Filesystem.up({
         targets: ["deno.json", "deno.jsonc"],
         start: path.dirname(file),
-        stop: Instance.directory,
+        stop: instance.directory,
       })
       const first = await files.next()
       await files.return()
@@ -99,8 +107,8 @@ export namespace LSPServer {
       ["deno.json", "deno.jsonc"],
     ),
     extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"],
-    async spawn(root) {
-      const tsserver = await Bun.resolve("typescript/lib/tsserver.js", Instance.directory).catch(() => {})
+    async spawn(root, instance) {
+      const tsserver = await Bun.resolve("typescript/lib/tsserver.js", instance.directory).catch(() => {})
       log.info("typescript server", { tsserver })
       if (!tsserver) return
       const proc = spawn(BunProc.which(), ["x", "typescript-language-server", "--stdio"], {
@@ -177,8 +185,8 @@ export namespace LSPServer {
     id: "eslint",
     root: NearestRoot(["package-lock.json", "bun.lockb", "bun.lock", "pnpm-lock.yaml", "yarn.lock"]),
     extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".vue"],
-    async spawn(root) {
-      const eslint = await Bun.resolve("eslint", Instance.directory).catch(() => {})
+    async spawn(root, instance) {
+      const eslint = await Bun.resolve("eslint", instance.directory).catch(() => {})
       if (!eslint) return
       log.info("spawning eslint server")
       const serverPath = path.join(Global.Path.bin, "vscode-eslint", "server", "out", "eslintServer.js")
@@ -244,7 +252,7 @@ export namespace LSPServer {
       "package.json",
     ]),
     extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".vue", ".astro", ".svelte"],
-    async spawn(root) {
+    async spawn(root, instance) {
       const ext = process.platform === "win32" ? ".cmd" : ""
 
       const serverTarget = path.join("node_modules", ".bin", "oxc_language_server" + ext)
@@ -257,7 +265,7 @@ export namespace LSPServer {
         const candidates = Filesystem.up({
           targets: [target],
           start: root,
-          stop: Instance.worktree,
+          stop: instance.worktree,
         })
         const first = await candidates.next()
         await candidates.return()
@@ -370,10 +378,10 @@ export namespace LSPServer {
 
   export const Gopls: Info = {
     id: "gopls",
-    root: async (file) => {
-      const work = await NearestRoot(["go.work"])(file)
+    root: async (file, instance) => {
+      const work = await NearestRoot(["go.work"])(file, instance)
       if (work) return work
-      return NearestRoot(["go.mod", "go.sum"])(file)
+      return NearestRoot(["go.mod", "go.sum"])(file, instance)
     },
     extensions: [".go"],
     async spawn(root) {
@@ -874,8 +882,8 @@ export namespace LSPServer {
 
   export const RustAnalyzer: Info = {
     id: "rust",
-    root: async (root) => {
-      const crateRoot = await NearestRoot(["Cargo.toml", "Cargo.lock"])(root)
+    root: async (root, instance) => {
+      const crateRoot = await NearestRoot(["Cargo.toml", "Cargo.lock"])(root, instance)
       if (crateRoot === undefined) {
         return undefined
       }
@@ -898,7 +906,7 @@ export namespace LSPServer {
         currentDir = parentDir
 
         // Stop if we've gone above the app root
-        if (!currentDir.startsWith(Instance.worktree)) break
+        if (!currentDir.startsWith(instance.worktree)) break
       }
 
       return crateRoot
@@ -1115,8 +1123,8 @@ export namespace LSPServer {
     id: "astro",
     extensions: [".astro"],
     root: NearestRoot(["package-lock.json", "bun.lockb", "bun.lock", "pnpm-lock.yaml", "yarn.lock"]),
-    async spawn(root) {
-      const tsserver = await Bun.resolve("typescript/lib/tsserver.js", Instance.directory).catch(() => {})
+    async spawn(root, instance) {
+      const tsserver = await Bun.resolve("typescript/lib/tsserver.js", instance.directory).catch(() => {})
       if (!tsserver) {
         log.info("typescript not found, required for Astro language server")
         return
@@ -1278,18 +1286,18 @@ export namespace LSPServer {
   export const KotlinLS: Info = {
     id: "kotlin-ls",
     extensions: [".kt", ".kts"],
-    root: async (file) => {
+    root: async (file, instance) => {
       // 1) Nearest Gradle root (multi-project or included build)
-      const settingsRoot = await NearestRoot(["settings.gradle.kts", "settings.gradle"])(file)
+      const settingsRoot = await NearestRoot(["settings.gradle.kts", "settings.gradle"])(file, instance)
       if (settingsRoot) return settingsRoot
       // 2) Gradle wrapper (strong root signal)
-      const wrapperRoot = await NearestRoot(["gradlew", "gradlew.bat"])(file)
+      const wrapperRoot = await NearestRoot(["gradlew", "gradlew.bat"])(file, instance)
       if (wrapperRoot) return wrapperRoot
       // 3) Single-project or module-level build
-      const buildRoot = await NearestRoot(["build.gradle.kts", "build.gradle"])(file)
+      const buildRoot = await NearestRoot(["build.gradle.kts", "build.gradle"])(file, instance)
       if (buildRoot) return buildRoot
       // 4) Maven fallback
-      return NearestRoot(["pom.xml"])(file)
+      return NearestRoot(["pom.xml"])(file, instance)
     },
     async spawn(root) {
       const distPath = path.join(Global.Path.bin, "kotlin-ls")
@@ -1667,7 +1675,7 @@ export namespace LSPServer {
   export const BashLS: Info = {
     id: "bash",
     extensions: [".sh", ".bash", ".zsh", ".ksh"],
-    root: async () => Instance.directory,
+    root: async (_file, instance) => instance.directory,
     async spawn(root) {
       let binary = Bun.which("bash-language-server")
       const args: string[] = []
@@ -1890,7 +1898,7 @@ export namespace LSPServer {
   export const DockerfileLS: Info = {
     id: "dockerfile",
     extensions: [".dockerfile", "Dockerfile"],
-    root: async () => Instance.directory,
+    root: async (_file, instance) => instance.directory,
     async spawn(root) {
       let binary = Bun.which("docker-langserver")
       const args: string[] = []
@@ -1972,16 +1980,16 @@ export namespace LSPServer {
   export const Nixd: Info = {
     id: "nixd",
     extensions: [".nix"],
-    root: async (file) => {
+    root: async (file, instance) => {
       // First, look for flake.nix - the most reliable Nix project root indicator
-      const flakeRoot = await NearestRoot(["flake.nix"])(file)
-      if (flakeRoot && flakeRoot !== Instance.directory) return flakeRoot
+      const flakeRoot = await NearestRoot(["flake.nix"])(file, instance)
+      if (flakeRoot && flakeRoot !== instance.directory) return flakeRoot
 
       // If no flake.nix, fall back to git repository root
-      if (Instance.worktree && Instance.worktree !== Instance.directory) return Instance.worktree
+      if (instance.worktree && instance.worktree !== instance.directory) return instance.worktree
 
       // Finally, use the instance directory as fallback
-      return Instance.directory
+      return instance.directory
     },
     async spawn(root) {
       const nixd = Bun.which("nixd")

@@ -4,38 +4,13 @@ import path from "path"
 import { Tool } from "./tool"
 import { Question } from "../question"
 import { Session } from "../session"
-import { SessionRepo } from "@/session/repo"
+import { sessionModel } from "@/session/model"
 import { MessageV2 } from "../session/message-v2"
 import { Identifier } from "@nikcli-ai/util/id"
-import { Provider } from "../provider/provider"
-import { Instance } from "../project/instance"
 import EXIT_DESCRIPTION from "./plan-exit.txt"
 import ENTER_DESCRIPTION from "./plan-enter.txt"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-
-async function getLastModel(sessionID: string) {
-  // Prefer the persisted `lastModel` from the column we set on every prompt
-  // resolution. It survives a CLI restart, where the message-stream scan
-  // below would return nothing for a session whose only model was the one
-  // inherited from the caller. Fall through to the message stream only when
-  // the column is empty (legacy sessions, sessions created before this
-  // feature shipped).
-  const persisted = SessionRepo.get(sessionID)?.lastModel
-  if (persisted) return persisted
-  for await (const item of MessageV2.stream(sessionID)) {
-    if (item.info.role === "user" && item.info.model) return item.info.model
-  }
-  return runPromiseWithLayer(
-    Provider.defaultLayer,
-    withCurrentInstance(
-      Effect.gen(function* () {
-        const provider = yield* Provider.Service
-        return yield* provider.defaultModel()
-      }),
-    ),
-  )
-}
 
 function askQuestion(input: {
   sessionID: string
@@ -65,7 +40,7 @@ export const PlanExitTool = Tool.define("plan_exit", {
       Effect.gen(function* () {
         const session = yield* Session.Service
         const info = yield* session.get(ctx.sessionID)
-        return path.relative(Instance.worktree, yield* session.plan(info))
+        return path.relative(ctx.instance.worktree, yield* session.plan(info))
       }),
     )
     const answers = await askQuestion({
@@ -87,7 +62,7 @@ export const PlanExitTool = Tool.define("plan_exit", {
     const answer = answers[0]?.[0]
     if (answer === "No") throw new Question.RejectedError({})
 
-    const model = await getLastModel(ctx.sessionID)
+    const model = await sessionModel(ctx.sessionID)
 
     const userMsg: MessageV2.User = {
       id: Identifier.ascending("message"),
@@ -130,7 +105,7 @@ export const PlanEnterTool = Tool.define("plan_enter", {
       Effect.gen(function* () {
         const session = yield* Session.Service
         const info = yield* session.get(ctx.sessionID)
-        return path.relative(Instance.worktree, yield* session.plan(info))
+        return path.relative(ctx.instance.worktree, yield* session.plan(info))
       }),
     )
 
@@ -154,7 +129,7 @@ export const PlanEnterTool = Tool.define("plan_enter", {
 
     if (answer === "No") throw new Question.RejectedError({})
 
-    const model = await getLastModel(ctx.sessionID)
+    const model = await sessionModel(ctx.sessionID)
 
     const userMsg: MessageV2.User = {
       id: Identifier.ascending("message"),

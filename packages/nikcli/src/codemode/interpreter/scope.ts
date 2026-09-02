@@ -1,4 +1,4 @@
-import { type AstNode, type Binding, InterpreterRuntimeError } from "./model"
+import { type AstNode, type Binding, type CodeModeValue, InterpreterRuntimeError } from "./model"
 
 export class ScopeStack {
   private readonly scopes: Array<Map<string, Binding>>
@@ -15,10 +15,15 @@ export class ScopeStack {
       throw new InterpreterRuntimeError(`Identifier '${name}' has already been declared.`, node)
     }
 
-    scope.set(name, { mutable, value, initialized: true })
+    // SAFETY: the interpreter only ever binds values from its own value domain; the entry point accepts raw host input.
+    scope.set(name, {
+      mutable,
+      value: value as CodeModeValue,
+      initialized: true,
+    })
   }
 
-  get(name: string, node: AstNode): unknown {
+  get(name: string, node: AstNode): CodeModeValue {
     const binding = this.resolve(name)
 
     if (!binding) {
@@ -32,7 +37,7 @@ export class ScopeStack {
     return binding.value
   }
 
-  set(name: string, value: unknown, node: AstNode): unknown {
+  set(name: string, value: unknown, node: AstNode): CodeModeValue {
     const binding = this.resolve(name)
 
     if (!binding) {
@@ -43,8 +48,9 @@ export class ScopeStack {
       throw new InterpreterRuntimeError(`Cannot assign to constant '${name}'.`, node).as("TypeError")
     }
 
-    binding.value = value
-    return value
+    // SAFETY: the interpreter only ever binds values from its own value domain; the entry point accepts raw host input.
+    binding.value = value as CodeModeValue
+    return binding.value
   }
 
   resolve(name: string): Binding | undefined {

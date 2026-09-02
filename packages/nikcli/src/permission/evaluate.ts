@@ -15,5 +15,7 @@ export const merge = PermissionNext.merge
 export const evaluate = PermissionNext.evaluate
 export const disabled = PermissionNext.disabled
 export const disabledFromConfig = (permission: string, ruleset: Rule[] | PermissionNext.Ruleset, ...extra: Rule[]) => {
+  // SAFETY: `Ruleset` is the array-of-rules shape, so both halves of the
+  // parameter union are already valid input for `merge`.
   return PermissionNext.disabled([permission], PermissionNext.merge(ruleset as PermissionNext.Ruleset, extra))
 }

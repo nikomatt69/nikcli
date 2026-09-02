@@ -1,3 +1,6 @@
+import type { JsonValue } from "@/util/json"
+import type { Session } from "@/session"
+import type { SessionStatus } from "@/session/status"
 import { preserveTestEnv } from "../helpers/env"
 import { removeTestDir } from "../helpers/fs"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
@@ -29,6 +32,28 @@ const { MessageRepo } = await import("@/session/message-repo")
 
 const projectDirs: string[] = []
 
+type MonitorResponse = {
+  id: string
+  status: string
+  pid: number
+  time: { created: number; completed?: number }
+}
+
+type GoalStateResponse = {
+  objective: string
+  tokenBudget?: number
+}
+
+type PendingEntryResponse = {
+  id: string
+  data: { sessionID: string; parts: { type: string; text?: string }[] }
+}
+
+type NotFoundBody = {
+  name: string
+  data: { message: string }
+}
+
 async function git(directory: string, ...args: string[]) {
   const process = Bun.spawn(["git", ...args], { cwd: directory, stdout: "pipe", stderr: "pipe" })
   const [code, stderr] = await Promise.all([process.exited, new Response(process.stderr).text()])
@@ -55,11 +80,11 @@ async function request(pathname: string, directory: string, params: Record<strin
   return response.json()
 }
 
-async function post(pathname: string, directory: string, body: unknown) {
+async function post(pathname: string, directory: string, body: JsonValue) {
   return jsonRequest("POST", pathname, directory, body)
 }
 
-async function patch(pathname: string, directory: string, body: unknown) {
+async function patch(pathname: string, directory: string, body: JsonValue) {
   return jsonRequest("PATCH", pathname, directory, body)
 }
 
@@ -85,7 +110,7 @@ async function listByInstance(directory: string, params: Record<string, string> 
   return (await response.json()) as { id: string; title: string; directory: string }[]
 }
 
-async function jsonRequest(method: string, pathname: string, directory: string, body?: unknown) {
+async function jsonRequest(method: string, pathname: string, directory: string, body?: JsonValue) {
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
   const headers = new Headers()
@@ -104,6 +129,185 @@ async function jsonRequest(method: string, pathname: string, directory: string, 
 }
 
 describe("Session HttpApi bridge", () => {
+  /**
+   * `Session.InfoSchema` members are `Schema.optionalKey`, so an unset optional
+   * has to leave the key out entirely. The two ways to get this wrong both
+   * look fine from the client type: `Schema.optional` would encode a present
+   * `undefined` as `null`, and a producer that assigns `undefined` against
+   * `optionalKey` fails the encode and answers 400. `toBeUndefined()` catches
+   * only the first, so assert on the keys themselves.
+   */
+  it("omits unset Session.Info optionals instead of sending null", async () => {
+    const directory = await makeProjectDir()
+    const optionals = [
+      "parentID",
+      "summary",
+      "share",
+      "github",
+      "worktree",
+      "mobile",
+      "activeCommand",
+      "permission",
+      "disabledInstructions",
+      "disabledTools",
+      "revert",
+      "lastModel",
+    ]
+
+    const created = (await post("/session", directory, {})) as Session.Info
+    expect(Object.keys(created)).not.toContain("parentID")
+    for (const key of optionals) expect(created).not.toHaveProperty(key)
+    expect(Object.keys(created.time)).not.toContain("archived")
+
+    const fetched = (await request(`/session/${created.id}`, directory)) as Session.Info
+    for (const key of optionals) expect(fetched).not.toHaveProperty(key)
+
+    const [listed] = (await request("/session", directory)) as Session.Info[]
+    for (const key of optionals) expect(listed).not.toHaveProperty(key)
+
+    // Renaming touches the session through the update path, which clones the
+    // stored object before the editor runs.
+    const updated = (await patch(`/session/${created.id}`, directory, { title: "renamed" })) as Session.Info
+    expect(updated.title).toBe("renamed")
+    for (const key of optionals) expect(updated).not.toHaveProperty(key)
+
+    // A child session sets parentID and nothing else.
+    const child = (await post("/session", directory, { parentID: created.id })) as Session.Info
+    expect(child.parentID).toBe(created.id)
+    for (const key of optionals.filter((k) => k !== "parentID")) expect(child).not.toHaveProperty(key)
+  })
+
+  /**
+   * `ContextBreakdown.model` and each source's `detail` are `optionalKey`, and
+   * the producer used to write `undefined` for both — the encode only survived
+   * because the handler round-tripped through `jsonSafe`. Without a route test
+   * this endpoint had no coverage at all.
+   */
+  it("serves the context breakdown with unset optionals omitted", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, {})) as { id: string }
+
+    const breakdown = (await request(`/session/${created.id}/context`, directory)) as {
+      model?: unknown
+      sources: { id: string; detail?: unknown }[]
+      estimatedTotal: number
+    }
+
+    expect(Array.isArray(breakdown.sources)).toBe(true)
+    expect(Number.isFinite(breakdown.estimatedTotal)).toBe(true)
+    if (!("model" in breakdown)) expect(breakdown.model).toBeUndefined()
+    for (const source of breakdown.sources) {
+      if ("detail" in source) expect(source.detail).not.toBeNull()
+    }
+  })
+
+  /**
+   * A running monitor has no `exitCode`, `signal` or `time.completed` yet, and
+   * no `partID` until a tool part matches. Those are `optionalKey` on
+   * `Monitor.RecordSchema`, and the exit handler used to clear `exitCode` and
+   * `signal` by assigning `undefined` — which is a 400, not an omitted field,
+   * once the handler stops round-tripping through `jsonSafe`.
+   */
+  it("serves a running monitor record with unset optionals omitted", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, {})) as { id: string }
+
+    const { Monitor } = await import("@/monitor/manager")
+    const record = await Instance.provide({
+      directory,
+      fn: () =>
+        Monitor.start({
+          sessionID: created.id,
+          messageID: "msg_monitor_test",
+          callID: "call_monitor_test",
+          title: "sleeper",
+          command: "sleep 30",
+          cwd: directory,
+          agent: "build",
+          wake: false,
+        }),
+    })
+
+    const fetched = (await request(`/session/${created.id}/monitor/${record.id}`, directory)) as MonitorResponse
+    expect(fetched.status).toBe("running")
+    expect(Number.isFinite(fetched.pid)).toBe(true)
+    for (const key of ["exitCode", "signal", "partID", "timeoutMs"]) expect(fetched).not.toHaveProperty(key)
+    expect(fetched.time).not.toHaveProperty("completed")
+
+    const cancelled = (await post(
+      `/session/${created.id}/monitor/${record.id}/cancel`,
+      directory,
+      {},
+    )) as MonitorResponse
+    expect(cancelled.status).toBe("cancelled")
+    expect(cancelled).not.toHaveProperty("partID")
+  })
+
+  /**
+   * `SessionGoalState.tokenBudget` is the one optional on the goal state, and
+   * a goal set without a budget must omit the key rather than send `null`.
+   */
+  it("serves a goal without a budget as an absent key", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, {})) as { id: string }
+
+    const empty = await request(`/session/${created.id}/goal`, directory)
+    expect(empty).toBeNull()
+
+    const { Effect } = await import("effect")
+    const { runPromiseWithLayer } = await import("@/effect")
+    const { SessionGoal } = await import("@/session/goal")
+    await Instance.provide({
+      directory,
+      fn: () =>
+        runPromiseWithLayer(
+          SessionGoal.defaultLayer,
+          Effect.gen(function* () {
+            const goal = yield* SessionGoal.Service
+            return yield* goal.set(created.id, "ship the slice")
+          }),
+        ),
+    })
+
+    const state = (await request(`/session/${created.id}/goal`, directory)) as GoalStateResponse
+    expect(state.objective).toBe("ship the slice")
+    expect(state).not.toHaveProperty("tokenBudget")
+  })
+
+  /**
+   * The queued prompt's `data` carries nine optionals (`agent`, `model`,
+   * `system`, …). A queue entry made from a bare prompt sets none of them, and
+   * the pending routes hand the decoded row straight to the encoder. Only the
+   * list route is exercised: `POST .../steer` promotes the entry and starts a
+   * real prompt loop, which in this environment dies on model resolution and
+   * surfaces as an unhandled error between tests.
+   */
+  it("serves a queued pending input with unset optionals omitted", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, {})) as { id: string }
+
+    const { SessionPending } = await import("@/session/pending")
+    const inserted = await Instance.provide({
+      directory,
+      fn: async () =>
+        SessionPending.insert({
+          sessionID: created.id,
+          messageID: "msg_pending_test",
+          delivery: "queue",
+          data: JSON.stringify({
+            sessionID: created.id,
+            parts: [{ type: "text", text: "queued while busy" }],
+          }),
+        }),
+    })
+
+    const [entry] = (await request(`/session/${created.id}/pending`, directory)) as PendingEntryResponse[]
+    expect(entry!.id).toBe(inserted.id)
+    for (const key of ["agent", "model", "system", "variant", "noReply", "tools", "format", "delivery"]) {
+      expect(entry!.data).not.toHaveProperty(key)
+    }
+  })
+
   it("creates a session without a request body for legacy SDK compatibility", async () => {
     const directory = await makeProjectDir()
     const created = (await jsonRequest("POST", "/session", directory)) as {
@@ -113,6 +317,90 @@ describe("Session HttpApi bridge", () => {
 
     expect(created.id).toStartWith("ses_")
     expect(created.directory).toBe(directory)
+  })
+
+  /**
+   * P2.1 pushed the list route's filters, ordering, and limit into SQL. Each
+   * case here is a predicate that used to run in JS over every session of the
+   * project; the directory case additionally pins that the SQL comparison is
+   * still `Filesystem.comparisonKey`, not raw string equality — a
+   * non-canonical spelling of the same path has to match.
+   */
+  describe("list filters run in SQL", () => {
+    it("filters by directory on the comparison key, not the raw path", async () => {
+      const directory = await makeProjectDir()
+      const created = (await post("/session", directory, { title: "In this directory" })) as { id: string }
+
+      const exact = await listByInstance(directory, { directory })
+      expect(exact.map((session) => session.id)).toContain(created.id)
+
+      // Same directory, spelled so that only a path *resolve* makes it equal.
+      // Raw SQL equality on the stored `directory` column would miss this.
+      const nonCanonical = await listByInstance(directory, {
+        directory: `${directory}/child/..`,
+      })
+      expect(nonCanonical.map((session) => session.id)).toContain(created.id)
+
+      const elsewhere = await listByInstance(directory, {
+        directory: path.join(directory, "not-this-one"),
+      })
+      expect(elsewhere.map((session) => session.id)).not.toContain(created.id)
+    })
+
+    it("filters roots, start, and search, and applies ordering with limit", async () => {
+      const directory = await makeProjectDir()
+      const parent = (await post("/session", directory, { title: "Alpha parent" })) as {
+        id: string
+        time: { updated: number }
+      }
+      const child = (await post("/session", directory, {
+        parentID: parent.id,
+        title: "Beta child",
+      })) as { id: string }
+      const other = (await post("/session", directory, { title: "Gamma root" })) as {
+        id: string
+        time: { updated: number }
+      }
+
+      const roots = await listByInstance(directory, { roots: "true" })
+      const rootIds = roots.map((session) => session.id)
+      expect(rootIds).toContain(parent.id)
+      expect(rootIds).toContain(other.id)
+      expect(rootIds).not.toContain(child.id)
+
+      // `search` is a case-insensitive substring test on the title.
+      const search = await listByInstance(directory, { search: "beta" })
+      expect(search.map((session) => session.id)).toEqual([child.id])
+
+      // `%` is a LIKE wildcard but not a `String.includes` one: a term
+      // containing it must match literally, i.e. nothing here.
+      expect(await listByInstance(directory, { search: "%" })).toEqual([])
+
+      // `start` is a `time.updated >= start` boundary.
+      const future = await listByInstance(directory, { start: String(Date.now() + 60_000) })
+      expect(future).toEqual([])
+      const past = await listByInstance(directory, { start: "1" })
+      expect(past.length).toBeGreaterThanOrEqual(3)
+
+      // Ordering is newest-updated first — asserted on the values rather than
+      // on which session happens to win, because three sessions created in the
+      // same millisecond legitimately tie.
+      const all = (await listByInstance(directory)) as unknown as { id: string; time: { updated: number } }[]
+      expect(all.length).toBeGreaterThanOrEqual(3)
+      for (let i = 1; i < all.length; i++) {
+        expect(all[i - 1]!.time.updated).toBeGreaterThanOrEqual(all[i]!.time.updated)
+      }
+
+      // The limit is applied after that ordering, not before it.
+      const limited = await listByInstance(directory, { limit: "1" })
+      expect(limited.map((session) => session.id)).toEqual([all[0]!.id])
+
+      // Combined: root sessions only, newest first, one row — and the child is
+      // excluded even though it may sort ahead of both roots.
+      const combined = await listByInstance(directory, { roots: "true", limit: "1" })
+      expect(combined).toHaveLength(1)
+      expect([parent.id, other.id]).toContain(combined[0]!.id)
+    })
   })
 
   it("serves session list and status routes", async () => {
@@ -167,7 +455,7 @@ describe("Session HttpApi bridge", () => {
     })) as unknown[]
     expect(sessions).toContainEqual(expect.objectContaining({ id: created.id, title: "Bridge session" }))
 
-    const statuses = (await request("/session/status", directory)) as Record<string, unknown>
+    const statuses = (await request("/session/status", directory)) as Record<string, SessionStatus.Info>
     expect(statuses).toEqual({})
 
     const session = (await request(`/session/${created.id}`, directory)) as {
@@ -324,10 +612,7 @@ describe("Session HttpApi bridge", () => {
     url.searchParams.set("directory", directory)
     const response = await Server.fetch(new Request(url))
     expect(response.status).toBe(404)
-    const body = (await response.json()) as {
-      name: string
-      data: Record<string, unknown>
-    }
+    const body = (await response.json()) as NotFoundBody
     expect(body.name).toBe("NotFoundError")
     expect(String(body.data.message)).toContain("ses_does_not_exist")
   })
@@ -365,10 +650,38 @@ describe("Session HttpApi bridge", () => {
     url.searchParams.set("directory", directory)
     const response = await Server.fetch(new Request(url))
     expect(response.status).toBe(404)
-    const body = (await response.json()) as {
-      name: string
-      data: Record<string, unknown>
-    }
+    const body = (await response.json()) as NotFoundBody
+    expect(body.name).toBe("NotFoundError")
+  })
+
+  it("returns the declared 404 body for a missing session on revert", async () => {
+    const directory = await makeProjectDir()
+    await request("/session", directory)
+
+    const url = new URL("/session/ses_does_not_exist/revert", "http://nikcli.local")
+    url.searchParams.set("directory", directory)
+    const response = await Server.fetch(
+      new Request(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messageID: "msg_does_not_exist" }),
+      }),
+    )
+    expect(response.status).toBe(404)
+    const body = (await response.json()) as { name: string }
+    expect(body.name).toBe("NotFoundError")
+  })
+
+  it("returns the declared 404 body for a missing session on diff", async () => {
+    const directory = await makeProjectDir()
+    await request("/session", directory)
+
+    const url = new URL("/session/ses_does_not_exist/diff", "http://nikcli.local")
+    url.searchParams.set("directory", directory)
+    url.searchParams.set("messageID", "msg_does_not_exist")
+    const response = await Server.fetch(new Request(url))
+    expect(response.status).toBe(404)
+    const body = (await response.json()) as { name: string }
     expect(body.name).toBe("NotFoundError")
   })
 })

@@ -163,7 +163,7 @@ const run = (
         },
       },
       code,
-      ...(options.limits ? { limits: options.limits } : {}),
+      ...(options.limits ? { limits: options.limits } : undefined),
     }),
   )
 }

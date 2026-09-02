@@ -3,7 +3,7 @@
  *
  * Mirrors `feature-plugins/browser`: surfaces the
  * `@nikcli-ai/computer-use` background desktop engine (the way
- * browser-control surfaces Chromium sessions) in the TUI as a self-contained
+ * browser-control surfaces WebView sessions) in the TUI as a self-contained
  * plugin. Registers the `/computer` slash command that probes the host for
  * screenshot/input capabilities and reports what the `computer` tool can do
  * on this machine (and what optional helpers are missing).

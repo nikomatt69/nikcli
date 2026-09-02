@@ -3,8 +3,8 @@ import { type ParseError as JsoncParseError, applyEdits, modify, parse as parseJ
 import { unique } from "remeda"
 import z from "zod"
 import { ConfigPaths } from "./paths"
-import { TuiInfo, TuiOptions } from "./tui-schema"
-import { Instance } from "@/project/instance"
+import { ThemeField, TuiOptionFields } from "./tui-schema"
+import type { InstanceContext } from "@/effect"
 import { Flag } from "@nikcli-ai/util/flag"
 import { Log } from "@nikcli-ai/util/log"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
@@ -14,18 +14,20 @@ const log = Log.create({ service: "tui.migrate" })
 
 const TUI_SCHEMA_URL = "https://nikcli.store/tui.json"
 
-const LegacyTheme = TuiInfo.shape.theme.optional()
+const LegacyTheme = ThemeField
 const LegacyRecord = z.record(z.string(), z.unknown()).optional()
 
 const TuiLegacy = z
   .object({
-    scroll_speed: TuiOptions.shape.scroll_speed.catch(undefined),
-    scroll_acceleration: TuiOptions.shape.scroll_acceleration.catch(undefined),
-    diff_style: TuiOptions.shape.diff_style.catch(undefined),
+    scroll_speed: TuiOptionFields.scroll_speed.catch(undefined),
+    scroll_acceleration: TuiOptionFields.scroll_acceleration.catch(undefined),
+    diff_style: TuiOptionFields.diff_style.catch(undefined),
   })
   .strip()
 
 interface MigrateInput {
+  /** The instance whose nikcli.json files are being migrated. */
+  instance: InstanceContext
   directories: string[]
   custom?: string
   managed: string
@@ -40,7 +42,10 @@ export async function migrateTuiConfig(input: MigrateInput) {
   const nikcli = await nikcliFiles(input)
   for (const file of nikcli) {
     const source = await Filesystem.readText(file).catch((error) => {
-      log.warn("failed to read config for tui migration", { path: file, error })
+      log.warn("failed to read config for tui migration", {
+        path: file,
+        error,
+      })
       return undefined
     })
     if (!source) continue
@@ -73,14 +78,21 @@ export async function migrateTuiConfig(input: MigrateInput) {
     const wrote = await Filesystem.write(target, JSON.stringify(payload, null, 2))
       .then(() => true)
       .catch((error) => {
-        log.warn("failed to write tui migration target", { from: file, to: target, error })
+        log.warn("failed to write tui migration target", {
+          from: file,
+          to: target,
+          error,
+        })
         return false
       })
     if (!wrote) continue
 
     const stripped = await backupAndStripLegacy(file, source)
     if (!stripped) {
-      log.warn("tui config migrated but source file was not stripped", { from: file, to: target })
+      log.warn("tui config migrated but source file was not stripped", {
+        from: file,
+        to: target,
+      })
       continue
     }
     log.info("migrated tui config", { from: file, to: target })
@@ -107,7 +119,11 @@ async function backupAndStripLegacy(file: string, source: string) {
     : await Filesystem.write(backup, source)
         .then(() => true)
         .catch((error) => {
-          log.warn("failed to backup source config during tui migration", { path: file, backup, error })
+          log.warn("failed to backup source config during tui migration", {
+            path: file,
+            backup,
+            error,
+          })
           return false
         })
   if (!backed) return false
@@ -129,15 +145,19 @@ async function backupAndStripLegacy(file: string, source: string) {
       return true
     })
     .catch((error) => {
-      log.warn("failed to strip legacy tui keys from server config", { path: file, backup, error })
+      log.warn("failed to strip legacy tui keys from server config", {
+        path: file,
+        backup,
+        error,
+      })
       return false
     })
 }
 
-async function nikcliFiles(input: { directories: string[]; managed: string }) {
+async function nikcliFiles(input: MigrateInput) {
   const project = Flag.NIKCLI_DISABLE_PROJECT_CONFIG
     ? []
-    : await ConfigPaths.projectFiles("nikcli", Instance.directory, Instance.worktree)
+    : await ConfigPaths.projectFiles("nikcli", input.instance.directory, input.instance.worktree)
   const files = [...project, ...ConfigPaths.fileInDirectory(Global.Path.config, "nikcli")]
   for (const dir of unique(input.directories)) {
     files.push(...ConfigPaths.fileInDirectory(dir, "nikcli"))

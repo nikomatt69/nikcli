@@ -2,6 +2,7 @@ import { Effect } from "effect"
 import { Config } from "../config/config"
 import { runPromiseWithLayer, withCurrentInstance } from "../effect"
 import { Log } from "@nikcli-ai/util/log"
+import type { InstanceContext } from "@/effect"
 
 /**
  * Platform-webhook core shared by the Hono `/chatbot` routes and the Effect
@@ -47,7 +48,12 @@ export namespace ChatbotWebhook {
     return connector as Config.Connector | undefined
   }
 
-  export async function handle(platform: Platform, name: string, request: Request): Promise<Result> {
+  export async function handle(
+    instance: InstanceContext,
+    platform: Platform,
+    name: string,
+    request: Request,
+  ): Promise<Result> {
     const connector = await getConnectorConfig(platform, name)
 
     if (!connector) {
@@ -56,7 +62,7 @@ export namespace ChatbotWebhook {
     }
 
     const BotHandlers = await getBotHandlers()
-    const bot = (await BotHandlers.ensureAiBot(name, connector)) as BotInfo | undefined
+    const bot = (await BotHandlers.ensureAiBot(instance, name, connector)) as BotInfo | undefined
     if (!bot) {
       log.warn(`${platform} webhook: bot not initialized`, { name })
       return { body: "Bot unavailable", status: 503 }

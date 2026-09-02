@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "fs/promises"
 import { tmpdir } from "os"
 import path from "path"
+import { bunUtils } from "./bun-utils"
 
 /** File extensions skipped by default — binaries/media that aren't needed to keep coding. */
 const BINARY_EXTENSIONS = new Set([
@@ -193,11 +194,19 @@ export async function createWorkspaceArchive(
       return null
     }
 
-    // Optionally prepend the full .git directory (history) when explicitly requested.
-    const entries = options.includeGit && isGit ? [".git", ...included] : included
-    const listFile = path.join(work, "files.txt")
-    await Bun.write(listFile, entries.join("\0") + "\0")
-    await runOk(["tar", "-czf", archivePath, "--null", "-C", root, "-T", listFile], root)
+    const files: Record<string, Blob> = {}
+    for (const rel of included) {
+      files[rel.replaceAll("\\", "/")] = Bun.file(path.join(root, rel))
+    }
+    if (options.includeGit && isGit) {
+      const glob = new Bun.Glob(".git/**")
+      for await (const rel of glob.scan({ cwd: root, dot: true, onlyFiles: true })) {
+        files[rel.replaceAll("\\", "/")] = Bun.file(path.join(root, rel))
+      }
+    }
+
+    const archive = new bunUtils.Archive(files, { compress: "gzip" })
+    await Bun.write(archivePath, archive)
 
     const bytes = Bun.file(archivePath).size
     return {
@@ -250,6 +259,12 @@ export async function uploadWorkspaceArchive(opts: {
   return uploadID
 }
 
+/** Extract a gzipped tar produced by {@link createWorkspaceArchive}. */
+export async function extractWorkspaceArchive(archivePath: string, destination: string): Promise<number> {
+  const tarball = await Bun.file(archivePath).bytes()
+  return new bunUtils.Archive(tarball).extract(destination)
+}
+
 async function isGitRepo(dir: string): Promise<boolean> {
   try {
     const out = await runCaptureText(["git", "-C", dir, "rev-parse", "--is-inside-work-tree"], dir)
@@ -279,13 +294,4 @@ async function runCapture(cmd: string[], cwd: string): Promise<Uint8Array> {
 
 async function runCaptureText(cmd: string[], cwd: string): Promise<string> {
   return new TextDecoder().decode(await runCapture(cmd, cwd))
-}
-
-async function runOk(cmd: string[], cwd: string): Promise<void> {
-  const proc = Bun.spawn(cmd, { windowsHide: true, cwd, stdout: "ignore", stderr: "pipe" })
-  const code = await proc.exited
-  if (code !== 0) {
-    const err = await new Response(proc.stderr).text().catch(() => "")
-    throw new Error(`${cmd[0]} failed (${code})${err ? `: ${err.slice(0, 200)}` : ""}`)
-  }
 }

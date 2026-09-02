@@ -173,7 +173,7 @@ export namespace FileHttpApi {
           type: query.type,
         })
       }).pipe(Effect.orDie),
-    findSymbol: (_: { query: typeof SymbolSearchParams.Type }) => Effect.succeed([]),
+    findSymbol: (__: { query: typeof SymbolSearchParams.Type }) => Effect.succeed([]),
     list: ({ query }: { query: typeof PathParams.Type }) =>
       Effect.gen(function* () {
         const ctx = yield* InstanceState.context

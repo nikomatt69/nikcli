@@ -89,12 +89,25 @@ export function shouldTerminateWorker(platform = process.platform): boolean {
   return platform !== "win32"
 }
 
-export function releaseWorkerWithoutTermination(worker: object): void {
-  ;(worker as { unref?: () => void }).unref?.()
+/**
+ * The slice of a worker handle this module drives.
+ *
+ * `unref` is optional because it is a Bun extension that the DOM `Worker` type
+ * does not declare; `terminate` is required so a bare `{ unref }` object cannot
+ * pass for a worker. Naming the shape also removes the assertion this function
+ * used to need.
+ */
+export type WorkerHandle = {
+  terminate: () => void
+  unref?: () => void
+}
+
+export function releaseWorkerWithoutTermination(worker: WorkerHandle): void {
+  worker.unref?.()
 }
 
 export async function shutdownWorker(input: {
-  shutdown: () => Promise<unknown>
+  shutdown: () => Promise<void>
   terminate: () => void
   release: () => void
   platform?: typeof process.platform
@@ -234,6 +247,17 @@ export const TuiThreadCommand = cmd({
       })
     }
     const client = Rpc.client<typeof rpc>(worker)
+    // The worker cannot bind the browser-control daemon itself: its sessions are
+    // Bun.WebViews, and those only exist on a main thread. This is that thread.
+    // Imported on demand — a session that never opens a browser should not pay
+    // for the package (ffmpeg, evidence, renderers) during TUI startup.
+    client.on<{ socket: string }>("browser-control.host-daemon", ({ socket }) => {
+      import("@nikcli-ai/browser-control/daemon")
+        .then(({ startDaemon }) => startDaemon(socket, { exitProcess: false }))
+        .catch((e) => {
+          Log.Default.error("browser-control daemon failed to bind", { error: errorMessage(e) })
+        })
+    })
     const error = (e: unknown) => {
       Log.Default.error("process error", { error: errorMessage(e) })
     }
@@ -258,7 +282,9 @@ export const TuiThreadCommand = cmd({
       // Bound shutdown on every platform. Windows releases the worker without
       // terminating it so MCP subprocess teardown cannot detach the console.
       await shutdownWorker({
-        shutdown: () => client.call("shutdown", undefined),
+        shutdown: async () => {
+          await client.call("shutdown", undefined)
+        },
         terminate: () => worker.terminate(),
         release: () => releaseWorkerWithoutTermination(worker),
       }).catch((error) => {

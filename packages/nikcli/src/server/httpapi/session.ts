@@ -24,7 +24,6 @@ import { SessionStatus } from "@/session/status"
 import { Todo } from "@/session/todo"
 import { SessionV2 } from "@/session/v2"
 import { WorkspaceContext } from "@/workspace/workspace-context"
-import { Filesystem } from "@nikcli-ai/util/filesystem"
 
 export namespace SessionHttpApi {
   const log = Log.create({ service: "httpapi.session" })
@@ -154,7 +153,9 @@ export namespace SessionHttpApi {
    * `Delegation.JobItem` and the monitor records. Declared here so the
    * generated clients carry real types; these endpoints encode their
    * responses through the Effect handlers, so the shapes must match what the
-   * services return after `jsonSafe` drops `undefined` properties.
+   * services return. All four are `optionalKey` and their producers omit the
+   * key rather than assign a present `undefined`, so these handlers return the
+   * service object directly (E4, second and third service-side slices).
    */
   const ContextSource = Schema.Struct({
     id: Schema.String,
@@ -243,6 +244,12 @@ export namespace SessionHttpApi {
     identifier: "SessionMonitorLogOutput",
   })
 
+  // H10 (2026-08-30): still Unknown. `Schema.TaggedUnion.matchOrElse` is a
+  // consume-time matcher on a closed union — it does not decode a new
+  // variant. A half-open `Union(known, catch-all)` does, but a malformed
+  // known member (e.g. `type: "user"` missing required fields) also
+  // succeeds as the catch-all, which is worse than Unknown. SessionEntry
+  // remains a zod discriminated union, not an Effect TaggedUnion.
   const SessionV2EntryList = Schema.Array(Schema.Unknown).annotate({
     identifier: "SessionV2EntryList",
   })
@@ -292,23 +299,31 @@ export namespace SessionHttpApi {
     return Effect.die(cause)
   }
 
-  /** Failure first, defect second — services still wrap async impls with
-   * Effect.promise, so expected errors can arrive on either channel. */
-  const declaredErrors = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.catch(asSessionError), Effect.catchDefect(asSessionError))
+  /** Expected session failures arrive on the typed channel only (E5).
+   *
+   * The defect half of this boundary is gone: every adapter that can reject
+   * with a session-domain error now maps it with `Session.asSessionError`
+   * (`session/revert.ts`, `session/summary.ts`, and the `Effect.tryPromise`
+   * bridges below), so a defect reaching here is a genuine bug and must stay
+   * a 500 rather than being laundered into a declared 404 / 409. The
+   * `Exit` / `Cause` assertions in `test/session/session-lifecycle.test.ts`
+   * pin that the missing-session and busy-session paths never die. */
+  const declaredErrors = <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.catch(asSessionError))
 
-  // Session/message objects often carry `undefined` properties (parentID, workspaceID, ...).
-  // Effect HttpApi rejects those when encoding `Schema.Unknown` because `undefined` is not a
-  // valid JSON value. Round-tripping through JSON.stringify normalizes the payload by
-  // dropping undefined keys without changing the schema contract for callers.
+  // Drops present-`undefined` keys so an encoder declared with
+  // `Schema.optional` puts an absent key on the wire instead of `null`.
   // Returning `T` keeps handler signatures inferable for HttpApi.
   //
-  // Local input schemas use `Schema.optionalKey` so the route-level encoders
-  // do not need this round-trip. The remaining callers are response handlers
-  // returning `Session.Info` / `MessageV2.Info` from the services — those
-  // services still hand back objects with explicit `undefined` keys, so the
-  // service's own schemas are the next stop on the E4 path. Keep the helper
-  // here until that lands.
+  // `Session.InfoSchema` and the `MessageV2` message and part schemas no longer
+  // need it: their members are `Schema.optionalKey` and their producers omit
+  // rather than assign, so those handlers return the service object directly.
+  //
+  // The three callers left — `v2Entries`, `v2State`, `v2Events` — keep it for a
+  // reason no producer fix reaches: their payloads are `Schema.Unknown`, which
+  // is `Schema.Json` at the JSON boundary and rejects a present `undefined`
+  // whatever the entry carries. They keep the round-trip until entries stop
+  // carrying `undefined`, which is a separate item. Do not delete the helper:
+  // `httpapi-session.test.ts` and `httpapi-config.test.ts` pin what happens.
   const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
 
   const InstructionList = Schema.Array(Schema.Struct({ path: Schema.String, name: Schema.String })).annotate({
@@ -626,24 +641,19 @@ export namespace SessionHttpApi {
       Effect.gen(function* () {
         const ctx = yield* InstanceState.context
         const service = yield* Session.Service
-        const iterable = yield* service.list()
-        const sessions = yield* Effect.promise(() => Array.fromAsync(iterable))
-        const term = query.search?.toLowerCase()
+        // Filter / order / limit happen in SQL (P2.1). This used to read every
+        // session of the project through `Array.fromAsync` — one `JSON.parse`
+        // of the `data` blob per stored row — and then filter, sort, and slice
+        // in JS. An active workspace still pins the directory to the instance's
+        // own, overriding whatever the query asked for.
         const directory = WorkspaceContext.workspaceID ? ctx.directory : query.directory
-        const filtered = sessions.filter((session) => {
-          if (
-            directory !== undefined &&
-            Filesystem.comparisonKey(session.directory) !== Filesystem.comparisonKey(directory)
-          )
-            return false
-          if (query.roots && session.parentID) return false
-          if (query.start !== undefined && session.time.updated < query.start) return false
-          if (term !== undefined && !session.title.toLowerCase().includes(term)) return false
-          return true
+        return yield* service.query({
+          ...(directory !== undefined ? { directory } : {}),
+          ...(query.roots !== undefined ? { roots: query.roots } : {}),
+          ...(query.start !== undefined ? { start: query.start } : {}),
+          ...(query.search !== undefined ? { search: query.search } : {}),
+          ...(query.limit !== undefined ? { limit: query.limit } : {}),
         })
-        filtered.sort((a, b) => b.time.updated - a.time.updated)
-        const limited = query.limit !== undefined ? filtered.slice(0, query.limit) : filtered
-        return jsonSafe(limited)
       }).pipe(Effect.orDie),
     status: () =>
       Effect.gen(function* () {
@@ -653,7 +663,7 @@ export namespace SessionHttpApi {
     create: ({ payload }: { payload: typeof CreatePayload.Type | void }) =>
       Effect.gen(function* () {
         const created = yield* SessionV2.createEffect((payload ?? {}) as SessionV2.CreateInput)
-        return jsonSafe(created)
+        return created
       }).pipe(Effect.orDie),
     remove: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -672,7 +682,7 @@ export namespace SessionHttpApi {
           },
           { touch: false },
         )
-        return jsonSafe(updated)
+        return updated
       }).pipe(declaredErrors),
     fork: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof ForkPayload.Type }) =>
       Effect.gen(function* () {
@@ -681,7 +691,7 @@ export namespace SessionHttpApi {
           sessionID: params.sessionID,
           messageID: payload.messageID,
         })
-        return jsonSafe(forked)
+        return forked
       }).pipe(declaredErrors),
     abort: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -705,7 +715,7 @@ export namespace SessionHttpApi {
           sessionID: params.sessionID,
           ...payload,
         })
-        return jsonSafe(reverted)
+        return reverted
       }).pipe(declaredErrors),
     unrevert: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -713,7 +723,7 @@ export namespace SessionHttpApi {
         const reverted = yield* revert.unrevert({
           sessionID: params.sessionID,
         })
-        return jsonSafe(reverted)
+        return reverted
       }).pipe(declaredErrors),
     share: ({
       params,
@@ -746,13 +756,13 @@ export namespace SessionHttpApi {
           },
           { touch: false },
         )
-        return jsonSafe(yield* session.get(params.sessionID))
+        return yield* session.get(params.sessionID)
       }).pipe(declaredErrors),
     unshare: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.unshare(params.sessionID)
-        return jsonSafe(yield* session.get(params.sessionID))
+        return yield* session.get(params.sessionID)
       }).pipe(declaredErrors),
     command: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof CommandPayload.Type }) =>
       Effect.gen(function* () {
@@ -761,7 +771,7 @@ export namespace SessionHttpApi {
           ...payload,
           sessionID: params.sessionID,
         } as SessionPrompt.CommandInput)
-        return jsonSafe(msg)
+        return msg
       }).pipe(declaredErrors),
     shell: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof ShellPayload.Type }) =>
       Effect.gen(function* () {
@@ -770,7 +780,7 @@ export namespace SessionHttpApi {
           ...payload,
           sessionID: params.sessionID,
         } as SessionPrompt.ShellInput)
-        return jsonSafe(msg)
+        return msg
       }).pipe(declaredErrors),
     permissionRespond: ({
       params,
@@ -821,13 +831,13 @@ export namespace SessionHttpApi {
       Effect.gen(function* () {
         const session = yield* Session.Service
         const info = yield* session.get(params.sessionID)
-        return jsonSafe(info)
+        return info
       }).pipe(declaredErrors),
     children: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         const children = yield* session.children(params.sessionID)
-        return jsonSafe(children)
+        return children
       }).pipe(declaredErrors),
     todo: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -849,25 +859,30 @@ export namespace SessionHttpApi {
           sessionID: params.sessionID,
           limit: query.limit,
         })
-        return jsonSafe(msgs)
+        return msgs
       }).pipe(declaredErrors),
     pending: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
-        return jsonSafe(SessionPending.list(params.sessionID))
+        return SessionPending.list(params.sessionID)
       }).pipe(declaredErrors),
     pendingSteer: ({ params }: { params: typeof PendingPath.Type }) =>
       Effect.gen(function* () {
         const prompt = yield* SessionPrompt.Service
-        return jsonSafe(yield* prompt.steerPending(params))
+        return yield* prompt.steerPending(params)
       }).pipe(declaredErrors),
     message: ({ params }: { params: typeof MessagePath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
-        const msg = yield* Effect.promise(() => MessageV2.get(params))
-        return jsonSafe(msg)
+        // `MessageV2.get` rejects with `SessionNotFoundError` for a missing
+        // message; preserve that domain rejection on the typed channel (E5.3).
+        const msg = yield* Effect.tryPromise({
+          try: () => MessageV2.get(params),
+          catch: Session.asSessionError,
+        })
+        return msg
       }).pipe(declaredErrors),
     messageRemove: ({ params }: { params: typeof MessagePath.Type }) =>
       Effect.gen(function* () {
@@ -900,12 +915,16 @@ export namespace SessionHttpApi {
             `Part mismatch: body.id='${part.id}' vs partID='${params.partID}', body.messageID='${part.messageID}' vs messageID='${params.messageID}', body.sessionID='${part.sessionID}' vs sessionID='${params.sessionID}'`,
           )
         }
-        yield* Effect.promise(() =>
-          MessageV2.get({
-            sessionID: params.sessionID,
-            messageID: params.messageID,
-          }),
-        )
+        // `MessageV2.get` rejects with `SessionNotFoundError` for a missing
+        // message; preserve that domain rejection on the typed channel (E5.3).
+        yield* Effect.tryPromise({
+          try: () =>
+            MessageV2.get({
+              sessionID: params.sessionID,
+              messageID: params.messageID,
+            }),
+          catch: Session.asSessionError,
+        })
         // The zod union's input is `MessageV2.Part | { part, delta }`. The
         // schema member matches what the wire sends (a full Part); the cast
         // is the boundary between the zod-style union and an Effect-side
@@ -916,7 +935,13 @@ export namespace SessionHttpApi {
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
-        const entries = yield* Effect.promise(() => SessionV2.entries(params.sessionID))
+        // `SessionV2.entries` rejects with `SessionNotFoundError` for a
+        // missing session; preserve the domain rejection on the typed
+        // channel (E5.3).
+        const entries = yield* Effect.tryPromise({
+          try: () => SessionV2.entries(params.sessionID),
+          catch: Session.asSessionError,
+        })
         return jsonSafe(entries)
       }).pipe(declaredErrors),
     v2State: ({ params }: { params: typeof SessionIDPath.Type }) =>
@@ -948,8 +973,14 @@ export namespace SessionHttpApi {
       }).pipe(declaredErrors),
     contextBreakdown: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
-        const result = yield* Effect.promise(() => SessionContext.breakdown(params.sessionID))
-        return jsonSafe(result)
+        // `SessionContext.breakdown` rejects with `SessionNotFoundError`
+        // for a missing session; preserve the domain rejection on the
+        // typed channel (E5.3).
+        const result = yield* Effect.tryPromise({
+          try: () => SessionContext.breakdown(params.sessionID),
+          catch: Session.asSessionError,
+        })
+        return result
       }).pipe(declaredErrors),
     contextToggle: ({
       params,
@@ -1009,31 +1040,37 @@ export namespace SessionHttpApi {
             draft.disabledInstructions = [...set]
           })
         }
-        const result = yield* Effect.promise(() => SessionContext.breakdown(params.sessionID))
-        return jsonSafe(result)
+        // `SessionContext.breakdown` rejects with `SessionNotFoundError`
+        // for a missing session; preserve the domain rejection on the
+        // typed channel (E5.3).
+        const result = yield* Effect.tryPromise({
+          try: () => SessionContext.breakdown(params.sessionID),
+          catch: Session.asSessionError,
+        })
+        return result
       }).pipe(declaredErrors),
     goal: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const goal = yield* SessionGoal.Service
         const state = yield* goal.get(params.sessionID)
-        return jsonSafe(state ?? null)
+        return state ?? null
       }).pipe(Effect.orDie),
     background: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        const found = yield* session.get(params.sessionID).pipe(
-          Effect.catch(() => Effect.succeed(undefined)),
-          Effect.catchDefect(() => Effect.succeed(undefined)),
-        )
+        // Typed channel only: `Session.Service.get` fails with `Session.Error`
+        // for a missing session, so the defect arm this used to carry can no
+        // longer fire (E5.4). A real defect stays a 500.
+        const found = yield* session.get(params.sessionID).pipe(Effect.catch(() => Effect.succeed(undefined)))
         if (!found) {
           return yield* Effect.fail({ error: "Session not found" as const })
         }
         const jobs = yield* Effect.promise(() => Delegation.listJobs(params.sessionID))
-        return jsonSafe(jobs)
+        return jobs
       }),
     backgroundInspect: ({ params }: { params: typeof DelegationPath.Type }) =>
       Effect.promise(() => Delegation.inspectJobForSession(params.sessionID, params.delegationID)).pipe(
-        Effect.map((job) => jsonSafe(job ?? null)),
+        Effect.map((job) => job ?? null),
         Effect.orDie,
       ),
     backgroundRead: ({ params }: { params: typeof DelegationPath.Type }) =>
@@ -1045,20 +1082,30 @@ export namespace SessionHttpApi {
       Effect.promise(() => Delegation.cancelJobForSession(params.sessionID, params.delegationID)).pipe(Effect.orDie),
     monitor: ({ params }: { params: typeof MonitorPath.Type }) =>
       Effect.gen(function* () {
-        const record = yield* Effect.promise(() => Monitor.get(params.sessionID, params.monitorID))
-        return jsonSafe(record ?? null)
+        // `Monitor.get` rejects with `SessionNotFoundError` for a missing
+        // session; preserve the domain rejection on the typed channel
+        // (E5.3).
+        const record = yield* Effect.tryPromise({
+          try: () => Monitor.get(params.sessionID, params.monitorID),
+          catch: Session.asSessionError,
+        })
+        return record ?? null
       }).pipe(declaredErrors),
     monitorLog: ({ params, query }: { params: typeof MonitorPath.Type; query: typeof MonitorLogQuery.Type }) =>
       Effect.gen(function* () {
-        const snapshot = yield* Effect.promise(() =>
-          Monitor.readLog(params.sessionID, params.monitorID, query.lines ?? 200),
-        )
-        return jsonSafe(snapshot ?? null)
+        const snapshot = yield* Effect.tryPromise({
+          try: () => Monitor.readLog(params.sessionID, params.monitorID, query.lines ?? 200),
+          catch: Session.asSessionError,
+        })
+        return snapshot ?? null
       }).pipe(declaredErrors),
     monitorCancel: ({ params }: { params: typeof MonitorPath.Type }) =>
       Effect.gen(function* () {
-        const record = yield* Effect.promise(() => Monitor.cancel(params.sessionID, params.monitorID))
-        return jsonSafe(record ?? null)
+        const record = yield* Effect.tryPromise({
+          try: () => Monitor.cancel(params.sessionID, params.monitorID),
+          catch: Session.asSessionError,
+        })
+        return record ?? null
       }).pipe(declaredErrors),
   }
 

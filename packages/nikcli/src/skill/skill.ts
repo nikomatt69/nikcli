@@ -1,9 +1,4 @@
-import {
-  SKILL_COMMAND_PREFIX,
-  isSkillCommandName,
-  skillCommandName,
-  skillSlug as slug,
-} from "@nikcli-ai/util/skill-command"
+import { isSkillCommandName, skillCommandName, skillSlug as slug } from "@nikcli-ai/util/skill-command"
 import path from "path"
 import { Config } from "../config/config"
 import { EventError } from "@/session/event-error"
@@ -21,7 +16,6 @@ import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
-  const COMMAND_PREFIX = SKILL_COMMAND_PREFIX
 
   const InfoSchema = Schema.Struct({
     name: Schema.String,
@@ -41,23 +35,23 @@ export namespace Skill {
     content: string
   }
 
-  export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("SkillInvalidError", {
+  export class InvalidError extends Schema.TaggedError<InvalidError>()("SkillInvalidError", {
     path: Schema.String,
     message: Schema.optional(Schema.String),
     issues: Schema.optional(Schema.Unknown),
   }) {}
 
-  export class NameMismatchError extends Schema.TaggedErrorClass<NameMismatchError>()("SkillNameMismatchError", {
+  export class NameMismatchError extends Schema.TaggedError<NameMismatchError>()("SkillNameMismatchError", {
     path: Schema.String,
     expected: Schema.String,
     actual: Schema.String,
   }) {}
 
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("SkillNotFoundError", {
+  export class NotFoundError extends Schema.TaggedError<NotFoundError>()("SkillNotFoundError", {
     name: Schema.String,
   }) {}
 
-  export class AlreadyExistsError extends Schema.TaggedErrorClass<AlreadyExistsError>()("SkillAlreadyExistsError", {
+  export class AlreadyExistsError extends Schema.TaggedError<AlreadyExistsError>()("SkillAlreadyExistsError", {
     name: Schema.String,
     location: Schema.String,
   }) {}
@@ -105,8 +99,6 @@ export namespace Skill {
   const EXTERNAL_SKILL_GLOB = new Bun.Glob("skills/**/SKILL.md")
 
   const NIKCLI_SKILL_GLOB = new Bun.Glob("{skill,skills}/**/SKILL.md")
-  const CLAUDE_SKILL_GLOB = new Bun.Glob("skills/**/SKILL.md")
-  const SKILL_GLOB = new Bun.Glob("**/SKILL.md")
 
   function normalizeName(input: string) {
     return input.toLowerCase().replace(/[^a-z0-9]+/g, "")

@@ -274,13 +274,13 @@ export namespace PermissionNext {
   export const evaluate = PermissionRuleset.evaluate
   export const disabled = PermissionRuleset.disabled
 
-  export class RejectedError extends Schema.TaggedErrorClass<RejectedError>()("PermissionRejectedError", {}) {
+  export class RejectedError extends Schema.TaggedError<RejectedError>()("PermissionRejectedError", {}) {
     override get message() {
       return "The user rejected permission to use this specific tool call."
     }
   }
 
-  export class CorrectedError extends Schema.TaggedErrorClass<CorrectedError>()("PermissionCorrectedError", {
+  export class CorrectedError extends Schema.TaggedError<CorrectedError>()("PermissionCorrectedError", {
     feedback: Schema.String,
   }) {
     override get message() {
@@ -288,7 +288,7 @@ export namespace PermissionNext {
     }
   }
 
-  export class DeniedError extends Schema.TaggedErrorClass<DeniedError>()("PermissionDeniedError", {
+  export class DeniedError extends Schema.TaggedError<DeniedError>()("PermissionDeniedError", {
     ruleset: Schema.Any,
   }) {
     override get message() {

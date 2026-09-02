@@ -20,7 +20,7 @@ describe("fn Benchmark", () => {
       const startNoVal = performance.now()
       for (let i = 0; i < iterations; i++) {
         const input = { id: "1", name: "test", count: i }
-        input.name // Direct access
+        void input.name // Direct access
       }
       const noValTime = performance.now() - startNoVal
 

@@ -3,7 +3,6 @@ import path from "path"
 import { readdir, stat } from "fs/promises"
 import { Tool } from "./tool"
 import DESCRIPTION from "./tree.txt"
-import { Instance } from "@/project/instance"
 import { assertExternalDirectory } from "./external-directory"
 import { IGNORE_PATTERNS } from "./ls"
 
@@ -45,7 +44,7 @@ export const TreeTool = Tool.define<typeof parameters, { stats: TreeStats }>("tr
   description: DESCRIPTION,
   parameters,
   async execute(params, ctx) {
-    const base = params.path ? path.resolve(Instance.directory, params.path) : Instance.directory
+    const base = params.path ? path.resolve(ctx.instance.directory, params.path) : ctx.instance.directory
     const maxDepth = params.maxDepth ?? 5
     const showHidden = params.showHidden ?? false
     const showSize = params.showSize ?? true
@@ -64,6 +63,7 @@ export const TreeTool = Tool.define<typeof parameters, { stats: TreeStats }>("tr
 
     const result = await buildTree({
       root: base,
+      directory: ctx.instance.directory,
       depth: 0,
       maxDepth,
       params: {
@@ -77,12 +77,12 @@ export const TreeTool = Tool.define<typeof parameters, { stats: TreeStats }>("tr
     })
 
     const formatted = formatTree(result.node, "", true, showSize)
-    const label = showFullPath ? base : path.relative(Instance.directory, base) || "."
+    const label = showFullPath ? base : path.relative(ctx.instance.directory, base) || "."
     const summary = `${result.stats.directories} directories, ${result.stats.files} files, ${formatSize(result.stats.size)}`
     const output = [label, formatted, "", summary].filter(Boolean).join("\n")
 
     return {
-      title: path.relative(Instance.worktree, base),
+      title: path.relative(ctx.instance.worktree, base),
       output,
       metadata: {
         stats: result.stats,
@@ -93,6 +93,8 @@ export const TreeTool = Tool.define<typeof parameters, { stats: TreeStats }>("tr
 
 async function buildTree(input: {
   root: string
+  /** The instance directory, for the ignore patterns' relative paths. */
+  directory: string
   depth: number
   maxDepth: number
   params: {
@@ -127,7 +129,7 @@ async function buildTree(input: {
   const filtered = entries.filter((entry) => {
     if (!input.params.showHidden && entry.startsWith(".")) return false
     const full = path.join(input.root, entry)
-    const rel = path.relative(Instance.directory, full)
+    const rel = path.relative(input.directory, full)
     return !shouldIgnore(rel, input.params.ignorePatterns)
   })
 
@@ -137,6 +139,7 @@ async function buildTree(input: {
       try {
         return await buildTree({
           root: full,
+          directory: input.directory,
           depth: input.depth + 1,
           maxDepth: input.maxDepth,
           params: input.params,

@@ -12,6 +12,7 @@
  * the `events` column is gone, so this script gracefully handles the
  * "column does not exist" case.
  */
+import type { JsonValue } from "@/util/json"
 import { Database } from "@/database/database"
 import { Sync } from "@/sync"
 import { SyncEvents } from "@/sync/events"
@@ -64,7 +65,7 @@ export namespace SyncUnifyMigration {
     return seeded
   }
 
-  function safeJson(value: string): unknown {
+  function safeJson(value: string): JsonValue {
     try {
       return JSON.parse(value)
     } catch {

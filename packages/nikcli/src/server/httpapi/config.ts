@@ -91,13 +91,18 @@ export namespace ConfigHttpApi {
     get: () =>
       Effect.gen(function* () {
         const config = yield* Config.Service
-        return jsonSafe(yield* config.get())
+        return yield* config.get()
       }).pipe(Effect.orDie),
     update: ({ payload }: { payload: typeof Info.Type }) =>
       Effect.gen(function* () {
         const config = yield* Config.Service
         yield* config.update(payload as Config.Info)
-        yield* Effect.promise(() => Instance.dispose())
+        // Invalidate, not dispose: the request scope keeps answering after
+        // this line, and `dispose` would evict the cache entry out from
+        // under it, leaving state built later in this request owned by
+        // nothing. Reloadable caches rebuild lazily; the disk watcher would
+        // reach the same state ~300ms later via InstanceReload.
+        yield* Effect.promise(() => Instance.invalidate())
         return payload
       }).pipe(
         // failures first — converting defects afterwards keeps the converted
@@ -111,6 +116,8 @@ export namespace ConfigHttpApi {
       Effect.gen(function* () {
         const provider = yield* Provider.Service
         const providers = yield* provider.list()
+        // Same live `fetch` in provider `options` as `GET /provider` — see the
+        // note in `httpapi/provider.ts`. Not an optionality problem.
         return jsonSafe({
           providers: Object.values(providers),
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),

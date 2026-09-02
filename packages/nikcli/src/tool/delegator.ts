@@ -15,46 +15,51 @@ type DelegatorMetadata = {
   result?: string
 }
 
-function metadataString(metadata: Record<string, unknown> | undefined, key: string) {
-  const value = metadata?.[key]
-  return typeof value === "string" && value.trim() ? value.trim() : undefined
+const TrimmedString = z
+  .string()
+  .transform((value) => value.trim())
+  .refine((value) => value.length > 0)
+  .optional()
+  .catch(undefined)
+
+const ResearchMetadata = z.object({
+  kind: TrimmedString,
+  question: TrimmedString,
+  confidence: TrimmedString,
+  sourceCount: z.number().finite().optional().catch(undefined),
+})
+type ResearchMetadata = z.infer<typeof ResearchMetadata>
+
+function researchMetadata(metadata: unknown): ResearchMetadata {
+  return ResearchMetadata.safeParse(metadata).data ?? {}
 }
 
-function metadataNumber(metadata: Record<string, unknown> | undefined, key: string) {
-  const value = metadata?.[key]
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined
-}
-
-function sourceCount(text: string, metadata?: Record<string, unknown>) {
-  const preset = metadataNumber(metadata, "sourceCount")
-  if (typeof preset === "number") return preset
+function sourceCount(text: string, metadata: ResearchMetadata) {
+  if (metadata.sourceCount !== undefined) return metadata.sourceCount
   const matches = text.match(/https?:\/\/[^\s)\]]+/g) ?? []
   return new Set(matches).size
 }
 
-function confidence(text: string, metadata?: Record<string, unknown>) {
-  return metadataString(metadata, "confidence") ?? text.match(/^Confidence:\s*(.+)$/im)?.[1]?.trim()
-}
-
-function question(metadata?: Record<string, unknown>) {
-  return metadataString(metadata, "question")
+function confidence(text: string, metadata: ResearchMetadata) {
+  return metadata.confidence ?? text.match(/^Confidence:\s*(.+)$/im)?.[1]?.trim()
 }
 
 type ResearchDelegationLike = {
   agent: string
   title: string
   status: string
-  metadata?: Record<string, unknown>
+  metadata?: unknown
 }
 
 function isResearch(delegation: ResearchDelegationLike | undefined | null) {
-  return delegation?.agent === "researcher" || metadataString(delegation?.metadata, "kind") === "research"
+  return delegation?.agent === "researcher" || researchMetadata(delegation?.metadata).kind === "research"
 }
 
 function formatResearchSummary(summarySource: string, delegationId: string, delegation: ResearchDelegationLike) {
-  const questionText = question(delegation.metadata)
-  const confidenceText = confidence(summarySource, delegation.metadata)
-  const sources = sourceCount(summarySource, delegation.metadata)
+  const metadata = researchMetadata(delegation.metadata)
+  const questionText = metadata.question
+  const confidenceText = confidence(summarySource, metadata)
+  const sources = sourceCount(summarySource, metadata)
   const MAX_CHARS = 4000
   const truncated = summarySource.length > MAX_CHARS
   const truncatedSource = summarySource.slice(0, MAX_CHARS)

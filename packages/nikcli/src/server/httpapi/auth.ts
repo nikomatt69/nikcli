@@ -52,6 +52,53 @@ export namespace Auth {
     principals.set(request, value)
   }
 
+  const upstreamVerified = new WeakSet<Request>()
+
+  /**
+   * Record that a caller ahead of the encoded router has already made the auth
+   * decision for this request, so the HttpApi security middleware must not
+   * make it again (H8).
+   *
+   * This is not the same statement as `remember`. `remember` says *who* the
+   * caller is; this says *that the question was already settled* — including
+   * by a host that settles it by trusting its own transport. `WorkspaceServer`
+   * is exactly that host: it serves a workspace sandbox on its own
+   * `Bun.serve`, performs no authentication, and passes
+   * `upstreamAuthVerified: true`. Without this marker the middleware would
+   * start authenticating those requests and reject every one of them on a
+   * server that has `NIKCLI_SERVER_PASSWORD` set.
+   */
+  export function markUpstreamVerified(request: Request) {
+    upstreamVerified.add(request)
+  }
+
+  export function isUpstreamVerified(request: Request): boolean {
+    return upstreamVerified.has(request)
+  }
+
+  /**
+   * Test-only credential override, shared by every entry point.
+   *
+   * Production credentials come from `Flag.NIKCLI_SERVER_PASSWORD`, which is
+   * captured at module-load time, so a test runner cannot flip the env var to
+   * simulate a password-protected server. This seam lives here rather than on
+   * one dispatcher because the bridge and the HttpApi security middleware both
+   * have to see the same substitution — before H8 it sat in the bridge alone,
+   * which would have left the middleware authenticating against the real
+   * (empty) credentials. Reset it in a `finally`; production behavior is
+   * unchanged while it is null.
+   */
+  let credentialsOverride: Credentials | null = null
+
+  export function overrideCredentials(value: Credentials | null) {
+    credentialsOverride = value
+  }
+
+  /** The override as `AuthenticateOptions`, or `undefined` when unset. */
+  export function testOptions(): AuthenticateOptions | undefined {
+    return credentialsOverride ? { credentials: credentialsOverride } : undefined
+  }
+
   export interface AuthenticateOptions {
     /** Listen-state the router passes in; direct bridge consumers omit both. */
     readonly mobileAuthRequired?: boolean

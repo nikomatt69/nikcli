@@ -13,7 +13,7 @@ export const numberConstants = new Set([
 
 export const numberStatics = new Set(["isInteger", "isFinite", "isNaN", "isSafeInteger", "parseInt", "parseFloat"])
 
-export const invokeNumberMethod = (value: number, name: string, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeNumberMethod = (value: number, name: string, args: Array<unknown>, node: AstNode): CodeModeData => {
   const optNum = (index: number): number | undefined => {
     const arg = args[index]
     if (arg === undefined) return undefined
@@ -50,7 +50,7 @@ export const invokeNumberMethod = (value: number, name: string, args: Array<unkn
   return boundedData(result, `Number.${name} result`)
 }
 
-export const invokeNumberStatic = (name: string, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeNumberStatic = (name: string, args: Array<unknown>, node: AstNode): number | boolean => {
   const value = args[0]
   switch (name) {
     case "isInteger":
@@ -76,3 +76,4 @@ export const invokeNumberStatic = (name: string, args: Array<unknown>, node: Ast
 }
 import { type AstNode, InterpreterRuntimeError } from "../interpreter/model"
 import { boundedData, coerceToString } from "./value"
+import type { CodeModeData } from "../values"

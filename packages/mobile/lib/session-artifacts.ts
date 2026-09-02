@@ -307,9 +307,9 @@ function extractPublishedArtifact(part: MessageWithParts["parts"][number], messa
   return {
     id: `artifact:${artifactId}`,
     kind,
-    title: stringValue(metadata.title) ?? state.title ?? labelForUrl(url),
+    title: stringValue(metadata.title) ?? state.title ?? labelForUrl(viewerUrl ?? url),
     messageId,
-    url,
+    url: viewerUrl ?? url,
     previewUrl,
     viewerUrl,
     source: "web",
@@ -332,7 +332,7 @@ function previewFromSessionArtifact(artifact: SessionArtifact): SessionPreview {
     kind: artifact.kind,
     title: artifact.title,
     messageId: `artifact:${artifact.id}`,
-    url: artifact.url,
+    url: artifact.viewerUrl || artifact.url,
     previewUrl,
     viewerUrl: artifact.viewerUrl,
     source: "web",
@@ -399,6 +399,20 @@ function messageTexts(message: MessageWithParts) {
     .filter(Boolean)
 }
 
+function rememberPreviewUrls(preview: SessionPreview, seen: Set<string>) {
+  for (const value of [preview.url, preview.viewerUrl, preview.previewUrl]) {
+    if (!value) continue
+    seen.add(value)
+    try {
+      const next = new URL(value)
+      next.search = ""
+      seen.add(next.toString())
+    } catch {
+      // ignore invalid URLs
+    }
+  }
+}
+
 /** Newest messages first; dedupes URLs and generated blocks. */
 export function extractSessionPreviews(
   messages: MessageWithParts[],
@@ -416,7 +430,7 @@ export function extractSessionPreviews(
       const artifact = extractPublishedArtifact(part, message.info.id)
       if (!artifact || !artifact.artifact || seenArtifacts.has(artifact.artifact.id)) continue
       seenArtifacts.add(artifact.artifact.id)
-      seenUrls.add(artifact.url!)
+      rememberPreviewUrls(artifact, seenUrls)
       previews.push(artifact)
     }
     for (const text of messageTexts(message)) {
@@ -427,7 +441,9 @@ export function extractSessionPreviews(
   for (const artifact of persistedArtifacts) {
     if (seenArtifacts.has(artifact.id)) continue
     seenArtifacts.add(artifact.id)
-    previews.push(previewFromSessionArtifact(artifact))
+    const preview = previewFromSessionArtifact(artifact)
+    rememberPreviewUrls(preview, seenUrls)
+    previews.push(preview)
   }
 
   return previews

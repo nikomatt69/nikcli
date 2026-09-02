@@ -10,6 +10,7 @@ import {
 } from "./tool-schema"
 import { isDefinition as isToolDefinition, type Definition } from "./tool"
 import {
+  type CodeModeData,
   CodeModeDate,
   CodeModeMap,
   CodeModePromise,
@@ -18,6 +19,7 @@ import {
   CodeModeURL,
   CodeModeURLSearchParams,
 } from "./values"
+import type { JsonValue } from "../util/json"
 
 const estimateTokens = (input: string) => Math.max(0, Math.round(input.length / 4))
 
@@ -144,8 +146,16 @@ const blockedMemberNames = new Set(["__proto__", "constructor", "prototype"])
 export const isBlockedMember = (name: string): boolean => blockedMemberNames.has(name)
 
 // Checkpoint mode preserves CodeMode values; boundary mode JSON-normalizes them.
-export const copyIn = (value: unknown, label: string, preserveCodeModeValues = false): unknown =>
-  copyBounded(value, label, 0, new Set(), preserveCodeModeValues)
+export function copyIn(value: unknown, label: string, preserveCodeModeValues?: false): JsonValue | undefined
+export function copyIn(value: unknown, label: string, preserveCodeModeValues: true): CodeModeData
+export function copyIn(
+  value: unknown,
+  label: string,
+  preserveCodeModeValues = false,
+): JsonValue | CodeModeData | undefined {
+  // SAFETY: copyBounded preserves the JSON shape of data values (boundary mode) and the CodeMode class set (checkpoint mode).
+  return copyBounded(value, label, 0, new Set(), preserveCodeModeValues) as JsonValue | CodeModeData | undefined
+}
 
 const copyBounded = (
   value: unknown,
@@ -153,7 +163,7 @@ const copyBounded = (
   depth: number,
   seen: Set<object>,
   preserveCodeModeValues: boolean,
-): unknown => {
+): CodeModeData | SafeObject | Array<unknown> | undefined => {
   if (depth > MAX_VALUE_DEPTH) {
     throw new ToolRuntimeError("InvalidDataValue", `${label} exceeds the maximum value depth of ${MAX_VALUE_DEPTH}.`)
   }
@@ -266,7 +276,14 @@ const copyBounded = (
   return copied
 }
 
-export const copyOut = (value: unknown, undefinedAsNull = false): unknown => {
+/**
+ * What {@link copyOut} yields: JSON data plus the two things this boundary lets
+ * through untouched - tool references, and the `undefined` holes that survive
+ * when `undefinedAsNull` is off.
+ */
+export type CopiedOut = JsonValue | ToolReference | undefined | Array<CopiedOut> | { readonly [key: string]: CopiedOut }
+
+export const copyOut = (value: unknown, undefinedAsNull = false): CopiedOut => {
   if (value === undefined && undefinedAsNull) return null
   if (typeof value === "number" && !Number.isFinite(value)) {
     return null
@@ -279,7 +296,9 @@ export const copyOut = (value: unknown, undefinedAsNull = false): unknown => {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, copyOut(item, undefinedAsNull)]))
   }
 
-  return value
+  // SAFETY: every remaining value is a primitive or a ToolReference - the array
+  // and plain-object cases returned above.
+  return value as CopiedOut
 }
 
 /**

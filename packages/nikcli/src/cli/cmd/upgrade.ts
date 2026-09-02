@@ -41,6 +41,9 @@ export const UpgradeCommand = {
         return yield* installation.method()
       }),
     )
+    // SAFETY: the builder declares `choices` for `method` with exactly the
+    // `Installation.Method` members, and yargs rejects anything else before
+    // the handler runs.
     const method = (args.method as Installation.Method) ?? detectedMethod
     if (method === "unknown") {
       prompts.log.error(`nikcli is installed to ${process.execPath} and may be managed by a package manager`)

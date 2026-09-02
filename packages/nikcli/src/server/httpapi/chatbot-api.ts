@@ -1,7 +1,7 @@
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Config } from "@/config/config"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 /**
  * The chat-bot manager, as a declared group.
@@ -108,22 +108,24 @@ export namespace ChatbotHttpApi {
       }),
 
     start: ({ params }: { params: { name: string } }) =>
-      fromPromise(async () => {
-        const entry = await connector(params.name)
-        if (!entry) return { running: false, error: `No chat connector named ${params.name}` }
-        try {
-          // Lazily imported: the handlers pull the agent and provider chain,
-          // which no request that never starts a bot should pay for.
-          const { BotHandlers } = await import("@/chatbot/handlers")
-          const bot = await BotHandlers.ensureAiBot(params.name, entry)
-          if (!bot) {
-            return { running: false, error: `Could not start ${params.name} — check credentials (nikcli bot auth)` }
+      Effect.flatMap(InstanceState.context, (instance) =>
+        fromPromise(async () => {
+          const entry = await connector(params.name)
+          if (!entry) return { running: false, error: `No chat connector named ${params.name}` }
+          try {
+            // Lazily imported: the handlers pull the agent and provider chain,
+            // which no request that never starts a bot should pay for.
+            const { BotHandlers } = await import("@/chatbot/handlers")
+            const bot = await BotHandlers.ensureAiBot(instance, params.name, entry)
+            if (!bot) {
+              return { running: false, error: `Could not start ${params.name} — check credentials (nikcli bot auth)` }
+            }
+            return { running: true }
+          } catch (cause) {
+            return { running: false, error: cause instanceof Error ? cause.message : String(cause) }
           }
-          return { running: true }
-        } catch (cause) {
-          return { running: false, error: cause instanceof Error ? cause.message : String(cause) }
-        }
-      }),
+        }),
+      ),
 
     // `removed: false` is not an error — the manager says "was not running".
     stop: ({ params }: { params: { name: string } }) =>

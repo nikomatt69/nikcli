@@ -36,6 +36,9 @@ export const QuestionTool = Tool.define("question", {
           const question = yield* Question.Service
           return yield* question.ask({
             sessionID: ctx.sessionID,
+            // SAFETY: `params` is the tool's own validated schema output, so the
+            // questions already match `Question.Info`; the copy exists to drop
+            // the schema's readonly modifiers, not to change the shape.
             questions: [...params.questions] as Question.Info[],
             tool: ctx.callID ? { messageID: ctx.messageID, callID: ctx.callID } : undefined,
           })

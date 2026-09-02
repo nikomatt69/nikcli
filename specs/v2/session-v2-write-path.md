@@ -14,7 +14,7 @@ S4 inverts the old relationship without replacing `SessionPrompt`, tool executio
 
 ## Current Behavior
 
-HTTP `session.create`, `POST /session/:id/message`, and `POST /session/:id/prompt_async` go through `SessionV2.create` / `prompt` / `admit` / `loop`. `SessionPrompt.loop` still runs the step engine. Admission and pending promotion persist through `SessionV2.persist` (`session/v2/write.ts`), which runs the existing message/part sync events.
+HTTP `session.create`, `POST /session/:id/message`, and `POST /session/:id/prompt_async` go through `SessionV2.create` / `prompt` / `admit` / `loop`. Share import (`run --session`), `nikcli import`, and teleport persist each message through `SessionV2Write.persist`. `SessionPrompt.loop` still runs the step engine. Admission and pending promotion persist through `SessionV2.persist` (`session/v2/write.ts`), which runs the existing message/part sync events.
 
 Each message/part event projector:
 

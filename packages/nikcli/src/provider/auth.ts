@@ -139,13 +139,13 @@ export namespace ProviderAuth {
             })
           }
           if ("refresh" in result) {
-            const info: Auth.Info = {
+            const oauth = {
               type: "oauth",
               access: result.access,
               refresh: result.refresh,
               expires: result.expires,
-              ...(result.accountId ? { accountId: result.accountId } : {}),
-            }
+            } as const
+            const info: Auth.Info = result.accountId ? { ...oauth, accountId: result.accountId } : oauth
             yield* authService.set(parsed.providerID, info)
           }
           return
@@ -173,13 +173,13 @@ export namespace ProviderAuth {
 
   export const defaultLayer = layer
 
-  export class OauthMissing extends Schema.TaggedErrorClass<OauthMissing>()("ProviderAuthOauthMissing", {
+  export class OauthMissing extends Schema.TaggedError<OauthMissing>()("ProviderAuthOauthMissing", {
     providerID: Schema.String,
   }) {}
-  export class OauthCodeMissing extends Schema.TaggedErrorClass<OauthCodeMissing>()("ProviderAuthOauthCodeMissing", {
+  export class OauthCodeMissing extends Schema.TaggedError<OauthCodeMissing>()("ProviderAuthOauthCodeMissing", {
     providerID: Schema.String,
   }) {}
-  export class OauthCallbackFailed extends Schema.TaggedErrorClass<OauthCallbackFailed>()(
+  export class OauthCallbackFailed extends Schema.TaggedError<OauthCallbackFailed>()(
     "ProviderAuthOauthCallbackFailed",
     {},
   ) {}

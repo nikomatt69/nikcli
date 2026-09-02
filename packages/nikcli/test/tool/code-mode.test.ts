@@ -23,7 +23,7 @@ preserveTestEnv([
   "XDG_STATE_HOME",
 ])
 
-const { InstanceScope } = await import("@/effect")
+const { InstanceScope, InstanceState } = await import("@/effect")
 const { Instance } = await import("@/project/instance")
 const { ToolRegistry } = await import("@/tool/registry")
 const { CodeModeTool } = await import("@/tool/code_mode")
@@ -41,6 +41,11 @@ async function makeProjectDir() {
 
 function makeCtx(overrides: Partial<ToolType.Context> = {}): ToolType.Context {
   return {
+    // Read on access: `executeInProject` enters the instance scope after the
+    // context is built.
+    get instance() {
+      return InstanceState.ambient()
+    },
     sessionID: "test-session",
     messageID: "test-message",
     callID: "test-call",

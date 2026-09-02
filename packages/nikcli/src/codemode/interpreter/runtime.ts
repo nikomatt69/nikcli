@@ -1,3 +1,7 @@
+// `Effect.gen(function*(){...})` generators do not bind `this`; aliasing
+// `const self = this` inside class methods is the documented Effect pattern
+// to reach the receiver from within the generator. See promises.ts:75.
+/* oxlint-disable typescript/no-this-alias */
 import { Cause, Effect } from "effect"
 import { isBlockedMember, ToolReference, ToolRuntimeError, type SafeObject } from "../tool-runtime"
 import {
@@ -83,7 +87,7 @@ import {
   CodeModeURLSearchParams,
 } from "../values"
 
-const instanceofValue = (lhs: unknown, rhs: unknown, node: AstNode): boolean => {
+const instanceofValue = <Lhs, Rhs>(lhs: Lhs, rhs: Rhs, node: AstNode): boolean => {
   if (rhs instanceof ErrorConstructorReference) {
     const brand = errorBrandName(lhs)
     return brand !== undefined && (rhs.name === "Error" || brand === rhs.name)
@@ -172,30 +176,96 @@ export class Interpreter<R> {
     this.promises = promises
     globalScope.set("tools", { mutable: false, value: new ToolReference([]) })
     globalScope.set("search", { mutable: false, value: new SearchFunction() })
-    globalScope.set("Promise", { mutable: false, value: new PromiseNamespace() })
+    globalScope.set("Promise", {
+      mutable: false,
+      value: new PromiseNamespace(),
+    })
     globalScope.set("undefined", { mutable: false, value: undefined })
-    globalScope.set("Object", { mutable: false, value: new GlobalNamespace("Object") })
-    globalScope.set("Math", { mutable: false, value: new GlobalNamespace("Math") })
-    globalScope.set("JSON", { mutable: false, value: new GlobalNamespace("JSON") })
-    globalScope.set("Number", { mutable: false, value: new CoercionFunction("Number") })
-    globalScope.set("String", { mutable: false, value: new CoercionFunction("String") })
-    globalScope.set("Boolean", { mutable: false, value: new CoercionFunction("Boolean") })
-    globalScope.set("Array", { mutable: false, value: new GlobalNamespace("Array") })
-    globalScope.set("console", { mutable: false, value: new GlobalNamespace("console") })
-    globalScope.set("parseInt", { mutable: false, value: new CoercionFunction("parseInt") })
-    globalScope.set("parseFloat", { mutable: false, value: new CoercionFunction("parseFloat") })
-    globalScope.set("Date", { mutable: false, value: new GlobalNamespace("Date") })
-    globalScope.set("RegExp", { mutable: false, value: new GlobalNamespace("RegExp") })
-    globalScope.set("Map", { mutable: false, value: new GlobalNamespace("Map") })
-    globalScope.set("Set", { mutable: false, value: new GlobalNamespace("Set") })
-    globalScope.set("URL", { mutable: false, value: new GlobalNamespace("URL") })
-    globalScope.set("URLSearchParams", { mutable: false, value: new GlobalNamespace("URLSearchParams") })
-    globalScope.set("encodeURI", { mutable: false, value: new UriFunction("encodeURI") })
-    globalScope.set("encodeURIComponent", { mutable: false, value: new UriFunction("encodeURIComponent") })
-    globalScope.set("decodeURI", { mutable: false, value: new UriFunction("decodeURI") })
-    globalScope.set("decodeURIComponent", { mutable: false, value: new UriFunction("decodeURIComponent") })
+    globalScope.set("Object", {
+      mutable: false,
+      value: new GlobalNamespace("Object"),
+    })
+    globalScope.set("Math", {
+      mutable: false,
+      value: new GlobalNamespace("Math"),
+    })
+    globalScope.set("JSON", {
+      mutable: false,
+      value: new GlobalNamespace("JSON"),
+    })
+    globalScope.set("Number", {
+      mutable: false,
+      value: new CoercionFunction("Number"),
+    })
+    globalScope.set("String", {
+      mutable: false,
+      value: new CoercionFunction("String"),
+    })
+    globalScope.set("Boolean", {
+      mutable: false,
+      value: new CoercionFunction("Boolean"),
+    })
+    globalScope.set("Array", {
+      mutable: false,
+      value: new GlobalNamespace("Array"),
+    })
+    globalScope.set("console", {
+      mutable: false,
+      value: new GlobalNamespace("console"),
+    })
+    globalScope.set("parseInt", {
+      mutable: false,
+      value: new CoercionFunction("parseInt"),
+    })
+    globalScope.set("parseFloat", {
+      mutable: false,
+      value: new CoercionFunction("parseFloat"),
+    })
+    globalScope.set("Date", {
+      mutable: false,
+      value: new GlobalNamespace("Date"),
+    })
+    globalScope.set("RegExp", {
+      mutable: false,
+      value: new GlobalNamespace("RegExp"),
+    })
+    globalScope.set("Map", {
+      mutable: false,
+      value: new GlobalNamespace("Map"),
+    })
+    globalScope.set("Set", {
+      mutable: false,
+      value: new GlobalNamespace("Set"),
+    })
+    globalScope.set("URL", {
+      mutable: false,
+      value: new GlobalNamespace("URL"),
+    })
+    globalScope.set("URLSearchParams", {
+      mutable: false,
+      value: new GlobalNamespace("URLSearchParams"),
+    })
+    globalScope.set("encodeURI", {
+      mutable: false,
+      value: new UriFunction("encodeURI"),
+    })
+    globalScope.set("encodeURIComponent", {
+      mutable: false,
+      value: new UriFunction("encodeURIComponent"),
+    })
+    globalScope.set("decodeURI", {
+      mutable: false,
+      value: new UriFunction("decodeURI"),
+    })
+    globalScope.set("decodeURIComponent", {
+      mutable: false,
+      value: new UriFunction("decodeURIComponent"),
+    })
     for (const name of errorConstructors) {
-      globalScope.set(name, { mutable: false, value: new ErrorConstructorReference(name) })
+      globalScope.set(name, {
+        mutable: false,
+        value: new ErrorConstructorReference(name),
+      })
     }
     globalScope.set("NaN", { mutable: false, value: NaN })
     globalScope.set("Infinity", { mutable: false, value: Infinity })
@@ -255,13 +325,20 @@ export class Interpreter<R> {
   private evaluateStatement(node: AstNode): Effect.Effect<StatementResult, unknown, R> {
     switch (node.type) {
       case "ExpressionStatement":
-        return Effect.as(this.evaluateExpression(getNode(node, "expression")), { kind: "none" })
+        return Effect.as(this.evaluateExpression(getNode(node, "expression")), {
+          kind: "none",
+        })
       case "VariableDeclaration":
-        return Effect.map(this.evaluateVariableDeclaration(node), () => ({ kind: "none" }))
+        return Effect.map(this.evaluateVariableDeclaration(node), () => ({
+          kind: "none",
+        }))
       case "ReturnStatement": {
         const argumentNode = getOptionalNode(node, "argument")
         return argumentNode
-          ? Effect.map(this.evaluateExpression(argumentNode), (value) => ({ kind: "return", value }))
+          ? Effect.map(this.evaluateExpression(argumentNode), (value) => ({
+              kind: "return",
+              value,
+            }))
           : Effect.succeed({ kind: "return", value: undefined })
       }
       case "BlockStatement":
@@ -337,6 +414,7 @@ export class Interpreter<R> {
   private hoistFunctions(statements: Array<unknown>): void {
     for (const statementValue of statements) {
       if (!isRecord(statementValue) || statementValue.type !== "FunctionDeclaration") continue
+      // SAFETY: guarded by the isRecord()/FunctionDeclaration type check above
       const node = statementValue as AstNode
       this.scopes.declare(getString(getNode(node, "id"), "name"), this.createFunction(node), true, node)
     }
@@ -547,7 +625,10 @@ export class Interpreter<R> {
         }
 
         const declarator = asNode(declarations[0], "declarations[0]")
-        declaration = { pattern: getNode(declarator, "id"), mutable: getString(left, "kind") !== "const" }
+        declaration = {
+          pattern: getNode(declarator, "id"),
+          mutable: getString(left, "kind") !== "const",
+        }
       } else if (
         left.type === "Identifier" ||
         left.type === "MemberExpression" ||
@@ -592,7 +673,7 @@ export class Interpreter<R> {
     })
   }
 
-  private enumerableKeys(value: unknown): Array<string> | undefined {
+  private enumerableKeys<Value>(value: Value): Array<string> | undefined {
     if (value instanceof ToolReference) {
       return [...this.toolKeys(value.path)]
     }
@@ -630,7 +711,10 @@ export class Interpreter<R> {
         }
 
         const declarator = asNode(declarations[0], "declarations[0]")
-        declaration = { pattern: getNode(declarator, "id"), mutable: getString(left, "kind") !== "const" }
+        declaration = {
+          pattern: getNode(declarator, "id"),
+          mutable: getString(left, "kind") !== "const",
+        }
       } else if (left.type === "Identifier") {
         assignmentName = getString(left, "name")
       } else {
@@ -756,9 +840,9 @@ export class Interpreter<R> {
     })
   }
 
-  private declarePattern(
+  private declarePattern<Value>(
     pattern: AstNode,
-    value: unknown,
+    value: Value | undefined,
     mutable: boolean,
     node: AstNode,
   ): Effect.Effect<void, unknown, R> {
@@ -789,7 +873,9 @@ export class Interpreter<R> {
           const property = asNode(propertyValue, "properties")
 
           if (property.type === "RestElement") {
+            // SAFETY: Object.create(null) is a fresh empty object; typed for property writes below
             const rest: SafeObject = Object.create(null) as SafeObject
+            // SAFETY: value passed the data-object guard above (non-null, non-array, not opaque)
             for (const [key, item] of Object.entries(value as SafeObject)) {
               if (!consumed.has(key) && !isBlockedMember(key)) rest[key] = item
             }
@@ -865,6 +951,7 @@ export class Interpreter<R> {
           )
         }
 
+        // SAFETY: value passed the data-object guard above (non-null, non-array, not opaque)
         const source = value as SafeObject
         const consumed = new Set<string>()
         for (const propertyValue of getArray(pattern, "properties")) {
@@ -1383,7 +1470,11 @@ export class Interpreter<R> {
       return this.modifyMember(argument, (current) => {
         const value = Number(current)
         const next = value + increment
-        return Effect.succeed({ write: true, next, result: prefix ? next : value })
+        return Effect.succeed({
+          write: true,
+          next,
+          result: prefix ? next : value,
+        })
       })
     }
 
@@ -1500,7 +1591,11 @@ export class Interpreter<R> {
       const paramScope = invocation.scopes.current()
       for (const parameter of fn.parameters) {
         for (const name of collectPatternNames(parameter)) {
-          paramScope.set(name, { mutable: true, value: undefined, initialized: false })
+          paramScope.set(name, {
+            mutable: true,
+            value: undefined,
+            initialized: false,
+          })
         }
       }
       for (const [index, parameter] of fn.parameters.entries()) {

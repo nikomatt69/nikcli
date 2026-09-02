@@ -6,7 +6,6 @@ import DESCRIPTION from "./grep.txt"
 import { FFF } from "../file/fff"
 import { SearchBackend } from "../file/searchBackend"
 import type { GrepMode, GrepMatch as FFFGrepMatch } from "#fff"
-import { Instance } from "../project/instance"
 import { assertExternalDirectory } from "./external-directory"
 import { withSearchDeadline } from "./search-deadline"
 
@@ -14,10 +13,6 @@ const MAX_LINE = 180
 const MAX_MATCH = 100
 const MAX_DEF_FIRST = 8
 const MAX_DEF_NEXT = 5
-
-function isRegex(pattern: string): boolean {
-  return /[.*+?^${}()|[\]\\]/.test(pattern)
-}
 
 function isConstraint(text: string): boolean {
   return text.startsWith("!") || text.startsWith("*") || text.endsWith("/")
@@ -185,8 +180,8 @@ export const GrepTool = Tool.define("grep", {
       },
     })
 
-    let dir = params.path ?? Instance.directory
-    dir = path.isAbsolute(dir) ? dir : path.resolve(Instance.directory, dir)
+    let dir = params.path ?? ctx.instance.directory
+    dir = path.isAbsolute(dir) ? dir : path.resolve(ctx.instance.directory, dir)
     await assertExternalDirectory(ctx, dir, { kind: "directory" })
 
     const outcome = await withSearchDeadline(

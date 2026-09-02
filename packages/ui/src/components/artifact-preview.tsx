@@ -12,7 +12,7 @@ export interface ArtifactPreviewProps {
   viewerUrl: string
   /** Raw content URL — used directly for image/video. */
   previewUrl: string
-  /** Owner-gated page (no capability key) — used for "open in new tab" so the link keeps working after the key rotates. */
+  /** Canonical artifact page. Prefer `viewerUrl` for copy/open so the ?key= capability is included. */
   url: string
 }
 
@@ -22,7 +22,7 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
   const [copied, setCopied] = createSignal(false)
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(props.url)
+    await navigator.clipboard.writeText(props.viewerUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -49,7 +49,7 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
                 icon="square-arrow-top-right"
                 variant="ghost"
                 aria-label={i18n.t("ui.artifactPreview.openInBrowser")}
-                onClick={() => window.open(props.url, "_blank", "noopener,noreferrer")}
+                onClick={() => window.open(props.viewerUrl, "_blank", "noopener,noreferrer")}
               />
               <IconButton
                 icon="close"

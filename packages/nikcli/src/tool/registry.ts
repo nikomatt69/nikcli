@@ -39,7 +39,6 @@ import { ArtifactTool } from "./artifact"
 import { Flag } from "@nikcli-ai/util/flag"
 import { Log } from "@nikcli-ai/util/log"
 import { LspTool } from "./lsp"
-import { Truncate } from "./truncation"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { Context, Effect, Layer } from "effect"
 import { PlanExitTool, PlanEnterTool } from "./plan"
@@ -232,16 +231,6 @@ export namespace ToolRegistry {
   /** Test/docs seam: allowlist match for a candidate tool file. */
   export function isCustomToolAllowed(filePath: string, allowlist: readonly string[]): boolean {
     return isToolPathAllowed(filePath, [...allowlist])
-  }
-
-  function truncateOutput(text: string, options: Truncate.Options = {}, agent?: Agent.Info) {
-    return runPromiseWithLayer(
-      Truncate.defaultLayer,
-      Effect.gen(function* () {
-        const truncate = yield* Truncate.Service
-        return yield* truncate.output(text, options, agent)
-      }),
-    )
   }
 
   function fromPlugin(id: string, def: ToolDefinition): Tool.Info {
@@ -451,6 +440,10 @@ export namespace ToolRegistry {
         options?: { exclude?: ReadonlySet<string> },
       ) {
         const tools = yield* all()
+        // A tool whose definition depends on the project (`bash` names the
+        // default working directory in its description) gets the instance
+        // here rather than reading the ambient scope from inside `init`.
+        const instance = yield* InstanceState.context
         const result = yield* Effect.promise(() =>
           Promise.all(
             tools
@@ -480,7 +473,7 @@ export namespace ToolRegistry {
               .sort((left, right) => compareIds(left.id, right.id))
               .map(async (t) => {
                 using _ = log.time(t.id)
-                const def = await t.init({ agent })
+                const def = await t.init({ agent, instance })
                 return {
                   id: t.id,
                   description: def.description,

@@ -3,7 +3,6 @@ import { zod } from "@nikcli-ai/util/effect-zod"
 import { Tool } from "./tool"
 import * as path from "path"
 import DESCRIPTION from "./ls.txt"
-import { Instance } from "../project/instance"
 import { SearchBackend } from "../file/searchBackend"
 import { assertExternalDirectory } from "./external-directory"
 
@@ -47,7 +46,7 @@ export const ListTool = Tool.define("list", {
   description: DESCRIPTION,
   parameters: zod(Parameters),
   async execute(params, ctx) {
-    const searchPath = path.resolve(Instance.directory, params.path || ".")
+    const searchPath = path.resolve(ctx.instance.directory, params.path || ".")
     await assertExternalDirectory(ctx, searchPath, { kind: "directory" })
 
     await ctx.ask({
@@ -110,7 +109,7 @@ export const ListTool = Tool.define("list", {
     const output = `${searchPath}/\n` + renderDir(".", 0)
 
     return {
-      title: path.relative(Instance.worktree, searchPath),
+      title: path.relative(ctx.instance.worktree, searchPath),
       metadata: {
         count: files.length,
         truncated: files.length >= LIMIT,

@@ -213,33 +213,28 @@ export namespace Command {
                 mcp: true,
                 description: prompt.description,
                 get template() {
-                  return new Promise<string>(async (resolve, reject) => {
-                    const args = prompt.arguments
-                      ? Object.fromEntries(
-                          prompt.arguments?.map((argument: { name: string }, i: number) => [
-                            argument.name,
-                            `$${i + 1}`,
-                          ]),
-                        )
-                      : {}
-                    const template = await runPromiseWithLayer(
-                      MCP.defaultLayer,
-                      locallyInstance(
-                        ctx,
-                        Effect.gen(function* () {
-                          const mcp = yield* MCP.Service
-                          return yield* mcp.getPrompt(prompt.client, prompt.name, args)
-                        }),
-                      ),
-                    ).catch(reject)
-                    resolve(
+                  const args = prompt.arguments
+                    ? Object.fromEntries(
+                        prompt.arguments.map((argument: { name: string }, i: number) => [argument.name, `$${i + 1}`]),
+                      )
+                    : {}
+                  return runPromiseWithLayer(
+                    MCP.defaultLayer,
+                    locallyInstance(
+                      ctx,
+                      Effect.gen(function* () {
+                        const mcp = yield* MCP.Service
+                        return yield* mcp.getPrompt(prompt.client, prompt.name, args)
+                      }),
+                    ),
+                  ).then(
+                    (template) =>
                       template?.messages
                         .map((message: { content: { type: string; text?: string } }) =>
                           message.content.type === "text" ? message.content.text : "",
                         )
                         .join("\n") || "",
-                    )
-                  })
+                  )
                 },
                 hints: prompt.arguments?.map((_: unknown, i: number) => `$${i + 1}`) ?? [],
               }

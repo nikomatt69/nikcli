@@ -12,6 +12,7 @@ import { SessionPrompt } from "@/session/prompt"
 import { SessionRepo } from "@/session/repo"
 import { InstructionRepo } from "@/session/instruction-repo"
 import { fn } from "@/util/fn"
+import { setOptional } from "@/util/optional-key"
 import { Log } from "@nikcli-ai/util/log"
 import { getAdaptor, listAdaptors } from "./adaptors"
 import { ConfigSchema } from "./config"
@@ -27,7 +28,7 @@ import type { WorkspaceInfo } from "./types"
 import { SyncUnifyMigration } from "@/sync/migrate-from-workspace"
 import { zod, zodObject } from "@nikcli-ai/util/effect-zod"
 import { Effect, Schema } from "effect"
-import { runService, withInstanceAsync, withCurrentInstance } from "@/effect"
+import { InstanceState, runService, withInstanceAsync, withCurrentInstance } from "@/effect"
 import path from "path"
 import fs from "fs/promises"
 
@@ -95,7 +96,7 @@ export namespace Workspace {
    * The HTTP wire name stays the literal `"NotFoundError"` — boundaries must
    * emit that string rather than forwarding `_tag` (`WorkspaceNotFoundError`).
    */
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("WorkspaceNotFoundError", {
+  export class NotFoundError extends Schema.TaggedError<NotFoundError>()("WorkspaceNotFoundError", {
     message: Schema.String,
   }) {}
 
@@ -163,14 +164,14 @@ export namespace Workspace {
     Event.Status.type,
   ])
 
-  async function listRootSessions(workspaceID: string) {
-    return SessionRepo.getByProject(Instance.project.id)
+  async function listRootSessions(projectID: string, workspaceID: string) {
+    return SessionRepo.getByProject(projectID)
       .filter((session) => session.workspaceID === workspaceID && !session.parentID)
       .toSorted((a, b) => b.time.updated - a.time.updated)
       .map((session) => session.id)
   }
 
-  async function buildRestorePayload(workspaceID: string): Promise<Restore> {
+  async function buildRestorePayload(projectID: string, workspaceID: string): Promise<Restore> {
     // The unified log also journals lifecycle events (workspace.created,
     // workspace.removed, ...) for cold-start projection; the restore payload
     // only carries the client-facing restore events.
@@ -180,7 +181,7 @@ export namespace Workspace {
     })
     return {
       workspaceID,
-      sessions: await listRootSessions(workspaceID),
+      sessions: await listRootSessions(projectID, workspaceID),
       events,
     }
   }
@@ -200,9 +201,9 @@ export namespace Workspace {
   export const create = fn(
     z.object({
       id: Identifier.schema("workspace").optional(),
-      projectID: Info.shape.projectID,
-      branch: Info.shape.branch,
-      config: Info.shape.config,
+      projectID: zod(InfoSchema.fields.projectID),
+      branch: zod(InfoSchema.fields.branch),
+      config: zod(InfoSchema.fields.config),
     }),
     async (input) => {
       const id = Identifier.ascending("workspace", input.id)
@@ -406,10 +407,11 @@ export namespace Workspace {
   })
 
   export const remove = fn(Identifier.schema("workspace"), async (id) => {
+    const instance = InstanceState.ambient()
     const info = await get(id)
     if (info) {
       stopSpaceSync(id)
-      for (const sessionID of await listRootSessions(id)) {
+      for (const sessionID of await listRootSessions(instance.project.id, id)) {
         await runSession(
           Effect.gen(function* () {
             const session = yield* Session.Service
@@ -524,6 +526,9 @@ export namespace Workspace {
       signal: z.any().optional(),
     }),
     async ({ workspaceID, timeoutMs, signal }) => {
+      // Entry point: the scope is read once here and threaded down, so nothing
+      // underneath has to ask which instance it is running in.
+      const projectID = InstanceState.ambient().project.id
       const info = await get(workspaceID)
       if (!info)
         throw new NotFoundError({
@@ -531,11 +536,11 @@ export namespace Workspace {
         })
       if (info.config.type === "worktree") {
         WorkspaceConnection.set(workspaceID, "connected")
-        return buildRestorePayload(workspaceID)
+        return buildRestorePayload(projectID, workspaceID)
       }
       startSpaceSync(info)
       const currentStatus = WorkspaceConnection.current(workspaceID)
-      if (currentStatus === "connected") return buildRestorePayload(workspaceID)
+      if (currentStatus === "connected") return buildRestorePayload(projectID, workspaceID)
       if (currentStatus === "error") {
         throw new Error(`Workspace failed to connect: ${workspaceID}`)
       }
@@ -549,7 +554,7 @@ export namespace Workspace {
       if (settled.status !== "connected") {
         throw new Error(`Workspace failed to connect: ${workspaceID}`)
       }
-      return buildRestorePayload(workspaceID)
+      return buildRestorePayload(projectID, workspaceID)
     },
   )
 
@@ -566,9 +571,10 @@ export namespace Workspace {
       signal: z.any().optional(),
     }),
     async ({ workspaceID, sessionID, timeoutMs, signal }) => {
+      const instance = InstanceState.ambient()
       await restore({ workspaceID, timeoutMs, signal })
       const target = await targetWorkspace(workspaceID)
-      const directory = target?.type === "local" ? target.directory : Instance.project.worktree
+      const directory = target?.type === "local" ? target.directory : instance.project.worktree
       await runSession(
         Effect.gen(function* () {
           const session = yield* Session.Service
@@ -579,7 +585,7 @@ export namespace Workspace {
         }),
       )
       InstructionRepo.removeSession(sessionID)
-      const payload = await buildRestorePayload(workspaceID)
+      const payload = await buildRestorePayload(instance.project.id, workspaceID)
       return {
         ...payload,
         sessionID,
@@ -600,6 +606,7 @@ export namespace Workspace {
       signal: z.any().optional(),
     }),
     async ({ sessionID, workspaceID, copyChanges, timeoutMs, signal }) => {
+      const instance = InstanceState.ambient()
       const current = await runSession(
         Effect.gen(function* () {
           const session = yield* Session.Service
@@ -650,7 +657,7 @@ export namespace Workspace {
       const target = workspaceID
         ? await restore({ workspaceID, timeoutMs, signal }).then(() => targetWorkspace(workspaceID))
         : undefined
-      const targetDirectory = target?.type === "local" ? target.directory : Instance.project.worktree
+      const targetDirectory = target?.type === "local" ? target.directory : instance.project.worktree
 
       const sourcePatch =
         copyChanges && current.workspaceID
@@ -677,7 +684,8 @@ export namespace Workspace {
         Effect.gen(function* () {
           const session = yield* Session.Service
           yield* session.update(sessionID, (draft) => {
-            draft.workspaceID = workspaceID ?? undefined
+            // `null` is the detach signal on this route, not a value.
+            setOptional(draft, "workspaceID", workspaceID ?? undefined)
             draft.directory = targetDirectory
           })
         }),
@@ -705,7 +713,7 @@ export namespace Workspace {
               const session = yield* Session.Service
               yield* session.update(sessionID, (draft) => {
                 if (draft.workspaceID !== workspaceID || draft.directory !== targetDirectory) return
-                draft.workspaceID = current.workspaceID
+                setOptional(draft, "workspaceID", current.workspaceID)
                 draft.directory = current.directory
               })
             }),

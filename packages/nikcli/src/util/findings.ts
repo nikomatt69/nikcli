@@ -1,8 +1,5 @@
 import path from "path"
 import fs from "fs/promises"
-import { Log } from "@nikcli-ai/util/log"
-
-const log = Log.create({ service: "findings" })
 
 /**
  * Severity levels for code findings

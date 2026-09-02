@@ -187,6 +187,13 @@ export function tui(input: {
               createTestRenderer: (await import("@opentui/core/testing")).createTestRenderer,
             })
           : await createCliRenderer(rendererConfig(tuiCfg))
+        // Dozens of components subscribe to renderer events (`useTerminalDimensions`
+        // alone is used in 32 files) and to key events (`useKeyboard`), all of which
+        // unsubscribe on cleanup. That is well past EventEmitter's default cap of 10,
+        // so without this bun prints a MaxListenersExceededWarning straight over the
+        // first frame — once for the renderer, once for its key handler.
+        renderer.setMaxListeners(200)
+        renderer.keyInput.setMaxListeners(200)
         if (!headless) void renderer.getPalette({ size: 16 }).catch(() => undefined)
         const mode = headless ? "dark" : ((await (renderer as any).waitForThemeMode?.(1000)) ?? "dark")
         const onExit = async () => {

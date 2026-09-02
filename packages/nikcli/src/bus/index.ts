@@ -77,7 +77,7 @@ export namespace Bus {
               directory: ctx.directory,
             },
           }
-          for (const sub of [...wildcard]) {
+          for (const sub of wildcard) {
             void sub(event)
           }
         }),

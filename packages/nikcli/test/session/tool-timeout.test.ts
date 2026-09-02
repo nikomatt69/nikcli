@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { executeMcpWithTimeout, executeWithTimeout, resolveToolTimeoutCategory } from "@/session/tools"
 import type { Tool } from "@/tool/tool"
 
+// SAFETY: the timeout helpers under test read only `ctx.abort`.
 const context = (abort: AbortSignal) => ({ abort }) as Tool.Context
 
 describe("tool outer timeout", () => {

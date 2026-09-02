@@ -86,9 +86,14 @@ describe("ci-validate.ts step order", () => {
       "Install dependencies",
       "Typecheck",
       "Route coverage gate",
-      "Run tests",
-      "Run release automation tests",
+      "Generated HTTP client drift",
+      "Formatting",
+      "Lint",
       "Shell syntax check (install script)",
+      "Shell syntax check (railway-deploy)",
+      "Docker nikcli version check",
+      "Patched dependency check",
+      "Railway upload context check",
       "PowerShell syntax check (install.ps1)",
     ])
   })
@@ -98,6 +103,26 @@ describe("ci-validate.ts step order", () => {
     expect(src).toContain("bun")
     expect(src).toContain("install")
     expect(src).toContain("--frozen-lockfile")
+  })
+
+  it("regenerates HTTP clients and fails when tracked output drifts", async () => {
+    const src = await read("script/ci-validate.ts")
+    expect(src).toContain("generate:httpapi-clients")
+    expect(src).toContain("git diff --exit-code")
+    expect(src).toContain("packages/sdk/js/src/httpapi/generated")
+    expect(src).toContain("packages/nikcli/src/server/httpapi/client")
+  })
+
+  it("treats formatting and lint failures as blocking", async () => {
+    const src = await read("script/ci-validate.ts")
+    const stepsMatch = src.match(/const steps:\s*ValidationStep\[\]\s*=\s*\[([\s\S]*?)\n\]/)
+    expect(stepsMatch).toBeTruthy()
+    for (const name of ["Formatting", "Lint"]) {
+      const start = stepsMatch![1].indexOf(`name: "${name}"`)
+      const end = stepsMatch![1].indexOf("\n  },", start)
+      const block = stepsMatch![1].slice(start, end)
+      expect(block).not.toContain("critical: false")
+    }
   })
 
   it("timeouts are reasonable: tests < 5min, typecheck < 3min", async () => {
@@ -234,7 +259,79 @@ describe("concurrency safety", () => {
   })
 })
 
-// ─── 8. Railway deploy detail tests ─────────────────────────────────────────
+// ─── 8. Workflow failure regressions ────────────────────────────────────────
+
+describe("workflow failure regressions", () => {
+  it("validates direct publishes and only trusts the ci-pipeline caller", async () => {
+    const publish = await read(".github/workflows/publish.yml")
+    const pipeline = await read(".github/workflows/ci-pipeline.yml")
+    expect(publish).toContain("prevalidated:")
+    expect(publish).toContain("if: ${{ !inputs.prevalidated }}")
+    expect(publish).toContain("bun run script/ci-validate.ts")
+    expect(pipeline).toContain("prevalidated: true")
+  })
+
+  it("the GitHub agent rejects failed SDK calls while waiting for its server", async () => {
+    const src = await read("github/index.ts")
+    expect(src).toContain("createNikcliClient({ baseUrl: url, throwOnError: true })")
+    expect(src).toContain('client.app.log({\n          service: "github-workflow"')
+    expect(src).toContain("client.session.share({ sessionID: session.id })")
+    expect(src).toContain("client.session.prompt({\n      sessionID: session.id")
+    expect(src).not.toMatch(/client\.[A-Za-z0-9_.]+<true>/)
+    expect(src).not.toContain("path: session")
+  })
+
+  it("compiled TUI probes mark Bun ConPTY as an interactive terminal", async () => {
+    for (const file of ["packages/nikcli/script/tui-smoke.ts", "packages/nikcli/script/tui-startup.ts"]) {
+      const src = await read(file)
+      expect(src).toContain('NIKCLI_TERMINAL: "1"')
+    }
+  })
+
+  it("the site deployment only unlocks SST after detecting a persisted lock", async () => {
+    const yml = await read(".github/workflows/deploy.yml")
+    const detection = yml.indexOf("A concurrent update was detected")
+    const unlock = yml.indexOf('bun sst unlock --stage="${{ github.ref_name }}"')
+    expect(detection).toBeGreaterThan(-1)
+    expect(unlock).toBeGreaterThan(detection)
+    expect(yml).toContain('bun sst deploy --stage="${{ github.ref_name }}"')
+    expect(yml).toContain("cancel-in-progress: false")
+  })
+
+  it("the Discord release notification is optional when its webhook is absent", async () => {
+    const yml = await read(".github/workflows/notify-discord.yml")
+    expect(yml).toContain("configured=false")
+    expect(yml).toContain("if: steps.webhook.outputs.configured == 'true'")
+  })
+
+  it("the beta sync uses the workflow token instead of a broken app key", async () => {
+    const yml = await read(".github/workflows/beta.yml")
+    expect(yml).toContain("GH_TOKEN: ${{ github.token }}")
+    expect(yml).not.toContain("setup-git-committer")
+    expect(yml).not.toContain("NIKCLI_APP_SECRET")
+  })
+
+  it("issue triage selects the configured MiniMax provider explicitly", async () => {
+    const yml = await read(".github/workflows/triage.yml")
+    expect(yml).toContain("MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}")
+    expect(yml).toContain("-m minimax-coding-plan/MiniMax-M3")
+    expect(yml).not.toContain("NIKCLI_API_KEY")
+  })
+
+  it("the typecheck-only test workflow uses an available hosted runner", async () => {
+    const yml = await read(".github/workflows/test.yml")
+    expect(yml).toContain("host: ubuntu-latest")
+    expect(yml).not.toContain("blacksmith-4vcpu-ubuntu-2404")
+    expect(yml).toContain("bun turbo typecheck")
+    const executable = yml
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("#"))
+      .join("\n")
+    expect(executable).not.toMatch(/\bbun (?:run )?test(?::ci)?\b/)
+  })
+})
+
+// ─── 9. Railway deploy detail tests ─────────────────────────────────────────
 
 describe("railway-deploy job specifics", () => {
   it("only runs after publish succeeds on live-main from the canonical repo", async () => {
@@ -247,11 +344,10 @@ describe("railway-deploy job specifics", () => {
     expect(block).toContain("github.repository == 'nikomatt69/nikcli'")
   })
 
-  it("gracefully no-ops when RAILWAY_TOKEN is unset (does not fail the pipeline)", async () => {
+  it("fails when RAILWAY_TOKEN is unset instead of reporting a skipped deploy as successful", async () => {
     const yml = await read(".github/workflows/ci-pipeline.yml")
-    expect(yml).toContain("RAILWAY_TOKEN not configured — skipping deploy")
-    // The skip branch exits 0 so publish-release stays green
-    expect(yml).toMatch(/RAILWAY_TOKEN\b[\s\S]{0,200}exit 0/)
+    expect(yml).toContain("RAILWAY_TOKEN not configured")
+    expect(yml).toMatch(/RAILWAY_TOKEN\b[\s\S]{0,250}exit 1/)
   })
 
   it("uses --detach so the workflow doesn't block on deploy completion", async () => {
@@ -260,7 +356,7 @@ describe("railway-deploy job specifics", () => {
   })
 })
 
-// ─── 9. Script shebang + invocation portability ─────────────────────────────
+// ─── 10. Script shebang + invocation portability ────────────────────────────
 
 describe("script invocation portability", () => {
   for (const f of ["script/ci-validate.ts", "script/ci-autofix.ts", "script/ci-report-failure.ts"]) {

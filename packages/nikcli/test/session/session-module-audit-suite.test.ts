@@ -351,7 +351,7 @@ describe("Session module registry matrix", () => {
           }
           const entries = Object.entries(item.module)
           exportCount += entries.length
-          for (const [name, value] of entries) {
+          for (const [name] of entries) {
             if (name && typeof name === "string") commandLike += 1
             lines.push(`${item.modulePath}:${name}`)
           }

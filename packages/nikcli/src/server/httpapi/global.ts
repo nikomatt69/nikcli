@@ -1,10 +1,10 @@
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
-import z from "zod"
 import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { Installation } from "@/installation"
 import { Instance } from "@/project/instance"
+import { HttpApiAuth } from "./security"
 
 /**
  * Single definition shared with the legacy Hono `routes/global.ts` handler —
@@ -28,9 +28,16 @@ export namespace GlobalHttpApi {
     version: Schema.String,
   }).annotate({ identifier: "GlobalHealth" })
 
+  /**
+   * Mixed group: `GET /global/health` is in `Auth.isPublicPath` (a liveness
+   * probe has no credentials), so protection is declared per endpoint here
+   * rather than on the whole group in `public.ts` (H8). Leaving `dispose`
+   * unmarked would let a group-level sweep make the health probe claim a
+   * security scheme it does not enforce.
+   */
   export const Group = HttpApiGroup.make("global")
     .add(HttpApiEndpoint.get("health", "/health", { success: Health }))
-    .add(HttpApiEndpoint.post("dispose", "/dispose", { success: Schema.Boolean }))
+    .add(HttpApiEndpoint.post("dispose", "/dispose", { success: Schema.Boolean }).middleware(HttpApiAuth.Middleware))
     .prefix("/global")
 
   export const Api = HttpApi.make("nikcli").add(Group)
@@ -61,6 +68,13 @@ export namespace GlobalHttpApi {
 
   export const HandlersLive = HttpApiBuilder.group(Api, "global", (builder) =>
     builder.handle("health", handlers.health).handle("dispose", handlers.dispose),
+  ).pipe(
+    // `dispose` declares the security middleware, so its implementation has to
+    // be in scope while this group layer is built — `HttpApiBuilder.group`
+    // resolves middleware out of the context it captures (H8). The served
+    // surface composes its own `global` handlers in `public.ts`; this local
+    // pair stays self-contained so it can still be built on its own.
+    Layer.provide(HttpApiAuth.layer),
   )
 
   export const layer = ApiLive.pipe(Layer.provide(HandlersLive))

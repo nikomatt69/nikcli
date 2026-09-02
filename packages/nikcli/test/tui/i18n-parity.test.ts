@@ -50,6 +50,8 @@ describe("TUI i18n", () => {
     expect(translate("fr", "prompt.placeholder.ask", { example: "hi" })).toContain("hi")
     expect(translate("ja", "prompt.placeholder.shell", { example: "pwd" })).toContain("pwd")
     // unknown locale falls back to English
+    // SAFETY: the widening is the point — the test feeds a locale outside the
+    // known union to check the English fallback.
     expect(translate("xx" as string, "prompt.commands")).toBe(en["prompt.commands"])
   })
 

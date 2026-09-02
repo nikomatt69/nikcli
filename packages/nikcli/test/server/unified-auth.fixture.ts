@@ -59,7 +59,7 @@ function request(pathname: string, token?: string) {
     new Request(`http://nikcli.local${pathname}`, {
       headers: {
         "x-nikcli-directory": projectDir,
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(token ? { authorization: `Bearer ${token}` } : undefined),
       },
     }),
   )

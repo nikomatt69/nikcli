@@ -180,7 +180,7 @@ describe("work", () => {
       const start = performance.now()
       for (let i = 0; i < 100; i++) {
         await work(10, items, async (n) => {
-          n * 2
+          void (n * 2)
         })
       }
       const elapsed = performance.now() - start

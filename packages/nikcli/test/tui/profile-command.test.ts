@@ -27,9 +27,15 @@ describe("profile command", () => {
   })
 
   it("keeps the profile in the system prompt parts every session builds", async () => {
-    const prompt = await source("session/prompt.ts")
-    expect(prompt).toContain("systemPrompt.profile()")
-    // Last, so instruction files and the user's own message outrank it.
-    expect(prompt).toMatch(/system: \[\.\.\.environment, \.\.\.custom, \.\.\.profile\]/)
+    // The assembly moved out of `session/prompt.ts` into the instruction sync:
+    // the profile is read alongside the environment and committed as its own
+    // `InstructionKey.profile` entry.
+    const sync = await source("session/instruction-sync.ts")
+    expect(sync).toContain("profile.reminder(Profile.projectRoot(ctx))")
+    expect(sync).toContain("profileParts: profileParts ?? []")
+    // Appended after the instruction files and the environment, so both
+    // outrank it — the ordering the old `[...environment, ...custom, ...profile]`
+    // assertion pinned.
+    expect(sync).toMatch(/reads\.push\(\{\s*key: InstructionKey\.profile,/)
   })
 })

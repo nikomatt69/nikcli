@@ -1,27 +1,31 @@
 import type { Diagnostic } from "../codemode"
 import { ToolError } from "../tool-error"
 import { copyOut, ToolRuntimeError, type SafeObject } from "../tool-runtime"
-import { type AstNode, formatLocation, InterpreterRuntimeError, ProgramThrow, sourceLocation } from "./model"
+import {
+  type AstNode,
+  type CodeModeValue,
+  formatLocation,
+  InterpreterRuntimeError,
+  ProgramThrow,
+  sourceLocation,
+} from "./model"
 import { containsRuntimeReference } from "./references"
 import { spreadItems } from "../stdlib/collections"
 import { coerceToString, createAggregateErrorValue, createErrorValue, errorConstructors } from "../stdlib/value"
 
 export const normalizeError = (error: unknown): Diagnostic => {
   if (error instanceof InterpreterRuntimeError) {
-    return {
+    const base = {
       kind: error.kind,
       message: `${error.message}${formatLocation(error.node)}`,
-      ...(error.node?.loc ? { location: sourceLocation(error.node) } : {}),
-      ...(error.suggestions ? { suggestions: error.suggestions } : {}),
     }
+    const located = error.node?.loc ? { ...base, location: sourceLocation(error.node) } : base
+    return error.suggestions ? { ...located, suggestions: error.suggestions } : located
   }
 
   if (error instanceof ToolRuntimeError) {
-    return {
-      kind: error.kind,
-      message: error.message,
-      ...(error.suggestions.length > 0 ? { suggestions: error.suggestions } : {}),
-    }
+    const base = { kind: error.kind, message: error.message }
+    return error.suggestions.length > 0 ? { ...base, suggestions: error.suggestions } : base
   }
 
   if (error instanceof ToolError) {
@@ -72,8 +76,9 @@ export const normalizeError = (error: unknown): Diagnostic => {
   }
 }
 
-export const caughtErrorValue = (thrown: unknown): unknown => {
-  if (thrown instanceof ProgramThrow) return thrown.value
+export const caughtErrorValue = (thrown: unknown): SafeObject | CodeModeValue => {
+  // SAFETY: `ProgramThrow` values come from the interpreter's own evaluation, so they are already in the interpreter value domain.
+  if (thrown instanceof ProgramThrow) return thrown.value as CodeModeValue
   if (thrown instanceof InterpreterRuntimeError) return createErrorValue(thrown.errorName, thrown.message)
   const name = thrown instanceof Error && errorConstructors.has(thrown.name) ? thrown.name : "Error"
   return createErrorValue(name, normalizeError(thrown).message)

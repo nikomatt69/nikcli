@@ -1385,6 +1385,9 @@ export function Session() {
         get width() {
           return contentWidth()
         },
+        get height() {
+          return dimensions().height
+        },
         sessionID: route.sessionID,
         conceal,
         showThinking,
@@ -1625,9 +1628,8 @@ function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; 
   const color = createMemo(() => local.agent.color(props.turn.request?.agent ?? ""))
   const queuedFg = createMemo(() => selectedForeground(theme, color()))
   const metadataVisible = createMemo(() => queued() || ctx.showTimestamps())
-  const terminalDimensions = useTerminalDimensions()
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
-  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
+  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(ctx.height / 3)))
   const imagePreviewUrls = createMemo(() =>
     files()
       .filter((file) => file.mime.startsWith("image/") && file.mime !== "image/svg+xml")
@@ -2176,9 +2178,8 @@ function ReasoningHeader(props: { done: boolean; title: string | null; duration?
 function TextPart(props: { last: boolean; streaming: boolean; entry: ViewEntry; sessionID: string }) {
   const ctx = use()
   const { theme, syntax } = useTheme()
-  const terminalDimensions = useTerminalDimensions()
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
-  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
+  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(ctx.height / 3)))
   const tight = createMemo(() => ctx.width < 84)
   const text = createMemo(() => liveMarkdown(String(props.entry.text ?? ""), props.streaming))
   const rendered = createMemo(() => (props.streaming ? text() : wrapDiagramsInFences(text())))

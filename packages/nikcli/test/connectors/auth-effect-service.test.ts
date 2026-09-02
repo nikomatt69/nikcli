@@ -13,6 +13,8 @@ preserveTestEnv(["NIKCLI_TEST_HOME"])
 const { ConnectorAuth } = await import("@/connectors/auth")
 
 function runConnectorAuth<A, E>(effect: Effect.Effect<A, E, any>) {
+  // SAFETY: `ConnectorAuth.defaultLayer` provides every requirement the effect
+  // declares, so nothing is left for the runtime to supply.
   return Effect.runPromise(effect.pipe(Effect.provide(ConnectorAuth.defaultLayer)) as Effect.Effect<A, E, never>)
 }
 

@@ -10,6 +10,7 @@ import { InstructionRepo } from "./instruction-repo"
 import { zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { setOptional } from "@/util/optional-key"
 
 export namespace SessionRevert {
   const log = Log.create({ service: "session.revert" })
@@ -18,7 +19,7 @@ export namespace SessionRevert {
     return runPromiseWithLayer(Snapshot.defaultLayer, withCurrentInstance(effect))
   }
 
-  function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service>) {
+  function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service | Session.Service | Snapshot.Service>) {
     return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
   }
 
@@ -39,9 +40,9 @@ export namespace SessionRevert {
   export type RevertInput = Schema.Schema.Type<typeof RevertInputSchema>
 
   export interface Interface {
-    revert(input: RevertInput): Effect.Effect<Session.Info, unknown>
-    unrevert(input: { sessionID: string }): Effect.Effect<Session.Info, unknown>
-    cleanup(session: Session.Info): Effect.Effect<void, unknown>
+    revert(input: RevertInput): Effect.Effect<Session.Info, Session.Error>
+    unrevert(input: { sessionID: string }): Effect.Effect<Session.Info, Session.Error>
+    cleanup(session: Session.Info): Effect.Effect<void, Session.Error>
   }
 
   export class Service extends Context.Service<Service, Interface>()("SessionRevert.Service") {}
@@ -81,7 +82,9 @@ export namespace SessionRevert {
             const partID = remaining.some((item) => ["text", "tool"].includes(item.type)) ? input.partID : undefined
             revert = {
               messageID: !partID && lastUser ? lastUser.id : msg.info.id,
-              partID,
+              // `Session.Info["revert"]` members are `optionalKey`: a present
+              // `undefined` fails the response encode with a 400.
+              ...(partID !== undefined && { partID }),
             }
           }
           remaining.push(part)
@@ -96,14 +99,20 @@ export namespace SessionRevert {
           return yield* sessionService.get(input.sessionID)
         }),
       )
-      revert.snapshot =
+      // `track()` returns `string | undefined` (no repository, nothing to
+      // snapshot). `snapshot` is `optionalKey`, so assigning the `undefined`
+      // would fail the response encode with a 400 instead of omitting it.
+      setOptional(
+        revert,
+        "snapshot",
         current.revert?.snapshot ??
-        (await runSnapshot(
-          Effect.gen(function* () {
-            const snapshot = yield* Snapshot.Service
-            return yield* snapshot.track()
-          }),
-        ))
+          (await runSnapshot(
+            Effect.gen(function* () {
+              const snapshot = yield* Snapshot.Service
+              return yield* snapshot.track()
+            }),
+          )),
+      )
       await runSnapshot(
         Effect.gen(function* () {
           const snapshot = yield* Snapshot.Service
@@ -176,7 +185,7 @@ export namespace SessionRevert {
       Effect.gen(function* () {
         const sessionService = yield* Session.Service
         return yield* sessionService.update(input.sessionID, (draft) => {
-          draft.revert = undefined
+          delete draft.revert
         })
       }),
     )
@@ -199,7 +208,7 @@ export namespace SessionRevert {
         Effect.gen(function* () {
           const sessionService = yield* Session.Service
           yield* sessionService.update(sessionID, (draft) => {
-            draft.revert = undefined
+            delete draft.revert
           })
         }),
       )
@@ -243,7 +252,7 @@ export namespace SessionRevert {
       Effect.gen(function* () {
         const sessionService = yield* Session.Service
         yield* sessionService.update(sessionID, (draft) => {
-          draft.revert = undefined
+          delete draft.revert
         })
       }),
     )
@@ -253,9 +262,21 @@ export namespace SessionRevert {
   const layer = Layer.succeed(
     Service,
     Service.of({
-      revert: (input) => Effect.tryPromise(() => revertImpl(input)),
-      unrevert: (input) => Effect.tryPromise(() => unrevertImpl(input)),
-      cleanup: (session) => Effect.tryPromise(() => cleanupImpl(session)),
+      revert: (input) =>
+        Effect.tryPromise({
+          try: () => revertImpl(input),
+          catch: Session.asSessionError,
+        }),
+      unrevert: (input) =>
+        Effect.tryPromise({
+          try: () => unrevertImpl(input),
+          catch: Session.asSessionError,
+        }),
+      cleanup: (session) =>
+        Effect.tryPromise({
+          try: () => cleanupImpl(session),
+          catch: Session.asSessionError,
+        }),
     }),
   )
 

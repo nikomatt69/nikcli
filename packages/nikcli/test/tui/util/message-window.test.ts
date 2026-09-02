@@ -17,7 +17,7 @@ describe("message-window", () => {
   })
 
   it("visibleRange returns only the messages intersecting the viewport", () => {
-    const heights = new Array(100).fill(10) // total 1000
+    const heights = Array.from({ length: 100 }, () => 10) // total 1000
     const range = visibleRange({ heights, scrollTop: 200, viewportHeight: 50 })
     // viewport covers y [200,250): messages 20..24
     expect(range.start).toBe(20)
@@ -25,20 +25,29 @@ describe("message-window", () => {
   })
 
   it("visibleRange applies overscan and clamps at the edges", () => {
-    const heights = new Array(100).fill(10)
-    const range = visibleRange({ heights, scrollTop: 0, viewportHeight: 50, overscan: 5 })
+    const heights = Array.from({ length: 100 }, () => 10)
+    const range = visibleRange({
+      heights,
+      scrollTop: 0,
+      viewportHeight: 50,
+      overscan: 5,
+    })
     expect(range.start).toBe(0) // clamped, not negative
     expect(range.end).toBe(10) // 5 visible + 5 overscan
   })
 
   it("visibleRange handles empty and single-window lists", () => {
     expect(visibleRange({ heights: [], scrollTop: 0, viewportHeight: 100 })).toEqual({ start: 0, end: 0 })
-    const small = visibleRange({ heights: [10, 10], scrollTop: 0, viewportHeight: 100 })
+    const small = visibleRange({
+      heights: [10, 10],
+      scrollTop: 0,
+      viewportHeight: 100,
+    })
     expect(small).toEqual({ start: 0, end: 2 })
   })
 
   it("spacerHeights reserves the off-window space above and below", () => {
-    const heights = new Array(10).fill(10) // total 100
+    const heights = Array.from({ length: 10 }, () => 10) // total 100
     const spacers = spacerHeights(heights, { start: 3, end: 7 })
     expect(spacers.top).toBe(30)
     expect(spacers.bottom).toBe(30)

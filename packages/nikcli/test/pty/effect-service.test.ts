@@ -30,7 +30,7 @@ const { PtyEnvironment } = await import("@/pty/environment")
 
 const projectDirs: string[] = []
 
-// The PTY itself works on Windows — `bun-pty` opens a ConPTY there — but
+// The PTY itself works on Windows — Bun.spawn({ terminal }) opens ConPTY there — but
 // `/bin/sleep` and `/bin/sh` do not exist, so a POSIX command line was the only
 // thing failing these cases. Driving the runtime already running the suite
 // keeps one command line for every platform and keeps the assertions intact.
@@ -110,6 +110,8 @@ describe("Pty.Service", () => {
             env: { SHARED: "caller", TERM: "caller" },
           })
           // Subscribe before the command finishes so its output streams live.
+          // SAFETY: `fakeWs` implements the slice of the socket `connect` uses
+          // (send/close); the assertion skips the rest of the WebSocket surface.
           yield* pty.connect(created.id, fakeWs as never)
           // Poll for the command's output instead of sleeping a fixed 500ms:
           // on a slow CI runner the printf lands later than that, which tore

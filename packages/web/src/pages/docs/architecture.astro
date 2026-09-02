@@ -58,7 +58,7 @@ const toc = [
         <p>The web, TUI, mobile, and external clients use the SDK boundary instead of importing server internals.</p>
       </DocCard>
       <DocCard title="Multiple shells" eyebrow="TUI, HTTP, mobile, companion">
-        <p>Different user surfaces route into the same Hono server app or session services.</p>
+        <p>Different user surfaces route into the same Effect HttpApi server or the same session services.</p>
       </DocCard>
       <DocCard title="Effect services" eyebrow="Runtime state">
         <p>Config, project instance, sessions, storage, and provider services are assembled through Effect layers and per-instance context.</p>
@@ -66,7 +66,7 @@ const toc = [
     </div>
     <DocCallout type="info" title="Read architecture from runtime edges">
       <p>
-        The fastest way to orient is to start at <code>packages/nikcli/src/index.ts</code>, then follow
+        The fastest way to orient is to start at <code>packages/nikcli/src/cli-main.ts</code>, then follow
         the command into <code>server/server.ts</code>, <code>cli/cmd/tui/thread.ts</code>,
         <code>session/index.ts</code>, or the command-specific module. Those files reveal which shared
         services are actually on the hot path.
@@ -85,20 +85,23 @@ const toc = [
       <DocCard title="Main CLI" eyebrow="packages/nikcli">
         <p>Command registry, TUI, server app, session engine, provider registry, tools, permissions, config, storage, connectors, MCP, LSP, mobile host, and remote control.</p>
       </DocCard>
-      <DocCard title="SDK" eyebrow="packages/sdk">
-        <p>Generated JavaScript client and schemas for the server API. Regenerate it after changing server endpoints in <code>server.ts</code>.</p>
+      <DocCard title="Terminal UI" eyebrow="packages/tui">
+        <p>The whole OpenTUI/Solid renderer — app shell, routes, dialogs, contexts, feature plugins. It talks to the runtime only through the SDK.</p>
       </DocCard>
-      <DocCard title="Studio" eyebrow="packages/studio">
-        <p>Desktop UI package that consumes nikcli APIs rather than owning session/runtime internals.</p>
+      <DocCard title="Shared utilities" eyebrow="packages/util">
+        <p><code>Global</code> paths, <code>Flag</code>, <code>Log</code>, filesystem helpers, and the primitives both the runtime and the TUI need.</p>
+      </DocCard>
+      <DocCard title="SDK" eyebrow="packages/sdk">
+        <p>Generated JavaScript client and schemas for the server API. Regenerate it from the typed HttpApi with <code>generate:httpapi-clients</code>.</p>
       </DocCard>
       <DocCard title="Plugin system" eyebrow="packages/plugin">
         <p>Reusable plugin API surface and package-level plugin tooling.</p>
       </DocCard>
-      <DocCard title="Remote" eyebrow="packages/remote">
-        <p>Remote execution and sharing support used by remote control workflows.</p>
+      <DocCard title="LLM client" eyebrow="packages/llm">
+        <p>Route-based multi-provider client — protocols, providers, tool runtime — used for native provider traffic.</p>
       </DocCard>
-      <DocCard title="Companion" eyebrow="packages/companion">
-        <p>Companion services and browser-facing workflows that connect to the nikcli server surface.</p>
+      <DocCard title="Automation engines" eyebrow="computer-use, browser-control, terminal-control">
+        <p>Sibling daemons with a shared CLI grammar and evidence-bundle format, driven by the <code>computer</code> and <code>browser</code> tools.</p>
       </DocCard>
     </div>
     <DocCode language="bash">
@@ -106,22 +109,29 @@ bun install
 bun run typecheck
 bun test
 bun run --cwd packages/nikcli dev
-./packages/sdk/js/script/build.ts
+bun run --cwd packages/nikcli generate:httpapi-clients
     </DocCode>
   </section>
 
   <section id="cli-lifecycle" class="doc-section">
     <h2>CLI lifecycle</h2>
     <p>
-      <code>packages/nikcli/src/index.ts</code> is the executable entrypoint. It builds the yargs CLI,
-      installs global error handlers, initializes global paths, initializes logging, sets
-      <code>AGENT=1</code> and <code>NIKCLI=1</code>, registers commands, and finally forces process
-      exit to avoid hanging subprocesses.
+      <code>packages/nikcli/src/index.ts</code> is the process entrypoint, and it is deliberately
+      tiny: it installs a document shim and hands off to <code>src/cli-main.ts</code>. Keeping the two
+      apart is what lets the compiled binary re-enter itself as a
+      <code>--browser-control-daemon</code> / <code>--computer-use-daemon</code> host without paying
+      for the whole CLI module graph first.
+    </p>
+    <p>
+      <code>cli-main.ts</code> builds the yargs CLI, installs global error handlers, initializes
+      global paths and logging, sets <code>AGENT=1</code> and <code>NIKCLI=1</code>, registers
+      commands, and forces process exit to avoid hanging subprocesses.
     </p>
     <ol>
       <li><strong>Global initialization</strong> creates data, config, cache, state, log, bin, and repo paths.</li>
       <li><strong>Logging setup</strong> respects <code>--print-logs</code>, <code>--log-level</code>, and local development defaults.</li>
-      <li><strong>Command registration</strong> wires ACP, MCP, ads, TUI, run, goal, generate, debug, auth, account, agent, upgrade, quickstart, doctor, serve, workspace, web, heap, models, locale, stats, export/import, GitHub, PR, session, image, speech, remote, companion, mobile, routine, usage, mission, loop, and plugin commands. <code>--attach</code> is a flag on <code>run</code>, not a separate command.</li>
+      <li><strong>Global flags</strong> are parsed before any command runs: <code>--print-logs</code>, <code>--log-level</code>, <code>--island</code>, and <code>--auto</code> (aliased as <code>--yolo</code> and <code>--dangerously-skip-permissions</code>, which set <code>NIKCLI_AUTO_APPROVE</code> so the TUI's worker thread sees it too).</li>
+      <li><strong>Command registration</strong> wires ACP, MCP, ads, TUI thread/attach, run, goal, analytics, generate, debug, auth, account, artifact, agent, upgrade, quickstart, doctor, uninstall, serve, workspace-serve, web, heap, models, locale, stats, export/import, GitHub, PR, session, image/speak/brain model pickers, remote, teleport, companion, mobile, routine, mission, usage, plugin, sync, connectors, and chatbot commands. <code>--attach</code> is also a flag on <code>run</code>.</li>
       <li><strong>Failure formatting</strong> uses <code>FormatError</code> for known errors and points unknown errors at the log file.</li>
       <li><strong>Process exit</strong> runs in <code>finally</code> to avoid hanging child processes, especially external MCP servers.</li>
     </ol>
@@ -149,7 +159,7 @@ bun run --cwd packages/nikcli dev
         <tr><td><code>global</code></td><td>Cross-project filesystem roots, cache versioning, data directories, log directories, and managed binary paths.</td><td>Every process needs the same durable root model before config or storage can load.</td></tr>
         <tr><td><code>project/instance</code></td><td>Current directory, worktree, lifecycle, and per-project state.</td><td>Lets TUI, server, mobile, and workspace requests isolate project behavior.</td></tr>
         <tr><td><code>Config.defaultLayer</code></td><td>Remote, global, project, env, content, directory, mode, provider, command, agent, and plugin config merging.</td><td>Prevents commands from manually reimplementing config precedence.</td></tr>
-        <tr><td><code>Storage.defaultLayer</code></td><td>JSON storage, migrations, locks, cache, transactions, and typed missing-file errors.</td><td>Unifies persistence for CLI, TUI, server, mobile, sessions, goals, and stats.</td></tr>
+        <tr><td><code>Database.defaultLayer</code></td><td>The shared <code>nikcli.db</code> SQLite client, migrations, and transactions.</td><td>Unifies persistence for CLI, TUI, server, mobile, sessions, goals, and stats.</td></tr>
         <tr><td><code>Session.defaultLayer</code></td><td>Session lookup, creation, updates, messages, tool parts, goals, todos, summaries, and processing.</td><td>Session behavior stays shared across local and HTTP surfaces.</td></tr>
       </tbody>
     </table>
@@ -158,25 +168,33 @@ bun run --cwd packages/nikcli dev
   <section id="server-stack" class="doc-section">
     <h2>Server stack</h2>
     <p>
-      <code>packages/nikcli/src/server/server.ts</code> builds the Hono app and request order. Public
-      share routes are registered before user auth. Then server auth, request logging, CORS, global
-      metadata, workspace context, docs, optional experimental HTTP API bridge, and classic routes are
-      installed.
+      <code>packages/nikcli/src/server/server.ts</code> owns the <code>Bun.serve</code> listener and
+      <code>server/server-router.ts</code> owns the request pipeline. Every declared route is a typed
+      <code>effect/unstable/httpapi</code> group under <code>server/httpapi/</code>, composed into one
+      API in <code>httpapi/public.ts</code> and served through <code>HttpApiBridge</code>. There is no
+      Hono layer and no <code>server/routes/</code> directory. See
+      <a href="/docs/server-api">Server &amp; API</a>.
     </p>
     <table class="doc-table">
       <thead><tr><th>Stage</th><th>Behavior</th></tr></thead>
       <tbody>
-        <tr><td>Public shares</td><td>Routes intended for shared access are mounted before authenticated user middleware.</td></tr>
-        <tr><td>User auth</td><td>User/session middleware applies to authenticated app surfaces.</td></tr>
-        <tr><td>Server auth</td><td>Bearer, Tailscale, and Basic Auth modes can protect the server.</td></tr>
-        <tr><td>Logging and CORS</td><td>Requests are logged and CORS is applied according to server options.</td></tr>
-        <tr><td><code>/global</code></td><td>Exposes global server metadata used by SDK clients and UI surfaces.</td></tr>
-        <tr><td>Workspace context</td><td>Directory and workspace-scoped requests enter the correct instance context.</td></tr>
-        <tr><td><code>/doc</code></td><td>Serves API docs/schema surfaces.</td></tr>
-        <tr><td>HTTP API bridge</td><td>Mounted when <code>NIKCLI_EXPERIMENTAL_HTTPAPI</code> is enabled.</td></tr>
-        <tr><td>Classic routes</td><td>Session, event, TUI, mobile, connector, MCP, analytics, workspace, chat, and related route groups.</td></tr>
+        <tr><td>Body limit + CORS</td><td>Oversized bodies are rejected before parsing; <code>OPTIONS</code> short-circuits with computed CORS headers.</td></tr>
+        <tr><td>Public shares</td><td><code>/s/:id</code>, <code>/share/:id</code>, and <code>/api/share/:id</code> answer before any auth check.</td></tr>
+        <tr><td>Auth</td><td><code>Auth.authenticate()</code> resolves one principal from mobile tokens, account tokens, Tailscale identity, or Basic Auth.</td></tr>
+        <tr><td>Global vs instance</td><td><code>isInstanceLessPath()</code> sends <code>/global</code>, <code>/user</code>, <code>/account</code> down a branch that never binds a directory.</td></tr>
+        <tr><td>Context</td><td>Everything else resolves directory + workspace, proxies remote workspaces, and enters the instance context.</td></tr>
+        <tr><td>Raw handlers</td><td>SSE feeds, prompt streaming, chatbot webhooks, and websocket upgrades claim their paths before the bridge, because a schema cannot hold an open stream.</td></tr>
+        <tr><td>HttpApi bridge</td><td>The typed handler answers whenever <code>HttpApiBridge.supports(path, method)</code> matches.</td></tr>
+        <tr><td>Fallback</td><td>Unmatched non-<code>/mobile</code> paths proxy to the hosted web app so it can be served from the same origin.</td></tr>
       </tbody>
     </table>
+    <DocCallout type="warn" title="The bridge validates responses">
+      <p>
+        Unlike the removed Hono handlers, the typed groups check response bodies at runtime. A
+        response schema stricter than the real payload turns a working route into a 500, so new or
+        tightened schemas need verifying against real data.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="session-runtime" class="doc-section">
@@ -246,20 +264,35 @@ bun run --cwd packages/nikcli dev
   <section id="storage-state" class="doc-section">
     <h2>Storage and state</h2>
     <p>
-      Durable state uses two storage families. The JSON object store under
-      <code>Global.Path.data/storage</code> owns high-level runtime records. SQLite databases under
-      the data root own indexed tables such as users, accounts, mobile tokens, and workspaces.
+      All durable state lives in a single SQLite database, <code>nikcli.db</code> under
+      <code>Global.Path.data</code>, reached through Drizzle. Each domain declares its tables in a
+      <code>*.sql.ts</code> file, re-exported from <code>src/database/schema.ts</code>, and queries
+      them through a repository namespace. See <a href="/docs/storage">Storage</a>.
     </p>
+    <DocCallout type="info" title="One database, not a JSON store">
+      <p>
+        The JSON object store under <code>data/storage</code> and the separate
+        <code>users.db</code> / <code>accounts.db</code> / <code>mobile_auth.db</code> /
+        <code>workspaces.db</code> files were both folded into <code>nikcli.db</code>. Migrations
+        import the old data on first run.
+      </p>
+    </DocCallout>
     <table class="doc-table">
-      <thead><tr><th>Store</th><th>Primary data</th><th>Why this shape</th></tr></thead>
+      <thead><tr><th>Area</th><th>Tables</th><th>Declared in</th></tr></thead>
       <tbody>
-        <tr><td>JSON object store</td><td>Projects, sessions, messages, parts, diffs, goals, todos, routines, permissions, and share metadata.</td><td>Simple file-level records, migrations, locks, cache, and easy inspection.</td></tr>
-        <tr><td><code>users.db</code></td><td>Local users, sessions, chat contacts, and chat messages.</td><td>Relational lookup and constraints for account-like data.</td></tr>
-        <tr><td><code>accounts.db</code></td><td>Nikcli account records and tokens.</td><td>Credential and active account state.</td></tr>
-        <tr><td><code>mobile_auth.db</code></td><td>Hashed mobile bearer tokens, expiry, and last-used timestamps.</td><td>Fast token validation and revocation.</td></tr>
-        <tr><td><code>workspaces.db</code></td><td>Workspace records, target config, status, and events.</td><td>Workspace event history and status queries.</td></tr>
+        <tr><td>Sessions</td><td><code>session_info</code>, <code>message_info</code>, <code>message_part</code>, <code>session_entry</code>, <code>session_diff</code>, <code>session_pending</code>, <code>todo_info</code>, <code>session_goal</code></td><td><code>src/session/*.sql.ts</code></td></tr>
+        <tr><td>Projects &amp; workspaces</td><td><code>project</code>, <code>workspace</code></td><td><code>src/project</code>, <code>src/workspace</code></td></tr>
+        <tr><td>Automation</td><td><code>loop</code>, <code>loop_run</code>, <code>mission</code>, <code>mission_exec</code>, <code>routine</code>, <code>background_run</code>, <code>monitor</code></td><td><code>src/loop</code>, <code>src/mission</code>, <code>src/mobile</code>, <code>src/background</code>, <code>src/monitor</code></td></tr>
+        <tr><td>Identity</td><td><code>users</code>, <code>user_sessions</code>, <code>account</code>, <code>mobile_tokens</code></td><td><code>src/user</code>, <code>src/account</code>, <code>src/mobile</code></td></tr>
+        <tr><td>Permissions &amp; sharing</td><td><code>permission_ruleset</code>, <code>session_share</code>, <code>local_share</code>, <code>artifact</code></td><td><code>src/permission</code>, <code>src/share</code>, <code>src/artifact</code></td></tr>
+        <tr><td>Sync</td><td><code>sync_event</code>, <code>sync_sequence</code>, <code>sync_snapshot</code>, <code>sync_outbox</code></td><td><code>src/sync</code></td></tr>
       </tbody>
     </table>
+    <p>
+      Things that stay files do so because a file <em>is</em> the interface: config
+      (<code>nikcli.json</code>), provider credentials (<code>auth.json</code>), markdown plans,
+      snapshots, skills, commands, agents, and themes.
+    </p>
   </section>
 
   <section id="events-sync" class="doc-section">
@@ -290,7 +323,7 @@ bun run --cwd packages/nikcli dev
       <tbody>
         <tr><td>MCP</td><td><code>mcp/index.ts</code>, <code>mcp/auth.ts</code>, HTTP API routes</td><td>Local stdio and remote Streamable HTTP/SSE MCP servers, OAuth, tools, prompts, and resources.</td></tr>
         <tr><td>Connectors</td><td><code>connectors/registry.ts</code>, <code>connectors/auth.ts</code>, <code>connectors/credentials.ts</code></td><td>Figma, Slack, GitHub, Lovable, and bot connector metadata, operations, auth, and health checks.</td></tr>
-        <tr><td>Chatbots</td><td><code>server/routes/chatbot.ts</code>, chatbot command modules</td><td>Discord, Slack, Teams, Google Chat, Linear, and GitHub webhook entrypoints.</td></tr>
+        <tr><td>Chatbots</td><td><code>server/httpapi/chatbot.ts</code>, chatbot command modules</td><td>Discord, Slack, Teams, Google Chat, Linear, and GitHub webhook entrypoints.</td></tr>
         <tr><td>Plugins</td><td><code>plugin/index.ts</code>, <code>plugin/install.ts</code>, <code>cli/cmd/plug.ts</code></td><td>Internal plugins, config plugins, installable package plugins, server exports, and TUI exports.</td></tr>
         <tr><td>LSP</td><td><code>lsp/index.ts</code>, <code>lsp/server.ts</code>, <code>tool/lsp.ts</code></td><td>Optional language-server clients and an experimental agent-facing code-intelligence tool.</td></tr>
       </tbody>
@@ -311,7 +344,7 @@ bun run --cwd packages/nikcli dev
       <tbody>
         <tr><td>TUI remote control</td><td><code>remote</code> command and TUI slash commands</td><td>Controls a running terminal session through server/TUI events and shared URLs.</td></tr>
         <tr><td>Run against a server</td><td><code>nikcli run --attach &lt;url&gt;</code></td><td>One-shot agent execution attached to an existing nikcli server (no separate <code>attach</code> command).</td></tr>
-        <tr><td>Mobile host</td><td><code>mobile</code> command and <code>server/routes/mobile.ts</code></td><td>Hosts mobile app APIs, auth tokens, sessions, routines, GitHub-backed repos, notifications, and Live Activity flows.</td></tr>
+        <tr><td>Mobile host</td><td><code>mobile</code> command and <code>server/httpapi/mobile.ts</code></td><td>Hosts mobile app APIs, auth tokens, sessions, routines, GitHub-backed repos, notifications, and Live Activity flows.</td></tr>
         <tr><td>Companion</td><td><code>companion</code> command</td><td>Desktop browser companion surface using the server and SDK event model.</td></tr>
         <tr><td>Workspace server</td><td><code>workspace-serve</code> and workspace routes</td><td>Hosts workspace contexts, status, events, and session proxying.</td></tr>
       </tbody>
@@ -329,13 +362,13 @@ bun run --cwd packages/nikcli dev
     <h2>SDK boundary</h2>
     <p>
       The generated JavaScript SDK is the contract between server routes and clients. The TUI imports
-      <code>@nikcli-ai/sdk/v2</code> even when running in-process; it swaps only the fetch/event
+      <code>@nikcli-ai/sdk/httpapi</code> even when running in-process; it swaps only the fetch/event
       transport. Web, mobile, companion, and external clients use the same conceptual surface.
     </p>
     <table class="doc-table">
       <thead><tr><th>Server change</th><th>Follow-up</th></tr></thead>
       <tbody>
-        <tr><td>Change an endpoint in <code>packages/nikcli/src/server/server.ts</code></td><td>Regenerate the JavaScript SDK with <code>./packages/sdk/js/script/build.ts</code>.</td></tr>
+        <tr><td>Change an endpoint in a <code>server/httpapi/*.ts</code> group</td><td>Regenerate the clients with <code>bun run --cwd packages/nikcli generate:httpapi-clients</code>.</td></tr>
         <tr><td>Add or change typed HTTP API routes</td><td>Verify route schemas, generated client methods, and any TUI/mobile callers.</td></tr>
         <tr><td>Change event payloads</td><td>Update server event schema and every sync consumer that narrows on that event type.</td></tr>
         <tr><td>Change auth behavior</td><td>Verify direct worker fetch, HTTP SDK clients, attach, mobile, companion, and remote control separately.</td></tr>
@@ -349,14 +382,14 @@ bun run --cwd packages/nikcli dev
     <table class="doc-table">
       <thead><tr><th>Question</th><th>Start here</th><th>Then inspect</th></tr></thead>
       <tbody>
-        <tr><td>Why does bare <code>nikcli</code> open the terminal app?</td><td><code>src/index.ts</code></td><td><code>cli/cmd/tui/thread.ts</code></td></tr>
-        <tr><td>Which route handles this API call?</td><td><code>server/server.ts</code></td><td>Route group under <code>server/routes</code> or <code>server/httpapi</code></td></tr>
+        <tr><td>Why does bare <code>nikcli</code> open the terminal app?</td><td><code>src/cli-main.ts</code></td><td><code>cli/cmd/tui/thread.ts</code>, then <code>packages/tui/src/app.tsx</code></td></tr>
+        <tr><td>Which route handles this API call?</td><td><code>server/server-router.ts</code></td><td>The group under <code>server/httpapi/</code>, or a raw handler in <code>server/public.ts</code> / <code>server/extra.ts</code></td></tr>
         <tr><td>Why is config different in a worktree?</td><td><code>config/config.ts</code></td><td><code>config/paths.ts</code> and environment flags</td></tr>
         <tr><td>Why did a provider/model disappear?</td><td><code>provider/provider.ts</code></td><td>Saved auth, config provider entries, enabled/disabled filters, plugin auth/model hooks</td></tr>
-        <tr><td>Where is session content stored?</td><td><code>storage/storage.ts</code></td><td><code>session/index.ts</code>, <code>session/message-v2.ts</code></td></tr>
+        <tr><td>Where is session content stored?</td><td><code>database/schema.ts</code></td><td><code>session/repo.ts</code>, <code>session/message-repo.ts</code>, <code>session/v2/</code></td></tr>
         <tr><td>Why is a tool blocked?</td><td><code>permission/next.ts</code></td><td><code>permission/schema.ts</code>, <code>permission/evaluate.ts</code>, the active permission mode (see <a href="/docs/permissions#modes">Permission modes</a>)</td></tr>
-        <tr><td>Why does mobile auth fail?</td><td><code>server/routes/mobile.ts</code></td><td><code>mobile/auth.ts</code> and <code>mobile_auth.db</code></td></tr>
-        <tr><td>Why does the TUI not receive updates?</td><td><code>cli/cmd/tui/context/sdk.tsx</code></td><td><code>cli/cmd/tui/worker.ts</code>, event route, server auth</td></tr>
+        <tr><td>Why does mobile auth fail?</td><td><code>server/httpapi/auth.ts</code></td><td><code>mobile/auth.ts</code> and the <code>mobile_tokens</code> table</td></tr>
+        <tr><td>Why does the TUI not receive updates?</td><td><code>packages/tui/src/context/sdk.tsx</code></td><td><code>cli/cmd/tui/worker.ts</code>, <code>GET /event</code>, server auth</td></tr>
       </tbody>
     </table>
   </section>
@@ -366,24 +399,25 @@ bun run --cwd packages/nikcli dev
     <table class="doc-table">
       <thead><tr><th>File or directory</th><th>What to inspect</th></tr></thead>
       <tbody>
-        <tr><td><code>packages/nikcli/src/index.ts</code></td><td>CLI entrypoint, global middleware, command registration order, failure formatting, and forced exit.</td></tr>
-        <tr><td><code>packages/nikcli/src/global/index.ts</code></td><td>Global path model, data/cache/config/state/log/bin/repos roots, environment overrides, and initialization.</td></tr>
+        <tr><td><code>packages/nikcli/src/index.ts</code>, <code>src/cli-main.ts</code></td><td>Process entrypoint and daemon re-entry split; then yargs setup, global flags, middleware, command registration, failure formatting, and forced exit.</td></tr>
+        <tr><td><code>@nikcli-ai/util/global</code></td><td>Global path model, data/cache/config/state/log/bin/repos roots, environment overrides, and initialization.</td></tr>
         <tr><td><code>packages/nikcli/src/project/instance.ts</code></td><td>Per-directory instance lifecycle and state scoping.</td></tr>
-        <tr><td><code>packages/nikcli/src/effect.ts</code></td><td>Effect helpers, current instance context, and service layer execution helpers.</td></tr>
+        <tr><td><code>packages/nikcli/src/effect/</code></td><td>Effect helpers, current instance context, and service layer execution helpers.</td></tr>
         <tr><td><code>packages/nikcli/src/config/config.ts</code></td><td>Main config merge order, env overrides, mode migration, provider/plugin/command/agent loading, and flag overrides.</td></tr>
-        <tr><td><code>packages/nikcli/src/server/server.ts</code></td><td>Hono app construction, middleware order, auth, global route, docs, HTTP API bridge, and classic route mounting.</td></tr>
+        <tr><td><code>packages/nikcli/src/server/server.ts</code>, <code>server/server-router.ts</code></td><td>Bun listener, port fallback, OpenAPI; then CORS, auth, the global/instance split, dispatch, and error mapping.</td></tr>
         <tr><td><code>packages/nikcli/src/session/index.ts</code></td><td>Session service, metadata persistence, updates, deletion, share lookup, and plan path selection.</td></tr>
         <tr><td><code>packages/nikcli/src/session/llm.ts</code></td><td>Runtime LLM request path, prompt normalization, provider selection, streaming, and tool call loop.</td></tr>
         <tr><td><code>packages/nikcli/src/provider/provider.ts</code></td><td>Provider registry, models.dev integration, config providers, saved auth, plugins, dynamic providers, and refresh.</td></tr>
         <tr><td><code>packages/nikcli/src/tool</code></td><td>Agent-facing tools, tool registration, and domain-specific tools.</td></tr>
         <tr><td><code>packages/nikcli/src/permission</code></td><td>Permission schemas, evaluation, persisted approvals, and interactive request flow.</td></tr>
-        <tr><td><code>packages/nikcli/src/storage</code></td><td>JSON store, SQLite helper, migrations, cache, locks, schemas, and transaction behavior.</td></tr>
-        <tr><td><code>packages/nikcli/src/server/routes/mobile.ts</code></td><td>Mobile host API surface, auth token smoke path, sessions, routines, repos, permissions, and event streaming.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui</code></td><td>Terminal app command, worker transport, renderer, routes, commands, plugin runtime, and sync provider.</td></tr>
+        <tr><td><code>packages/nikcli/src/database</code></td><td>SQLite client, PRAGMAs, transactions, post-commit effects, schema re-exports, and the migration list.</td></tr>
+        <tr><td><code>packages/nikcli/src/server/httpapi/mobile.ts</code></td><td>Mobile host API surface, auth token smoke path, sessions, routines, repos, permissions, and event streaming.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui</code></td><td>Terminal app command, worker transport, and the local plugin host — the runtime-side half of the TUI.</td></tr>
+        <tr><td><code>packages/tui/src</code></td><td>Renderer, app shell, routes, dialogs, contexts, feature plugins, and the SDK provider.</td></tr>
         <tr><td><code>packages/nikcli/src/mcp</code></td><td>MCP client lifecycle, OAuth, local/remote transports, tool/resource/prompt conversion, and auth storage.</td></tr>
         <tr><td><code>packages/nikcli/src/connectors</code></td><td>Connector registry, credentials, auth storage, CLI commands, and bot integrations.</td></tr>
         <tr><td><code>packages/nikcli/src/plugin</code></td><td>Internal plugins, installable plugins, package exports, server/TUI targets, and default plugin behavior.</td></tr>
-        <tr><td><code>packages/sdk/js/script/build.ts</code></td><td>JavaScript SDK regeneration entrypoint after server endpoint changes.</td></tr>
+        <tr><td><code>packages/nikcli/script/generate-httpapi-clients.ts</code></td><td>SDK and Effect client generation from the typed HttpApi. <code>packages/sdk/js/script/build.ts</code> only bundles the package for publish.</td></tr>
       </tbody>
     </table>
   </section>

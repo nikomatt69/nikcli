@@ -31,6 +31,8 @@ describe("InstanceState hot reload", () => {
     try {
       const result = await Effect.runPromise(
         locallyInstance(
+          // SAFETY: the reload path reads only `project.id` off the instance
+          // context.
           { directory, worktree: directory, project: { id: "test" } as any },
           Effect.scoped(
             Effect.gen(function* () {
@@ -240,7 +242,7 @@ describe("InstanceReload", () => {
             types.push(event.type)
           })
           try {
-            await InstanceReload.reload(["nikcli.json"])
+            await InstanceReload.reload(directory, ["nikcli.json"])
           } finally {
             unsubscribe()
           }
@@ -282,7 +284,7 @@ describe("InstanceReload", () => {
                 })
 
                 yield* Effect.promise(() => writeCommand("beta-command"))
-                yield* Effect.promise(() => InstanceReload.reload([configPath]))
+                yield* Effect.promise(() => InstanceReload.reload(directory, [configPath]))
                 return { before, after }
               }).pipe(Effect.provide(Command.defaultLayer)),
             ),

@@ -117,6 +117,33 @@ describe("HttpApiBridge basic-auth shim (Wave 3b request path)", () => {
     }
   })
 
+  /**
+   * `WorkspaceServer` serves a workspace sandbox on its own `Bun.serve`, does
+   * no authentication of its own, and passes `upstreamAuthVerified: true`.
+   * When H8 put the security middleware on the contract, that middleware would
+   * have started authenticating those requests and rejected every one of them
+   * on a server with a password configured. The bridge marks the request as
+   * settled instead, and this is what keeps it settled.
+   */
+  it("does not authenticate a request an upstream host already vouched for", async () => {
+    const directory = await makeProjectDir()
+    HttpApiBridge.overrideAuth({
+      username: "nikcli",
+      password: Option.some("swordfish"),
+    })
+    try {
+      const url = new URL("/skill", "http://nikcli.local")
+      url.searchParams.set("directory", directory)
+      const response = await Instance.provide({
+        directory,
+        fn: () => HttpApiBridge.handle(new Request(url), { upstreamAuthVerified: true }),
+      })
+      expect(response.status).not.toBe(401)
+    } finally {
+      HttpApiBridge.overrideAuth(null)
+    }
+  })
+
   it("does not re-challenge a mobile bearer token already verified by Hono", async () => {
     const directory = await makeProjectDir()
     const created = await MobileAuth.create({ name: "bridge-mobile-test" })

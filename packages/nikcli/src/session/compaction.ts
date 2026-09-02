@@ -13,22 +13,17 @@ import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
 import { zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-import {
-  InstanceState,
-  locallyInstance,
-  runPromiseWithLayer,
-  withCurrentInstance,
-  type InstanceContext,
-} from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { isOverflow as overflowCheck } from "./overflow"
 
 export namespace SessionCompaction {
   const log = Log.create({ service: "session.compaction" })
 
-  function agentGet(name: string) {
+  function agentGet(name: string, ctx: InstanceContext) {
     return runPromiseWithLayer(
       Agent.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        ctx,
         Effect.gen(function* () {
           const agent = yield* Agent.Service
           return yield* agent.get(name)
@@ -37,14 +32,14 @@ export namespace SessionCompaction {
     )
   }
 
-  async function agentRequired(name: string) {
-    const agent = await agentGet(name)
+  async function agentRequired(name: string, ctx: InstanceContext) {
+    const agent = await agentGet(name, ctx)
     if (!agent) throw new Agent.NotFoundError({ name })
     return agent
   }
 
-  function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
-    return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
+  function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>, ctx: InstanceContext) {
+    return runPromiseWithLayer(Plugin.defaultLayer, locallyInstance(ctx, effect))
   }
 
   function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>, ctx: InstanceContext) {
@@ -55,10 +50,11 @@ export namespace SessionCompaction {
     return runPromiseWithLayer(Session.defaultLayer, locallyInstance(ctx, effect))
   }
 
-  function configGet() {
+  function configGet(ctx: InstanceContext) {
     return runPromiseWithLayer(
       Config.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        ctx,
         Effect.gen(function* () {
           const config = yield* Config.Service
           return yield* config.get()
@@ -282,7 +278,7 @@ export namespace SessionCompaction {
       log.error("parent message info not found", { parentID: input.parentID })
       throw new Error(`Parent message info not found: ${input.parentID}`)
     }
-    const agent = await agentRequired("compaction")
+    const agent = await agentRequired("compaction", input.ctx)
     const model = await runProvider(
       Effect.gen(function* () {
         const provider = yield* Provider.Service
@@ -324,6 +320,7 @@ export namespace SessionCompaction {
       input.ctx,
     )) as MessageV2.Assistant
     const processor = SessionProcessor.create({
+      instance: input.ctx,
       assistantMessage: msg,
       sessionID: input.sessionID,
       model,
@@ -338,6 +335,7 @@ export namespace SessionCompaction {
           { context: [], prompt: undefined },
         )
       }),
+      input.ctx,
     )
     const defaultPrompt = `Provide a detailed prompt for continuing our conversation above.
 Focus on information that would be helpful for continuing the conversation, including what we did, what we're doing, which files we're working on, and what we're going to do next.
@@ -481,7 +479,8 @@ When constructing the summary, try to stick to this template:
     Service.of({
       isOverflow: (input) =>
         Effect.gen(function* () {
-          const config = yield* Effect.promise(() => configGet())
+          const ctx = yield* InstanceState.context
+          const config = yield* Effect.promise(() => configGet(ctx))
           return overflowCheck({
             cfg: config,
             tokens: input.tokens,
@@ -491,13 +490,13 @@ When constructing the summary, try to stick to this template:
       editContext: (input) =>
         Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          const config = yield* Effect.promise(() => configGet())
+          const config = yield* Effect.promise(() => configGet(ctx))
           return yield* Effect.tryPromise(() => editContextImpl({ ...input, config, ctx }))
         }),
       prune: (input) =>
         Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          const config = yield* Effect.promise(() => configGet())
+          const config = yield* Effect.promise(() => configGet(ctx))
           return yield* Effect.tryPromise(() => pruneImpl({ ...input, config, ctx }))
         }),
       process: (input) =>

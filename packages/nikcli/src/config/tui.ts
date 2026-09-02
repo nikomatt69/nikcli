@@ -155,7 +155,7 @@ export namespace TuiConfig {
     const custom = customPath()
     const managed = Config.managedConfigDir()
     if (bootstrap) {
-      yield* Effect.promise(() => migrateTuiConfig({ directories, custom, managed }))
+      yield* Effect.promise(() => migrateTuiConfig({ instance: ctx, directories, custom, managed }))
       // Re-compute after migration since migrateTuiConfig may have created new tui.json files
       projectFiles = Flag.NIKCLI_DISABLE_PROJECT_CONFIG
         ? []
@@ -225,9 +225,16 @@ export namespace TuiConfig {
     const merged = dedupePlugins([...discovered, ...acc.entries])
     acc.result.keybinds = Config.Keybinds.parse(acc.result.keybinds ?? {})
     acc.result.plugin = merged.map((item) => item.item)
-    acc.result.plugin_meta = merged.length
-      ? Object.fromEntries(merged.map((item) => [Config.pluginSpecifier(item.item), item.meta]))
-      : undefined
+    // Assign the key only when there is something to put in it. The HttpApi
+    // response schema declares `plugin_meta` as `optionalKey`, which rejects a
+    // present `undefined` at encode time — so writing `undefined` here turned
+    // `GET /tui/config` into an empty 400 for every user with no plugins, and
+    // the TUI read that as an empty config (no keybinds) with nothing logged.
+    if (merged.length) {
+      acc.result.plugin_meta = Object.fromEntries(merged.map((item) => [Config.pluginSpecifier(item.item), item.meta]))
+    } else {
+      delete acc.result.plugin_meta
+    }
 
     const deps: Promise<void>[] = []
     if (bootstrap && acc.result.plugin?.length) {
@@ -255,11 +262,13 @@ export namespace TuiConfig {
 
   // `Instance.state` memoizes for the life of the instance and has no per-entry
   // invalidation, so a reload parks the fresh snapshot here and every read goes
-  // through it. Keyed by directory: one process can drive several instances.
-  const reloaded = new Map<string, Promise<Snapshot>>()
+  // through it. Also `Instance.state`, so the override is keyed and disposed by
+  // the same mechanism as the snapshot it shadows rather than by a module-level
+  // map that has to be told which instance is asking.
+  const reloaded = Instance.state(() => ({ value: undefined as Promise<Snapshot> | undefined }))
 
   function current(): Promise<Snapshot> {
-    return reloaded.get(Instance.directory) ?? state()
+    return reloaded().value ?? state()
   }
 
   export async function get() {
@@ -273,17 +282,14 @@ export namespace TuiConfig {
    * again; the plugin runtime is the caller that acts on the new plugin list.
    */
   export async function reload() {
-    const directory = Instance.directory
+    const slot = reloaded()
     const next = runPromiseWithLayer(ConfigPaths.defaultLayer, loadState({ bootstrap: false }))
-    reloaded.set(
-      directory,
-      next.catch((error) => {
-        log.warn("failed to reload tui config", { error })
-        // Keep serving the previous snapshot rather than a rejected promise.
-        reloaded.delete(directory)
-        return current()
-      }),
-    )
+    slot.value = next.catch((error) => {
+      log.warn("failed to reload tui config", { error })
+      // Keep serving the previous snapshot rather than a rejected promise.
+      slot.value = undefined
+      return current()
+    })
     return current().then((x) => x.config)
   }
 

@@ -15,7 +15,9 @@ import {
   tool,
   jsonSchema,
 } from "ai"
-import { LLMCore, Runtime as LLMRuntime, ToolChoice } from "@nikcli-ai/llm"
+import { LLMCore, Runtime as LLMRuntime, ToolChoice, type ProviderOptions } from "@nikcli-ai/llm"
+import type { JsonValue } from "@/util/json"
+import z from "zod"
 import {
   Message as LLMMessage,
   type ModelRef,
@@ -40,7 +42,7 @@ import { Flag } from "@nikcli-ai/util/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { LLMNativeRuntime } from "./llm/native-runtime"
 import { suppressEmptyTextResult, toProcessorStream } from "./llm/llm-event-adapter"
 
@@ -77,11 +79,12 @@ export namespace LLM {
 
   // Build request headers based on provider and model configuration
   function buildRequestHeaders(
+    projectID: string,
     providerID: string,
     sessionID: string,
     userID: string,
     isCodex: boolean,
-    modelHeaders?: Record<string, string>,
+    _modelHeaders?: Record<string, string>,
   ): Record<string, string> | undefined {
     if (isCodex) {
       return {
@@ -93,7 +96,7 @@ export namespace LLM {
 
     if (providerID.startsWith("nikcli")) {
       return {
-        "x-nikcli-project": Instance.project.id,
+        "x-nikcli-project": projectID,
         "x-nikcli-session": sessionID,
         "x-nikcli-request": userID,
         "x-nikcli-client": Flag.NIKCLI_CLIENT,
@@ -126,14 +129,41 @@ export namespace LLM {
 
   export type StreamOutput = StreamTextResult<ToolSet, unknown>
 
-  function isModelMessage(message: unknown): message is ModelMessage {
+  type StreamMessageInput = ModelMessage | UIMessage | JsonValue
+
+  interface ProviderCallOptions {
+    [key: string]: JsonValue | undefined
+  }
+
+  const UIMessageEnvelope = z.object({
+    role: z.enum(["user", "assistant"]),
+    parts: z.array(z.unknown()),
+  })
+
+  const PartsOnlyMessage = z.object({
+    parts: z.array(z.unknown()),
+    content: z.undefined(),
+  })
+
+  const RepairablePart = z
+    .object({
+      type: z.string().catch(""),
+      text: z.string().catch(""),
+    })
+    .catch({ type: "", text: "" })
+
+  const RepairableMessage = z.object({
+    role: z.enum(["user", "assistant", "system"]).catch("user"),
+    parts: z.array(RepairablePart).optional().catch(undefined),
+    content: z.string().optional().catch(undefined),
+  })
+
+  function isModelMessage(message: StreamMessageInput): message is ModelMessage {
     return modelMessageSchema.safeParse(message).success
   }
 
-  function isUIMessage(message: unknown): message is UIMessage {
-    if (!message || typeof message !== "object") return false
-    const candidate = message as { role?: unknown; parts?: unknown }
-    return (candidate.role === "user" || candidate.role === "assistant") && Array.isArray(candidate.parts)
+  function isUIMessage(message: StreamMessageInput): message is UIMessage {
+    return UIMessageEnvelope.safeParse(message).success
   }
 
   // Some messages reach `normalizeStreamMessages` shaped like UIMessages but
@@ -142,49 +172,41 @@ export namespace LLM {
   // `isUIMessage`, so the legacy cast pushed them straight to streamText and
   // triggered `AI_InvalidPromptError`. `looksLikeUIMessage` widens detection
   // so the normalizer can repair them.
-  function looksLikeUIMessage(message: unknown): boolean {
-    if (!message || typeof message !== "object") return false
-    const candidate = message as { parts?: unknown; content?: unknown }
-    return Array.isArray(candidate.parts) && candidate.content === undefined
+  function looksLikeUIMessage(message: StreamMessageInput): boolean {
+    return PartsOnlyMessage.safeParse(message).success
   }
 
   // Best-effort repair: collapse a malformed UI-shaped message into a single
   // string-content ModelMessage by concatenating any `text`/`reasoning` parts.
   // Returns undefined when there's nothing salvageable so the caller can drop
   // the message instead of forwarding garbage to the model.
-  function repairMessage(message: unknown): ModelMessage | undefined {
-    if (!message || typeof message !== "object") return undefined
-    const candidate = message as {
-      role?: unknown
-      parts?: ReadonlyArray<{ type?: unknown; text?: unknown }>
-      content?: unknown
-    }
-    const role =
-      candidate.role === "user" || candidate.role === "assistant" || candidate.role === "system"
-        ? candidate.role
-        : "user"
-    if (Array.isArray(candidate.parts)) {
-      const text = candidate.parts
-        .filter((p) => (p?.type === "text" || p?.type === "reasoning") && typeof p?.text === "string")
-        .map((p) => p.text as string)
+  function repairMessage(message: StreamMessageInput): ModelMessage | undefined {
+    const parsed = RepairableMessage.safeParse(message)
+    if (!parsed.success) return undefined
+    const { role, parts, content } = parsed.data
+    if (parts) {
+      const text = parts
+        .filter((p) => p.type === "text" || p.type === "reasoning")
+        .map((p) => p.text)
         .join("")
         .trim()
       if (text.length === 0) return undefined
       return { role, content: text } as ModelMessage
     }
-    if (typeof candidate.content === "string" && candidate.content.length > 0) {
-      return { role, content: candidate.content } as ModelMessage
+    if (content !== undefined && content.length > 0) {
+      return { role, content } as ModelMessage
     }
     return undefined
   }
 
-  function uiToolOutput(output: unknown) {
-    if (typeof output === "string") return { type: "text" as const, value: output }
+  function uiToolOutput(output: JsonValue) {
+    const asText = z.string().safeParse(output)
+    if (asText.success) return { type: "text" as const, value: asText.data }
     return { type: "json" as const, value: output as never }
   }
 
   function uiMessageTools(messages: UIMessage[]) {
-    const tools: Record<string, { toModelOutput(output: unknown): ReturnType<typeof uiToolOutput> }> = {}
+    const tools: Record<string, { toModelOutput: typeof uiToolOutput }> = {}
     for (const message of messages) {
       for (const part of message.parts) {
         if (!part.type.startsWith("tool-")) continue
@@ -196,7 +218,7 @@ export namespace LLM {
     return tools
   }
 
-  export function normalizeStreamMessages(messages: unknown[]): ModelMessage[] {
+  export function normalizeStreamMessages(messages: StreamMessageInput[]): ModelMessage[] {
     const result: ModelMessage[] = []
     let uiRun: UIMessage[] = []
 
@@ -252,6 +274,10 @@ export namespace LLM {
   }
 
   export async function stream(input: StreamInput) {
+    // One read at the entry, for the `x-nikcli-project` header built in two
+    // places below. Reading it inside the header builder put it on whichever
+    // fiber the request happened to be assembled on.
+    const projectID = InstanceState.ambient().project.id
     const l = log
       .clone()
       .tag("providerID", input.model.providerID)
@@ -339,15 +365,10 @@ export namespace LLM {
           sessionID: input.sessionID,
           providerOptions: provider.options,
         })
-    const options: Record<string, any> = pipe(
-      base,
-      mergeDeep(input.model.options),
-      mergeDeep(input.agent.options),
-      mergeDeep(variant),
-    )
-    if (isCodex) {
-      options.instructions = SystemPrompt.instructions()
-    }
+    const merged = pipe(base, mergeDeep(input.model.options), mergeDeep(input.agent.options), mergeDeep(variant))
+    // SAFETY: the bag is assembled from zod-validated config/catalog/agent options and
+    // JSON-shaped plugin payloads; the LLM boundary consumes it as JSON call options.
+    const options = (isCodex ? { ...merged, instructions: SystemPrompt.instructions() } : merged) as ProviderCallOptions
 
     const params = await runPlugin(
       Effect.gen(function* () {
@@ -387,7 +408,14 @@ export namespace LLM {
             topK: params.topK,
             options: params.options,
           },
-          buildRequestHeaders(input.model.providerID, input.sessionID, input.user.id, isCodex, input.model.headers),
+          buildRequestHeaders(
+            projectID,
+            input.model.providerID,
+            input.sessionID,
+            input.user.id,
+            isCodex,
+            input.model.headers,
+          ),
         )
         const prepared = await LLMRuntime.prepareRequest(llmRequest)
         l.debug("LLM request prepared via @nikcli-ai/llm route", {
@@ -469,6 +497,7 @@ export namespace LLM {
     ])
 
     const requestHeaders = buildRequestHeaders(
+      projectID,
       input.model.providerID,
       input.sessionID,
       input.user.id,
@@ -639,6 +668,8 @@ export namespace LLM {
   /**
    * Convert an AI SDK TextPart / ImagePart / FilePart into a @nikcli-ai/llm ContentPart.
    */
+  const TextValue = z.string()
+
   function toLLMContentPart(part: ModelMessage["content"][number]): ContentPart | undefined {
     if (typeof part === "string") {
       return { type: "text" as const, text: part }
@@ -648,11 +679,12 @@ export namespace LLM {
         return { type: "text" as const, text: (part as any).text }
       case "image": {
         const p = part as any
-        if (typeof p.image === "string") {
+        const image = TextValue.safeParse(p.image)
+        if (image.success) {
           return {
             type: "media" as const,
             mediaType: p.mimeType ?? "image/png",
-            data: p.image,
+            data: image.data,
           }
         }
         return p.image instanceof Uint8Array
@@ -665,12 +697,13 @@ export namespace LLM {
       }
       case "file": {
         const p = part as any
-        if (typeof p.data === "string") {
-          const match = /^data:([^;]+);/.exec(p.data)
+        const inline = TextValue.safeParse(p.data)
+        if (inline.success) {
+          const match = /^data:([^;]+);/.exec(inline.data)
           return {
             type: "media" as const,
             mediaType: match?.[1] ?? p.mimeType ?? "application/octet-stream",
-            data: p.data,
+            data: inline.data,
           }
         }
         return p.data instanceof Uint8Array
@@ -696,21 +729,22 @@ export namespace LLM {
     for (const msg of msgs) {
       switch (msg.role) {
         case "user": {
-          const parts: ContentPart[] =
-            typeof msg.content === "string"
-              ? msg.content
-                ? [{ type: "text" as const, text: msg.content }]
-                : []
-              : Array.isArray(msg.content)
-                ? msg.content.map(toLLMContentPart).filter((p): p is ContentPart => p !== undefined)
-                : []
+          const userText = TextValue.safeParse(msg.content)
+          const parts: ContentPart[] = userText.success
+            ? userText.data
+              ? [{ type: "text" as const, text: userText.data }]
+              : []
+            : Array.isArray(msg.content)
+              ? msg.content.map(toLLMContentPart).filter((p): p is ContentPart => p !== undefined)
+              : []
           if (parts.length > 0) result.push(LLMMessage.user(parts))
           break
         }
         case "assistant": {
           const parts: ContentPart[] = []
-          if (typeof msg.content === "string") {
-            if (msg.content) parts.push({ type: "text" as const, text: msg.content })
+          const assistantText = TextValue.safeParse(msg.content)
+          if (assistantText.success) {
+            if (assistantText.data) parts.push({ type: "text" as const, text: assistantText.data })
           } else if (Array.isArray(msg.content)) {
             for (const part of msg.content) {
               const p = part as any
@@ -731,7 +765,7 @@ export namespace LLM {
                   id: tc.id ?? tc.toolCallId ?? `tc-${parts.length}`,
                   name: tc.function?.name ?? tc.toolName ?? "unknown",
                   input: tc.function?.arguments
-                    ? typeof tc.function.arguments === "string"
+                    ? TextValue.safeParse(tc.function.arguments).success
                       ? JSON.parse(tc.function.arguments)
                       : tc.function.arguments
                     : (tc.input ?? {}),
@@ -750,12 +784,17 @@ export namespace LLM {
           break
         }
         case "tool": {
-          const text =
-            typeof msg.content === "string"
+          const toolText = TextValue.safeParse(msg.content)
+          const text = toolText.success
+            ? toolText.data
+            : Array.isArray(msg.content)
               ? msg.content
-              : Array.isArray(msg.content)
-                ? msg.content.map((p: any) => (typeof p === "string" ? p : (p.text ?? ""))).join("\n")
-                : String((msg as any).content ?? "")
+                  .map((p: any) => {
+                    const part = TextValue.safeParse(p)
+                    return part.success ? part.data : (p.text ?? "")
+                  })
+                  .join("\n")
+              : String((msg as any).content ?? "")
           result.push(
             LLMMessage.tool({
               type: "tool-result" as const,
@@ -780,7 +819,7 @@ export namespace LLM {
       .map(([name, t]) => ({
         name,
         description: t.description ?? "",
-        inputSchema: ((t as any).parameters ?? (t as any).inputSchema ?? {}) as Record<string, unknown>,
+        inputSchema: (t as any).parameters ?? (t as any).inputSchema ?? {},
       })) as ToolDefinition[]
   }
 
@@ -795,8 +834,8 @@ export namespace LLM {
       topP?: number
       topK?: number
       maxOutputTokens?: number
-      providerOptions?: Record<string, Record<string, unknown>>
-      options?: Record<string, unknown>
+      providerOptions?: ProviderOptions
+      options?: ProviderCallOptions
     },
     headers?: Record<string, string>,
     messagesOverride?: ModelMessage[],
@@ -840,14 +879,15 @@ export namespace LLM {
     })
   }
 
-  function providerOptionsForLLM(providerOptions: Record<string, unknown>): Record<string, Record<string, unknown>> {
-    const out: Record<string, Record<string, unknown>> = {}
+  const ProviderOptionBag = z.record(z.string(), z.unknown())
+
+  function providerOptionsForLLM(providerOptions: ProviderCallOptions): ProviderOptions {
+    const out = new Map<string, ProviderOptions[string]>()
     for (const [key, value] of Object.entries(providerOptions)) {
-      if (value !== undefined && typeof value === "object" && value !== null && !Array.isArray(value)) {
-        out[key] = value as Record<string, unknown>
-      }
+      const parsed = ProviderOptionBag.safeParse(value)
+      if (parsed.success) out.set(key, parsed.data)
     }
-    return out
+    return Object.fromEntries(out)
   }
 
   async function streamNative(input: {
@@ -859,9 +899,9 @@ export namespace LLM {
       temperature?: number
       topP?: number
       topK?: number
-      options?: Record<string, unknown>
+      options?: ProviderCallOptions
     }
-    providerOptions: Record<string, unknown>
+    providerOptions: ProviderCallOptions
     maxOutputTokens: number | undefined
     messages: ModelMessage[]
     tools: Record<string, Tool>

@@ -152,6 +152,8 @@ describe("SyncEvent", () => {
         // two shapes are not interchangeable in nikcli (they are in opencode).
         // Real domain events carry `bus:` and consumers subscribe to that.
         const unsubscribe = Bus.subscribe({ type: Created.type, properties: Thing }, (event) => {
+          // SAFETY: the subscription just above declares `properties: Thing`,
+          // so the bus only delivers events carrying that payload here.
           seen.push((event.properties as { name: string }).name)
         })
 

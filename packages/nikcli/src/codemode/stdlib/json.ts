@@ -1,7 +1,8 @@
 import { type AstNode, CodeModeFunction, InterpreterRuntimeError, supportedSyntaxMessage } from "../interpreter/model"
 import { copyIn, copyOut } from "../tool-runtime"
+import type { JsonValue } from "../../util/json"
 
-export const invokeJsonMethod = (name: string, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeJsonMethod = (name: string, args: Array<unknown>, node: AstNode): string | JsonValue | undefined => {
   switch (name) {
     case "stringify": {
       const replacer = args[1]

@@ -91,6 +91,12 @@ export namespace ProviderHttpApi {
 
   // Same as ConfigHttpApi: runtime provider/model records still carry present
   // `undefined` optionals. The encoder rejects those; JSON round-trip drops them.
+  //
+  // SAFETY: the round trip returns the same value with the JSON-invalid parts
+  // removed — keys whose value was `undefined`, which every field this is
+  // applied to already declares optional. Callers pass response bodies the
+  // endpoint schema then encodes, so a shape that did not survive the trip
+  // fails there rather than silently reaching a client.
   const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
 
   export const handlers = {
@@ -108,6 +114,13 @@ export namespace ProviderHttpApi {
           connected,
         )
 
+        // `jsonSafe` stays here for a reason that is not optionality: a
+        // provider whose credential comes from the account sign-in carries a
+        // live `fetch` function in `options` (`provider/provider.ts` ~539), and
+        // `options` is `Schema.Record(String, Unknown)`, which at the JSON
+        // boundary rejects a function outright — `GET /provider` answers 400.
+        // The round-trip drops it. Removing this needs the function to stop
+        // living in a schema-declared record, not a schema change.
         return jsonSafe({
           all: Object.values(providers),
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
@@ -118,7 +131,7 @@ export namespace ProviderHttpApi {
       Effect.gen(function* () {
         const providerAuth = yield* ProviderAuth.Service
         const methods = yield* providerAuth.methods()
-        return jsonSafe(methods)
+        return methods
       }).pipe(Effect.orDie),
     api: ({ params, payload }: { params: { providerID: string }; payload: typeof ApiPayload.Type }) =>
       Effect.gen(function* () {
@@ -127,7 +140,10 @@ export namespace ProviderHttpApi {
           providerID: params.providerID,
           key: payload.key,
         })
-        yield* Effect.promise(() => Instance.dispose())
+        // Invalidate, not dispose — same reasoning as the config update
+        // handler: this request's scope is still live. `refresh()` below
+        // rebuilds the provider catalog explicitly.
+        yield* Effect.promise(() => Instance.invalidate())
         const provider = yield* Provider.Service
         yield* Effect.ignore(provider.refresh())
         return { success: true as const }
@@ -136,7 +152,9 @@ export namespace ProviderHttpApi {
       Effect.gen(function* () {
         const auth = yield* Auth.Service
         yield* auth.remove(params.providerID)
-        yield* Effect.promise(() => Instance.dispose())
+        // See the `api` handler: invalidation keeps this request's instance
+        // owned and alive; refresh rebuilds what the credential change broke.
+        yield* Effect.promise(() => Instance.invalidate())
         const provider = yield* Provider.Service
         yield* Effect.ignore(provider.refresh())
         return { success: true as const }

@@ -1,9 +1,6 @@
 import { describe, it } from "bun:test"
 import { recordBenchmark } from "./benchmarks/runner"
 
-const CLAUDE_TOOL_ID_REGEX = /[^a-zA-Z0-9_-]/g
-const MISTRAL_TOOL_ID_REGEX = /[^a-zA-Z0-9]/g
-
 const DEFAULT_TITLE_REGEX = new RegExp(
   `^(New session - |Child session - )\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$`,
 )

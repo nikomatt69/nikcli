@@ -4,7 +4,7 @@ import { Tool } from "./tool"
 import DESCRIPTION from "./context_diagnostics.txt"
 import { LSP } from "@/lsp"
 import { assertExternalDirectory } from "./external-directory"
-import { AppRuntime, InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { Effect } from "effect"
 
 const parameters = z.object({
@@ -12,13 +12,8 @@ const parameters = z.object({
   limit: z.number().int().min(1).max(200).optional().describe("Maximum diagnostics per file"),
 })
 
-function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
-  return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
-}
-
-async function instancePaths() {
-  const ctx = await AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
-  return { directory: ctx.directory, worktree: ctx.worktree }
+function runLSP<A, E>(instance: InstanceContext, effect: Effect.Effect<A, E, LSP.Service>) {
+  return runPromiseWithLayer(LSP.defaultLayer, locallyInstance(instance, effect))
 }
 
 export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: number }>("context_diagnostics", {
@@ -26,7 +21,8 @@ export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: nu
   parameters,
   async execute(params, ctx) {
     const limit = params.limit ?? 50
-    const { directory, worktree } = await instancePaths()
+    const instance = InstanceState.ambient()
+    const { directory, worktree } = instance
 
     await ctx.ask({
       permission: "context_diagnostics",
@@ -43,6 +39,7 @@ export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: nu
       await assertExternalDirectory(ctx, target, { kind: "file" })
 
       const all = await runLSP(
+        instance,
         Effect.gen(function* () {
           const lsp = yield* LSP.Service
           yield* lsp.touchFile(target, true)
@@ -70,6 +67,7 @@ export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: nu
     }
 
     const diagnostics = await runLSP(
+      instance,
       Effect.gen(function* () {
         const lsp = yield* LSP.Service
         return yield* lsp.diagnostics()

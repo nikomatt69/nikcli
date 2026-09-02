@@ -95,6 +95,9 @@ export const SearchToolsTool = Tool.define("search_tools", async (initCtx) => {
       // (apply_patch vs edit/write, the Exa-backed search tools). Falling back to
       // an empty descriptor keeps the tool answering rather than throwing when it
       // is driven outside the normal session path.
+      // SAFETY: every field is optional and read defensively — the comment
+      // above describes the empty-descriptor fallback that covers a context
+      // carrying no model at all.
       const model = ctx.extra?.["model"] as { providerID?: string; api?: { id?: string } } | undefined
       const descriptor = {
         providerID: model?.providerID ?? "",

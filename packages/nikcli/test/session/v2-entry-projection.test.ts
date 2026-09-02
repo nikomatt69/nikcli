@@ -282,7 +282,11 @@ describe("v2 entry projection", () => {
         await runSession(
           Effect.gen(function* () {
             const s = yield* service()
-            yield* s.removePart({ sessionID: session.id, messageID: assistantID, partID })
+            yield* s.removePart({
+              sessionID: session.id,
+              messageID: assistantID,
+              partID,
+            })
           }),
         )
         expect((await SessionV2.entries(session.id)).some((e) => e.type === "text")).toBe(false)
@@ -324,11 +328,10 @@ describe("v2 entry projection", () => {
   })
 
   /**
-   * The bulk importers — a teleport landing, `nikcli import`, a shared-session
-   * import — write message rows straight through `MessageRepo`, so no
-   * projector ever sees them. A session that has *some* entries and messages
-   * they do not cover is the case a "backfill only when the table is empty"
-   * guard gets wrong: it hands the renderer a half-drawn transcript.
+   * A leftover `MessageRepo` insert (or a session written before
+   * `session_entry` existed) can leave *some* entries that do not cover
+   * every message. That is the case a "backfill only when the table is
+   * empty" guard gets wrong: it hands the renderer a half-drawn transcript.
    */
   it("rebuilds a session whose entries do not cover every message", async () => {
     await Instance.provide({
@@ -349,7 +352,12 @@ describe("v2 entry projection", () => {
           agent: "build",
           mode: "build",
           cost: 0,
-          tokens: { input: 1, output: 1, reasoning: 0, cache: { read: 0, write: 0 } },
+          tokens: {
+            input: 1,
+            output: 1,
+            reasoning: 0,
+            cache: { read: 0, write: 0 },
+          },
           path: { cwd: projectDir, root: projectDir },
         } as any)
         MessageRepo.upsertPart({
@@ -370,11 +378,10 @@ describe("v2 entry projection", () => {
   })
 
   /**
-   * `rebuild` is what the importers call after their bulk insert. Whatever it
-   * produces has to be indistinguishable from what the projectors would have
-   * written had the rows gone through the session service — otherwise a
-   * teleported session renders differently from the one it was teleported
-   * from.
+   * `rebuild` is the repair path for a session whose entries drifted from
+   * its v1 rows. Whatever it produces has to be indistinguishable from what
+   * the projectors would have written had the rows gone through persist —
+   * otherwise a repaired session renders differently from a live one.
    */
   it("the bulk-import path projects what the write path would have", async () => {
     await Instance.provide({
@@ -513,7 +520,9 @@ describe("live and persisted projections agree", () => {
         const client = new Map<string, SessionEntryTypes.Entry>()
         const unsubscribes = [
           Bus.subscribe(SessionProjector.Event.EntryUpdated, (event) => {
-            const { entry } = event.properties as { entry: SessionEntryTypes.Entry }
+            const { entry } = event.properties as {
+              entry: SessionEntryTypes.Entry
+            }
             client.set(entry.id, entry)
           }),
           Bus.subscribe(SessionProjector.Event.EntryRemoved, (event) => {
@@ -556,7 +565,11 @@ describe("live and persisted projections agree", () => {
             yield* s.updatePart(toolPart as any)
             yield* s.updatePart({
               ...toolPart,
-              state: { status: "running", input: { filePath: "a.ts" }, time: { start: 1 } },
+              state: {
+                status: "running",
+                input: { filePath: "a.ts" },
+                time: { start: 1 },
+              },
             } as any)
             yield* s.updatePart({
               ...toolPart,
@@ -577,7 +590,11 @@ describe("live and persisted projections agree", () => {
               partID: doomedPart.id,
             })
             // seal the step
-            yield* s.updateMessage({ ...assistant, time: { created: 2, completed: 3 }, finish: "stop" } as any)
+            yield* s.updateMessage({
+              ...assistant,
+              time: { created: 2, completed: 3 },
+              finish: "stop",
+            } as any)
           }),
         )
 
@@ -608,7 +625,10 @@ describe("live and persisted projections agree", () => {
         const session = await runSession(
           Effect.gen(function* () {
             const s = yield* service()
-            return yield* s.createNext({ directory: projectDir, title: "payload-pure" })
+            return yield* s.createNext({
+              directory: projectDir,
+              title: "payload-pure",
+            })
           }),
         )
         const userID = Identifier.ascending("message")
@@ -637,7 +657,10 @@ describe("live and persisted projections agree", () => {
         expect(MessageRepo.listParts(userID)).toEqual([])
         const user = SessionEntryRepo.list(session.id).find((entry) => entry.type === "user")
         expect(user).toMatchObject({ type: "user", text: "from payload" })
-        expect(SessionEntry.toV1WrittenPart(user!, part as any)).toMatchObject({ id: part.id, text: "from payload" })
+        expect(SessionEntry.toV1WrittenPart(user!, part as any)).toMatchObject({
+          id: part.id,
+          text: "from payload",
+        })
       },
     })
   })
@@ -669,7 +692,10 @@ describe("live and persisted projections agree", () => {
         const session = await runSession(
           Effect.gen(function* () {
             const s = yield* service()
-            return yield* s.createNext({ directory: projectDir, title: "rollback" })
+            return yield* s.createNext({
+              directory: projectDir,
+              title: "rollback",
+            })
           }),
         )
         const userID = Identifier.ascending("message")

@@ -1,4 +1,5 @@
 import { Instance } from "../project/instance"
+import { bunUtils, type CronJob } from "@/bun"
 import { Log } from "@nikcli-ai/util/log"
 
 export namespace Scheduler {
@@ -6,31 +7,45 @@ export namespace Scheduler {
 
   export type Task = {
     id: string
-    interval: number
+    interval?: number
+    cron?: string
+    tz?: string
     run: () => Promise<void>
     scope?: "instance" | "global"
     skipInitialRun?: boolean
   }
 
-  type Timer = ReturnType<typeof setInterval>
+  type Handle = Timer | CronJob
   type Entry = {
     tasks: Map<string, Task>
-    timers: Map<string, Timer>
+    timers: Map<string, Handle>
   }
 
   const create = (): Entry => {
     const tasks = new Map<string, Task>()
-    const timers = new Map<string, Timer>()
+    const timers = new Map<string, Handle>()
     return { tasks, timers }
   }
 
   const shared = create()
 
+  function isCronJob(handle: Handle): handle is CronJob {
+    return typeof handle === "object" && handle !== null && "stop" in handle && typeof handle.stop === "function"
+  }
+
+  function clearHandle(handle: Handle) {
+    if (isCronJob(handle)) {
+      handle.stop()
+      return
+    }
+    clearInterval(handle)
+  }
+
   const state = Instance.state(
     () => create(),
     async (entry) => {
       for (const timer of entry.timers.values()) {
-        clearInterval(timer)
+        clearHandle(timer)
       }
       entry.tasks.clear()
       entry.timers.clear()
@@ -42,9 +57,21 @@ export namespace Scheduler {
     const entry = scope === "global" ? shared : state()
     const current = entry.timers.get(task.id)
     if (current && scope === "global") return
-    if (current) clearInterval(current)
+    if (current) clearHandle(current)
 
     entry.tasks.set(task.id, task)
+    if (task.cron) {
+      const job = bunUtils.cron(task.cron, () => run(task), task.tz ? { tz: task.tz } : undefined)
+      job.unref()
+      entry.timers.set(task.id, job)
+      return
+    }
+
+    if (!task.interval || task.interval <= 0) {
+      log.warn("scheduler task missing interval and cron", { id: task.id })
+      return
+    }
+
     if (!task.skipInitialRun) {
       void run(task)
     }
@@ -58,7 +85,7 @@ export namespace Scheduler {
   export function unregister(id: string, scope: Task["scope"] = "instance") {
     const entry = scope === "global" ? shared : state()
     const timer = entry.timers.get(id)
-    if (timer) clearInterval(timer)
+    if (timer) clearHandle(timer)
     entry.timers.delete(id)
     entry.tasks.delete(id)
   }

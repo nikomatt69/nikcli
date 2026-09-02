@@ -6,7 +6,7 @@ import z from "zod"
 import * as Formatter from "./formatter"
 import { Config } from "../config/config"
 import { mergeDeep } from "remeda"
-import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer } from "@/effect"
 import type { InstanceContext } from "@/effect/instance-ref"
 import { Context, Effect, Layer } from "effect"
 
@@ -184,9 +184,12 @@ export namespace Format {
    * non-fatal to the mutation, matching the existing formatter behavior.
    */
   export async function formatFile(filepath: string, bom: boolean): Promise<boolean> {
+    // Plain-async callers (write/edit/apply_patch) carry no context, so the
+    // ambient scope is read once here and bound explicitly for the run.
     const formatted = await runPromiseWithLayer(
       defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        InstanceState.ambient(),
         Effect.gen(function* () {
           const format = yield* Service
           return yield* format.file(filepath)

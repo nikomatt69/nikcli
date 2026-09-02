@@ -68,12 +68,12 @@ export namespace ConfigPaths {
     return configFilesInDirectory(dir, name)
   }
 
-  export class JsonError extends Schema.TaggedErrorClass<JsonError>()("ConfigPathsJsonError", {
+  export class JsonError extends Schema.TaggedError<JsonError>()("ConfigPathsJsonError", {
     path: Schema.String,
     message: Schema.optional(Schema.String),
   }) {}
 
-  export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("ConfigPathsInvalidError", {
+  export class InvalidError extends Schema.TaggedError<InvalidError>()("ConfigPathsInvalidError", {
     path: Schema.String,
     issues: Schema.optional(Schema.Unknown),
     message: Schema.optional(Schema.String),

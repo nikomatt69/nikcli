@@ -77,6 +77,8 @@ describe("workspace warp route", () => {
         const ws = await Workspace.create({
           projectID: Instance.project.id,
           branch: null,
+          // SAFETY: the route under test never reads the workspace config; the
+          // assertion lets the fixture skip the fields it would otherwise need.
           config: { type: "worktree", directory: "" } as never,
         })
 

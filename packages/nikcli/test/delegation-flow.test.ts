@@ -11,15 +11,23 @@ process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 
 preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
-const [{ Instance }, { Delegation }, { BackgroundRun }, { BackgroundRunRepo }, { DelegationTool }, { DelegatorTool }] =
-  await Promise.all([
-    import("../src/project/instance"),
-    import("../src/delegation/manager"),
-    import("../src/background/run"),
-    import("../src/background/repo"),
-    import("../src/tool/delegation"),
-    import("../src/tool/delegator"),
-  ])
+const [
+  { Instance },
+  { InstanceState },
+  { Delegation },
+  { BackgroundRun },
+  { BackgroundRunRepo },
+  { DelegationTool },
+  { DelegatorTool },
+] = await Promise.all([
+  import("../src/project/instance"),
+  import("../src/effect"),
+  import("../src/delegation/manager"),
+  import("../src/background/run"),
+  import("../src/background/repo"),
+  import("../src/tool/delegation"),
+  import("../src/tool/delegator"),
+])
 
 const projectDirs: string[] = []
 
@@ -34,6 +42,11 @@ async function withProject<T>(fn: (projectDir: string) => Promise<T>): Promise<T
 
 function createContext(sessionID: string): Tool.Context {
   return {
+    // Read on access: the context is built outside `withProject` and used
+    // inside it.
+    get instance() {
+      return InstanceState.ambient()
+    },
     sessionID,
     messageID: "msg_test",
     callID: "call_test",
@@ -69,6 +82,44 @@ afterAll(async () => {
 // can take well over the default 5s when other test files contend for the same Bun
 // worker pool. Keeping it generous prevents flake without masking actual hangs.
 const FLOW_TIMEOUT_MS = 30_000
+
+describe("Delegation.listJobs", () => {
+  /**
+   * `DelegationJob` on the HTTP contract declares ten members
+   * `Schema.optionalKey`, which rejects a *present* `undefined` at encode
+   * time. `projectJob` used to assign all ten unconditionally, and
+   * `GET /session/:id/delegation` only survived because the handler
+   * round-tripped through `jsonSafe`. Assert on the keys, not on
+   * `toBeUndefined()`: the latter passes for a key that is present.
+   */
+  it(
+    "omits unset optional members instead of assigning undefined",
+    async () => {
+      await withProject(async () => {
+        const parentSessionID = uniqueSessionID("ses_jobs")
+        await BackgroundRun.create({
+          parentSessionID,
+          agent: "explore",
+          prompt: "Minimal record, no optionals set",
+        })
+
+        const [job] = await Delegation.listJobs(parentSessionID)
+        expect(job).toBeDefined()
+        expect(job!.agent).toBe("explore")
+        for (const key of ["parentAgent", "delegatorID", "delegatorSessionID", "completedAt", "error"]) {
+          expect(job).not.toHaveProperty(key)
+        }
+
+        const inspected = await Delegation.inspectJob(job!.jobID)
+        expect(inspected).toBeDefined()
+        for (const key of ["parentAgent", "delegatorID", "delegatorSessionID", "completedAt", "error"]) {
+          expect(inspected).not.toHaveProperty(key)
+        }
+      })
+    },
+    FLOW_TIMEOUT_MS,
+  )
+})
 
 describe("delegation flow", () => {
   it(

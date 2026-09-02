@@ -1,0 +1,1334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>nikcli — Project Roadmap</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --bg-elev: #161b22;
+        --bg-card: #131820;
+        --border: #30363d;
+        --border-soft: #21262d;
+        --text: #e6edf3;
+        --text-dim: #c9d1d9;
+        --muted: #7d8590;
+
+        --cyan: #39d0d8;
+        --green: #3fb950;
+        --amber: #d29922;
+        --purple: #bc8cff;
+        --pink: #f778ba;
+        --red: #f85149;
+        --blue: #58a6ff;
+
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Mono", Consolas, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 14.5px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      .container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 48px 28px 96px;
+      }
+
+      /* ===== HERO ===== */
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 28px;
+        align-items: end;
+        padding-bottom: 28px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 48px;
+      }
+      .mark {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .mark::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        background: var(--green);
+        border-radius: 50%;
+        box-shadow: 0 0 12px var(--green);
+      }
+      .hero h1 {
+        font-size: 56px;
+        line-height: 1;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        margin: 0 0 12px;
+      }
+      .hero h1 .accent {
+        color: var(--cyan);
+      }
+      .hero .role {
+        font-family: var(--mono);
+        color: var(--text-dim);
+        font-size: 16px;
+        margin: 0;
+      }
+      .hero .role strong {
+        color: var(--amber);
+        font-weight: 500;
+      }
+      .hero .tag {
+        margin-top: 22px;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        color: var(--muted);
+        max-width: 600px;
+        border-left: 2px solid var(--border);
+        padding-left: 14px;
+      }
+      .hero-right {
+        text-align: right;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .hero-right .stamp {
+        display: inline-block;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        margin-bottom: 8px;
+        color: var(--text);
+      }
+
+      /* ===== Section ===== */
+      .section {
+        margin-top: 64px;
+      }
+      .section h2 {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 0 0 24px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-soft);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .section h2 .idx {
+        color: var(--cyan);
+      }
+      .section h2 .meta {
+        margin-left: auto;
+        font-weight: 400;
+        letter-spacing: 0.05em;
+        text-transform: none;
+      }
+
+      /* ===== Stats ===== */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+      }
+      .stat {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 18px 20px;
+      }
+      .stat .num {
+        font-family: var(--mono);
+        font-size: 32px;
+        font-weight: 600;
+        color: var(--text);
+        line-height: 1;
+        letter-spacing: -0.02em;
+      }
+      .stat .num .unit {
+        font-size: 14px;
+        color: var(--muted);
+        margin-left: 2px;
+      }
+      .stat .label {
+        margin-top: 8px;
+        font-size: 11.5px;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      /* ===== Status board (engineering) ===== */
+      .status-board {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .lane {
+        background: var(--bg-elev);
+        border: 1px solid var(--border-soft);
+        border-radius: 10px;
+        padding: 16px;
+        min-height: 200px;
+      }
+      .lane-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-soft);
+        margin-bottom: 12px;
+      }
+      .lane-head h3 {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--text);
+      }
+      .lane-head .count {
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 12px;
+      }
+      .lane.done .lane-head h3 {
+        color: var(--green);
+      }
+      .lane.done .lane-head .count {
+        background: rgba(63, 185, 80, 0.12);
+        color: var(--green);
+      }
+      .lane.ready .lane-head h3 {
+        color: var(--amber);
+      }
+      .lane.ready .lane-head .count {
+        background: rgba(210, 153, 34, 0.12);
+        color: var(--amber);
+      }
+      .lane.later .lane-head h3 {
+        color: var(--purple);
+      }
+      .lane.later .lane-head .count {
+        background: rgba(188, 140, 255, 0.12);
+        color: var(--purple);
+      }
+
+      .item {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-left: 3px solid var(--border);
+        border-radius: 6px;
+        padding: 12px 14px;
+        margin-bottom: 8px;
+      }
+      .item.done {
+        border-left-color: var(--green);
+      }
+      .item.ready {
+        border-left-color: var(--amber);
+      }
+      .item.later {
+        border-left-color: var(--purple);
+      }
+
+      .item .id {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 0.1em;
+      }
+      .item .title {
+        font-size: 14px;
+        color: var(--text);
+        margin: 4px 0 6px;
+        font-weight: 500;
+      }
+      .item .desc {
+        font-size: 12.5px;
+        color: var(--text-dim);
+        line-height: 1.45;
+      }
+      .item .date {
+        margin-top: 6px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      /* ===== Product phases ===== */
+      .phases {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .phase {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 18px 22px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 20px;
+        align-items: center;
+      }
+      .phase .num {
+        font-family: var(--mono);
+        font-size: 22px;
+        font-weight: 600;
+        color: var(--cyan);
+        min-width: 50px;
+      }
+      .phase .body h4 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        color: var(--text);
+        font-weight: 600;
+      }
+      .phase .body p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--text-dim);
+      }
+      .phase .pill {
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        letter-spacing: 0.08em;
+      }
+      .phase.closed .pill {
+        background: rgba(63, 185, 80, 0.12);
+        color: var(--green);
+      }
+      .phase.partial .pill {
+        background: rgba(57, 208, 216, 0.12);
+        color: var(--cyan);
+      }
+      .phase.open .pill {
+        background: rgba(210, 153, 34, 0.12);
+        color: var(--amber);
+      }
+      .phase.pending .pill {
+        background: rgba(125, 133, 144, 0.12);
+        color: var(--muted);
+      }
+
+      /* ===== Outcome table ===== */
+      .outcome-grid {
+        display: grid;
+        grid-template-columns: 110px 1fr 1.5fr;
+        gap: 0;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .outcome-grid .head {
+        background: var(--bg-elev);
+        font-family: var(--mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .outcome-grid .cell {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-soft);
+        font-size: 13.5px;
+        color: var(--text-dim);
+      }
+      .outcome-grid .cell.outcome {
+        color: var(--text);
+        font-weight: 500;
+      }
+      .outcome-grid .horizon {
+        font-family: var(--mono);
+        font-weight: 600;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+      }
+      .outcome-grid .horizon.now {
+        color: var(--green);
+      }
+      .outcome-grid .horizon.next {
+        color: var(--cyan);
+      }
+      .outcome-grid .horizon.later {
+        color: var(--purple);
+      }
+
+      /* ===== Timeline ===== */
+      .timeline {
+        display: grid;
+        gap: 8px;
+      }
+      .ev {
+        display: grid;
+        grid-template-columns: 130px 80px 1fr 120px;
+        gap: 16px;
+        align-items: center;
+        padding: 10px 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 6px;
+        font-size: 13px;
+      }
+      .ev .date {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .ev .kind {
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        text-align: center;
+      }
+      .ev .kind.release {
+        background: rgba(63, 185, 80, 0.12);
+        color: var(--green);
+      }
+      .ev .kind.feat {
+        background: rgba(57, 208, 216, 0.12);
+        color: var(--cyan);
+      }
+      .ev .kind.perf {
+        background: rgba(210, 153, 34, 0.12);
+        color: var(--amber);
+      }
+      .ev .kind.refactor {
+        background: rgba(188, 140, 255, 0.12);
+        color: var(--purple);
+      }
+      .ev .kind.fix {
+        background: rgba(248, 81, 73, 0.12);
+        color: var(--red);
+      }
+      .ev .text {
+        color: var(--text);
+      }
+      .ev .ref {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        text-align: right;
+      }
+
+      /* ===== Branches ===== */
+      .branches {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 16px;
+      }
+      .branch-cat {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 14px 16px;
+      }
+      .branch-cat h4 {
+        margin: 0 0 10px;
+        font-family: var(--mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+      .branch-cat .count {
+        margin-left: 6px;
+        color: var(--cyan);
+      }
+      .branch-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .pill {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: var(--bg-elev);
+        border: 1px solid var(--border-soft);
+        color: var(--text-dim);
+      }
+      .pill.dev {
+        border-color: rgba(57, 208, 216, 0.4);
+        color: var(--cyan);
+      }
+      .pill.feat {
+        border-color: rgba(188, 140, 255, 0.4);
+        color: var(--purple);
+      }
+      .pill.fix {
+        border-color: rgba(248, 81, 73, 0.4);
+        color: var(--red);
+      }
+      .pill.align {
+        border-color: rgba(210, 153, 34, 0.4);
+        color: var(--amber);
+      }
+      .pill.evidence {
+        border-color: rgba(63, 185, 80, 0.4);
+        color: var(--green);
+      }
+      .pill.docs {
+        border-color: rgba(88, 166, 255, 0.4);
+        color: var(--blue);
+      }
+      .pill.chore {
+        border-color: rgba(125, 133, 144, 0.4);
+        color: var(--muted);
+      }
+
+      /* ===== Non-goals ===== */
+      .nongoals {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 10px;
+      }
+      .nongoal {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-left: 3px solid var(--red);
+        border-radius: 6px;
+        padding: 12px 14px;
+      }
+      .nongoal .title {
+        font-size: 13.5px;
+        color: var(--text);
+        margin-bottom: 4px;
+        font-weight: 500;
+      }
+      .nongoal .reason {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      /* ===== Discovery briefs ===== */
+      .briefs {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+      }
+      .brief {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 16px 18px;
+      }
+      .brief h4 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        color: var(--text);
+      }
+      .brief .promise {
+        font-size: 12.5px;
+        color: var(--text-dim);
+        line-height: 1.5;
+        margin-bottom: 10px;
+      }
+      .brief .promote {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--muted);
+        line-height: 1.5;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border-soft);
+      }
+      .brief .promote strong {
+        color: var(--cyan);
+      }
+
+      /* ===== Foot ===== */
+      .foot {
+        margin-top: 72px;
+        padding-top: 22px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      @media (max-width: 920px) {
+        .stats {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .status-board {
+          grid-template-columns: 1fr;
+        }
+        .phase {
+          grid-template-columns: auto 1fr;
+        }
+        .phase .pill {
+          grid-column: 2;
+          justify-self: start;
+        }
+        .outcome-grid {
+          grid-template-columns: 1fr;
+        }
+        .outcome-grid .head {
+          display: none;
+        }
+        .outcome-grid .cell {
+          border-left: 3px solid var(--border-soft);
+        }
+        .ev {
+          grid-template-columns: 1fr;
+        }
+        .ev .ref {
+          text-align: left;
+        }
+        .briefs {
+          grid-template-columns: 1fr;
+        }
+        .nongoals {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 560px) {
+        .container {
+          padding: 28px 16px 64px;
+        }
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .hero h1 {
+          font-size: 38px;
+        }
+        .stats {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- HERO -->
+      <header class="hero">
+        <div>
+          <div class="mark">nikcli · project roadmap · live-main</div>
+          <h1>NIK<span class="accent">CLI</span> ROADMAP</h1>
+          <p class="role"><strong>engineering + product</strong> · reconciled <strong>2026-08-24</strong></p>
+          <div class="tag">
+            Two truths held separately: engineering admits only evidenced leftovers, product orders user outcomes —
+            promotion between them requires a runnable gate.
+          </div>
+        </div>
+        <div class="hero-right">
+          <div class="stamp">v1.313.0 · STABLE</div>
+          <div>github.com/nikomatt69/nikcli</div>
+          <div>27 packages · fork of opencode</div>
+        </div>
+      </header>
+
+      <!-- STATS -->
+      <section class="section">
+        <h2><span class="idx">01</span> At a glance</h2>
+        <div class="stats">
+          <div class="stat">
+            <div class="num">15</div>
+            <div class="label">engineering items done</div>
+          </div>
+          <div class="stat">
+            <div class="num">1</div>
+            <div class="label">ready (gate met)</div>
+          </div>
+          <div class="stat">
+            <div class="num">1</div>
+            <div class="label">later</div>
+          </div>
+          <div class="stat">
+            <div class="num">5</div>
+            <div class="label">product phases</div>
+          </div>
+          <div class="stat">
+            <div class="num">4</div>
+            <div class="label">discovery briefs</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ENGINEERING STATUS BOARD -->
+      <section class="section">
+        <h2>
+          <span class="idx">02</span> Engineering status board
+          <span class="meta">specs/ROADMAP.md · reconciled 2026-08-24</span>
+        </h2>
+        <div class="status-board">
+          <!-- DONE -->
+          <div class="lane done">
+            <div class="lane-head">
+              <h3>Done</h3>
+              <span class="count">15</span>
+            </div>
+
+            <div class="item done">
+              <div class="id">C1</div>
+              <div class="title">Release integrity</div>
+              <div class="desc">
+                Generated drift, blocking static checks, release gates — `ci-pipeline` red is no longer reachable
+                without validation.
+              </div>
+              <div class="date">landed 2026-08-23</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">E4</div>
+              <div class="title">Encode optionals as absent keys</div>
+              <div class="desc">
+                `jsonSafe` deleted except where `Schema.Unknown` or live `fetch` payloads demand it. Five slices.
+              </div>
+              <div class="date">landed 2026-08-19</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">E5</div>
+              <div class="title">Typed Effect failure channel</div>
+              <div class="desc">
+                `Session.Error` on typed channel only; `catchDefect(asSessionError)` gone; missing-session revert/diff
+                500s fixed.
+              </div>
+              <div class="date">landed 2026-08-24</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">H1</div>
+              <div class="title">Typed write inputs</div>
+              <div class="desc">
+                `Domain.*`, `MobileProject`, `ProfilePatchInput` — `payload: unknown` removed from the generated SDK
+                types.
+              </div>
+              <div class="date">landed 2026-08-17</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">H3</div>
+              <div class="title">Exhaustive SDK namespaced compat view</div>
+              <div class="desc">
+                336 Promise endpoints declared exactly once in `PublicClientCompat`. 40 omissions in the hand-maintained
+                view closed.
+              </div>
+              <div class="date">landed 2026-08-23</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">H4</div>
+              <div class="title">Collapse two dispatcher stacks</div>
+              <div class="desc">
+                `PublicHttpApi.layer` composes per-group `HandlersLive`. AccountGroup + profilesList added.
+              </div>
+              <div class="date">landed 2026-08-17</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">H5</div>
+              <div class="title">Generate implementedRoutes from contract</div>
+              <div class="desc">
+                `OpenApi.fromApi(PublicApi)` is the single source. `check:routes --strict` honored.
+              </div>
+              <div class="date">landed 2026-08-17</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">H6</div>
+              <div class="title">Named payload field refs</div>
+              <div class="desc">
+                Each struct payload declared once; `unknown` stays `unknown`; six TUI payloads real schemas.
+              </div>
+              <div class="date">landed 2026-08-18</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">H7</div>
+              <div class="title">JSON `/mobile/*` onto encoded handlers</div>
+              <div class="desc">
+                115 unvalidated bodies moved to encoded handlers — no second `jsonSafe` on encoded mobile responses.
+              </div>
+              <div class="date">landed 2026-08-20</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">H8</div>
+              <div class="title">Auth on the contract via HttpApiMiddleware</div>
+              <div class="desc">
+                328 secured / 10 open endpoints. OpenAPI declares `bearerAuth`, `auth_token`, `basicAuth`. Direct bridge
+                callers still authenticate once.
+              </div>
+              <div class="date">landed 2026-08-24</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">P2</div>
+              <div class="title">Request-path cuts</div>
+              <div class="desc">
+                Session list SQL: 2000→20 rows, 7.84ms→0.73ms. Hot-poll log policy gates `/event` and `/session/status`.
+                Parsed-URL carry-through measured 0.03% — rejected.
+              </div>
+              <div class="date">landed 2026-08-24</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">P3</div>
+              <div class="title">normalizeMessages — characterized</div>
+              <div class="desc">
+                Function measured: ~2.1ms on 601-message history; 72% in surrogate scan. Rewrite saves <1% — closed by
+                measurement, not refactor.
+              </div>
+              <div class="date">closed 2026-08-24</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">S4r</div>
+              <div class="title">Import / teleport / run through SessionV2</div>
+              <div class="desc">
+                `run.ts`, `import.ts`, `mobile/teleport.ts` persist via `SessionV2Write.persist`. No v1 rows the entry
+                table cannot represent.
+              </div>
+              <div class="date">landed 2026-08-23</div>
+            </div>
+
+            <div class="item done">
+              <div class="id">I1 · X2</div>
+              <div class="title">Identifier cleanup · adapter deletions</div>
+              <div class="desc">
+                Unprefixed `Identifier` gone; six caller-less adapters deleted; enterprise uses `util/id`.
+              </div>
+              <div class="date">landed 2026-08-17/18</div>
+            </div>
+          </div>
+
+          <!-- READY -->
+          <div class="lane ready">
+            <div class="lane-head">
+              <h3>Ready</h3>
+              <span class="count">1</span>
+            </div>
+
+            <div class="item ready">
+              <div class="id">R1</div>
+              <div class="title">Keyed scoped instance runtime</div>
+              <div class="desc">
+                One instance key, `InstanceRef` without ALS fallback, `withInstanceAsync({ init })` can die. Two
+                production importers remain: `project/instance.ts:2` and `workspace/workspace-context.ts:1`.
+              </div>
+              <div class="date">lifecycle gate met 2026-08-24 · migration open</div>
+            </div>
+
+            <div class="item ready" style="opacity: 0.4; margin-top: 18px">
+              <div class="id">—</div>
+              <div class="title">No further items queued</div>
+              <div class="desc">E5, P2, H8 all closed 2026-08-24. R1 is the next eligible start.</div>
+            </div>
+          </div>
+
+          <!-- LATER -->
+          <div class="lane later">
+            <div class="lane-head">
+              <h3>Later</h3>
+              <span class="count">1</span>
+            </div>
+
+            <div class="item later">
+              <div class="id">T3</div>
+              <div class="title">Output codecs on structured built-ins</div>
+              <div class="desc">
+                Built-ins that already emit JSON declare a codec and return `value`. T2 was opt-in; do not promote
+                codecs to mandatory.
+              </div>
+              <div class="date">awaiting characterization coverage</div>
+            </div>
+
+            <div class="item later" style="opacity: 0.4; margin-top: 18px">
+              <div class="id">—</div>
+              <div class="title">No Later items behind T3</div>
+              <div class="desc">
+                Coverage gate written; lifecycle or characterization needs to mature before admission.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRODUCT PHASES -->
+      <section class="section">
+        <h2>
+          <span class="idx">03</span> Product phases
+          <span class="meta">specs/PRODUCT_ROADMAP.md · status: proposed 2026-08-23</span>
+        </h2>
+        <div class="phases">
+          <div class="phase partial">
+            <div class="num">P0</div>
+            <div class="body">
+              <h4>Recover release integrity · stop the E5 regression</h4>
+              <p>
+                Engineering leg met (C1 gates publish, E5.1–E5.4 landed, session/server tests green). Product leg open:
+                release-trust identity round-trip + first-use baseline window.
+              </p>
+            </div>
+            <div class="pill">engineering met · product open</div>
+          </div>
+
+          <div class="phase closed">
+            <div class="num">P1</div>
+            <div class="body">
+              <h4>Land measured P2 work · finish P2 discovery</h4>
+              <p>P2.1 landed 2026-08-24: 2000→20 rows, 7.84ms→0.73ms. P2.2 decided against on the measurement.</p>
+            </div>
+            <div class="pill">closed</div>
+          </div>
+
+          <div class="phase closed">
+            <div class="num">P2</div>
+            <div class="body">
+              <h4>Carry the parsed URL · attach auth to the contract</h4>
+              <p>
+                H8.1 landed 2026-08-24: HttpApiSecurity on protected groups, OpenAPI declares `bearerAuth` /
+                `auth_token` / `basicAuth`. First-use failure taxonomy refreshed for the new logging policy.
+              </p>
+            </div>
+            <div class="pill">closed</div>
+          </div>
+
+          <div class="phase open">
+            <div class="num">P3</div>
+            <div class="body">
+              <h4>Run continuity · automation discovery against existing seams</h4>
+              <p>
+                Cross-device continuity (HttpApi/event/session/pending-input/workspace) and trusted-automation
+                (Loop/Mission/background-run/S2) discovery briefs active. No new engineering items admitted yet.
+              </p>
+            </div>
+            <div class="pill">in progress</div>
+          </div>
+
+          <div class="phase pending">
+            <div class="num">P4</div>
+            <div class="body">
+              <h4>Promote or archive</h4>
+              <p>
+                Each Phase 3 brief produces an admission-or-rejection per item. Engineering IDs without a runnable
+                acceptance gate do not enter the plan.
+              </p>
+            </div>
+            <div class="pill">pending</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- OUTCOME SEQUENCE -->
+      <section class="section">
+        <h2><span class="idx">04</span> Outcome sequence</h2>
+        <div class="outcome-grid">
+          <div class="head">Horizon</div>
+          <div class="head">Outcome · Measure</div>
+          <div class="head">Engineering relationship</div>
+
+          <div class="cell horizon now">NOW</div>
+          <div class="cell outcome">
+            Releases users can trust.<br />
+            <span style="color: var(--text-dim); font-size: 12.5px"
+              >Successful validation-to-publish, generated-client drift, deploy acceptance, post-deploy health.</span
+            >
+          </div>
+          <div class="cell">
+            C1 is the first guard. Follow-up needs a revision-bearing health identity reliably tied to the detached
+            Railway upload.
+          </div>
+
+          <div class="cell horizon now">NOW</div>
+          <div class="cell outcome">
+            First useful result with less setup friction.<br />
+            <span style="color: var(--text-dim); font-size: 12.5px"
+              >Install-to-provider-ready, time-to-first-turn, failures grouped by actionable cause.</span
+            >
+          </div>
+          <div class="cell">
+            Promote only failures observed in installer, auth, provider catalog, or first-turn paths.
+          </div>
+
+          <div class="cell horizon next">NEXT</div>
+          <div class="cell outcome">
+            Continue the same session across terminal, desktop, mobile.<br />
+            <span style="color: var(--text-dim); font-size: 12.5px"
+              >Cross-surface continuation success, reconnect failures, state divergence, time-to-resume.</span
+            >
+          </div>
+          <div class="cell">
+            Reuse generated HttpApi, event, pending-input, workspace, SessionV2 seams. No second transport or renderer.
+          </div>
+
+          <div class="cell horizon next">NEXT</div>
+          <div class="cell outcome">
+            Delegate repeatable work with confidence.<br />
+            <span style="color: var(--text-dim); font-size: 12.5px"
+              >Loop/mission/background-run completion, intervention rate, restart recovery, explicit failure
+              causes.</span
+            >
+          </div>
+          <div class="cell">
+            S4r landed. Discovery maps reliability gaps across Loop, Mission, background-run, graceful-restart.
+          </div>
+
+          <div class="cell horizon later">LATER</div>
+          <div class="cell outcome">
+            Share and distribute work safely.<br />
+            <span style="color: var(--text-dim); font-size: 12.5px"
+              >Share completion, recipient activation, revocation success, channel reliability.</span
+            >
+          </div>
+          <div class="cell">
+            Discovery must define trust, ownership, revocation before changing collaboration or hosted surfaces.
+          </div>
+
+          <div class="cell horizon later">LATER</div>
+          <div class="cell outcome">
+            Validate sustainable paid value.<br />
+            <span style="color: var(--text-dim); font-size: 12.5px"
+              >Retention & WTP by cohort, support cost, provider-cost envelope.</span
+            >
+          </div>
+          <div class="cell">
+            No billing architecture before a priced cohort and measurable entitlement boundary exist.
+          </div>
+        </div>
+      </section>
+
+      <!-- RECENT ACTIVITY -->
+      <section class="section">
+        <h2>
+          <span class="idx">05</span> Recent activity
+          <span class="meta">last 14 commits on live-main</span>
+        </h2>
+        <div class="timeline">
+          <div class="ev">
+            <div class="date">2026-08-24</div>
+            <div class="kind feat">H8.1</div>
+            <div class="text">Auth declared on the contract with HttpApiMiddleware</div>
+            <div class="ref">48c9e2d6</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-24</div>
+            <div class="kind perf">P2.2</div>
+            <div class="text">Hot-poll request logs gated; closes P2.2 on the measurement</div>
+            <div class="ref">67f3b945</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-24</div>
+            <div class="kind perf">P2.1</div>
+            <div class="text">Session list filter, order, limit pushed into SQL</div>
+            <div class="ref">5f5ff3c4</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-24</div>
+            <div class="kind refactor">E5</div>
+            <div class="text">Session boundary: declared errors on the typed channel only</div>
+            <div class="ref">302d9da9</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-24</div>
+            <div class="kind feat">test</div>
+            <div class="text">Pin the instance lifecycle before R1 replaces it (lifecycle gate)</div>
+            <div class="ref">04abf331</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-24</div>
+            <div class="kind chore">ci</div>
+            <div class="text">Run the root typecheck serially by default</div>
+            <div class="ref">9971c68e</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-24</div>
+            <div class="kind docs">docs</div>
+            <div class="text">Record the H8 typecheck result on the roadmap</div>
+            <div class="ref">53b6bc69</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-23</div>
+            <div class="kind release">REL</div>
+            <div class="text">v1.313.0 · formatting cleanup, session error handling, browser-control daemon</div>
+            <div class="ref">2e3a144b</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-23</div>
+            <div class="kind fix">fix</div>
+            <div class="text">Stop prettier from collapsing the httpapi codegen manifest</div>
+            <div class="ref">1e72ae09</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-23</div>
+            <div class="kind fix">fix</div>
+            <div class="text">Bind the browser-control daemon on the main thread so sessions can start (#236)</div>
+            <div class="ref">991f20e3</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-23</div>
+            <div class="kind fix">fix</div>
+            <div class="text">Strip BOM and reap a session once its live view ends</div>
+            <div class="ref">fea5f02d</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-23</div>
+            <div class="kind fix">fix</div>
+            <div class="text">Only count driving a session as using it</div>
+            <div class="ref">c5637b31</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-23</div>
+            <div class="kind fix">fix</div>
+            <div class="text">Stop idle sessions and stop close-all from bricking the browser</div>
+            <div class="ref">bd238a44</div>
+          </div>
+          <div class="ev">
+            <div class="date">2026-08-22</div>
+            <div class="kind release">REL</div>
+            <div class="text">v1.312.0 · country tracking in community stats, oxlint 66→0</div>
+            <div class="ref">88a30922</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACTIVE BRANCHES -->
+      <section class="section">
+        <h2>
+          <span class="idx">06</span> Active branches
+          <span class="meta">80 total · representative set shown</span>
+        </h2>
+        <div class="branches">
+          <div class="branch-cat">
+            <h4>Development <span class="count">4</span></h4>
+            <div class="branch-pills">
+              <span class="pill dev">dev</span>
+              <span class="pill dev">dev-2-safe</span>
+              <span class="pill dev">dev-mobile</span>
+              <span class="pill dev">CHECK</span>
+            </div>
+          </div>
+          <div class="branch-cat">
+            <h4>Features <span class="count">2</span></h4>
+            <div class="branch-pills">
+              <span class="pill feat">feat/tui-image-prompt-preview</span>
+              <span class="pill feat">feat/tui-v2-selective-port</span>
+            </div>
+          </div>
+          <div class="branch-cat">
+            <h4>Fixes <span class="count">3+</span></h4>
+            <div class="branch-pills">
+              <span class="pill fix">fix/desktop-ci-windows-sidecar</span>
+              <span class="pill fix">fix/herdr-release-pane-on-exit</span>
+              <span class="pill fix">fix/httpapi-session-test-sql-seed</span>
+            </div>
+          </div>
+          <div class="branch-cat">
+            <h4>Align / parity <span class="count">1</span></h4>
+            <div class="branch-pills">
+              <span class="pill align">align/opencode-parity</span>
+            </div>
+          </div>
+          <div class="branch-cat">
+            <h4>Evidence <span class="count">1</span></h4>
+            <div class="branch-pills">
+              <span class="pill evidence">evidence/github-browser-tool-verification</span>
+            </div>
+          </div>
+          <div class="branch-cat">
+            <h4>Claude sessions <span class="count">4</span></h4>
+            <div class="branch-pills">
+              <span class="pill chore">claude/claude-loops-concept</span>
+              <span class="pill chore">claude/nikcli-effect-ts-review</span>
+              <span class="pill chore">claude/pedantic-knuth</span>
+              <span class="pill chore">claude/session-v2-live-stepper</span>
+            </div>
+          </div>
+          <div class="branch-cat">
+            <h4>Docs / chore <span class="count">2</span></h4>
+            <div class="branch-pills">
+              <span class="pill docs">docs/readme-stale-version</span>
+              <span class="pill chore">chore/test-post-commit-hook</span>
+            </div>
+          </div>
+          <div class="branch-cat">
+            <h4>Backups <span class="count">2</span></h4>
+            <div class="branch-pills">
+              <span class="pill chore">backup/pre-rebase-2026-08-10</span>
+              <span class="pill chore">backup/with-release-binaries-before-cleanup</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DISCOVERY BRIEFS -->
+      <section class="section">
+        <h2><span class="idx">07</span> Discovery briefs (product)</h2>
+        <div class="briefs">
+          <div class="brief">
+            <h4>Release trust</h4>
+            <div class="promise">
+              A published CLI, desktop artifact, or hosted service corresponds to validated source and does not report
+              success when a required stage was skipped.
+            </div>
+            <div class="promote">
+              <strong>Promotion rule</strong> — add post-deploy work only after a revision-bearing health identity is
+              proven against the detached Railway upload without flaky polling.
+            </div>
+          </div>
+          <div class="brief">
+            <h4>First useful result</h4>
+            <div class="promise">
+              A new user can install nikcli, connect a provider, open a project, and complete one useful turn with
+              failures that explain the next action.
+            </div>
+            <div class="promote">
+              <strong>Promotion rule</strong> — rank blockers by affected users and elapsed-time cost. Do not turn
+              anecdotal setup preferences into architecture work.
+            </div>
+          </div>
+          <div class="brief">
+            <h4>Cross-device continuity</h4>
+            <div class="promise">
+              A session started on one supported surface resumes on another without transcript loss, duplicate
+              execution, or hidden queued input.
+            </div>
+            <div class="promote">
+              <strong>Promotion rule</strong> — reuse generated HttpApi clients and shared event/session models.
+              Surface-specific presentation stays local; protocol divergence needs an explicit contract decision.
+            </div>
+          </div>
+          <div class="brief">
+            <h4>Trusted automation</h4>
+            <div class="promise">
+              Delegated work reports durable progress, survives supported restarts, and fails with enough context for
+              the user to recover.
+            </div>
+            <div class="promote">
+              <strong>Promotion rule</strong> — use existing Loop / Mission / background-run / graceful-restart seams to
+              discover the smallest evidenced gap. Clustered ownership and hard-crash replay remain non-goals.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- NON-GOALS -->
+      <section class="section">
+        <h2>
+          <span class="idx">08</span> Non-goals
+          <span class="meta">explicit · do not re-propose</span>
+        </h2>
+        <div class="nongoals">
+          <div class="nongoal">
+            <div class="title">Nested /project/:projectID/session/... URLs</div>
+            <div class="reason">Directory scoping is middleware + storage keys.</div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Automatic hard-crash session recovery</div>
+            <div class="reason">
+              S2 covers the graceful case. Hard crashes need provider-dispatch ambiguity, tool idempotency, and retry
+              budgets designed together.
+            </div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Clustered session ownership</div>
+            <div class="reason">
+              Execution stays process-local until there is an explicit placement and fencing protocol.
+            </div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Shared PubSub for the event feed</div>
+            <div class="reason">
+              Considered and rejected in E1's spec; the win is queue-slot references, not frame copies.
+            </div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Rebuilding TUI features opencode already has</div>
+            <div class="reason">
+              The jlongster TUI set is already present; "moving sessions" upstream is nikcli's existing warp.
+            </div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Rewriting SessionProcessor / toModelMessages to consume entries</div>
+            <div class="reason">MessageV2 stays the LLM layer on purpose.</div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Pinning SessionEntry.Entry on the HTTP contract</div>
+            <div class="reason">
+              The variant set grows without a contract bump — that is why those three SessionV2 types stay Unknown.
+            </div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Promoting raw streaming / prompt / SSE / websocket into encoded Effect</div>
+            <div class="reason">
+              prompt_async and POST /session/:id/message stay raw — they open a chunked 200 or return 204 before the
+              loop finishes.
+            </div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Desktop as a second TUI renderer</div>
+            <div class="reason">
+              packages/desktop is a Tauri webview; the TUI renders through @opentui/solid. Packaging check is
+              nikcli-tui.
+            </div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Deleting leftover storage/*.json trees</div>
+            <div class="reason">Stay on disk for downgrade. Runtime does not read them.</div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Mandatory tool output codecs</div>
+            <div class="reason">T2 is opt-in. T3 adds codecs only where the tool already returns structured JSON.</div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Raising SQLite mmap_size</div>
+            <div class="reason">mmap_size = 0 is a durability choice; WAL checkpoint already runs.</div>
+          </div>
+          <div class="nongoal">
+            <div class="title">idleTimeout other than 0</div>
+            <div class="reason">Default Bun idle would kill EventFeed. EventFeed already evicts stalled readers.</div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Per-request HttpApi layer rebuild</div>
+            <div class="reason">sharedMemoMap + toWebHandler already cache the handler.</div>
+          </div>
+          <div class="nongoal">
+            <div class="title">Full fromZod rewrite of config.ts</div>
+            <div class="reason">fromZod is the correct adapter; new shapes are Effect-first.</div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <div>sources · specs/ROADMAP.md · specs/PRODUCT_ROADMAP.md · CHANGELOG.md · git log live-main</div>
+        <div>generated · 2026-08-24</div>
+      </footer>
+    </div>
+  </body>
+</html>

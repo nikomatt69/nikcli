@@ -1,11 +1,15 @@
 import { type AstNode, InterpreterRuntimeError } from "../interpreter/model"
-import { isBlockedMember } from "../tool-runtime"
+import { isBlockedMember, type SafeObject } from "../tool-runtime"
 import { isCodeModeValue, CodeModeMap, CodeModePromise, CodeModeSet, CodeModeURLSearchParams } from "../values"
 import { boundedData, coerceToString } from "./value"
 
 export const objectMethodsPreservingIdentity = new Set(["assign", "values", "entries", "fromEntries"])
 
-export const invokeObjectMethod = (name: string, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeObjectMethod = (
+  name: string,
+  args: Array<unknown>,
+  node: AstNode,
+): string[] | Array<unknown> | Array<[string, unknown]> | boolean | SafeObject => {
   const requireObject = (): Record<string, unknown> => {
     const input = args[0]
     if (Array.isArray(input)) return input as unknown as Record<string, unknown>

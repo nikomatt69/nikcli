@@ -1,12 +1,8 @@
 /**
- * SessionManager — an in-memory registry of named {@link BrowserSession}s that
- * share one lazily-launched, headless Chromium process. Framework agnostic;
- * the daemon ({@link daemon.ts}) wraps this to expose it over a Unix socket so
- * sessions outlive any single CLI invocation, the way `SessionManager` in
- * terminal-control outlives any single `send`/`wait` call against a PTY.
+ * SessionManager — an in-memory registry of named {@link BrowserSession}s.
+ * Each session owns a Bun.WebView. The daemon wraps this over a Unix socket
+ * so sessions outlive any single CLI invocation.
  */
-import type { Browser } from "playwright"
-import { resolveChromium } from "./playwright-runtime"
 import {
   BrowserSession,
   type KeyInput,
@@ -23,24 +19,13 @@ import type { Screencast, ScreencastOptions } from "./screencast"
 
 export class SessionManager {
   private readonly sessions = new Map<string, BrowserSession>()
-  private browser: Browser | null = null
   private counter = 0
 
-  private async ensureBrowser(): Promise<Browser> {
-    if (!this.browser || !this.browser.isConnected()) {
-      const chromium = await resolveChromium()
-      this.browser = await chromium.launch({ headless: true })
-    }
-    return this.browser
-  }
-
-  /** Start a new session. If `name` is omitted, one is generated. Replaces an existing same-named session. */
   async start(options: Omit<SessionOptions, "name"> & { name?: string }): Promise<SessionInfo> {
-    const browser = await this.ensureBrowser()
     const name = options.name && options.name.length > 0 ? options.name : this.generateName()
     const existing = this.sessions.get(name)
     if (existing) await existing.stop()
-    const session = await BrowserSession.create(browser, { ...options, name })
+    const session = await BrowserSession.create({ ...options, name })
     this.sessions.set(name, session)
     return session.info()
   }
@@ -62,7 +47,6 @@ export class SessionManager {
     return this.sessions.size
   }
 
-  /** Sessions still holding a live browser context — used for idle shutdown, since `stop()` retains stopped sessions. */
   get runningCount(): number {
     let count = 0
     for (const session of this.sessions.values()) if (session.isRunning()) count++
@@ -75,6 +59,44 @@ export class SessionManager {
     return session
   }
 
+  /**
+   * The session, marked as being used right now.
+   *
+   * Only for calls that actually drive the page. Asking a session what it is
+   * doing — {@link info}, {@link isRecording}, {@link recordingData},
+   * {@link videoPath}, {@link rawConsole} — must not count, or a client polling
+   * status on a timer would keep a browser alive forever, which is the leak
+   * {@link reapIdle} exists to close.
+   */
+  private drive(name: string): BrowserSession {
+    const session = this.require(name)
+    session.touch()
+    return session
+  }
+
+  /**
+   * Stop sessions nobody has touched for `maxIdleMs`, and report their names.
+   *
+   * A running session holds a browser — eleven OS processes on Windows — for as
+   * long as it exists, and the daemon's own idle shutdown cannot help: it waits
+   * for zero running sessions, so one forgotten `start` pins the browser
+   * indefinitely. Stopping the session is what eventually lets the daemon go.
+   *
+   * Sessions are stopped, not removed, matching {@link stop}: post-mortem
+   * artifacts stay reachable, and `restart` still works on the name.
+   */
+  async reapIdle(maxIdleMs: number): Promise<string[]> {
+    if (maxIdleMs <= 0) return []
+    const cutoff = Date.now() - maxIdleMs
+    const reaped: string[] = []
+    for (const [name, session] of this.sessions) {
+      if (!session.isRunning() || session.isBusy() || session.lastUsedAt > cutoff) continue
+      await session.stop().catch(() => {})
+      reaped.push(name)
+    }
+    return reaped
+  }
+
   list(): SessionInfo[] {
     return Array.from(this.sessions.values()).map((s) => s.info())
   }
@@ -84,71 +106,71 @@ export class SessionManager {
   }
 
   goto(name: string, url: string): Promise<void> {
-    return this.require(name).goto(url)
+    return this.drive(name).goto(url)
   }
 
   send(name: string, input: string, mode: SendMode = "text"): Promise<void> {
-    return this.require(name).send(input, mode)
+    return this.drive(name).send(input, mode)
   }
 
   back(name: string): Promise<boolean> {
-    return this.require(name).back()
+    return this.drive(name).back()
   }
 
   forward(name: string): Promise<boolean> {
-    return this.require(name).forward()
+    return this.drive(name).forward()
   }
 
   reload(name: string): Promise<void> {
-    return this.require(name).reload()
+    return this.drive(name).reload()
   }
 
   click(name: string, selector: string): Promise<void> {
-    return this.require(name).click(selector)
+    return this.drive(name).click(selector)
   }
 
   pointer(name: string, input: PointerInput): Promise<void> {
-    return this.require(name).pointer(input)
+    return this.drive(name).pointer(input)
   }
 
   key(name: string, input: KeyInput): Promise<void> {
-    return this.require(name).key(input)
+    return this.drive(name).key(input)
   }
 
   startScreencast(name: string, options?: ScreencastOptions): Promise<Screencast> {
-    return this.require(name).startScreencast(options)
+    return this.drive(name).startScreencast(options)
   }
 
   stopScreencast(name: string): Promise<void> {
-    return this.require(name).stopScreencast()
+    return this.drive(name).stopScreencast()
   }
 
   fill(name: string, selector: string, value: string): Promise<void> {
-    return this.require(name).fill(selector, value)
+    return this.drive(name).fill(selector, value)
   }
 
   hover(name: string, selector: string): Promise<void> {
-    return this.require(name).hover(selector)
+    return this.drive(name).hover(selector)
   }
 
   scroll(name: string, dx: number, dy: number): Promise<void> {
-    return this.require(name).scroll(dx, dy)
+    return this.drive(name).scroll(dx, dy)
   }
 
   wait(name: string, condition: WaitCondition): Promise<WaitResult> {
-    return this.require(name).wait(condition)
+    return this.drive(name).wait(condition)
   }
 
   resize(name: string, width: number, height: number): Promise<SessionInfo> {
-    return this.require(name).resize(width, height)
+    return this.drive(name).resize(width, height)
   }
 
   snapshot(name: string): Promise<BrowserFrame> {
-    return this.require(name).snapshot()
+    return this.drive(name).snapshot()
   }
 
   text(name: string): Promise<string> {
-    return this.require(name).text()
+    return this.drive(name).text()
   }
 
   rawConsole(name: string, lines?: number) {
@@ -156,9 +178,8 @@ export class SessionManager {
   }
 
   /**
-   * Stop a session but keep it registered so post-mortem artifacts (notably
-   * {@link videoPath}, which Playwright only finalizes on context close) stay
-   * reachable. Call {@link remove} to actually forget it.
+   * Stop a session but keep it registered so post-mortem artifacts
+   * ({@link videoPath}) stay reachable. Call {@link remove} to forget it.
    */
   async stop(name: string): Promise<void> {
     const session = this.sessions.get(name)
@@ -166,7 +187,6 @@ export class SessionManager {
     await session.stop()
   }
 
-  /** Forget a session entirely, stopping it first if still running. */
   async remove(name: string): Promise<void> {
     const session = this.sessions.get(name)
     if (!session) return
@@ -174,7 +194,6 @@ export class SessionManager {
     this.sessions.delete(name)
   }
 
-  /** Restart a session with the same URL/viewport. */
   async restart(name: string): Promise<SessionInfo> {
     const session = this.require(name)
     const prev = session.info()
@@ -183,18 +202,16 @@ export class SessionManager {
     return this.start({ name, url: prev.url || undefined, viewport: prev.viewport })
   }
 
-  // --- Recording --------------------------------------------------------
-
   startRecording(name: string, options?: StartRecordingOptions): Promise<void> {
-    return this.require(name).startRecording(options)
+    return this.drive(name).startRecording(options)
   }
 
   marker(name: string, markerName: string): Promise<RecordingMarker | undefined> {
-    return this.require(name).marker(markerName)
+    return this.drive(name).marker(markerName)
   }
 
   stopRecording(name: string): Promise<RecordingData | null> {
-    return this.require(name).stopRecording()
+    return this.drive(name).stopRecording()
   }
 
   recordingData(name: string): RecordingData | null {
@@ -209,13 +226,19 @@ export class SessionManager {
     return this.require(name).videoPath()
   }
 
-  /** Close every session, the shared browser, and clear the registry. */
+  /**
+   * Close every session and forget them.
+   *
+   * Deliberately does *not* call `Bun.WebView.closeAll()`. That SIGKILLs the
+   * browser subprocess the whole Bun process shares, and Bun does not recover:
+   * every later `new Bun.WebView()` fails with "Chrome process closed the pipe"
+   * and then "Failed to spawn Chrome", for the life of the process. In a daemon
+   * — which is the whole nikcli session when it is hosted in-process — one
+   * `close-all` would leave the browser tool dead until a restart. Closing each
+   * view is enough; the subprocess goes away with its parent.
+   */
   async closeAll(): Promise<void> {
     for (const session of this.sessions.values()) await session.stop()
     this.sessions.clear()
-    if (this.browser) {
-      await this.browser.close().catch(() => {})
-      this.browser = null
-    }
   }
 }

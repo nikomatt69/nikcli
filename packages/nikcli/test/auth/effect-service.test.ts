@@ -1,6 +1,7 @@
 import { preserveTestEnv } from "../helpers/env"
 import { afterAll, beforeEach, describe, expect, it } from "bun:test"
 import { Effect } from "effect"
+import type { Auth as AuthNamespace } from "@/auth"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -12,8 +13,8 @@ preserveTestEnv(["NIKCLI_TEST_HOME"])
 
 const { Auth } = await import("@/auth")
 
-function runAuth<A, E>(effect: Effect.Effect<A, E, any>) {
-  return Effect.runPromise(effect.pipe(Effect.provide(Auth.defaultLayer)) as Effect.Effect<A, E, never>)
+function runAuth<A, E>(effect: Effect.Effect<A, E, AuthNamespace.Service>) {
+  return Effect.runPromise(effect.pipe(Effect.provide(Auth.defaultLayer)))
 }
 
 describe("Auth.Service", () => {

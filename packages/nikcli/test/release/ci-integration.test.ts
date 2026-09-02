@@ -67,9 +67,14 @@ describe("ci-validate.ts", () => {
       const stepNames = [
         "Install dependencies",
         "Typecheck",
-        "Run tests",
-        "Run release automation tests",
-        "Shell syntax check",
+        "Route coverage gate",
+        "Generated HTTP client drift",
+        "Formatting",
+        "Lint",
+        "Shell syntax check (install script)",
+        "Shell syntax check (railway-deploy)",
+        "Docker nikcli version check",
+        "Railway upload context check",
       ]
       for (const name of stepNames) {
         expect(content).toContain(name)
@@ -486,7 +491,6 @@ describe("workflow YAML integration", () => {
 
   it("publish.yml does NOT push to live-main directly (only via workflow_call)", async () => {
     const content = await readRoot(".github/workflows/publish.yml")
-    const pushBlockMatch = content.match(/push:\s*\n\s*branches:\s*\n[\s-]*/)
     // live-main must not appear in the push branches
     const lines = content.split("\n")
     let inPushBlock = false

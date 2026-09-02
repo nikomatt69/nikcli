@@ -2,139 +2,17 @@ import path from "path"
 import { exec } from "child_process"
 import * as prompts from "@clack/prompts"
 import { map, pipe, sortBy, values } from "remeda"
-import type {
-  IssueCommentEvent,
-  IssuesEvent,
-  PullRequestReviewCommentEvent,
-  WorkflowDispatchEvent,
-  WorkflowRunEvent,
-  PullRequestEvent,
-} from "@octokit/webhooks-types"
 import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { ModelsDev } from "../../provider/models"
-import { Instance } from "@/project/instance"
 import { withInstanceAsync } from "@/effect"
-import { Provider } from "../../provider/provider"
 import { MessageV2 } from "../../session/message-v2"
 import { Git } from "@/git"
 import { parseGitHubRemote } from "@/util/repository"
 
-type GitHubAuthor = {
-  login: string
-  name?: string
-}
-
-type GitHubComment = {
-  id: string
-  databaseId: string
-  body: string
-  author: GitHubAuthor
-  createdAt: string
-}
-
-type GitHubReviewComment = GitHubComment & {
-  path: string
-  line: number | null
-}
-
-type GitHubCommit = {
-  oid: string
-  message: string
-  author: {
-    name: string
-    email: string
-  }
-}
-
-type GitHubFile = {
-  path: string
-  additions: number
-  deletions: number
-  changeType: string
-}
-
-type GitHubReview = {
-  id: string
-  databaseId: string
-  author: GitHubAuthor
-  body: string
-  state: string
-  submittedAt: string
-  comments: {
-    nodes: GitHubReviewComment[]
-  }
-}
-
-type GitHubPullRequest = {
-  title: string
-  body: string
-  author: GitHubAuthor
-  baseRefName: string
-  headRefName: string
-  headRefOid: string
-  createdAt: string
-  additions: number
-  deletions: number
-  state: string
-  baseRepository: {
-    nameWithOwner: string
-  }
-  headRepository: {
-    nameWithOwner: string
-  }
-  commits: {
-    totalCount: number
-    nodes: Array<{
-      commit: GitHubCommit
-    }>
-  }
-  files: {
-    nodes: GitHubFile[]
-  }
-  comments: {
-    nodes: GitHubComment[]
-  }
-  reviews: {
-    nodes: GitHubReview[]
-  }
-}
-
-type GitHubIssue = {
-  title: string
-  body: string
-  author: GitHubAuthor
-  createdAt: string
-  state: string
-  comments: {
-    nodes: GitHubComment[]
-  }
-}
-
-type PullRequestQueryResponse = {
-  repository: {
-    pullRequest: GitHubPullRequest
-  }
-}
-
-type IssueQueryResponse = {
-  repository: {
-    issue: GitHubIssue
-  }
-}
-
 const GITHUB_APP_NAME = process.env.NIKCLI_GITHUB_APP_NAME || "nikcli"
-const AGENT_USERNAME = `${GITHUB_APP_NAME}[bot]`
 const API_BASE_URL = process.env.NIKCLI_API_URL || "https://api.nikcli.store"
-const AGENT_REACTION = "eyes"
 const WORKFLOW_FILE = ".github/workflows/nikcli.yml"
-
-const USER_EVENTS = ["issue_comment", "pull_request_review_comment", "issues", "pull_request"] as const
-const REPO_EVENTS = ["schedule", "workflow_dispatch"] as const
-const SUPPORTED_EVENTS = [...USER_EVENTS, ...REPO_EVENTS] as const
-
-type UserEvent = (typeof USER_EVENTS)[number]
-type RepoEvent = (typeof REPO_EVENTS)[number]
 
 export { parseGitHubRemote }
 
@@ -163,7 +41,7 @@ export const GithubInstallCommand = cmd({
   command: "install",
   describe: "install the GitHub agent",
   async handler() {
-    await withInstanceAsync({ directory: process.cwd() }, async () => {
+    await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
       {
         UI.empty()
         prompts.intro("Install GitHub agent")
@@ -209,19 +87,29 @@ export const GithubInstallCommand = cmd({
         }
 
         async function getAppInfo() {
-          const project = Instance.project
+          const project = instance.project
           if (project.vcs !== "git") {
             prompts.log.error(`Could not find git repository. Please run this command from a git repository.`)
             throw new UI.CancelledError()
           }
 
-          const info = (await Git.run(["remote", "get-url", "origin"], { cwd: Instance.worktree })).text().trim()
+          const info = (
+            await Git.run(["remote", "get-url", "origin"], {
+              cwd: instance.worktree,
+            })
+          )
+            .text()
+            .trim()
           const parsed = parseGitHubRemote(info)
           if (!parsed) {
             prompts.log.error(`Could not find git repository. Please run this command from a git repository.`)
             throw new UI.CancelledError()
           }
-          return { owner: parsed.owner, repo: parsed.repo, root: Instance.worktree }
+          return {
+            owner: parsed.owner,
+            repo: parsed.repo,
+            root: instance.worktree,
+          }
         }
 
         async function promptProvider() {
@@ -300,14 +188,17 @@ export const GithubInstallCommand = cmd({
           // Skip polling for custom apps (non-official)
           if (GITHUB_APP_NAME !== "nikcli-agent") {
             s.stop(`Opened ${url} - please install the app and then press Enter to continue...`)
-            await prompts.confirm({ message: "Have you installed the GitHub app?" })
+            await prompts.confirm({
+              message: "Have you installed the GitHub app?",
+            })
             return
           }
 
           s.message("Waiting for GitHub app to be installed")
           const MAX_RETRIES = 120
           let retries = 0
-          do {
+          // Poll for installation; bounded by MAX_RETRIES.
+          while (true) {
             const installation = await getInstallation()
             if (installation) break
 
@@ -320,7 +211,7 @@ export const GithubInstallCommand = cmd({
 
             retries++
             await Bun.sleep(1000)
-          } while (true)
+          }
 
           s.stop("Installed GitHub app")
 

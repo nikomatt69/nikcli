@@ -16,21 +16,15 @@ CompanionWsRoutes.get(
       onOpen(_event, ws) {
         console.log(`[companion] Browser WebSocket connected: ${sessionId}`)
 
-        if (!browserSockets.has(sessionId)) {
-          browserSockets.set(sessionId, [])
+        if (!browserSockets.has(sessionId ?? "")) {
+          browserSockets.set(sessionId ?? "", [])
         }
-        browserSockets.get(sessionId)!.push(ws)
+        browserSockets.get(sessionId ?? "")!.push(ws)
 
-        const session = sessions.get(sessionId)
+        const session = sessions.get(sessionId ?? "")
         if (session) {
-          ws.send(
-            JSON.stringify({
-              type: "session_history",
-              sessionId,
-              messages: session.messages || [],
-              status: session.status,
-            }),
-          )
+          session.status = "running"
+          sessions.set(sessionId ?? "", session)
         }
       },
       onMessage(event, ws) {
@@ -39,17 +33,17 @@ CompanionWsRoutes.get(
         try {
           const msg = JSON.parse(message)
 
-          const cliSocket = cliSockets.get(sessionId)
+          const cliSocket = cliSockets.get(sessionId ?? "")
           if (cliSocket) {
             cliSocket.send(message + "\n")
           }
 
           if (msg.type === "user") {
-            const session = sessions.get(sessionId)
+            const session = sessions.get(sessionId ?? "")
             if (session) {
               session.messages = session.messages || []
               session.messages.push(msg)
-              sessions.set(sessionId, session)
+              sessions.set(sessionId ?? "", session)
             }
           }
         } catch (e) {
@@ -58,14 +52,14 @@ CompanionWsRoutes.get(
       },
       onClose(_event, ws) {
         console.log(`[companion] Browser WebSocket disconnected: ${sessionId}`)
-        const sockets = browserSockets.get(sessionId)
+        const sockets = browserSockets.get(sessionId ?? "")
         if (sockets) {
           const idx = sockets.indexOf(ws)
           if (idx !== -1) {
             sockets.splice(idx, 1)
           }
           if (sockets.length === 0) {
-            browserSockets.delete(sessionId)
+            browserSockets.delete(sessionId ?? "")
           }
         }
       },
@@ -81,12 +75,12 @@ CompanionWsRoutes.get(
     return {
       onOpen(_event, ws) {
         console.log(`[companion] nikcli WebSocket connected: ${sessionId}`)
-        cliSockets.set(sessionId, ws)
+        cliSockets.set(sessionId ?? "", ws)
 
-        const session = sessions.get(sessionId)
+        const session = sessions.get(sessionId ?? "")
         if (session) {
           session.status = "running"
-          sessions.set(sessionId, session)
+          sessions.set(sessionId ?? "", session)
         }
       },
       onMessage(event, ws) {
@@ -97,27 +91,27 @@ CompanionWsRoutes.get(
           try {
             const msg = JSON.parse(line)
 
-            const session = sessions.get(sessionId)
+            const session = sessions.get(sessionId ?? "")
             if (session) {
               session.messages = session.messages || []
               session.messages.push(msg)
-              sessions.set(sessionId, session)
+              sessions.set(sessionId ?? "", session)
 
               if (msg.type === "system" && msg.subtype === "init") {
                 session.status = "running"
                 session.tools = msg.tools
                 session.model = msg.model
-                sessions.set(sessionId, session)
+                sessions.set(sessionId ?? "", session)
               }
             }
 
-            const browsers = browserSockets.get(sessionId) || []
+            const browsers = browserSockets.get(sessionId ?? "") || []
             for (const browser of browsers) {
               browser.send(line)
             }
 
             if (msg.type === "control_request" && msg.request?.subtype === "can_use_tool") {
-              const browsers = browserSockets.get(sessionId) || []
+              const browsers = browserSockets.get(sessionId ?? "") || []
               for (const browser of browsers) {
                 browser.send(
                   JSON.stringify({
@@ -135,12 +129,12 @@ CompanionWsRoutes.get(
       },
       onClose(_event, ws) {
         console.log(`[companion] nikcli WebSocket disconnected: ${sessionId}`)
-        cliSockets.delete(sessionId)
+        cliSockets.delete(sessionId ?? "")
 
-        const session = sessions.get(sessionId)
+        const session = sessions.get(sessionId ?? "")
         if (session) {
           session.status = "stopped"
-          sessions.set(sessionId, session)
+          sessions.set(sessionId ?? "", session)
         }
       },
     }

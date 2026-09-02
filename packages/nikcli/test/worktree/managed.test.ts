@@ -12,7 +12,7 @@ import { ManagedWorktree } from "@/worktree/managed"
  *   - inputs round-trip through their schemas with the expected defaults
  *   - invalid inputs are rejected (so a buggy client request never reaches
  *     the Effect layer)
- *   - error classes are well-formed TaggedErrorClass instances
+ *   - error classes are well-formed TaggedError instances
  *   - the Service class exposes the expected Interface methods
  */
 describe("ManagedWorktree schemas (opencode PR #30117)", () => {
@@ -123,7 +123,7 @@ describe("ManagedWorktree Service contract (opencode PR #30117)", () => {
 })
 
 describe("ManagedWorktree error classes (opencode PR #30117)", () => {
-  it("WorktreeError is a TaggedErrorClass carrying message + optional code", () => {
+  it("WorktreeError is a TaggedError carrying message + optional code", () => {
     const err = new ManagedWorktree.WorktreeError({
       message: "boom",
       code: "TEST_CODE",

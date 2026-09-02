@@ -3,7 +3,7 @@
  *
  * Control, inspect, capture and test real web pages headlessly, in the
  * background — sibling to @nikcli-ai/terminal-control, but driving a
- * Playwright-backed Chromium page instead of a PTY.
+ * Bun.WebView page (WebKit on macOS) instead of a PTY.
  */
 export * from "./frame"
 
@@ -73,10 +73,13 @@ export {
 // Background daemon — persists sessions across separate process invocations.
 export {
   ensureDaemon,
+  inprocessHostingPlan,
   openScreencast,
   rpc,
+  setMainThreadDaemonHost,
   shutdownDaemon,
   socketPathFor,
+  type MainThreadDaemonHost,
   type OpenScreencastOptions,
   type ScreencastStreamFrame,
 } from "./daemon-client"

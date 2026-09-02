@@ -44,7 +44,7 @@ export namespace Shell {
 
   function powershellBinary() {
     const configured = process.env["NIKCLI_POWERSHELL_PATH"]
-    return selectBinary([configured, "pwsh", "powershell"].filter(Boolean) as string[])
+    return selectBinary([configured, "pwsh", "powershell"].filter((name): name is string => Boolean(name)))
   }
 
   export async function killTree(proc: ChildProcess, opts?: { exited?: () => boolean }): Promise<void> {

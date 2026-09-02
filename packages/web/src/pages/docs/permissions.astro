@@ -275,10 +275,10 @@ const toc = [
     <table class="doc-table">
       <thead><tr><th>Surface</th><th>Source</th><th>Behavior</th></tr></thead>
       <tbody>
-        <tr><td>Classic API</td><td><code>server/routes/permission.ts</code></td><td>List pending requests and reply.</td></tr>
+        <tr><td>Classic API</td><td><code>server/httpapi/permission.ts</code></td><td>List pending requests and reply.</td></tr>
         <tr><td>Typed API</td><td><code>server/httpapi/permission.ts</code></td><td>Effect HttpApi list and reply endpoints.</td></tr>
-        <tr><td>TUI</td><td><code>cli/cmd/tui/routes/session/permission.tsx</code></td><td>Shows inline permission prompts in root sessions.</td></tr>
-        <tr><td>Mobile</td><td><code>server/routes/mobile.ts</code> and mobile composer components</td><td>Displays approval bars and sends replies from the phone.</td></tr>
+        <tr><td>TUI</td><td><code>packages/tui/src/routes/session/permission.tsx</code></td><td>Shows inline permission prompts in root sessions.</td></tr>
+        <tr><td>Mobile</td><td><code>server/httpapi/mobile.ts</code> and mobile composer components</td><td>Displays approval bars and sends replies from the phone.</td></tr>
       </tbody>
     </table>
     <DocCode language="bash">
@@ -331,11 +331,11 @@ curl -X POST http://127.0.0.1:4096/permission/per_example/reply \
         <tr><td>Compatibility exports</td><td><code>packages/nikcli/src/permission/evaluate.ts</code></td></tr>
         <tr><td>Permission schema</td><td><code>packages/nikcli/src/permission/schema.ts</code></td></tr>
         <tr><td>Config permission schema and legacy tools migration</td><td><code>packages/nikcli/src/config/config.ts</code></td></tr>
-        <tr><td>API routes</td><td><code>packages/nikcli/src/server/routes/permission.ts</code>, <code>packages/nikcli/src/server/httpapi/permission.ts</code></td></tr>
-        <tr><td>TUI permission mode dialog</td><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-permission-mode.tsx</code></td></tr>
-        <tr><td>TUI preset definitions and mode detection</td><td><code>packages/nikcli/src/cli/cmd/tui/util/permission-presets.ts</code></td></tr>
+        <tr><td>API routes</td><td><code>packages/nikcli/src/server/httpapi/permission.ts</code>, <code>packages/nikcli/src/server/httpapi/permission.ts</code></td></tr>
+        <tr><td>TUI permission mode dialog</td><td><code>packages/tui/src/component/dialog-permission-mode.tsx</code></td></tr>
+        <tr><td>TUI preset definitions and mode detection</td><td><code>packages/tui/src/util/permission-presets.ts</code></td></tr>
         <tr><td>Mobile preset definitions and mode detection</td><td><code>packages/mobile/lib/permission-presets.ts</code></td></tr>
-        <tr><td>TUI permission prompt</td><td><code>packages/nikcli/src/cli/cmd/tui/routes/session/permission.tsx</code></td></tr>
+        <tr><td>TUI permission prompt</td><td><code>packages/tui/src/routes/session/permission.tsx</code></td></tr>
         <tr><td>LSP tool permission example</td><td><code>packages/nikcli/src/tool/lsp.ts</code></td></tr>
       </tbody>
     </table>

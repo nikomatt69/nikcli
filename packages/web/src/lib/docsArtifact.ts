@@ -1,4 +1,4 @@
-import { artifactKind, writeArtifact } from "./artifact"
+import { artifactKind, artifactShareUrl, writeArtifact } from "./artifact"
 
 /**
  * Artifact authoring for the docs assistant.
@@ -318,12 +318,9 @@ export async function publishArtifact(
 
   // Artifacts are always shared under their canonical nikcli.store home, even
   // when created from a preview deployment or a local dev server.
-  const url = new URL(`/artifact/${id}`, options.publicOrigin || options.origin)
-  url.searchParams.set("key", viewKey)
-
   return {
     id,
-    url: url.toString(),
+    url: artifactShareUrl(id, viewKey, options.publicOrigin || options.origin),
     title: request.title,
     filename: request.filename,
   }

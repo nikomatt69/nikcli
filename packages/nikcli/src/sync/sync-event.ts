@@ -1,3 +1,4 @@
+import type { JsonValue } from "@/util/json"
 import z from "zod"
 import type { ZodObject } from "zod"
 import { and, asc, eq } from "drizzle-orm"
@@ -284,6 +285,7 @@ export namespace SyncEvent {
     })
   }
 
+  /** R2 boundary: module funnel for run/history/remove. Production `run` already passes `projectID`. */
   function currentProject(): string {
     // Read in caller scope: `Instance` is AsyncLocalStorage-backed and a
     // lookup from inside an Effect fiber loses the context.
@@ -411,7 +413,7 @@ export namespace SyncEvent {
     }))
   }
 
-  function parse(data: string): unknown {
+  function parse(data: string): JsonValue {
     try {
       return JSON.parse(data)
     } catch {

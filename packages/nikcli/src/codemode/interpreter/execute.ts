@@ -51,7 +51,7 @@ export const executeWithLimits = <const Tools extends Record<string, unknown>>(
           return {
             ok: true,
             value: result,
-            ...(warnings.length > 0 ? { warnings } : {}),
+            ...(warnings.length > 0 ? { warnings } : undefined),
             ...logged(),
             toolCalls: tools.calls,
           } satisfies Result

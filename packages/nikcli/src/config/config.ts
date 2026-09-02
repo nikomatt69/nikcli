@@ -846,7 +846,7 @@ export namespace Config {
         .describe("Max advisor invocations per request (default: 3)."),
     })
     .catchall(z.any())
-    .transform((agent, ctx) => {
+    .transform((agent, _ctx) => {
       const knownKeys = new Set([
         "name",
         "model",
@@ -887,10 +887,19 @@ export namespace Config {
       }
       Object.assign(permission, agent.permission)
 
-      // Convert legacy maxSteps to steps
+      // Convert legacy maxSteps to steps. Spread rather than assign: writing
+      // `steps: undefined` when an agent declares neither leaves a present
+      // `undefined` in the parsed document, and the HttpApi JSON encoder
+      // rejects it — `GET /config` answered 400 until `jsonSafe` was added to
+      // paper over exactly this.
       const steps = agent.steps ?? agent.maxSteps
 
-      return { ...agent, options, permission, steps } as typeof agent & {
+      return {
+        ...agent,
+        options,
+        permission,
+        ...(steps !== undefined && { steps }),
+      } as typeof agent & {
         options?: Record<string, unknown>
         permission?: Permission
         steps?: number
@@ -1398,6 +1407,62 @@ export namespace Config {
     })
   export type PolicyStatement = z.infer<typeof PolicyStatement>
 
+  export const SmallModelField = z
+    .string()
+    .describe("Small model to use for tasks like title generation in the format of provider/model")
+    .optional()
+
+  export const LspField = z
+    .union([
+      z.literal(false),
+      z.record(
+        z.string(),
+        z.union([
+          z.object({
+            disabled: z.literal(true),
+          }),
+          z.object({
+            command: z.array(z.string()),
+            extensions: z.array(z.string()).optional(),
+            disabled: z.boolean().optional(),
+            env: z.record(z.string(), z.string()).optional(),
+            initialization: z.record(z.string(), z.any()).optional(),
+            /**
+             * Opencode #17877: minimum diagnostic severity shown to the agent.
+             * 1=Error (default), 2=Warning, 3=Info, 4=Hint.
+             */
+            min_severity: z
+              .union([
+                z
+                  .number()
+                  .int()
+                  .min(1)
+                  .max(4)
+                  .describe("Minimum diagnostic severity: 1=Error (default), 2=Warning, 3=Info, 4=Hint."),
+              ])
+              .optional(),
+          }),
+        ]),
+      ),
+    ])
+    .optional()
+    .refine(
+      (data) => {
+        if (!data) return true
+        if (typeof data === "boolean") return true
+        const serverIds = new Set(Object.values(LSPServer).map((s) => s.id))
+
+        return Object.entries(data).every(([id, config]) => {
+          if (config.disabled) return true
+          if (serverIds.has(id)) return true
+          return Boolean(config.extensions)
+        })
+      },
+      {
+        error: "For custom LSP servers, 'extensions' array is required.",
+      },
+    )
+
   export const Info = z
     .object({
       $schema: z.string().optional().describe("JSON schema reference for configuration validation"),
@@ -1502,10 +1567,7 @@ export namespace Config {
         .optional()
         .describe("@deprecated Use experimental.policies. When set, ONLY these providers will be enabled"),
       model: z.string().describe("Model to use in the format of provider/model, eg anthropic/claude-2").optional(),
-      small_model: z
-        .string()
-        .describe("Small model to use for tasks like title generation in the format of provider/model")
-        .optional(),
+      small_model: SmallModelField,
       default_agent: z
         .string()
         .optional()
@@ -1589,56 +1651,7 @@ export namespace Config {
         ])
         .optional(),
       websearch: WebSearchConfigSchema.optional(),
-      lsp: z
-        .union([
-          z.literal(false),
-          z.record(
-            z.string(),
-            z.union([
-              z.object({
-                disabled: z.literal(true),
-              }),
-              z.object({
-                command: z.array(z.string()),
-                extensions: z.array(z.string()).optional(),
-                disabled: z.boolean().optional(),
-                env: z.record(z.string(), z.string()).optional(),
-                initialization: z.record(z.string(), z.any()).optional(),
-                /**
-                 * Opencode #17877: minimum diagnostic severity shown to the agent.
-                 * 1=Error (default), 2=Warning, 3=Info, 4=Hint.
-                 */
-                min_severity: z
-                  .union([
-                    z
-                      .number()
-                      .int()
-                      .min(1)
-                      .max(4)
-                      .describe("Minimum diagnostic severity: 1=Error (default), 2=Warning, 3=Info, 4=Hint."),
-                  ])
-                  .optional(),
-              }),
-            ]),
-          ),
-        ])
-        .optional()
-        .refine(
-          (data) => {
-            if (!data) return true
-            if (typeof data === "boolean") return true
-            const serverIds = new Set(Object.values(LSPServer).map((s) => s.id))
-
-            return Object.entries(data).every(([id, config]) => {
-              if (config.disabled) return true
-              if (serverIds.has(id)) return true
-              return Boolean(config.extensions)
-            })
-          },
-          {
-            error: "For custom LSP servers, 'extensions' array is required.",
-          },
-        ),
+      lsp: LspField,
       instructions: z.array(z.string()).optional().describe("Additional instruction files or patterns to include"),
       layout: Layout.optional().describe("@deprecated Always uses stretch layout."),
       permission: Permission.optional(),
@@ -2113,12 +2126,12 @@ export namespace Config {
       issues: parsed.error.issues,
     })
   }
-  export class JsonError extends Schema.TaggedErrorClass<JsonError>()("ConfigJsonError", {
+  export class JsonError extends Schema.TaggedError<JsonError>()("ConfigJsonError", {
     path: Schema.String,
     message: Schema.optional(Schema.String),
   }) {}
 
-  export class ConfigDirectoryTypoError extends Schema.TaggedErrorClass<ConfigDirectoryTypoError>()(
+  export class ConfigDirectoryTypoError extends Schema.TaggedError<ConfigDirectoryTypoError>()(
     "ConfigDirectoryTypoError",
     {
       path: Schema.String,
@@ -2127,7 +2140,7 @@ export namespace Config {
     },
   ) {}
 
-  export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("ConfigInvalidError", {
+  export class InvalidError extends Schema.TaggedError<InvalidError>()("ConfigInvalidError", {
     path: Schema.optional(Schema.String),
     issues: Schema.optional(Schema.Unknown),
     message: Schema.optional(Schema.String),
@@ -2139,7 +2152,7 @@ export namespace Config {
    * `Effect.catchTag("ConfigRemoteFetch", ...)` and the existing
    * `instanceof Config.RemoteFetchError` continues to work.
    */
-  export class RemoteFetchError extends Schema.TaggedErrorClass<RemoteFetchError>()("ConfigRemoteFetch", {
+  export class RemoteFetchError extends Schema.TaggedError<RemoteFetchError>()("ConfigRemoteFetch", {
     url: Schema.String,
     status: Schema.Number,
   }) {}

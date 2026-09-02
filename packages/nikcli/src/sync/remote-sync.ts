@@ -20,6 +20,7 @@
  * `createHttpRemoteTransport` + `realScheduler`, while tests inject
  * `createInMemoryRemoteTransport` + `createInMemoryScheduler`.
  */
+import type { JsonValue } from "@/util/json"
 import { Log } from "@nikcli-ai/util/log"
 import { Database } from "@/database/database"
 import { eq } from "drizzle-orm"
@@ -134,7 +135,7 @@ export namespace RemoteSync {
     return InstructionSync.takeBlobs(event)
   }
 
-  function safeJson(value: string): unknown {
+  function safeJson(value: string): JsonValue {
     try {
       return JSON.parse(value)
     } catch {

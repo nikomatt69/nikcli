@@ -11,7 +11,7 @@ process.env.XDG_CONFIG_HOME = path.join(testHome, "xdg-config")
 preserveTestEnv(["NIKCLI_TEST_HOME", "XDG_CONFIG_HOME"])
 await fs.mkdir(path.join(process.env.XDG_CONFIG_HOME, "nikcli"), { recursive: true })
 
-const { Config } = await import("@/config/config")
+await import("@/config/config")
 const { Global } = await import("@nikcli-ai/util/global")
 const { resolveNetworkOptions } = await import("@/cli/network")
 

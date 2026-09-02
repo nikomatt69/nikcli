@@ -18,7 +18,12 @@ export namespace State {
         recordsByKey.set(key, entries)
       }
       const exists = entries.get(init)
-      if (exists) return exists.state as S
+      if (exists) {
+        // SAFETY: entries are keyed by the `init` function itself, so an entry
+        // found under this key was produced by this very initialiser and its
+        // state is that initialiser's `S`.
+        return exists.state as S
+      }
       const state = init()
       entries.set(init, {
         state,
@@ -26,6 +31,19 @@ export namespace State {
       })
       return state
     }
+  }
+
+  /**
+   * Dispose every remaining key. Used at shutdown to collect state whose
+   * instance is already gone: reading a state cell after `Instance.dispose`
+   * rebuilds it under the same directory key, and the cache entry that would
+   * otherwise have reached it has been deleted.
+   */
+  export async function disposeAll() {
+    // Snapshot the keys: `dispose` deletes the entry it just drained, so
+    // walking the live iterator would mutate the map mid-iteration.
+    const keys = Array.from(recordsByKey.keys())
+    for (const key of keys) await dispose(key)
   }
 
   export async function dispose(key: string) {

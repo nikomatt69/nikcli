@@ -1,6 +1,5 @@
 import { UI } from "../ui"
 import { cmd } from "./cmd"
-import { Instance } from "@/project/instance"
 import { withInstanceAsync } from "@/effect"
 import { $ } from "bun"
 import { Git } from "@/git"
@@ -15,9 +14,9 @@ export const PrCommand = cmd({
       demandOption: true,
     }),
   async handler(args) {
-    await withInstanceAsync({ directory: process.cwd() }, async () => {
+    await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
       {
-        const project = Instance.project
+        const project = instance.project
         if (project.vcs !== "git") {
           UI.error("Could not find git repository. Please run this command from a git repository.")
           process.exit(1)
@@ -49,7 +48,7 @@ export const PrCommand = cmd({
               const forkName = prInfo.headRepository.name
               const remoteName = forkOwner
 
-              const cwd = Instance.worktree
+              const cwd = instance.worktree
               const remoteList = await Git.remotes(cwd)
               if (!remoteList.includes(remoteName)) {
                 await Git.remoteAdd(cwd, remoteName, `https://github.com/${forkOwner}/${forkName}.git`)

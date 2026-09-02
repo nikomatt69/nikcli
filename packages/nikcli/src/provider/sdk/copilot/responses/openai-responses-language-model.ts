@@ -790,6 +790,8 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV2 {
       fetch: this.config.fetch,
     })
 
+    // Effect.gen generators do not bind `this`; alias is required.
+    // oxlint-disable-next-line typescript/no-this-alias
     const self = this
 
     let finishReason: LanguageModelV2FinishReason = "unknown"

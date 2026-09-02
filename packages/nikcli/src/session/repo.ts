@@ -1,5 +1,6 @@
-import { eq, and, desc, asc, inArray, isNotNull } from "drizzle-orm"
+import { and, eq, desc, asc, inArray, isNotNull, isNull, gte, sql } from "drizzle-orm"
 import { parseModel, stringifyModel } from "@nikcli-ai/util/model"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Database } from "@/database/database"
 import { sessionInfo } from "./session.sql"
 import type { Session } from "./index"
@@ -53,6 +54,10 @@ export namespace SessionRepo {
       createdAt: info.time.created,
       updatedAt: info.time.updated,
       lastModel: info.lastModel ? stringifyModel(info.lastModel) : null,
+      // Derived, so `query()` can filter on the same values the JS predicates
+      // used to compute at read time. Never read back into `Session.Info`.
+      directoryKey: Filesystem.comparisonKey(info.directory),
+      titleLower: info.title.toLowerCase(),
     }
   }
 
@@ -73,6 +78,57 @@ export namespace SessionRepo {
 
   export function list(projectId: string): Session.Info[] {
     return getByProject(projectId)
+  }
+
+  /**
+   * Filters, orders, and limits the session list in SQL.
+   *
+   * `GET /session` used to read every session of the project through
+   * `Array.fromAsync` and then filter, sort, and slice in JS; on a large
+   * project that parsed one `data` blob per row to keep a handful (P2.1).
+   * Every predicate here is the SQL form of the JS one it replaces, exactly:
+   *
+   * - `directoryKey` is compared against the stored
+   *   `Filesystem.comparisonKey(directory)`, so Windows case folding is the
+   *   JS one and not SQLite's ASCII `lower()`. Callers pass a key, not a path.
+   * - `search` is `instr(title_lower, ?) > 0` against the stored JS-lowered
+   *   title: a substring test, so a `%` or `_` in the term stays a literal
+   *   the way `String.includes` treats it.
+   * - `start` keeps the route's `time.updated >= start` boundary.
+   * - `roots` keeps only sessions with no parent.
+   *
+   * Rows are mapped after the limit, so `rowToInfo`'s `JSON.parse` runs once
+   * per returned session rather than once per stored session.
+   */
+  export type Query = {
+    projectId: string
+    workspaceId?: string | undefined
+    directoryKey?: string | undefined
+    roots?: boolean | undefined
+    start?: number | undefined
+    search?: string | undefined
+    limit?: number | undefined
+  }
+
+  export function query(input: Query): Session.Info[] {
+    const conditions = [eq(sessionInfo.projectId, input.projectId)]
+    if (input.workspaceId !== undefined) conditions.push(eq(sessionInfo.workspaceId, input.workspaceId))
+    if (input.directoryKey !== undefined) conditions.push(eq(sessionInfo.directoryKey, input.directoryKey))
+    if (input.roots) conditions.push(isNull(sessionInfo.parentId))
+    if (input.start !== undefined) conditions.push(gte(sessionInfo.updatedAt, input.start))
+    if (input.search !== undefined && input.search !== "") {
+      conditions.push(sql`instr(${sessionInfo.titleLower}, ${input.search.toLowerCase()}) > 0`)
+    }
+    const base = db()
+      .select()
+      .from(sessionInfo)
+      .where(and(...conditions))
+      // `createdAt` breaks ties the way the old JS path did: its input came
+      // from `getByProject` (created-ascending) and `Array.prototype.sort` is
+      // stable, so equal `updatedAt` kept created order.
+      .orderBy(desc(sessionInfo.updatedAt), asc(sessionInfo.createdAt))
+    const rows = input.limit !== undefined ? base.limit(input.limit).all() : base.all()
+    return rows.map(rowToInfo)
   }
 
   /**
@@ -106,6 +162,11 @@ export namespace SessionRepo {
           data: row.data,
           updatedAt: row.updatedAt,
           lastModel: row.lastModel,
+          // Derived from `title` / `directory` above; both column lists here
+          // are enumerated by hand, so these have to move with their source
+          // or a rename would leave `query()` filtering on the old value.
+          directoryKey: row.directoryKey,
+          titleLower: row.titleLower,
         },
       })
       .run()
@@ -130,6 +191,8 @@ export namespace SessionRepo {
         data: row.data,
         updatedAt: row.updatedAt,
         lastModel: row.lastModel,
+        directoryKey: row.directoryKey,
+        titleLower: row.titleLower,
       })
       .where(eq(sessionInfo.id, id))
       .run()

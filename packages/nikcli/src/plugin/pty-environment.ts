@@ -15,9 +15,8 @@ export namespace PluginPtyEnvironment {
       const plugin = yield* Plugin.Service
       return PtyEnvironment.Service.of({
         get: Effect.fn("PtyEnvironment.get")(function* (input) {
-          const result = yield* plugin
-            .trigger("shell.env", { cwd: input.cwd }, { env: {} as Record<string, string> })
-            .pipe(Effect.orDie)
+          const emptyEnv: Record<string, string> = {}
+          const result = yield* plugin.trigger("shell.env", { cwd: input.cwd }, { env: emptyEnv }).pipe(Effect.orDie)
           return result.env
         }),
       })

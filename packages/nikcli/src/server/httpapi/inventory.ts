@@ -38,8 +38,8 @@ export const rawRouteImplementations = new Set<string>([
 ])
 
 function routes(api: typeof PublicApi): PublicRoute[] {
-  const spec = OpenApi.fromApi(api) as Record<string, any>
-  return Object.entries((spec.paths ?? {}) as Record<string, any>).flatMap(([path, item]) =>
+  const spec = OpenApi.fromApi(api)
+  return Object.entries(spec.paths ?? {}).flatMap(([path, item]) =>
     methods.flatMap((method) => {
       const operation = item?.[method]
       if (!operation) return []

@@ -1,6 +1,6 @@
 import { Cause, Effect, Exit, Layer, Logger, Option, Tracer } from "effect"
 import { FetchHttpClient } from "effect/unstable/http"
-import { OtlpLogger, OtlpSerialization, OtlpTracer } from "effect/unstable/observability"
+import { OtlpExporter, OtlpLogger, OtlpSerialization, OtlpTracer } from "effect/unstable/observability"
 import { Flag } from "@nikcli-ai/util/flag"
 import { TelemetryRecord } from "./telemetry-bus"
 
@@ -237,7 +237,12 @@ function tracerLayer(runID: string): Layer.Layer<never, never, never> {
             })
             return Layer.succeed(Tracer.Tracer, live ? wrapTracer(base) : base)
           }),
-        ).pipe(Layer.provide(OtlpSerialization.layerJson), Layer.provide(FetchHttpClient.layer), Layer.orDie)
+        ).pipe(
+          Layer.provide(OtlpSerialization.layerJson),
+          Layer.provide(FetchHttpClient.layer),
+          Layer.provide(OtlpExporter.layerFlusher),
+          Layer.orDie,
+        )
       : Layer.succeed(Tracer.Tracer, makeBusTracer())
 }
 
@@ -246,7 +251,7 @@ function tracerLayer(runID: string): Layer.Layer<never, never, never> {
 // when nothing is active, so it can be merged into any runtime base unchanged.
 export const layer: Layer.Layer<never, never, never> = active
   ? Layer.unwrap(
-      Effect.gen(function* () {
+      Effect.sync(() => {
         // Per-run correlation id, generated when the observability layer is
         // built rather than at module load. This keeps the module free of an
         // import-time global side effect (so the core can run in constrained
@@ -256,6 +261,7 @@ export const layer: Layer.Layer<never, never, never> = active
           ? Logger.layer(loggers(runID), { mergeWithExisting: true }).pipe(
               Layer.provide(OtlpSerialization.layerJson),
               Layer.provide(FetchHttpClient.layer),
+              Layer.provide(OtlpExporter.layerFlusher),
               Layer.orDie,
             )
           : Layer.empty

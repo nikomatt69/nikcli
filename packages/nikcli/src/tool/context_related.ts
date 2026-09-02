@@ -2,7 +2,7 @@ import z from "zod"
 import path from "path"
 import { Tool } from "./tool"
 import DESCRIPTION from "./context_related.txt"
-import { AppRuntime, InstanceState, withCurrentInstance } from "@/effect"
+import { InstanceState } from "@/effect"
 import { assertExternalDirectory } from "./external-directory"
 
 const parameters = z.object({
@@ -11,7 +11,7 @@ const parameters = z.object({
 })
 
 async function instancePaths() {
-  const ctx = await AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
+  const ctx = InstanceState.ambient()
   return { directory: ctx.directory, worktree: ctx.worktree }
 }
 

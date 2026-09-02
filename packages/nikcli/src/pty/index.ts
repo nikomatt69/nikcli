@@ -1,8 +1,8 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
-import { type IPty } from "bun-pty"
 import { Identifier } from "@nikcli-ai/util/id"
 import { Log } from "@nikcli-ai/util/log"
+import { spawnPty, type NativePty } from "@nikcli-ai/util/pty"
 import { Shell } from "@/shell/shell"
 import { InstanceState } from "@/effect"
 import { zodObject, type DeepMutable } from "@nikcli-ai/util/effect-zod"
@@ -14,11 +14,6 @@ export namespace Pty {
 
   const BUFFER_LIMIT = 1024 * 1024 * 2
   const BUFFER_CHUNK = 64 * 1024
-
-  const loadSpawn = Effect.promise(async () => {
-    const { spawn } = await import("bun-pty")
-    return spawn
-  })
 
   export const InfoSchema = Schema.Struct({
     id: Schema.String.pipe(Schema.check(Schema.isStartsWith("pty"))),
@@ -66,7 +61,7 @@ export namespace Pty {
 
   interface ActiveSession {
     info: Info
-    process: IPty
+    process: NativePty
     buffer: string
     subscribers: Set<Socket>
   }
@@ -82,7 +77,7 @@ export namespace Pty {
     readonly onClose: () => void
   }
 
-  export class CreateError extends Schema.TaggedErrorClass<CreateError>()("PtyCreateError", {
+  export class CreateError extends Schema.TaggedError<CreateError>()("PtyCreateError", {
     command: Schema.String,
     cause: Schema.optional(Schema.Unknown),
   }) {
@@ -97,7 +92,7 @@ export namespace Pty {
    * The HTTP wire name stays the literal `"NotFoundError"` — boundaries must
    * emit that string rather than forwarding `_tag` (`PtyNotFoundError`).
    */
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("PtyNotFoundError", {
+  export class NotFoundError extends Schema.TaggedError<NotFoundError>()("PtyNotFoundError", {
     message: Schema.String,
   }) {}
 
@@ -143,7 +138,6 @@ export namespace Pty {
         ),
       )
 
-      const cachedSpawn = yield* Effect.cached(loadSpawn)
       const environment = yield* PtyEnvironment.Service
 
       const list: Interface["list"] = Effect.fn("Pty.list")(function* () {
@@ -176,11 +170,11 @@ export namespace Pty {
         } as Record<string, string>
         log.info("creating session", { id, cmd: command, args, cwd })
 
-        const spawn = yield* cachedSpawn
         const ptyProcess = yield* Effect.try({
           try: () =>
-            spawn(command, args, {
-              name: "xterm-256color",
+            spawnPty({
+              command,
+              args,
               cwd,
               env,
             }),

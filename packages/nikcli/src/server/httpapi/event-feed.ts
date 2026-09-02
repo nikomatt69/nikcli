@@ -33,7 +33,10 @@ export namespace EventFeed {
   export const LAG_BUDGET = 4096
 
   /** A connection-local frame: the greeting, a heartbeat, or a failure reason. */
-  export type LocalEvent = { type: string; properties: Record<string, unknown> }
+  export type LocalEvent = {
+    type: string
+    properties: Record<string, unknown>
+  }
 
   /**
    * Wraps a connection-local event in the route's wire shape.
@@ -202,18 +205,21 @@ export namespace EventFeed {
         // see a silent gap, but keep the feed usable for later connections.
         const type = (event as { type?: unknown } | undefined)?.type
         log.error("event encoding failed", { type, error })
-        this.failAll({ name: "EncodingError", message: "an event could not be encoded" })
+        this.failAll({
+          name: "EncodingError",
+          message: "an event could not be encoded",
+        })
         return
       }
-      for (const connection of [...this.connections]) connection.offer(encoded)
+      for (const connection of this.connections) connection.offer(encoded)
     }
 
     closeAll() {
-      for (const connection of [...this.connections]) connection.close()
+      for (const connection of this.connections) connection.close()
     }
 
     failAll(reason: CloseReason) {
-      for (const connection of [...this.connections]) connection.fail(reason)
+      for (const connection of this.connections) connection.fail(reason)
     }
   }
 

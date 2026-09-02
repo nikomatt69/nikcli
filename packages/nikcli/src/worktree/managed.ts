@@ -23,7 +23,7 @@ export namespace ManagedWorktree {
   export type ID = string
 
   // Error types
-  export class WorktreeError extends Schema.TaggedErrorClass<WorktreeError>()("ManagedWorktreeError", {
+  export class WorktreeError extends Schema.TaggedError<WorktreeError>()("ManagedWorktreeError", {
     message: Schema.String,
     code: Schema.optional(Schema.String),
   }) {}
@@ -149,7 +149,7 @@ export namespace ManagedWorktree {
     await fs.cp(src, dest, {
       preserveTimestamps: true,
       recursive: true,
-      filter: (src, dest) => {
+      filter: (src, _dest) => {
         // Skip .worktree files during copy - will be written fresh
         if (path.basename(src) === WORKTREE_MARKER) return false
         return true
@@ -296,7 +296,7 @@ export namespace ManagedWorktree {
   }
 
   // Generate destination name
-  function destinationName(inputName: string | undefined, id: ID): string {
+  function destinationName(inputName: string | undefined, _id: ID): string {
     if (inputName) {
       return inputName
     }

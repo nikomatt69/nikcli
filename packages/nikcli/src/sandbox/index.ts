@@ -2,7 +2,10 @@ import { Context, Effect, Layer, Schema } from "effect"
 import path from "path"
 import fs from "fs/promises"
 import { Log } from "@nikcli-ai/util/log"
+import { Flag } from "@nikcli-ai/util/flag"
+import { bunUtils } from "@/bun"
 import { Instance } from "../project/instance"
+import { InstanceState } from "@/effect"
 
 /**
  * Sandbox — isolated command execution layer.
@@ -19,7 +22,7 @@ import { Instance } from "../project/instance"
 export namespace Sandbox {
   const log = Log.create({ service: "sandbox" })
 
-  export class EscapeError extends Schema.TaggedErrorClass<EscapeError>()("SandboxEscapeError", {
+  export class EscapeError extends Schema.TaggedError<EscapeError>()("SandboxEscapeError", {
     cwd: Schema.String,
     project: Schema.String,
   }) {
@@ -28,7 +31,7 @@ export namespace Sandbox {
     }
   }
 
-  export class TimeoutError extends Schema.TaggedErrorClass<TimeoutError>()("SandboxTimeoutError", {
+  export class TimeoutError extends Schema.TaggedError<TimeoutError>()("SandboxTimeoutError", {
     timeoutMs: Schema.Number,
     command: Schema.String,
   }) {
@@ -37,7 +40,7 @@ export namespace Sandbox {
     }
   }
 
-  export class FailedError extends Schema.TaggedErrorClass<FailedError>()("SandboxFailedError", {
+  export class FailedError extends Schema.TaggedError<FailedError>()("SandboxFailedError", {
     exitCode: Schema.Number,
     command: Schema.String,
     stderr: Schema.String,
@@ -96,8 +99,7 @@ export namespace Sandbox {
     return out
   }
 
-  async function assertContained(cwd: string): Promise<void> {
-    const projectDir = Instance.directory
+  async function assertContained(projectDir: string, cwd: string): Promise<void> {
     let projectReal: string
     let cwdReal: string
     try {
@@ -126,85 +128,99 @@ export namespace Sandbox {
     Service,
     Service.of({
       run: (input) =>
-        Effect.tryPromise({
-          try: async () => {
-            await assertContained(input.cwd).catch((e) => {
-              if (e instanceof EscapeError) throw e
-              throw e
-            })
+        // The containment check needs the project directory, so it is read
+        // here — where the service already runs inside Effect — instead of
+        // from the ambient scope inside the promise body.
+        InstanceState.directory.pipe(
+          Effect.flatMap((projectDir) =>
+            Effect.tryPromise({
+              try: async () => {
+                await assertContained(projectDir, input.cwd).catch((e) => {
+                  if (e instanceof EscapeError) throw e
+                  throw e
+                })
 
-            const start = performance.now()
-            const env = scrubEnv(input.env)
-            const proc = Bun.spawn(input.command as string[], {
-              windowsHide: true,
-              cwd: input.cwd,
-              env,
-              stdin: input.stdin ? "pipe" : "ignore",
-              stdout: "pipe",
-              stderr: "pipe",
-            })
+                const start = performance.now()
+                const env = scrubEnv(input.env)
+                const proc = bunUtils.spawn(input.command as string[], {
+                  windowsHide: true,
+                  cwd: input.cwd,
+                  env,
+                  stdin: input.stdin ? "pipe" : "ignore",
+                  stdout: "pipe",
+                  stderr: "pipe",
+                  ...(process.platform === "linux" && Flag.NIKCLI_SANDBOX_CGROUP
+                    ? { cgroup: Flag.NIKCLI_SANDBOX_CGROUP }
+                    : undefined),
+                })
 
-            if (input.stdin && proc.stdin) {
-              const writer = proc.stdin as unknown as { write: (chunk: string) => void; end: () => void }
-              writer.write(input.stdin)
-              writer.end()
-            }
+                if (input.stdin && proc.stdin) {
+                  const writer = proc.stdin as unknown as { write: (chunk: string) => void; end: () => void }
+                  writer.write(input.stdin)
+                  writer.end()
+                }
 
-            const timeoutMs = input.timeoutMs ?? 60_000
-            let timedOut = false
-            const timer = setTimeout(() => {
-              timedOut = true
-              try {
-                proc.kill("SIGTERM")
-              } catch {}
-              // Hard-kill 2s after SIGTERM if still alive.
-              setTimeout(() => {
+                const timeoutMs = input.timeoutMs ?? 60_000
+                let timedOut = false
+                const timer = setTimeout(() => {
+                  timedOut = true
+                  try {
+                    proc.kill("SIGTERM")
+                  } catch {}
+                  // Hard-kill 2s after SIGTERM if still alive.
+                  setTimeout(() => {
+                    try {
+                      proc.kill("SIGKILL")
+                    } catch {}
+                  }, 2_000)
+                }, timeoutMs)
+
+                const onAbort = () => {
+                  try {
+                    proc.kill("SIGTERM")
+                  } catch {}
+                }
+                input.signal?.addEventListener("abort", onAbort, { once: true })
+
                 try {
-                  proc.kill("SIGKILL")
-                } catch {}
-              }, 2_000)
-            }, timeoutMs)
+                  const [stdoutText, stderrText] = await Promise.all([
+                    new Response(proc.stdout).text(),
+                    new Response(proc.stderr).text(),
+                  ])
+                  await proc.exited
+                  const exitCode = proc.exitCode ?? 0
+                  const durationMs = performance.now() - start
 
-            const onAbort = () => {
-              try {
-                proc.kill("SIGTERM")
-              } catch {}
-            }
-            input.signal?.addEventListener("abort", onAbort, { once: true })
-
-            try {
-              const [stdoutText, stderrText] = await Promise.all([
-                new Response(proc.stdout).text(),
-                new Response(proc.stderr).text(),
-              ])
-              await proc.exited
-              const exitCode = proc.exitCode ?? 0
-              const durationMs = performance.now() - start
-
-              if (timedOut) {
-                throw new TimeoutError({ timeoutMs, command: input.command.join(" ") })
-              }
-              if (exitCode !== 0) {
-                throw new FailedError({ exitCode, command: input.command.join(" "), stderr: stderrText.slice(0, 500) })
-              }
-              return { stdout: stdoutText, stderr: stderrText, exitCode, durationMs }
-            } finally {
-              clearTimeout(timer)
-              input.signal?.removeEventListener("abort", onAbort)
-            }
-          },
-          catch: (cause) => {
-            if (cause instanceof EscapeError || cause instanceof TimeoutError || cause instanceof FailedError) {
-              return cause
-            }
-            log.warn("local sandbox unexpected error", { error: cause })
-            return new FailedError({
-              exitCode: -1,
-              command: input.command.join(" "),
-              stderr: cause instanceof Error ? cause.message : String(cause),
-            })
-          },
-        }),
+                  if (timedOut) {
+                    throw new TimeoutError({ timeoutMs, command: input.command.join(" ") })
+                  }
+                  if (exitCode !== 0) {
+                    throw new FailedError({
+                      exitCode,
+                      command: input.command.join(" "),
+                      stderr: stderrText.slice(0, 500),
+                    })
+                  }
+                  return { stdout: stdoutText, stderr: stderrText, exitCode, durationMs }
+                } finally {
+                  clearTimeout(timer)
+                  input.signal?.removeEventListener("abort", onAbort)
+                }
+              },
+              catch: (cause) => {
+                if (cause instanceof EscapeError || cause instanceof TimeoutError || cause instanceof FailedError) {
+                  return cause
+                }
+                log.warn("local sandbox unexpected error", { error: cause })
+                return new FailedError({
+                  exitCode: -1,
+                  command: input.command.join(" "),
+                  stderr: cause instanceof Error ? cause.message : String(cause),
+                })
+              },
+            }),
+          ),
+        ),
     }),
   )
 

@@ -77,7 +77,7 @@ export namespace MCP {
     { visibility: "internal" },
   )
 
-  export class Failed extends Schema.TaggedErrorClass<Failed>()("MCPFailed", {
+  export class Failed extends Schema.TaggedError<Failed>()("MCPFailed", {
     name: Schema.String,
   }) {}
 
@@ -464,7 +464,7 @@ export namespace MCP {
         cwd,
         env: {
           ...process.env,
-          ...(cmd === "nikcli" ? { BUN_BE_BUN: "1" } : {}),
+          ...(cmd === "nikcli" ? { BUN_BE_BUN: "1" } : undefined),
           ...mcp.environment,
         },
       })

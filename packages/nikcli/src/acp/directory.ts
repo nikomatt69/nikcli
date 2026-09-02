@@ -117,7 +117,7 @@ export function build(input: SnapshotInput): Snapshot {
     availableModes: input.modes,
     defaultModeID,
     availableCommands: [...input.commands].toSorted((a, b) => a.name.localeCompare(b.name)),
-    ...(input.defaultModel ? { defaultModel: input.defaultModel } : {}),
+    ...(input.defaultModel ? { defaultModel: input.defaultModel } : undefined),
   }
 }
 
@@ -185,7 +185,7 @@ export async function loadSnapshot(directory: string): Promise<Snapshot> {
     .map((agent) => ({
       id: agent.name,
       name: agent.name,
-      ...(agent.description ? { description: agent.description } : {}),
+      ...(agent.description ? { description: agent.description } : undefined),
     }))
 
   return build({
@@ -194,7 +194,7 @@ export async function loadSnapshot(directory: string): Promise<Snapshot> {
     modes,
     defaultModeID: defaultAgent,
     commands,
-    ...(configuredModel ? { defaultModel: configuredModel } : {}),
+    ...(configuredModel ? { defaultModel: configuredModel } : undefined),
   })
 }
 

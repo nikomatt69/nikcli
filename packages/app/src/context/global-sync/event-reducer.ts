@@ -170,6 +170,13 @@ export function applyDirectoryEvent(input: {
     case "message.updated": {
       const info = (event.properties as { info: Message }).info
       const messages = input.store.message[info.sessionID]
+      // A new user turn retires the instruction notices pinned under the
+      // transcript. They announce a change the server folds into the prompt
+      // prefix once it has been delivered, so past the turn that carried it
+      // the chrome is stale and would otherwise never clear.
+      if (info.role === "user" && !messages?.some((message) => message.id === info.id)) {
+        input.setStore("session_instructions", info.sessionID, [])
+      }
       if (!messages) {
         input.setStore("message", info.sessionID, [info])
         break

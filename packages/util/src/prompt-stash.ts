@@ -1,6 +1,7 @@
 import path from "path"
 import { appendFile, writeFile } from "fs/promises"
 import { Global } from "./global"
+import { parseJsonl } from "./bun-utils"
 import { capPromptEntryBytes, dehydratePromptEntry } from "./prompt-blob"
 
 /**
@@ -29,17 +30,8 @@ async function read() {
   const text = await Bun.file(filePath())
     .text()
     .catch(() => "")
-  return text
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      try {
-        return JSON.parse(line) as Partial<StashEntry>
-      } catch {
-        return null
-      }
-    })
-    .filter((line): line is Partial<StashEntry> => line !== null)
+  return parseJsonl(text)
+    .filter((line): line is Partial<StashEntry> => !!line && typeof line === "object")
     .map((entry) => ({
       id: typeof entry.id === "string" && entry.id ? entry.id : String(entry.timestamp ?? Date.now()),
       input: typeof entry.input === "string" ? entry.input : "",

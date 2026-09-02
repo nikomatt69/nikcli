@@ -2,7 +2,7 @@ import { ConnectorAuth } from "../auth"
 import { Effect, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 
-export class SlackApiError extends Schema.TaggedErrorClass<SlackApiError>()("SlackApiError", {
+export class SlackApiError extends Schema.TaggedError<SlackApiError>()("SlackApiError", {
   message: Schema.String,
 }) {}
 
@@ -115,6 +115,9 @@ export namespace SlackApi {
   ): Promise<any> {
     const formData = new FormData()
     formData.append("channels", channels)
+    // SAFETY: `fileData` is a `Uint8Array` this process built from a file read
+    // or a fetch body, so its backing store is an `ArrayBuffer` — the
+    // `SharedArrayBuffer` half of `ArrayBufferLike` cannot occur here.
     formData.append("file", new Blob([fileData.buffer as ArrayBuffer]), filename)
     formData.append("filename", filename)
 

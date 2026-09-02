@@ -133,6 +133,8 @@ export const MobileCommand = cmd({
         handler: async (args) => {
           const host = await startMobileHost({
             ...args,
+            // SAFETY: the builder declares `publicUrl` as `type: "string"`,
+            // so yargs yields a string or leaves it absent.
             publicUrl: args.publicUrl as string | undefined,
             pair: Boolean(args.pair),
             pairName: String(args.pairName || "iphone"),

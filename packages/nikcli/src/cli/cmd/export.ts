@@ -68,6 +68,8 @@ export const ExportCommand = cmd({
           throw new UI.CancelledError()
         }
 
+        // SAFETY: the `isCancel` guard above throws, and every option's
+        // `value` is `session.id`, so only a session id reaches here.
         sessionID = selectedSession as string
 
         prompts.outro("Exporting session...", {

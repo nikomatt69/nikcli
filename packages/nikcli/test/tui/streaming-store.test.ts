@@ -74,7 +74,7 @@ describe("turn identity against the real store", () => {
   })
 
   it("a new part rebuilds one turn and leaves the other mounted", () => {
-    const { store, setStore, turns, dispose } = harness()
+    const { setStore, turns, dispose } = harness()
     const before = turns()
 
     setStore(

@@ -1,4 +1,3 @@
-import z from "zod"
 import { Bus } from "@/bus"
 import * as LoopEngine from "@/loop/engine"
 import * as LoopManager from "@/loop/manager"
@@ -14,143 +13,165 @@ import {
   MobileRoutineTriggerInput,
   MobileRoutineUpdateInput,
 } from "./helpers"
-import { body, isResponse, json, query } from "./request"
+import { MobileHttpError } from "./request"
+import type { InstanceContext } from "@/effect"
 
-const match = (path: string, pattern: RegExp) => path.match(pattern)?.slice(1).map(decodeURIComponent)
-const Limit = z.object({ limit: z.coerce.number().int().positive().max(200).optional() })
-const found = (id: string) => json({ error: `Loop "${id}" not found` }, 404)
-const routineFound = (id: string) => json({ error: `Routine "${id}" not found` }, 404)
+const notFound = (id: string) => new MobileHttpError(`Loop "${id}" not found`, 404)
+const routineNotFound = (id: string) => new MobileHttpError(`Routine "${id}" not found`, 404)
 
-export async function handleLoopsRequest(request: Request): Promise<Response | undefined> {
-  const path = new URL(request.url).pathname
-  if (!path.startsWith("/mobile/loops") && !path.startsWith("/mobile/routines")) return
-  if (path === "/mobile/loops/templates" && request.method === "GET") return json({ templates: LOOP_TEMPLATES })
-  if (path === "/mobile/loops/generate" && request.method === "POST") {
-    const input = await body(request, MobileLoopGenerateInput)
-    if (isResponse(input)) return input
-    return json(await generateFromDescription(input.description, { model: input.model, agent: input.agent }))
-  }
-  if (path === "/mobile/loops/runs/recent" && request.method === "GET") {
-    const input = query(request, Limit)
-    if (isResponse(input)) return input
-    return json({ runs: await LoopManager.listAllRunsAcrossLoops(input.limit ?? 50) })
-  }
-  if (path === "/mobile/loops" && request.method === "GET") {
-    const loops = await LoopManager.list()
-    return json({ loops, runtimes: loops.map((loop) => ({ loopID: loop.id, ...LoopEngine.getRuntime(loop.id) })) })
-  }
-  if (path === "/mobile/loops" && request.method === "POST") {
-    const input = await body(request, MobileLoopWriteInput)
-    if (isResponse(input)) return input
-    const loop: LoopDefinition = { ...input, id: generateID(), createdAt: Date.now(), enabled: input.enabled ?? true }
-    const error = validateDefinition(loop)
-    if (error) return json({ error }, 400)
-    const saved = await LoopManager.upsert(loop)
-    await LoopEngine.sync(saved.id)
-    void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: saved.id })
-    return json(saved)
-  }
-  const action = match(path, /^\/mobile\/loops\/([^/]+)\/(runs|run|abort|toggle|pause|resume)$/)
-  if (action) {
-    const [id, kind] = action
-    if (kind === "runs" && request.method === "GET") {
-      const input = query(request, Limit)
-      if (isResponse(input)) return input
-      return json({ runs: await LoopManager.listRuns(id, input.limit ?? 50) })
-    }
-    if (request.method !== "POST") return
-    if (kind === "toggle") {
-      const input = await body(request, z.object({ enabled: z.boolean() }))
-      if (isResponse(input)) return input
-      const next = await LoopManager.setEnabled(id, input.enabled)
-      if (!next) return found(id)
-      await LoopEngine.sync(id)
-      void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: id })
-      return json(next)
-    }
-    if (!(await LoopManager.get(id))) return found(id)
-    if (kind === "run") {
-      void LoopEngine.runOnce(id).catch((error) => log.error("loop run failed", { id, error }))
-    } else if (kind === "abort") await LoopEngine.cancelRun(id)
-    else if (kind === "pause") {
-      await LoopManager.setPaused(id, true)
-      LoopEngine.disarm(id)
-      LoopEngine.setRuntimeStatus(id, "paused")
-    } else if (kind === "resume") {
-      await LoopManager.setPaused(id, false)
-      LoopEngine.setRuntimeStatus(id, "idle")
-      await LoopEngine.sync(id)
-    } else return
-    return json({ success: true })
-  }
-  const detail = match(path, /^\/mobile\/loops\/([^/]+)$/)
-  if (detail) {
-    const id = detail[0]
-    const existing = await LoopManager.get(id)
-    if (!existing) return found(id)
-    if (request.method === "GET") return json({ loop: existing, runtime: { loopID: id, ...LoopEngine.getRuntime(id) } })
-    if (request.method === "PATCH") {
-      const input = await body(request, MobileLoopWriteInput)
-      if (isResponse(input)) return input
-      const next: LoopDefinition = { ...input, id, createdAt: existing.createdAt }
-      const error = validateDefinition(next)
-      if (error) return json({ error }, 400)
-      const saved = await LoopManager.upsert(next)
-      await LoopEngine.sync(id)
-      void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: id })
-      return json(saved)
-    }
-    if (request.method === "DELETE") {
-      await LoopEngine.cancelRun(id)
-      await LoopManager.remove(id)
-      LoopEngine.disarm(id)
-      void Bus.publish(LoopEngine.LoopEvent.Removed, { loopID: id })
-      return json({ success: true })
-    }
-  }
-  if (path === "/mobile/routines" && request.method === "GET") return json(await Routine.list())
-  if (path === "/mobile/routines" && request.method === "POST") {
-    const input = await body(request, MobileRoutineCreateInput)
-    return isResponse(input) ? input : json(await Routine.create(input))
-  }
-  const trigger = match(path, /^\/mobile\/routines\/trigger\/([^/]+)$/)
-  if (trigger && request.method === "POST") {
-    const input = await body(request, MobileRoutineTriggerInput.optional())
-    if (isResponse(input)) return input
-    const bearer = request.headers
-      .get("authorization")
-      ?.match(/^Bearer\s+(.+)$/i)?.[1]
-      ?.trim()
-    const routine = await Routine.getByToken(bearer || trigger[0])
-    if (!routine) return json({ error: "Routine not found or API trigger disabled" }, 404)
-    return json(await Routine.run(routine.id, { text: input?.text }))
-  }
-  const routineAction = match(path, /^\/mobile\/routines\/([^/]+)\/(run|pause|resume)$/)
-  if (routineAction && request.method === "POST") {
-    const [id, kind] = routineAction
-    if (!(await Routine.get(id))) return routineFound(id)
-    if (kind === "pause") return json(await Routine.pause(id))
-    if (kind === "resume") return json(await Routine.resume(id))
-    const input = await body(request, MobileRoutineRunInput.optional())
-    return isResponse(input) ? input : json(await Routine.run(id, { text: input?.text }))
-  }
-  const routine = match(path, /^\/mobile\/routines\/([^/]+)$/)
-  if (routine) {
-    const id = routine[0]
-    if (request.method === "GET") {
-      const record = await Routine.get(id)
-      if (!record) return routineFound(id)
-      return json(record)
-    }
-    if (request.method === "PATCH") {
-      if (!(await Routine.get(id))) return routineFound(id)
-      const input = await body(request, MobileRoutineUpdateInput)
-      return isResponse(input) ? input : json(await Routine.update(id, input))
-    }
-    if (request.method === "DELETE") {
-      if (!(await Routine.get(id))) return routineFound(id)
-      await Routine.remove(id)
-      return json({ success: true })
-    }
-  }
+export async function loopTemplates() {
+  return { templates: LOOP_TEMPLATES }
+}
+
+export function loopGenerate(input: typeof MobileLoopGenerateInput._output) {
+  return generateFromDescription(input.description, {
+    model: input.model,
+    agent: input.agent,
+    sessionID: input.sessionID,
+  })
+}
+
+export async function loopRunsRecent(instance: InstanceContext, query: { limit?: number }) {
+  return { runs: await LoopManager.listAllRunsAcrossLoops(instance.project.id, query.limit ?? 50) }
+}
+
+export async function loopList(instance: InstanceContext) {
+  const loops = await LoopManager.list(instance.project.id)
+  return { loops, runtimes: loops.map((loop) => ({ loopID: loop.id, ...LoopEngine.getRuntime(loop.id) })) }
+}
+
+export async function loopCreate(instance: InstanceContext, input: typeof MobileLoopWriteInput._output) {
+  const loop: LoopDefinition = { ...input, id: generateID(), createdAt: Date.now(), enabled: input.enabled ?? true }
+  const error = validateDefinition(loop)
+  if (error) throw new MobileHttpError(error, 400)
+  const saved = await LoopManager.upsert(instance.project.id, loop)
+  await LoopEngine.sync(saved.id)
+  void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: saved.id })
+  return saved
+}
+
+export async function loopGet(instance: InstanceContext, id: string) {
+  const existing = await LoopManager.get(instance.project.id, id)
+  if (!existing) throw notFound(id)
+  return { loop: existing, runtime: { loopID: id, ...LoopEngine.getRuntime(id) } }
+}
+
+export async function loopUpdate(instance: InstanceContext, id: string, input: typeof MobileLoopWriteInput._output) {
+  const existing = await LoopManager.get(instance.project.id, id)
+  if (!existing) throw notFound(id)
+  const next: LoopDefinition = { ...input, id, createdAt: existing.createdAt }
+  const error = validateDefinition(next)
+  if (error) throw new MobileHttpError(error, 400)
+  const saved = await LoopManager.upsert(instance.project.id, next)
+  await LoopEngine.sync(id)
+  void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: id })
+  return saved
+}
+
+export async function loopDelete(instance: InstanceContext, id: string) {
+  if (!(await LoopManager.get(instance.project.id, id))) throw notFound(id)
+  await LoopEngine.cancelRun(id)
+  await LoopManager.remove(instance.project.id, instance.directory, id)
+  LoopEngine.disarm(id)
+  void Bus.publish(LoopEngine.LoopEvent.Removed, { loopID: id })
+  return { success: true as const }
+}
+
+export async function loopRuns(instance: InstanceContext, id: string, query: { limit?: number }) {
+  return { runs: await LoopManager.listRuns(instance.project.id, id, query.limit ?? 50) }
+}
+
+export async function loopRun(instance: InstanceContext, id: string) {
+  if (!(await LoopManager.get(instance.project.id, id))) throw notFound(id)
+  void LoopEngine.runOnce(id).catch((error) => log.error("loop run failed", { id, error }))
+  return { success: true as const }
+}
+
+export async function loopAbort(instance: InstanceContext, id: string) {
+  if (!(await LoopManager.get(instance.project.id, id))) throw notFound(id)
+  await LoopEngine.cancelRun(id)
+  return { success: true as const }
+}
+
+export async function loopToggle(instance: InstanceContext, id: string, input: { enabled: boolean }) {
+  const next = await LoopManager.setEnabled(instance.project.id, id, input.enabled)
+  if (!next) throw notFound(id)
+  await LoopEngine.sync(id)
+  void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: id })
+  return next
+}
+
+export async function loopPause(instance: InstanceContext, id: string) {
+  if (!(await LoopManager.get(instance.project.id, id))) throw notFound(id)
+  await LoopManager.setPaused(instance.project.id, id, true)
+  LoopEngine.disarm(id)
+  LoopEngine.setRuntimeStatus(id, "paused")
+  return { success: true as const }
+}
+
+export async function loopResume(instance: InstanceContext, id: string) {
+  if (!(await LoopManager.get(instance.project.id, id))) throw notFound(id)
+  await LoopManager.setPaused(instance.project.id, id, false)
+  LoopEngine.setRuntimeStatus(id, "idle")
+  await LoopEngine.sync(id)
+  return { success: true as const }
+}
+
+export function routineList(instance: InstanceContext) {
+  return Routine.list(instance)
+}
+
+export function routineCreate(instance: InstanceContext, input: typeof MobileRoutineCreateInput._output) {
+  return Routine.create(instance, input)
+}
+
+export async function routineGet(instance: InstanceContext, id: string) {
+  const record = await Routine.get(instance, id)
+  if (!record) throw routineNotFound(id)
+  return record
+}
+
+export async function routineUpdate(
+  instance: InstanceContext,
+  id: string,
+  input: typeof MobileRoutineUpdateInput._output,
+) {
+  if (!(await Routine.get(instance, id))) throw routineNotFound(id)
+  return Routine.update(instance, id, input)
+}
+
+export async function routineDelete(instance: InstanceContext, id: string) {
+  if (!(await Routine.get(instance, id))) throw routineNotFound(id)
+  await Routine.remove(instance, id)
+  return { success: true as const }
+}
+
+export async function routineRun(
+  instance: InstanceContext,
+  id: string,
+  input: typeof MobileRoutineRunInput._output | void,
+) {
+  if (!(await Routine.get(instance, id))) throw routineNotFound(id)
+  return Routine.run(instance, id, { text: input?.text })
+}
+
+export async function routinePause(instance: InstanceContext, id: string) {
+  if (!(await Routine.get(instance, id))) throw routineNotFound(id)
+  return Routine.pause(instance, id)
+}
+
+export async function routineResume(instance: InstanceContext, id: string) {
+  if (!(await Routine.get(instance, id))) throw routineNotFound(id)
+  return Routine.resume(instance, id)
+}
+
+export async function routineTrigger(
+  instance: InstanceContext,
+  token: string,
+  input: typeof MobileRoutineTriggerInput._output | void,
+  bearer: string | undefined,
+) {
+  const routine = await Routine.getByToken(instance, bearer || token)
+  if (!routine) throw new MobileHttpError("Routine not found or API trigger disabled", 404)
+  return Routine.run(instance, routine.id, { text: input?.text })
 }

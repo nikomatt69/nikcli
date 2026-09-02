@@ -5,51 +5,15 @@ import { SessionRepo } from "../../session/repo"
 import { bootstrap } from "../bootstrap"
 import { Project } from "../../project/project"
 import { ProjectRepo } from "../../project/repo"
-import { Instance } from "../../project/instance"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Log } from "@nikcli-ai/util/log"
-import z from "zod"
 
 const log = Log.create({ service: "stats-command" })
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>): Promise<A> {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
-
-const ModelUsageSchema = z.object({
-  messages: z.number(),
-  tokens: z.object({
-    input: z.number(),
-    output: z.number(),
-  }),
-  cost: z.number(),
-})
-
-const SessionStatsSchema = z.object({
-  totalSessions: z.number(),
-  totalMessages: z.number(),
-  totalCost: z.number(),
-  totalTokens: z.object({
-    input: z.number(),
-    output: z.number(),
-    reasoning: z.number(),
-    cache: z.object({
-      read: z.number(),
-      write: z.number(),
-    }),
-  }),
-  toolUsage: z.record(z.string(), z.number()),
-  modelUsage: z.record(z.string(), ModelUsageSchema),
-  dateRange: z.object({
-    earliest: z.number(),
-    latest: z.number(),
-  }),
-  days: z.number(),
-  costPerDay: z.number(),
-  tokensPerSession: z.number(),
-  medianTokensPerSession: z.number(),
-})
 
 interface SessionStats {
   totalSessions: number
@@ -115,8 +79,8 @@ export const StatsCommand = cmd({
       project: args.project,
     })
 
-    await bootstrap(process.cwd(), async () => {
-      const stats = await aggregateSessionStats(args.days, args.project)
+    await bootstrap(process.cwd(), async (instance) => {
+      const stats = await aggregateSessionStats(instance.project, args.days, args.project)
 
       let modelLimit: number | undefined
       if (args.models === true) {
@@ -129,10 +93,6 @@ export const StatsCommand = cmd({
     })
   },
 })
-
-async function getCurrentProject(): Promise<Project.Info> {
-  return Instance.project
-}
 
 async function getAllSessions(): Promise<Session.Info[]> {
   const sessions: Session.Info[] = []
@@ -148,7 +108,11 @@ async function getAllSessions(): Promise<Session.Info[]> {
   return sessions
 }
 
-export async function aggregateSessionStats(days?: number, projectFilter?: string): Promise<SessionStats> {
+export async function aggregateSessionStats(
+  project: Project.Info,
+  days?: number,
+  projectFilter?: string,
+): Promise<SessionStats> {
   const sessions = await getAllSessions()
   const MS_IN_DAY = 24 * 60 * 60 * 1000
 
@@ -172,7 +136,7 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
 
   if (projectFilter !== undefined) {
     if (projectFilter === "") {
-      const currentProject = await getCurrentProject()
+      const currentProject = project
       filteredSessions = filteredSessions.filter((session) => session.projectID === currentProject.id)
     } else {
       filteredSessions = filteredSessions.filter((session) => session.projectID === projectFilter)
@@ -304,16 +268,28 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
           latestTime: session.time.updated,
         }
       } catch (error) {
-        log.error("Failed to process session", { sessionId: session.id, error })
+        log.error("Failed to process session", {
+          sessionId: session.id,
+          error,
+        })
         return {
           messageCount: 0,
           sessionCost: 0,
-          sessionTokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+          sessionTokens: {
+            input: 0,
+            output: 0,
+            reasoning: 0,
+            cache: { read: 0, write: 0 },
+          },
           sessionTotalTokens: 0,
           sessionToolUsage: {} as Record<string, number>,
           sessionModelUsage: {} as Record<
             string,
-            { messages: number; tokens: { input: number; output: number }; cost: number }
+            {
+              messages: number
+              tokens: { input: number; output: number }
+              cost: number
+            }
           >,
           earliestTime: session.time.updated,
           latestTime: session.time.updated,

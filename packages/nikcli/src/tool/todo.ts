@@ -24,9 +24,16 @@ const WriteParameters = Schema.Struct({
   todos: Schema.Array(TodoItem).annotate({ description: "The updated todo list" }),
 })
 
+// Both todo tools already answer with the list serialized as JSON. Declaring it
+// as the success codec (T3) means a machine consumer — Code Mode — receives the
+// array itself instead of a string it has to re-parse, while the model-facing
+// `output` stays exactly the string it was.
+const TodoList = zod(Schema.Array(Todo.InfoSchema))
+
 export const TodoWriteTool = Tool.define("todowrite", {
   description: DESCRIPTION_WRITE,
   parameters: zod(WriteParameters),
+  output: TodoList,
   async execute(params, ctx) {
     await ctx.ask({
       permission: "todowrite",
@@ -47,6 +54,7 @@ export const TodoWriteTool = Tool.define("todowrite", {
     return {
       title: `${params.todos.filter((x) => x.status !== "completed").length} todos`,
       output: JSON.stringify(params.todos, null, 2),
+      value: [...params.todos],
       metadata: {
         todos: params.todos,
       },
@@ -57,6 +65,7 @@ export const TodoWriteTool = Tool.define("todowrite", {
 export const TodoReadTool = Tool.define("todoread", {
   description: "Use this tool to read your todo list",
   parameters: zod(ReadParameters),
+  output: TodoList,
   async execute(_params, ctx) {
     await ctx.ask({
       permission: "todoread",
@@ -77,6 +86,7 @@ export const TodoReadTool = Tool.define("todoread", {
         todos,
       },
       output: JSON.stringify(todos, null, 2),
+      value: todos,
     }
   },
 })

@@ -5,7 +5,7 @@ import { CodeMode, Tool, toolError } from "../../src/codemode/index"
 const run = (tool: Tool.Definition<never>) =>
   Effect.runPromise(CodeMode.make({ tools: { host: { call: tool } } }).execute("return await tools.host.call({})"))
 
-class UnsafeHostError extends Schema.TaggedErrorClass<UnsafeHostError>()("UnsafeHostError", {
+class UnsafeHostError extends Schema.TaggedError<UnsafeHostError>()("UnsafeHostError", {
   reason: Schema.String,
 }) {}
 
@@ -206,7 +206,7 @@ describe("CodeMode tool-call observation", () => {
             index: call.index,
             name: call.name,
             outcome: call.outcome,
-            ...(call.message === undefined ? {} : { message: call.message }),
+            ...(call.message === undefined ? undefined : { message: call.message }),
           })
         }),
     })

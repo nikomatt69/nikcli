@@ -8,7 +8,7 @@ import { iife } from "@nikcli-ai/util/iife"
 import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { existsSync } from "fs"
 import { Git } from "@/git"
-import { type DeepMutable, zodObject } from "@nikcli-ai/util/effect-zod"
+import { type DeepMutable, zod, zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Hash } from "@nikcli-ai/util/hash"
 import { Lock } from "@/util/lock"
@@ -76,6 +76,9 @@ export namespace Project {
   // readonly so those internal mutations type-check; the wire format is still emitted via
   // `zodObject` / walker-derived JSON Schema.
   export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
+
+  /** Parses the fake-vcs flag into the optional "git" literal an Info record carries. */
+  const vcsFromFlag = zod(InfoSchema.fields.vcs).optional()
 
   const DirectorySchema = Schema.Struct({
     directory: Schema.String,
@@ -169,11 +172,12 @@ export namespace Project {
     const directory = await canonicalDirectory(input)
     const items = await readDirectories(projectID)
     const index = items.findIndex((item) => item.directory === directory)
+    const item = strategy ? { directory, strategy } : { directory }
     if (index >= 0) {
       if (behavior !== "replace" || items[index]?.strategy === strategy) return false
-      items[index] = { directory, ...(strategy ? { strategy } : {}) }
+      items[index] = item
     } else {
-      items.push({ directory, ...(strategy ? { strategy } : {}) })
+      items.push(item)
     }
     ProjectRepo.setDirectories(projectID, items)
     return true
@@ -240,7 +244,7 @@ export namespace Project {
             id: id ?? "global",
             worktree: sandbox,
             sandbox: sandbox,
-            vcs: Info.shape.vcs.parse(Flag.NIKCLI_FAKE_VCS),
+            vcs: vcsFromFlag.parse(Flag.NIKCLI_FAKE_VCS),
           }
         }
 
@@ -269,7 +273,7 @@ export namespace Project {
               id: "global",
               worktree: sandbox,
               sandbox: sandbox,
-              vcs: Info.shape.vcs.parse(Flag.NIKCLI_FAKE_VCS),
+              vcs: vcsFromFlag.parse(Flag.NIKCLI_FAKE_VCS),
             }
           }
 
@@ -310,7 +314,7 @@ export namespace Project {
               id,
               sandbox,
               worktree: sandbox,
-              vcs: Info.shape.vcs.parse(Flag.NIKCLI_FAKE_VCS),
+              vcs: vcsFromFlag.parse(Flag.NIKCLI_FAKE_VCS),
             }
           }
         }
@@ -334,7 +338,7 @@ export namespace Project {
             id: id ?? "global",
             sandbox,
             worktree: sandbox,
-            vcs: Info.shape.vcs.parse(Flag.NIKCLI_FAKE_VCS),
+            vcs: vcsFromFlag.parse(Flag.NIKCLI_FAKE_VCS),
           }
         }
 
@@ -347,7 +351,7 @@ export namespace Project {
             id: id ?? "global",
             sandbox,
             worktree: sandbox,
-            vcs: Info.shape.vcs.parse(Flag.NIKCLI_FAKE_VCS),
+            vcs: vcsFromFlag.parse(Flag.NIKCLI_FAKE_VCS),
           }
         }
 
@@ -363,7 +367,7 @@ export namespace Project {
         id: "global",
         worktree: "/",
         sandbox: "/",
-        vcs: Info.shape.vcs.parse(Flag.NIKCLI_FAKE_VCS),
+        vcs: vcsFromFlag.parse(Flag.NIKCLI_FAKE_VCS),
       }
     })
 
@@ -373,6 +377,7 @@ export namespace Project {
         id,
         worktree,
         canonical: worktree,
+        // SAFETY: vcs comes from vcsFromFlag.parse, which validates against InfoSchema.fields.vcs
         vcs: vcs as Info["vcs"],
         sandboxes: [],
         time: {
@@ -397,6 +402,7 @@ export namespace Project {
       ...existing,
       worktree,
       canonical: worktree,
+      // SAFETY: vcs comes from vcsFromFlag.parse, which validates against InfoSchema.fields.vcs
       vcs: vcs as Info["vcs"],
       time: {
         ...existing.time,

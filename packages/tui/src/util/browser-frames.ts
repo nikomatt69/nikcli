@@ -201,7 +201,7 @@ export class BrowserFramePump {
 
 /**
  * Terminal cell size in pixels, derived from the renderer's negotiated
- * resolution. Every mapping in the live view — the viewport we ask Chromium
+ * resolution. Every mapping in the live view — the viewport we ask the WebView
  * for, and the page coordinates a click lands on — is built on this, so the
  * fallback is deliberately conservative and reported rather than hidden.
  */

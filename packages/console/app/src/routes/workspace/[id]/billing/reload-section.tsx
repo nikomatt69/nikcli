@@ -90,7 +90,7 @@ export function ReloadSection() {
     }
     const info = billingInfo()!
     setStore("show", true)
-    setStore("reload", info.reload ? true : true)
+    setStore("reload", info.reload ?? false)
     setStore("reloadAmount", info.reloadAmount.toString())
     setStore("reloadTrigger", info.reloadTrigger.toString())
   }

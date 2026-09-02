@@ -79,19 +79,20 @@ export namespace Mode {
   )
 
   // Modes are derived from per-instance config, so the memo must be keyed by
-  // directory — a single process can host multiple instances.
+  // instance — a single process can host several. `Instance.state` is the
+  // keying, so the memo is also torn down with the instance it belongs to
+  // instead of outliving it in a module-level map.
   //
-  // NOTE: this map, not the `facade` above, is the real memo — `load` builds and
-  // disposes a fresh scoped cache per miss. That also means modes sit outside
-  // instance hot reload: marking `facade` reloadable would register a new cache
-  // per call and still never invalidate this map. Reloading modes on config
-  // change needs this map cleared from an `instance.reloaded` subscription.
-  const cache = new Map<string, Record<string, Info>>()
+  // NOTE: this slot, not the `facade` above, is the real memo — `load` builds
+  // and disposes a fresh scoped cache per miss. That also means modes sit
+  // outside instance hot reload: marking `facade` reloadable would register a
+  // new cache per call and still never invalidate this slot. Reloading modes on
+  // config change needs it cleared from an `instance.reloaded` subscription.
+  const cache = Instance.state(() => ({ value: undefined as Record<string, Info> | undefined }))
 
   async function load() {
-    const directory = Instance.directory
-    const existing = cache.get(directory)
-    if (existing) return existing
+    const slot = cache()
+    if (slot.value) return slot.value
     const effect = Effect.scoped(
       Effect.gen(function* () {
         const handle = yield* facade
@@ -100,7 +101,7 @@ export namespace Mode {
       }),
     )
     const value = await AppRuntime.runPromise(effect)
-    cache.set(directory, value)
+    slot.value = value
     return value
   }
 

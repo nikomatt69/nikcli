@@ -24,7 +24,7 @@ export namespace SessionGoal {
     goalID: Schema.String,
     objective: Schema.String,
     status: StatusEffect,
-    tokenBudget: Schema.optional(Schema.Number),
+    tokenBudget: Schema.optionalKey(Schema.Number),
     tokensUsed: Schema.Number,
     timeUsedSeconds: Schema.Number,
     iterationCount: Schema.Number,

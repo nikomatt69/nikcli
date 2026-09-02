@@ -3,6 +3,302 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.322.0 (August 2026)
+
+## Core
+
+- E6/E7: pin Effect 4.0.0-rc.112 and fix generated SseError mapping (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - E6/E7: pin Effect 4.0.0-rc.112 and fix generated SseError mapping
+  - H9: declare location, retry-after, and www-authenticate on the contract
+  - H10: matchOrElse does not un-force SessionV2 Unknown
+  - R2: name remaining instance ALS reads as boundaries
+
+## v1.321.0 (August 2026)
+
+## Core
+
+- Refill the queue from the Effect pin measurement (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - docs(roadmap): refill the queue from the Effect pin measurement
+
+## v1.320.0 (August 2026)
+
+## Core
+
+- Thread the instance into the last 22 ambient reads (R1) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(instance): thread the instance into the last 22 ambient reads (R1)
+  - refactor(instance): own instances in a ScopedCache, not a promise Map (R1)
+
+## v1.319.0 (August 2026)
+
+## Core
+
+- Routines take the instance they belong to (R1) (@nikomatt69)
+- The mission manager takes the project it operates on (R1) (@nikomatt69)
+- The loop manager takes the project it operates on (R1) (@nikomatt69)
+- Brain, sandbox and the session LLM path take the instance (R1) (@nikomatt69)
+- CLI command bodies receive the instance they run in (R1) (@nikomatt69)
+- Server handlers resolve the instance and pass it down (R1) (@nikomatt69)
+- Lsp servers and mobile git take the instance as an argument (R1) (@nikomatt69)
+- The tool layer takes its instance from the call (R1) (@nikomatt69)
+- Key the two module-level caches that answered for every instance (R1) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(instance): key the two module-level caches that answered for every instance (R1)
+  - refactor(instance): the tool layer takes its instance from the call (R1)
+  - refactor(instance): lsp servers and mobile git take the instance as an argument (R1)
+  - refactor(instance): server handlers resolve the instance and pass it down (R1)
+  - refactor(instance): CLI command bodies receive the instance they run in (R1)
+  - refactor(instance): brain, sandbox and the session LLM path take the instance (R1)
+  - refactor(instance): the loop manager takes the project it operates on (R1)
+  - refactor(instance): the mission manager takes the project it operates on (R1)
+  - refactor(instance): routines take the instance they belong to (R1)
+
+## v1.317.0 (August 2026)
+
+## Core
+
+- Thread the instance context through every module that held one (R1) (@nikomatt69)
+- Stop crossing the Effect runtime to read three ALS getters (R1) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(instance): stop crossing the Effect runtime to read three ALS getters (R1)
+  - refactor(instance): thread the instance context through every module that held one (R1)
+
+## v1.316.0 (August 2026)
+
+## Core
+
+- Stop version bumps from silently dropping dependency patches (C1) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(deps): stop version bumps from silently dropping dependency patches (C1)
+
+## v1.315.0 (August 2026)
+
+## Core
+
+- Record the Brain pass output and this session's plan artifacts (@nikomatt69)
+- One bridge for withInstanceAsync, and measure what bootstrap costs (R1) (@nikomatt69)
+- Make bootstrap a property of the instance, not of the first caller (R1) (@nikomatt69)
+- Make multiedit one atomic batch instead of N sequential edits (@nikomatt69)
+- Give the mid-request call sites invalidation instead of teardown (R1) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(instance): give the mid-request call sites invalidation instead of teardown (R1)
+  - fix(tool): make multiedit one atomic batch instead of N sequential edits
+  - fix(instance): make bootstrap a property of the instance, not of the first caller (R1)
+  - refactor(effect): one bridge for withInstanceAsync, and measure what bootstrap costs (R1)
+  - chore(nikcli): record the Brain pass output and this session's plan artifacts
+
+## v1.314.0 (August 2026)
+
+## Core
+
+- Characterize the post-dispose leak R1 owns (@nikomatt69)
+- Satisfy the type checker on the new characterization tests (@nikomatt69)
+- Declare output codecs on the built-ins that already emit JSON (T3) (@nikomatt69)
+- Drop the unused reject half of the test deferred (@nikomatt69)
+- Characterize normalizeMessages, and keep its passes (P3) (@nikomatt69)
+- Pin the instance lifecycle before R1 replaces it (@nikomatt69)
+- Declare authentication on the contract with HttpApiMiddleware (H8.1) (@nikomatt69)
+- Gate hot-poll request logs, and close P2.2 on the measurement (@nikomatt69)
+- Filter, order, and limit the session list in SQL (P2.1) (@nikomatt69)
+- Close E5 — declared errors on the typed channel only (@nikomatt69)
+
+## SDK
+
+- Stop the SDK build from collapsing the codegen manifest again (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(session): close E5 — declared errors on the typed channel only
+  - perf(session): filter, order, and limit the session list in SQL (P2.1)
+  - perf(server): gate hot-poll request logs, and close P2.2 on the measurement
+  - feat(httpapi): declare authentication on the contract with HttpApiMiddleware (H8.1)
+  - docs(roadmap): record the H8 typecheck result
+  - test(instance): pin the instance lifecycle before R1 replaces it
+  - perf(provider): characterize normalizeMessages, and keep its passes (P3)
+  - test(instance): drop the unused reject half of the test deferred
+  - feat(tool): declare output codecs on the built-ins that already emit JSON (T3)
+  - fix(test): satisfy the type checker on the new characterization tests
+  - test(instance): characterize the post-dispose leak R1 owns
+  - fix(ci): stop the SDK build from collapsing the codegen manifest again
+  - fix(ci): name the missing secret when the site deploy cannot authenticate
+
+## v1.313.0 (August 2026)
+
+## Core
+
+- Clean up code formatting and improve readability (@nikomatt69)
+- Enhance error handling in session API (@nikomatt69)
+
+## TUI
+
+- Bind the daemon on the main thread so sessions can start (#236) (@SandroHub013)
+
+## SDK
+
+- Stop prettier from collapsing the httpapi codegen manifest (@nikomatt69)
+
+**Thank you to 3 community contributors:**
+
+- @nikomatt69:
+  - refactor(session): enhance error handling in session API
+  - refactor(session): clean up code formatting and improve readability
+  - fix(ci): stop prettier from collapsing the httpapi codegen manifest
+- @SandroHub013:
+  - fix(browser-control): stop idle sessions, and stop close-all from bricking the browser
+  - fix(browser-control): only count driving a session as using it
+  - fix(browser-control): bind the daemon on the main thread so sessions can start (#236)
+- @cursoragent:
+  - fix(browser-control): strip the BOM, and reap a session once its live view ends
+
+## v1.312.0 (August 2026)
+
+## Core
+
+- Add country tracking to community statistics (@nikomatt69)
+- Resolve all oxlint warnings (66 -> 0)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(web): count downloads by country and map them on /data
+  - feat(inference-dashboard): add country tracking to community statistics
+
+## v1.311.0 (August 2026)
+
+## Core
+
+- Regenerate httpapi manifest and apply prettier formatting (@nikomatt69)
+- Enhance validation and client generation processes (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(ci): enhance validation and client generation processes
+  - fix(ci): regenerate httpapi manifest and apply prettier formatting
+
+## v1.310.0 (August 2026)
+
+## Core
+
+- Generate the SDK compat layer and gate direct publishes (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(httpapi-codegen): generate the SDK compat layer and gate direct publishes
+
+## v1.309.0 (August 2026)
+
+- No notable changes
+
+## v1.305.0 (August 2026)
+
+## TUI
+
+- Improve code consistency and readability in serve.ts and worker.ts (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(cli): improve code consistency and readability in serve.ts and worker.ts
+
+## v1.304.0 (August 2026)
+
+## Core
+
+- Stop GET /github/repos answering empty 400 (#239) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(mobile): stop GET /github/repos answering empty 400 (#239)
+
+## v1.303.0 (August 2026)
+
+## Core
+
+- Keep --parallel=1 on each test batch (@claude)
+- Shard the validate suite so it stops OOM-killing the runner (@claude)
+
+**Thank you to 2 community contributors:**
+
+- @nikomatt69:
+  - fix(railway): ship packages/discord in the deploy upload context (#237)
+- @claude:
+  - fix(ci): shard the validate suite so it stops OOM-killing the runner
+  - fix(ci): keep --parallel=1 on each test batch
+  - fix(ci): stop running the nikcli suite in validate
+  - fix(ci): remove test execution from the workflows too
+  - fix(ci): put the four Windows unit suites back
+  - fix(ci): drop the orphaned e2e harness from test.yml
+
+## v1.302.0 (August 2026)
+
+## Core
+
+- Sample memory during validate and cut the suite to one worker (@nikomatt69)
+- Stop validate's test step from taking the runner down with it (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(ci): point the Windows Global.Path invariant at @nikcli-ai/util
+  - fix(ci): cap validate's test parallelism so it stops killing the runner
+  - Revert "fix(ci): cap validate's test parallelism so it stops killing the runner"
+  - fix(ci): stop validate's test step from taking the runner down with it
+  - fix(ci): sample memory during validate and cut the suite to one worker
+
+## v1.301.0 (August 2026)
+
+## Core
+
+- Follow the Bun 1.4 drop of the baseline x64 targets (@nikomatt69)
+- Update bun.lock and package.json to remove deprecated packages and add @nikcli-ai/util (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - chore(dependencies): update bun.lock and package.json to remove deprecated packages and add @nikcli-ai/util
+  - fix(build): follow the Bun 1.4 drop of the baseline x64 targets
+  - fix(install): apply the baseline-target fallback to the other two shell copies
+
+## v1.295.0 (August 2026)
+
+## Core
+
+- Add Discord Gateway bot integration (@nikomatt69)
+- Update artifact URLs to include view keys (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(session): update artifact URLs to include view keys
+  - feat(discord): add Discord Gateway bot integration
+
 ## v1.293.0 (August 2026)
 
 ## Core
@@ -13,12 +309,12 @@
 - H4 — collapse two dispatcher stacks; add AccountGroup + profilesList (@nikomatt69)
 - H5 — generate implementedRoutes from OpenApi.fromApi(PublicApi) (@nikomatt69)
 - E4 — Schema.optionalKey across domain, delete jsonSafe (@nikomatt69)
-- P2 quick cuts — disableLogger, COUNT(*), skip sessionForRequest on pinned workspace (@nikomatt69)
+- P2 quick cuts — disableLogger, COUNT(\*), skip sessionForRequest on pinned workspace (@nikomatt69)
 
 **Thank you to 1 community contributor:**
 
 - @nikomatt69:
-  - perf(httpapi): P2 quick cuts — disableLogger, COUNT(*), skip sessionForRequest on pinned workspace
+  - perf(httpapi): P2 quick cuts — disableLogger, COUNT(\*), skip sessionForRequest on pinned workspace
   - refactor(httpapi): E4 — Schema.optionalKey across domain, delete jsonSafe
   - perf(httpapi): H5 — generate implementedRoutes from OpenApi.fromApi(PublicApi)
   - feat(httpapi): H4 — collapse two dispatcher stacks; add AccountGroup + profilesList

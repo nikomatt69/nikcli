@@ -22,6 +22,7 @@ import { PromptParts } from "./prompt-parts"
 import type { SessionPrompt } from "./prompt"
 import { defer } from "@nikcli-ai/util/defer"
 import type { InstanceContext } from "@/effect"
+import { setOptional } from "@/util/optional-key"
 
 /**
  * `shell` and `command` live in their own module because they are the
@@ -56,7 +57,7 @@ export namespace PromptCommands {
     ): Promise<unknown>
     sessionUpdateMessage(message: MessageV2.Info): Promise<unknown>
     sessionUpdatePart(part: MessageV2.Part): Promise<unknown>
-    currentContext(): Promise<InstanceContext>
+    currentContext(): InstanceContext
     runRevert<A, E>(effect: Effect.Effect<A, E, SessionRevert.Service>): Promise<A>
     runGoal<A, E>(effect: Effect.Effect<A, E, SessionGoal.Service>): Promise<A>
     runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>): Promise<A>
@@ -101,7 +102,7 @@ export namespace PromptCommands {
     }
     const abort = controller.signal
     await using _ = defer(() => state.finish(input.sessionID, controller))
-    const ctx = await deps.currentContext()
+    const ctx = deps.currentContext()
 
     const session = await deps.sessionGet(input.sessionID)
     if (session.revert) {
@@ -504,7 +505,7 @@ export namespace PromptCommands {
         }),
       )
       await deps.sessionUpdate(input.sessionID, (draft) => {
-        draft.activeCommand = commandResult.activeCommand
+        setOptional(draft, "activeCommand", commandResult.activeCommand)
       })
       const result = (await deps.prompt({
         sessionID: input.sessionID,
@@ -515,7 +516,7 @@ export namespace PromptCommands {
         parts: [{ type: "text", text: commandResult.text }],
         variant: input.variant,
         noReply: true,
-        ...(input.parentSessionID ? { parentSessionID: input.parentSessionID } : {}),
+        ...(input.parentSessionID ? { parentSessionID: input.parentSessionID } : undefined),
       })) as MessageV2.WithParts
       Bus.publish(Command.Event.Executed, {
         name: input.command,
@@ -539,7 +540,7 @@ export namespace PromptCommands {
       })
     }
 
-    const templateParts = await PromptParts.resolve(await deps.currentContext(), template)
+    const templateParts = await PromptParts.resolve(deps.currentContext(), template)
     const parts = isSubtask
       ? [
           {
@@ -589,7 +590,7 @@ export namespace PromptCommands {
       agent: userAgent,
       parts,
       variant: input.variant,
-      ...(input.parentSessionID ? { parentSessionID: input.parentSessionID } : {}),
+      ...(input.parentSessionID ? { parentSessionID: input.parentSessionID } : undefined),
     })) as MessageV2.WithParts
 
     Bus.publish(Command.Event.Executed, {

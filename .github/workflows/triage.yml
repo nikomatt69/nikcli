@@ -24,14 +24,14 @@ jobs:
 
       - name: Triage issue
         env:
-          NIKCLI_API_KEY: ${{ secrets.NIKCLI_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          nikcli run --agent triage "The following issue was just opened, triage it:
+          nikcli run --agent triage -m minimax-coding-plan/MiniMax-M3 "The following issue was just opened, triage it:
 
           Title: $ISSUE_TITLE
 

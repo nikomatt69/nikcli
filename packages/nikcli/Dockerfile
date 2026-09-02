@@ -16,8 +16,11 @@ RUN addgroup -g 1000 nikcli && adduser -D -u 1000 -G nikcli -h /home/nikcli nikc
     && chown -R nikcli:nikcli /home/nikcli
 ENV HOME=/home/nikcli
 
+# Bun 1.4 ships a single x64 linux target — there is no separate baseline
+# artifact any more, so the path is `linux-x64-musl`, not
+# `linux-x64-baseline-musl` like the pre-1.4 builds used to emit.
 FROM base AS build-amd64
-COPY dist/nikcli-ai-linux-x64-baseline-musl/bin/nikcli /usr/local/bin/nikcli
+COPY dist/nikcli-ai-linux-x64-musl/bin/nikcli /usr/local/bin/nikcli
 
 FROM base AS build-arm64
 COPY dist/nikcli-ai-linux-arm64-musl/bin/nikcli /usr/local/bin/nikcli

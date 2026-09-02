@@ -37,7 +37,7 @@ const toc = [
       before advancing to the next milestone.
     </p>
     <p>
-      Like Loops, missions are persisted on disk and run on the headless server. They keep working
+      Like Loops, missions are persisted in SQLite and run on the headless server. They keep working
       while the TUI is closed, survive process restarts (via lease/heartbeat), and emit bus events
       for the TUI to subscribe to.
     </p>
@@ -51,9 +51,8 @@ const toc = [
       </DocCard>
       <DocCard title="Per-project scoping" eyebrow="Isolation">
         <p>
-          All per-instance state lives in <code>Instance.state</code> so missions in different
-          projects cannot collide. Definitions and execution records are persisted in
-          <code>Storage</code> under the active project.
+          Missions are scoped by the active project so definitions from different projects cannot
+          collide. Definitions and execution records are persisted through <code>MissionRepo</code>.
         </p>
       </DocCard>
       <DocCard title="Crash-safe" eyebrow="Persistence">
@@ -265,7 +264,7 @@ nikcli mission cancel mss_abc123
     <h2>TUI surface</h2>
     <p>
       The TUI mission feature-plugin lives in
-      <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/mission/</code>. It mirrors the
+      <code>packages/tui/src/feature-plugins/mission/</code>. It mirrors the
       loop plugin and exposes:
     </p>
     <ul>
@@ -303,7 +302,7 @@ nikcli mission cancel mss_abc123
         <tr><td><code>packages/nikcli/src/mission/manager.ts</code></td><td>CRUD and execution-record persistence.</td></tr>
         <tr><td><code>packages/nikcli/src/mission/orchestrator.ts</code></td><td>Headless engine, lease/heartbeat, single-flight, bus events.</td></tr>
         <tr><td><code>packages/nikcli/src/cli/cmd/mission.ts</code></td><td>CLI surface (<code>nikcli mission …</code>).</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/mission/</code></td><td>TUI feature plugin: store, SDK, runner, dialogs.</td></tr>
+        <tr><td><code>packages/tui/src/feature-plugins/mission/</code></td><td>TUI feature plugin: store, SDK, runner, dialogs.</td></tr>
         <tr><td><code>packages/nikcli/src/loop/engine.ts</code></td><td>The Loop engine whose operational guarantees the orchestrator reuses verbatim.</td></tr>
       </tbody>
     </table>

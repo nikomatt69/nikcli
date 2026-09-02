@@ -5,9 +5,12 @@ import { Global } from "@nikcli-ai/util/global"
 import { Database } from "@/database/database"
 import { mobileTokens } from "./auth.sql"
 
-/** Drizzle's .run() returns void in types but actually returns {changes, lastInsertRowid} at runtime */
 type RunResult = { changes: number; lastInsertRowid: number | bigint }
 function getChanges(result: void | RunResult): number {
+  // SAFETY: drizzle types `.run()` as returning void, but bun:sqlite always
+  // returns `{ changes, lastInsertRowid }` at runtime. Callers only ever pass
+  // the result of a `.run()` on this driver, so the void half of the union is
+  // a typing artefact rather than a value that can reach here.
   return (result as RunResult).changes
 }
 

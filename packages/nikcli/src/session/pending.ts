@@ -72,7 +72,7 @@ export namespace SessionPending {
         }
         return {
           ...rest,
-          ...(id ? { id: Schema.optional(id) } : {}),
+          ...(id ? { id: Schema.optional(id) } : undefined),
         } as Schema.Struct.Fields
       })
       .annotate({ identifier })
@@ -94,20 +94,20 @@ export namespace SessionPending {
   })
 
   export const PromptPayloadSchema = Schema.Struct({
-    messageID: Schema.optional(Schema.String),
-    delivery: Schema.optional(Schema.Literals(["steer", "queue"])),
-    model: Schema.optional(
+    messageID: Schema.optionalKey(Schema.String),
+    delivery: Schema.optionalKey(Schema.Literals(["steer", "queue"])),
+    model: Schema.optionalKey(
       Schema.Struct({
         providerID: Schema.String,
         modelID: Schema.String,
       }),
     ),
-    agent: Schema.optional(Schema.String),
-    noReply: Schema.optional(Schema.Boolean),
-    tools: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
-    format: Schema.optional(MessageV2.FormatSchema),
-    system: Schema.optional(Schema.String),
-    variant: Schema.optional(Schema.String),
+    agent: Schema.optionalKey(Schema.String),
+    noReply: Schema.optionalKey(Schema.Boolean),
+    tools: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
+    format: Schema.optionalKey(MessageV2.FormatSchema),
+    system: Schema.optionalKey(Schema.String),
+    variant: Schema.optionalKey(Schema.String),
     parts: Schema.Array(PromptPartInputSchema),
   }).annotate({ identifier: "SessionPromptInput" })
 

@@ -6,6 +6,8 @@ import { Workspace } from "../../workspace"
 import { Project } from "../../project/project"
 import { Installation } from "../../installation"
 import { Log } from "@nikcli-ai/util/log"
+import { BrowserControl } from "../../browser-control/browser-control"
+import { errorMessage } from "@nikcli-ai/util/error-format"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { PromptState } from "@/session/prompt-state"
@@ -219,6 +221,17 @@ export const ServeCommand = cmd({
       await server.stop(true)
       if (remoteSync) await remoteSync.stop()
       await Promise.all(workspaceSync.map((item) => item.stop()))
+      // Stop the browser-control daemons so their Chromium/WebView children
+      // die with the server instead of being reaped only by the 10-minute
+      // idle timer (or, worse, never — when sessions outlive `serve`).
+      // `serve` stands in no instance scope, so `closeAll()` resolves this
+      // process's own workspace from `process.cwd()`, and closes every other
+      // workspace a session reached a daemon for as well.
+      await BrowserControl.closeAll().catch((error) => {
+        log.warn("browser-control shutdown failed", {
+          error: errorMessage(error),
+        })
+      })
     } finally {
       clearTimeout(force)
     }

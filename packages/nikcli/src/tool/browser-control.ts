@@ -108,25 +108,99 @@ function parseViewport(value: string): { width: number; height: number } {
 function waitCondition(params: Params): Record<string, unknown> {
   switch (params.wait_for) {
     case "text":
-      return { type: "text", value: params.text, ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}) }
+      return { type: "text", value: params.text, ...(params.timeout_ms ? { timeout: params.timeout_ms } : undefined) }
     case "selector":
       return {
         type: "selector",
         value: params.selector,
-        ...(params.state ? { state: params.state } : {}),
-        ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}),
+        ...(params.state ? { state: params.state } : undefined),
+        ...(params.timeout_ms ? { timeout: params.timeout_ms } : undefined),
       }
     case "idle":
-      return { type: "idle", ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}) }
+      return { type: "idle", ...(params.timeout_ms ? { timeout: params.timeout_ms } : undefined) }
     case "stable":
       return {
         type: "stable",
-        ...(params.stable_ms ? { ms: params.stable_ms } : {}),
-        ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}),
+        ...(params.stable_ms ? { ms: params.stable_ms } : undefined),
+        ...(params.timeout_ms ? { timeout: params.timeout_ms } : undefined),
       }
     default:
       return { type: "timeout", ms: params.timeout_ms ?? 1000 }
   }
+}
+
+// T3: the success codec.
+//
+// `browser_control` is one tool with twenty-one actions and heterogeneous
+// results, so the codec is a union discriminated on the action the caller
+// asked for. Every branch carries the action back, which is what lets a machine
+// consumer switch on the result instead of parsing a string.
+//
+// Payloads that come from the daemon are declared with `z.looseObject`: this
+// validates the fields the tool documents and passes the rest through, so a new
+// field on the other side of the socket cannot fail a call that would otherwise
+// have worked. Validating externally-produced payloads strictly is how a codec
+// turns into an outage.
+const SessionSnapshot = z.looseObject({
+  name: z.string(),
+  url: z.string(),
+  viewport: z.looseObject({ width: z.number(), height: z.number() }),
+  status: z.string(),
+  createdAt: z.number(),
+  recording: z.boolean(),
+})
+
+const FrameSnapshot = z.looseObject({
+  url: z.string(),
+  title: z.string(),
+  viewport: z.looseObject({ width: z.number(), height: z.number() }),
+  text: z.string(),
+})
+
+const SESSION_RESULT = { name: z.string(), session: SessionSnapshot }
+
+// Written out per action rather than through a helper: the union is the
+// contract, and a reader should be able to see each action's result without
+// resolving a generic.
+const output = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("close_all"), closed: z.literal(true) }),
+  z.object({ action: z.literal("list"), sessions: z.array(SessionSnapshot) }),
+  z.object({ action: z.literal("start"), ...SESSION_RESULT }),
+  z.object({ action: z.literal("info"), ...SESSION_RESULT }),
+  z.object({ action: z.literal("goto"), ...SESSION_RESULT }),
+  z.object({ action: z.literal("resize"), ...SESSION_RESULT }),
+  z.object({ action: z.literal("restart"), ...SESSION_RESULT }),
+  z.object({ action: z.literal("click"), name: z.string(), selector: z.string() }),
+  z.object({ action: z.literal("fill"), name: z.string(), selector: z.string() }),
+  z.object({ action: z.literal("hover"), name: z.string(), selector: z.string() }),
+  z.object({ action: z.literal("scroll"), name: z.string(), dx: z.number(), dy: z.number() }),
+  z.object({ action: z.literal("send"), name: z.string(), mode: z.string() }),
+  z.object({ action: z.literal("wait"), name: z.string(), result: z.unknown() }),
+  z.object({
+    action: z.literal("snapshot"),
+    name: z.string(),
+    format: z.enum(["png", "text", "json"]),
+    frame: FrameSnapshot.optional(),
+    text: z.string().optional(),
+  }),
+  z.object({ action: z.literal("stop"), name: z.string(), stopped: z.literal(true) }),
+  z.object({ action: z.literal("remove"), name: z.string(), removed: z.literal(true) }),
+  z.object({
+    action: z.literal("start_recording"),
+    name: z.string(),
+    recording: z.literal(true),
+    sampleFps: z.number().optional(),
+  }),
+  z.object({ action: z.literal("marker"), name: z.string(), marker: z.unknown() }),
+  z.object({ action: z.literal("stop_recording"), name: z.string(), recording: z.unknown() }),
+  z.object({ action: z.literal("recording_data"), name: z.string(), recording: z.unknown() }),
+  z.object({ action: z.literal("video_path"), name: z.string(), path: z.string().nullable() }),
+])
+
+function startedRecording(name: string, sampleFps: number | undefined) {
+  const value = { action: "start_recording" as const, name, recording: true as const }
+  if (sampleFps === undefined) return value
+  return { ...value, sampleFps }
 }
 
 function imageAttachment(ctx: Tool.Context, base64: string): MessageV2.FilePart {
@@ -155,6 +229,7 @@ async function ensureSession(socket: string, name: string): Promise<void> {
 export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("browser_control", {
   description: DESCRIPTION,
   parameters,
+  output,
   async execute(params, ctx): Promise<Tool.Result<Metadata>> {
     await ctx.ask({
       permission: "browser_control",
@@ -172,6 +247,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
       return {
         title: "Browser Control · close_all",
         output: "Closed all sessions and stopped the daemon.",
+        value: { action: "close_all" as const, closed: true as const },
         metadata: baseMetadata(params.action),
       }
     }
@@ -180,6 +256,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
       return {
         title: "Browser Control · list",
         output: JSON.stringify(list, null, 2),
+        value: { action: "list" as const, sessions: list },
         metadata: baseMetadata(params.action),
       }
     }
@@ -197,6 +274,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
       return {
         title: `Browser Control · start · ${name}`,
         output: JSON.stringify(info, null, 2),
+        value: { action: "start" as const, name, session: info },
         metadata: baseMetadata(params.action, name),
       }
     }
@@ -220,6 +298,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · info · ${name}`,
           output: JSON.stringify(info, null, 2),
+          value: { action: "info" as const, name, session: info },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -229,6 +308,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · goto · ${name}`,
           output: JSON.stringify(info, null, 2),
+          value: { action: "goto" as const, name, session: info },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -237,6 +317,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · click · ${name}`,
           output: `Clicked ${params.selector}`,
+          value: { action: "click" as const, name, selector: params.selector ?? "" },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -245,6 +326,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · fill · ${name}`,
           output: `Filled ${params.selector}`,
+          value: { action: "fill" as const, name, selector: params.selector ?? "" },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -253,6 +335,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · hover · ${name}`,
           output: `Hovered ${params.selector}`,
+          value: { action: "hover" as const, name, selector: params.selector ?? "" },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -261,6 +344,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · scroll · ${name}`,
           output: "Scrolled.",
+          value: { action: "scroll" as const, name, dx: params.dx ?? 0, dy: params.dy ?? 0 },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -269,6 +353,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · send · ${name}`,
           output: "Input sent.",
+          value: { action: "send" as const, name, mode: params.mode ?? "text" },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -277,6 +362,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · wait · ${name}`,
           output: JSON.stringify(result, null, 2),
+          value: { action: "wait" as const, name, result },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -286,6 +372,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
           return {
             title: `Browser Control · snapshot · ${name}`,
             output: frame.text,
+            value: { action: "snapshot" as const, name, format: "text" as const, text: frame.text },
             metadata: baseMetadata(params.action, name),
           }
         }
@@ -293,12 +380,16 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
           return {
             title: `Browser Control · snapshot · ${name}`,
             output: JSON.stringify(frame, null, 2),
+            value: { action: "snapshot" as const, name, format: "json" as const, frame },
             metadata: baseMetadata(params.action, name),
           }
         }
         return {
           title: `Browser Control · snapshot · ${name}`,
           output: `Screenshot of ${frame.url} (${frame.viewport.width}x${frame.viewport.height}).`,
+          // The image itself travels as an attachment, so the machine value
+          // carries the frame without the base64 payload duplicated into it.
+          value: { action: "snapshot" as const, name, format: "png" as const, frame },
           metadata: baseMetadata(params.action, name),
           attachments: [imageAttachment(ctx, frame.screenshotBase64)],
         }
@@ -311,6 +402,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · resize · ${name}`,
           output: JSON.stringify(info, null, 2),
+          value: { action: "resize" as const, name, session: info },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -319,6 +411,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · stop · ${name}`,
           output: `Stopped ${name}.`,
+          value: { action: "stop" as const, name, stopped: true as const },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -327,6 +420,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · remove · ${name}`,
           output: `Removed ${name}.`,
+          value: { action: "remove" as const, name, removed: true as const },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -335,6 +429,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · restart · ${name}`,
           output: JSON.stringify(info, null, 2),
+          value: { action: "restart" as const, name, session: info },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -343,6 +438,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · start_recording · ${name}`,
           output: `Recording started${params.sample_fps ? ` @ ${params.sample_fps}fps` : ""}.`,
+          value: startedRecording(name, params.sample_fps),
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -351,6 +447,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · marker · ${name}`,
           output: JSON.stringify(marker, null, 2),
+          value: { action: "marker" as const, name, marker },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -359,6 +456,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · stop_recording · ${name}`,
           output: JSON.stringify(data, null, 2),
+          value: { action: "stop_recording" as const, name, recording: data },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -367,6 +465,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · recording_data · ${name}`,
           output: JSON.stringify(data, null, 2),
+          value: { action: "recording_data" as const, name, recording: data },
           metadata: baseMetadata(params.action, name),
         }
       }
@@ -375,6 +474,7 @@ export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("brow
         return {
           title: `Browser Control · video_path · ${name}`,
           output: result.path ?? "No video (session not started with record:true, or not yet stopped).",
+          value: { action: "video_path" as const, name, path: result.path ?? null },
           metadata: baseMetadata(params.action, name),
         }
       }

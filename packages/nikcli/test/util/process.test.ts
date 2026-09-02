@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Process } from "@nikcli-ai/util/process"
+import { spawnPty, type PtyExitEvent } from "@nikcli-ai/util/pty"
 
 describe("Process metadata helpers", () => {
   it("sets stable run metadata on a provided env", () => {
@@ -29,5 +30,32 @@ describe("Process metadata helpers", () => {
       if (previous === undefined) delete process.env.NIKCLI_PROCESS_TEST
       else process.env.NIKCLI_PROCESS_TEST = previous
     }
+  })
+
+  it("retains PTY output and exit emitted before listeners attach", async () => {
+    const pty = spawnPty({
+      command: process.execPath,
+      args: ["-e", 'process.stdout.write("early-output")'],
+      env: process.env,
+    })
+
+    // A compiled CLI can finish its first frame before spawnPty returns through
+    // Windows ConPTY. Exercise the late-listener contract used by TUI probes.
+    await Bun.sleep(500)
+
+    let output = ""
+    pty.onData((data) => {
+      output += data
+    })
+    const exit = await new Promise<PtyExitEvent>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("PTY child did not exit")), 5_000)
+      pty.onExit((event) => {
+        clearTimeout(timeout)
+        resolve(event)
+      })
+    }).finally(() => pty.kill())
+
+    expect(exit.exitCode).toBe(0)
+    expect(output).toContain("early-output")
   })
 })

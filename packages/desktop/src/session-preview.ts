@@ -93,7 +93,7 @@ function publishedArtifact(value: unknown): SessionPreviewItem | undefined {
     description: string(metadata.description),
     kind: artifactKind,
     version: number(metadata.version) ?? 1,
-    url,
+    url: viewerUrl ?? url,
     viewerUrl,
     previewUrl,
   }

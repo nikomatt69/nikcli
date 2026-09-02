@@ -19,7 +19,6 @@
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@nikcli-ai/util/global-bus"
-import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { withInstanceAsync } from "@/effect"
 import { PermissionNext } from "@/permission/next"
@@ -34,7 +33,6 @@ import { SyncEmit } from "./sync-bridge"
 import type { WorkspaceInfo, WorkspaceTarget } from "./types"
 import { zod, zodObject } from "@nikcli-ai/util/effect-zod"
 import { Identifier } from "@nikcli-ai/util/id"
-import z from "zod"
 
 const log = Log.create({ service: "workspace-connection" })
 
@@ -162,10 +160,10 @@ async function mirrorWorkspaceEvent(space: WorkspaceInfo, event: { type?: string
   })
 }
 
-function rememberWorkspaceEvent(workspaceID: string, event: { type?: string; properties?: any }) {
+function rememberWorkspaceEvent(projectID: string, workspaceID: string, event: { type?: string; properties?: any }) {
   if (!event?.type || event.type === "server.heartbeat") return
   if (!RESTORE_EVENT_TYPES.has(event.type)) return
-  void SyncEmit.workspaceEvent(Instance.project.id, workspaceID, event).catch((error) => {
+  void SyncEmit.workspaceEvent(projectID, workspaceID, event).catch((error) => {
     log.warn("workspace event sync emit failed", { workspaceID, error })
   })
 }
@@ -207,7 +205,9 @@ async function workspaceEventLoop(space: WorkspaceInfo, stop: AbortSignal, targe
         void acceptsWorkspaceEvent(space.id, payload)
           .then((accepted) => {
             if (!accepted) return
-            rememberWorkspaceEvent(space.id, payload)
+            // The workspace's own project, not the ambient one: this runs in a
+            // detached SSE loop that outlives the scope it was started from.
+            rememberWorkspaceEvent(space.projectID, space.id, payload)
             void mirrorWorkspaceEvent(space, payload).catch((error) => {
               log.warn("workspace event mirror failed", {
                 workspaceID: space.id,
@@ -292,7 +292,9 @@ export const WorkspaceConnection = {
   },
 
   stopAll() {
-    for (const id of [...controllers.keys()]) {
+    // snapshot first: stop() deletes from controllers during iteration
+    const ids = Array.from(controllers.keys())
+    for (const id of ids) {
       WorkspaceConnection.stop(id)
     }
   },

@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro"
 import {
   artifactJson,
+  artifactShareUrl,
   canViewArtifact,
   parseArtifactPayload,
   publicMeta,
@@ -75,9 +76,12 @@ export const PUT: APIRoute = async (context) => {
   }
   await writeArtifact(env.ARTIFACTS, next, parsed.content)
 
-  const url = new URL(`/artifact/${id}`, context.url)
-  url.search = ""
-  return artifactJson({ id, url: url.toString(), version: next.version })
+  return artifactJson({
+    id,
+    url: artifactShareUrl(id, stored.viewKey, context.url),
+    viewKey: stored.viewKey,
+    version: next.version,
+  })
 }
 
 export const OPTIONS: APIRoute = () =>

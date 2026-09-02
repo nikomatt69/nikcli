@@ -4,11 +4,11 @@ import { Global } from "@nikcli-ai/util/global"
 import { Log } from "@nikcli-ai/util/log"
 import { Profile } from "@/profile"
 import { Config } from "@/config/config"
-import { Instance } from "@/project/instance"
 import { Session } from "@/session"
 import type { MessageV2 } from "@/session/message-v2"
 import { SessionRepo } from "@/session/repo"
 import { SessionPrompt } from "@/session/prompt"
+import { sessionModelOwn } from "@/session/model"
 import { Provider } from "@/provider/provider"
 import { Flock } from "@nikcli-ai/util/flock"
 import { Effect } from "effect"
@@ -55,11 +55,13 @@ function providerGetModel(providerID: string, modelID: string) {
  *
  * - If the user configured `experimental.brainModel` and the model is available,
  *   it is used as-is.
+ * - Otherwise the pass runs on `sessionID`'s model — the one the user has
+ *   selected in the session they triggered Brain from.
  * - If the configured model is unknown, missing providers/models, or the lookup
  *   throws, we silently fall back to the user's default model so the Brain pass
  *   still runs instead of failing the whole flow.
  */
-export async function getBrainProviderModel(): Promise<{
+export async function getBrainProviderModel(sessionID?: string): Promise<{
   providerID: string
   modelID: string
 }> {
@@ -74,6 +76,20 @@ export async function getBrainProviderModel(): Promise<{
         modelID: cfg.model.modelID,
         error: String(e),
       })
+    }
+  }
+  // No explicit `brainModel`: run on the model of the session the user
+  // triggered this from, rather than the global default. Same precedence the
+  // mission and loop drafting calls use — a configured model is a deliberate
+  // choice and still wins, everything else follows what is on screen.
+  const inherited = await sessionModelOwn(sessionID).catch(() => undefined)
+  if (inherited) {
+    try {
+      await providerGetModel(inherited.providerID, inherited.modelID)
+      return inherited
+    } catch {
+      // the session's model is no longer usable (provider removed, key
+      // revoked) — the default is a better answer than failing the pass
     }
   }
   return defaultProviderModel()
@@ -108,9 +124,10 @@ const BRAIN_SESSION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 const SESSION_REVIEW_LIMIT = 10
 const SESSION_REVIEW_MAX_CHARS = 12_000
 import { BRAIN_SESSION_TITLE } from "@nikcli-ai/util/brain-constants"
+import type { InstanceContext } from "@/effect"
 
-function memoryPath(): string {
-  return path.join(Instance.directory, ".github", "instructions", "memory.instruction.md")
+function memoryPath(instance: InstanceContext): string {
+  return path.join(instance.directory, ".github", "instructions", "memory.instruction.md")
 }
 
 /**
@@ -122,10 +139,10 @@ function memoryPath(): string {
  * them keeps either file from turning into a dumping ground, and lets the user
  * switch the learned half off (`/profile`) without losing project memory.
  */
-function habitsPath(): string {
+function habitsPath(instance: InstanceContext): string {
   // Same root the system prompt reads from, so a Brain pass never writes a file
   // the next session cannot find.
-  return Profile.habitsFile(Profile.projectRoot({ directory: Instance.directory, worktree: Instance.worktree }))
+  return Profile.habitsFile(Profile.projectRoot({ directory: instance.directory, worktree: instance.worktree }))
 }
 
 const HABITS_HEADER = [
@@ -137,8 +154,8 @@ const HABITS_HEADER = [
   "",
 ].join("\n")
 
-export async function getHabitsContent(): Promise<string> {
-  return fs.readFile(habitsPath(), "utf8").catch(() => "")
+export async function getHabitsContent(instance: InstanceContext): Promise<string> {
+  return fs.readFile(habitsPath(instance), "utf8").catch(() => "")
 }
 
 /**
@@ -146,8 +163,8 @@ export async function getHabitsContent(): Promise<string> {
  * read and can reach it with the edit tool alone — asking a model to create a
  * file in a directory that may not exist yet is the step that fails.
  */
-async function ensureHabitsFile(): Promise<void> {
-  const target = habitsPath()
+async function ensureHabitsFile(instance: InstanceContext): Promise<void> {
+  const target = habitsPath(instance)
   if (await Bun.file(target).exists()) return
   await fs.mkdir(path.dirname(target), { recursive: true })
   await fs.writeFile(target, HABITS_HEADER, "utf8")
@@ -174,17 +191,20 @@ export async function readLastBrainAt(): Promise<number> {
   }
 }
 
-export async function listSessionsSince(sinceMs: number): Promise<string[]> {
-  return listProjectSessions((session) => session.time.updated > sinceMs)
+export async function listSessionsSince(instance: InstanceContext, sinceMs: number): Promise<string[]> {
+  return listProjectSessions(instance, (session) => session.time.updated > sinceMs)
 }
 
-export async function listRecentSessions(limit = SESSION_REVIEW_LIMIT): Promise<string[]> {
-  const sessions = await listProjectSessions(() => true)
+export async function listRecentSessions(instance: InstanceContext, limit = SESSION_REVIEW_LIMIT): Promise<string[]> {
+  const sessions = await listProjectSessions(instance, () => true)
   return sessions.slice(-limit)
 }
 
-async function listProjectSessions(filter: (session: Session.Info) => boolean): Promise<string[]> {
-  return SessionRepo.getByProject(Instance.project.id)
+async function listProjectSessions(
+  instance: InstanceContext,
+  filter: (session: Session.Info) => boolean,
+): Promise<string[]> {
+  return SessionRepo.getByProject(instance.project.id)
     .filter(filter)
     .toSorted((a, b) => a.time.updated - b.time.updated)
     .map((session) => session.id)
@@ -200,8 +220,8 @@ export async function recordBrain(): Promise<void> {
   }
 }
 
-export async function getBrainMemoryContent(): Promise<string> {
-  const memPath = memoryPath()
+export async function getBrainMemoryContent(instance: InstanceContext): Promise<string> {
+  const memPath = memoryPath(instance)
   try {
     return await fs.readFile(memPath, "utf8")
   } catch {
@@ -209,8 +229,8 @@ export async function getBrainMemoryContent(): Promise<string> {
   }
 }
 
-export async function updateMemory(content: string): Promise<void> {
-  const memPath = memoryPath()
+export async function updateMemory(instance: InstanceContext, content: string): Promise<void> {
+  const memPath = memoryPath(instance)
   const dir = path.dirname(memPath)
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(memPath, content, "utf8")
@@ -244,8 +264,8 @@ function parseBrainModel(value: unknown): { providerID: string; modelID: string 
   }
 }
 
-export async function getSessionsCountSince(sinceMs: number): Promise<number> {
-  const sessions = await listSessionsSince(sinceMs)
+export async function getSessionsCountSince(instance: InstanceContext, sinceMs: number): Promise<number> {
+  const sessions = await listSessionsSince(instance, sinceMs)
   return sessions.length
 }
 
@@ -265,7 +285,7 @@ export namespace Brain {
   const SCAN_THROTTLE_MS = 10 * 60 * 1000
   const HOUR_MS = 60 * 60 * 1000
 
-  export async function shouldTrigger(): Promise<boolean> {
+  export async function shouldTrigger(instance: InstanceContext): Promise<boolean> {
     if (!(await isBrainEnabled())) return false
     if (!(await isMemoryEnabled())) return false
 
@@ -289,7 +309,7 @@ export namespace Brain {
     }
     lastSessionScanAt = Date.now()
 
-    const sessionIds = await listSessionsSince(lastAt)
+    const sessionIds = await listSessionsSince(instance, lastAt)
 
     if (sessionIds.length < cfg.minSessions) {
       log.debug("insufficient sessions", {
@@ -304,17 +324,23 @@ export namespace Brain {
 
   let pending: Promise<BrainResult> | null = null
 
-  export async function trigger(input?: { force?: boolean }): Promise<BrainResult> {
+  export async function trigger(
+    instance: InstanceContext,
+    input?: { force?: boolean; sessionID?: string },
+  ): Promise<BrainResult> {
     const existing = pending
     if (existing) return existing
-    const task = runBrain(input).finally(() => {
+    const task = runBrain(instance, input).finally(() => {
       if (pending === task) pending = null
     })
     pending = task
     return task
   }
 
-  async function runBrain(input?: { force?: boolean }): Promise<BrainResult> {
+  async function runBrain(
+    instance: InstanceContext,
+    input?: { force?: boolean; sessionID?: string },
+  ): Promise<BrainResult> {
     const log = Log.create({ service: "brain" })
 
     if (!(await isBrainEnabled())) {
@@ -364,19 +390,19 @@ export namespace Brain {
       }
     }
 
-    let sessionIds = await listSessionsSince(lastAt)
+    let sessionIds = await listSessionsSince(instance, lastAt)
     if (input?.force && sessionIds.length === 0) {
-      sessionIds = await listRecentSessions()
+      sessionIds = await listRecentSessions(instance)
     }
 
     try {
       log.info("brain triggered", { hoursSince })
 
-      const before = await getBrainMemoryContent()
-      const habitsBefore = await getHabitsContent()
-      const sessionID = await executeBrain(sessionIds)
-      const after = await getBrainMemoryContent()
-      const habitsAfter = await getHabitsContent()
+      const before = await getBrainMemoryContent(instance)
+      const habitsBefore = await getHabitsContent(instance)
+      const sessionID = await executeBrain(instance, sessionIds, input?.sessionID)
+      const after = await getBrainMemoryContent(instance)
+      const habitsAfter = await getHabitsContent(instance)
 
       // Either output counts: a pass that only learned something about how the
       // user works did its job even if project memory was already current.
@@ -421,21 +447,25 @@ export namespace Brain {
     }
   }
 
-  async function executeBrain(sessionIds: string[]): Promise<string> {
+  async function executeBrain(
+    instance: InstanceContext,
+    sessionIds: string[],
+    callerSessionID?: string,
+  ): Promise<string> {
     try {
       if (!sessionIds.length) {
         throw new Error("No recent sessions available for Brain")
       }
 
-      const memory = await getBrainMemoryContent()
-      const memoryFile = memoryPath()
+      const memory = await getBrainMemoryContent(instance)
+      const memoryFile = memoryPath(instance)
       await fs.mkdir(path.dirname(memoryFile), { recursive: true })
-      await ensureHabitsFile().catch((e) => log.warn("could not seed habits file", { error: String(e) }))
-      const habits = await getHabitsContent()
+      await ensureHabitsFile(instance).catch((e) => log.warn("could not seed habits file", { error: String(e) }))
+      const habits = await getHabitsContent(instance)
       const reviews = await buildSessionReviews(sessionIds)
 
       const prompt = buildBrainPrompt(memoryFile, reviews, memory, {
-        path: habitsPath(),
+        path: habitsPath(instance),
         content: habits,
       })
       log.info("brain prompt built", {
@@ -465,7 +495,7 @@ export namespace Brain {
           }),
         )
         log.info("brain session created", { sessionID: session.id })
-        const model = await getBrainProviderModel()
+        const model = await getBrainProviderModel(callerSessionID)
         log.info("brain model selected", {
           providerID: model.providerID,
           modelID: model.modelID,

@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test"
+import { test } from "bun:test"
 import { RGBA } from "@opentui/core"
 import { testRender } from "@opentui/solid"
 import { createPixelImage } from "@nikcli-ai/tui-image"

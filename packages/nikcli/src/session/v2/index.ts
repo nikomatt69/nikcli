@@ -14,12 +14,13 @@ import { SessionPrompt } from "../prompt"
 import { Stepper } from "./stepper"
 import { Log } from "@nikcli-ai/util/log"
 import { Effect } from "effect"
-import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer } from "@/effect"
 import { zodObject } from "@nikcli-ai/util/effect-zod"
 
 /**
- * STATUS: v2 read model live; write path slices 1–3 — entries persist first,
- * v1 is derived from them, HTTP create/prompt share this write API.
+ * STATUS: v2 read model live; write path slices 1–3 + S4r — entries persist
+ * first, v1 is derived from them, HTTP create/prompt and import/teleport/run
+ * share this write API.
  *
  * SessionV2 is the entry/event/stepper redesign, migrated by strangler:
  *
@@ -34,12 +35,15 @@ import { zodObject } from "@nikcli-ai/util/effect-zod"
 export namespace SessionV2 {
   const log = Log.create({ service: "session-v2" })
 
+  // These are the module's promise-side entry points; nothing upstream of them
+  // carries an `InstanceContext`, so the ambient scope is read here and bound
+  // explicitly for the run rather than re-derived inside the fiber.
   function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(Session.defaultLayer, locallyInstance(InstanceState.ambient(), effect))
   }
 
   function runPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
-    return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(SessionPrompt.defaultLayer, locallyInstance(InstanceState.ambient(), effect))
   }
 
   export const Event = SessionProjector.Event
@@ -178,14 +182,13 @@ export namespace SessionV2 {
    * transaction as the v1 row it derives from, so it covers committed and
    * in-flight work alike and cannot have drifted.
    *
-   * What it can be is *incomplete*. Two kinds of session arrive with v1 rows
-   * the projectors never saw: one written before the table existed, and one
-   * whose messages were bulk-inserted through `MessageRepo` rather than the
-   * session service — a teleport landing, a `nikcli import`, a `run --session`
-   * transcript. So the guard is coverage, not emptiness: if the entries do not
-   * account for every message, rebuild them. Checking "are there any rows"
-   * instead would hand a half-drawn transcript to the renderer, which is worse
-   * than the blank one it was meant to prevent.
+   * What it can be is *incomplete*. Sessions written before the table existed
+   * arrive with v1 rows the projectors never saw. Import, teleport, and
+   * `run --session` now persist through `SessionV2Write.persist`, so they
+   * are not that case. The guard is still coverage, not emptiness: if the
+   * entries do not account for every message, rebuild them. Checking "are
+   * there any rows" instead would hand a half-drawn transcript to the
+   * renderer, which is worse than the blank one it was meant to prevent.
    *
    * Both counts are indexed scans of one column, and this runs when a session
    * is opened, not per frame.
@@ -366,7 +369,10 @@ export namespace SessionV2 {
       const entries: SessionEntry.Entry[] = [SessionEntry.fromV1User(msg.info, msg.parts)]
       for (const part of msg.parts) {
         if (SessionEntry.foldsIntoUser(part)) continue
-        const converted = SessionEntry.fromV1Part(part, { sessionID, messageID })
+        const converted = SessionEntry.fromV1Part(part, {
+          sessionID,
+          messageID,
+        })
         if (converted) entries.push(converted)
       }
       return entries

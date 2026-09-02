@@ -1,0 +1,45 @@
+name = "nikcli-discord"
+main = "src/worker.ts"
+compatibility_date = "2025-01-25"
+compatibility_flags = ["nodejs_compat"]
+
+workers_dev = false
+
+# custom_domain lets wrangler create the DNS record on the nikcli.store zone;
+# a bare `route` would require the record to already exist.
+[[routes]]
+pattern = "discord.nikcli.store"
+custom_domain = true
+
+[vars]
+NODE_ENV = "production"
+WRANGLER_LOG_LEVEL = "info"
+# The Worker has no local agent to fall back on, so this is required. The host
+# below runs `nikcli mobile serve`, which sets mobileAuthRequired and therefore
+# rejects Basic auth outright — it takes only a bearer, so NIKCLI_TOKEN must be
+# a mobile pairing token. NIKCLI_USERNAME/NIKCLI_PASSWORD apply only if you
+# repoint this at a plain `nikcli serve`.
+NIKCLI_URL = "https://nikcli-mobile-production.up.railway.app"
+NIKCLI_USERNAME = "nikcli"
+
+# One instance per Discord channel: holds that channel's nikcli session id and
+# serializes the prompts running against it.
+[[durable_objects.bindings]]
+name = "CHANNEL_SESSIONS"
+class_name = "ChannelSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChannelSession"]
+
+# Secrets to set via `wrangler secret put`:
+# - DISCORD_PUBLIC_KEY      # Developer Portal → General Information → Public Key
+# - DISCORD_APPLICATION_ID  # Developer Portal → General Information → Application ID
+# - NIKCLI_TOKEN            # bearer for a `nikcli mobile serve` host (see below)
+# - NIKCLI_PASSWORD         # Basic Auth password, for a plain `nikcli serve` host
+# - DISCORD_ALLOWED_CHANNELS  # optional, comma-separated channel IDs
+#
+# DISCORD_BOT_TOKEN is not needed by the Worker, only by `bun run register`.
+#
+# After deploying, set the Interactions Endpoint URL in the Developer Portal to
+# https://discord.nikcli.store/discord/interactions and run `bun run register`.

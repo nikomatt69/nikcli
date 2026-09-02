@@ -5,8 +5,8 @@ import os from "os"
 import path from "path"
 import { removeTestDir } from "../helpers/fs"
 import type { MessageV2 as MessageV2Types } from "../../src/session/message-v2"
-import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
+import { Cause, Effect, Layer } from "effect"
+import { runPromiseExitWithLayer, runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -40,6 +40,10 @@ const projectDirs: string[] = []
 
 function runRevert<A, E>(effect: Effect.Effect<A, E, any>) {
   return runPromiseWithLayer(SessionRevert.defaultLayer, withCurrentInstance(effect))
+}
+
+function runRevertExit<A, E>(effect: Effect.Effect<A, E, any>) {
+  return runPromiseExitWithLayer(SessionRevert.defaultLayer, withCurrentInstance(effect))
 }
 
 function runSession<A, E>(effect: Effect.Effect<A, E, any>) {
@@ -343,6 +347,148 @@ describe("session lifecycle", () => {
       )
 
       expect(unarchived.time.archived).toBeUndefined()
+    })
+  })
+
+  // E5.1 — pin the channel before changing it. The revert / summary adapters
+  // currently wrap their implementations in `Effect.tryPromise(() => …)` with
+  // no rejection mapping. A missing session therefore surfaces as a generic
+  // defect, not as the typed `Session.NotFoundError` the service exposes.
+  // These assertions inspect `Exit` / `Cause` to prove whether the failure
+  // is a typed fail or an untyped die. They fail today against the untyped
+  // adapters and go green after E5.2 supplies an explicit `catch`.
+  describe("E5.1 typed failure channel", () => {
+    it("SessionRevert.revert rejects with SessionNotFoundError on a typed failure channel", async () => {
+      await withProject(async () => {
+        const missingID = Identifier.descending("session")
+        const exit = await runRevertExit(
+          Effect.gen(function* () {
+            const revert = yield* SessionRevert.Service
+            return yield* revert.revert({
+              sessionID: missingID,
+              messageID: "msg_does_not_exist",
+            })
+          }),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        // `Cause.squash` reads through both channels; `hasDies` is what
+        // separates a typed `Effect.fail` from an `Effect.die`.
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        const error = Cause.squash(exit.cause)
+        expect(error).toBeInstanceOf(SessionError.NotFoundError)
+      })
+    })
+
+    it("SessionRevert.unrevert rejects with SessionNotFoundError on a typed failure channel", async () => {
+      await withProject(async () => {
+        const missingID = Identifier.descending("session")
+        const exit = await runRevertExit(
+          Effect.gen(function* () {
+            const revert = yield* SessionRevert.Service
+            return yield* revert.unrevert({ sessionID: missingID })
+          }),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        // `Cause.squash` reads through both channels; `hasDies` is what
+        // separates a typed `Effect.fail` from an `Effect.die`.
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        const error = Cause.squash(exit.cause)
+        expect(error).toBeInstanceOf(SessionError.NotFoundError)
+      })
+    })
+
+    it("SessionRevert.revert rejects with SessionBusyError on a typed failure channel", async () => {
+      await withProject(async () => {
+        const { PromptState } = await import("../../src/session/prompt-state")
+        const session = await createSession()
+        // Reserving the session is what `SessionPrompt.assertNotBusy` reads;
+        // a busy revert must reach the caller as `Session.BusyError` on the
+        // failure channel, not as a defect the HTTP boundary has to recover.
+        PromptState.reserve(session.id)
+        const exit = await runRevertExit(
+          Effect.gen(function* () {
+            const revert = yield* SessionRevert.Service
+            return yield* revert.revert({
+              sessionID: session.id,
+              messageID: "msg_does_not_exist",
+            })
+          }),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        const error = Cause.squash(exit.cause)
+        expect(error).toBeInstanceOf(Session.BusyError)
+      })
+    })
+
+    it("SessionPrompt.assertNotBusy fails with SessionBusyError on the typed channel", async () => {
+      await withProject(async () => {
+        const { PromptState } = await import("../../src/session/prompt-state")
+        const { SessionPrompt } = await import("../../src/session/prompt")
+        const session = await createSession()
+
+        // Not reserved: the assertion is a plain success, not an absent
+        // failure that happens to be swallowed somewhere.
+        const idle = await runPromiseExitWithLayer(
+          SessionPrompt.defaultLayer,
+          withCurrentInstance(
+            Effect.gen(function* () {
+              const prompt = yield* SessionPrompt.Service
+              return yield* prompt.assertNotBusy(session.id)
+            }),
+          ),
+        )
+        expect(idle._tag).toBe("Success")
+
+        PromptState.reserve(session.id)
+        const exit = await runPromiseExitWithLayer(
+          SessionPrompt.defaultLayer,
+          withCurrentInstance(
+            Effect.gen(function* () {
+              const prompt = yield* SessionPrompt.Service
+              return yield* prompt.assertNotBusy(session.id)
+            }),
+          ),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        // E8.1. The busy assertion used to `throw` inside `Effect.gen`, which
+        // is a defect: it only reached callers typed because `SessionRevert`
+        // ran it through `runPromiseWithLayer` and re-mapped the rejection.
+        // `hasDies` is what separates the two, so this assertion is the one
+        // that goes red if the `throw` comes back.
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        expect(Cause.squash(exit.cause)).toBeInstanceOf(Session.BusyError)
+      })
+    })
+
+    it("SessionSummary.diff rejects with SessionNotFoundError on a typed failure channel", async () => {
+      await withProject(async () => {
+        const { SessionSummary } = await import("../../src/session/summary")
+        const missingID = Identifier.descending("session")
+        // SessionSummary.defaultLayer provides SessionSummary.Service only;
+        // Session.Service must be in the same layer stack for `diff` to
+        // resolve a missing session on the typed channel.
+        const exit = await runPromiseExitWithLayer(
+          Layer.merge(SessionSummary.defaultLayer, Session.defaultLayer),
+          withCurrentInstance(
+            Effect.gen(function* () {
+              const summary = yield* SessionSummary.Service
+              return yield* summary.diff({ sessionID: missingID })
+            }),
+          ),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        // `Cause.squash` reads through both channels; `hasDies` is what
+        // separates a typed `Effect.fail` from an `Effect.die`.
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        const error = Cause.squash(exit.cause)
+        expect(error).toBeInstanceOf(SessionError.NotFoundError)
+      })
     })
   })
 })

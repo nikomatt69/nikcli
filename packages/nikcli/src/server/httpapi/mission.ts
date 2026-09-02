@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Bus } from "@/bus"
 import { generateFromDescription } from "@/mission/generate"
@@ -13,6 +13,7 @@ import {
 } from "@/mission/schema"
 import { Log } from "@nikcli-ai/util/log"
 import { fromZod } from "@/util/zod-effect"
+import { InstanceState, type InstanceContext } from "@/effect"
 
 export namespace MissionHttpApi {
   const log = Log.create({ service: "httpapi.mission" })
@@ -147,6 +148,38 @@ export namespace MissionHttpApi {
 
   const fromPromise = <A>(fn: () => Promise<A>) => Effect.promise(fn).pipe(Effect.orDie)
 
+  /** `fromPromise` for a body that needs the request's instance. */
+
+  const withInstance = <A>(fn: (instance: InstanceContext) => Promise<A>) =>
+    InstanceState.context.pipe(
+      Effect.flatMap((instance) => Effect.promise(() => fn(instance))),
+
+      Effect.orDie,
+    )
+
+  /**
+   * `Manager.upsert` throws when `sanitizeDefinition` rejects the definition.
+   * The handlers re-run `validateDefinition` first, but not the zod
+   * `MissionDefinitionSchema.safeParse` that `sanitizeDefinition` runs ahead
+   * of it. `create`/`update` already run that same parse in the handler, so
+   * this is unreachable from them today; `featureMutate` does not, and either
+   * way a rejected definition is a client input error that belongs on the 400
+   * all three routes declare, not on the defect channel. The loop slice has
+   * the same helper for a path that *is* reachable (see httpapi-loop.test.ts).
+   */
+  const upsertDefinition = (def: MissionDefinition): Effect.Effect<MissionDefinition, ValidationErrorBody> =>
+    InstanceState.project.pipe(
+      Effect.flatMap((project) =>
+        Effect.tryPromise({
+          try: () => Manager.upsert(project.id, def),
+          catch: (cause) => ({
+            name: "ValidationError" as const,
+            data: { message: cause instanceof Error ? cause.message : String(cause) } as Record<string, unknown>,
+          }),
+        }),
+      ),
+    )
+
   const MissionIDPath = Schema.Struct({ id: Schema.String })
 
   const FeaturePath = Schema.Struct({
@@ -162,6 +195,12 @@ export namespace MissionHttpApi {
     description: Schema.String,
     model: Schema.optionalKey(Schema.String),
     agent: Schema.optionalKey(Schema.String),
+    /**
+     * The session the request was launched from. Absent `model`, the drafting
+     * call inherits this session's model instead of the global default — the
+     * one the user has selected in front of them.
+     */
+    sessionID: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "MissionGenerateInput" })
 
   // These zod schemas validate bodies and apply schema defaults (feature
@@ -266,7 +305,11 @@ export namespace MissionHttpApi {
     .add(
       HttpApiEndpoint.post("start", "/:id/start", {
         params: MissionIDPath,
-        payload: StartPayload,
+        // The body is optional — the handler reads `payload?.sessionID`, and the
+        // lifecycle routes are called without one. Declaring the payload bare
+        // made a bodyless POST fail the request decode with an empty 400
+        // before the handler could answer 404.
+        payload: [HttpApiSchema.NoContent, StartPayload],
         success: BooleanResult,
         error: NotFound,
       }),
@@ -312,8 +355,8 @@ export namespace MissionHttpApi {
 
   export const handlers = {
     list: () =>
-      fromPromise(async () => {
-        const missions = await Manager.list()
+      withInstance(async (instance) => {
+        const missions = await Manager.list(instance.project.id)
         const runtimes = missions.map((m) => ({
           missionID: m.id,
           ...Engine.getRuntime(m.id),
@@ -328,6 +371,7 @@ export namespace MissionHttpApi {
         generateFromDescription(payload.description, {
           model: payload.model,
           agent: payload.agent,
+          sessionID: payload.sessionID,
         }),
       ).pipe(
         Effect.catch((cause: unknown) => {
@@ -337,8 +381,8 @@ export namespace MissionHttpApi {
       ),
 
     get: ({ params }: { params: { id: string } }) =>
-      fromPromise(async () => {
-        const mission = await Manager.get(params.id)
+      withInstance(async (instance) => {
+        const mission = await Manager.get(instance.project.id, params.id)
         if (!mission) return { notFound: true as const, id: params.id }
         return {
           notFound: false as const,
@@ -369,13 +413,14 @@ export namespace MissionHttpApi {
         }
         const err = validateDefinition(def)
         if (err) return yield* failValidation(err)
-        const saved = yield* fromPromise(() => Manager.upsert(def))
+        const saved = yield* upsertDefinition(def)
         yield* publishUpserted(saved.id)
         return saved
       }),
 
     update: ({ params, payload }: { params: { id: string }; payload: unknown }) =>
       Effect.gen(function* () {
+        const instance = yield* InstanceState.context
         // The path is the identity: put it back before parsing, so the zod
         // schema (and its defaults) still see a whole definition. The old
         // "path id and body id do not match" check is gone because the body can
@@ -387,16 +432,17 @@ export namespace MissionHttpApi {
         const body = parsed.data
         const err = validateDefinition(body)
         if (err) return yield* failValidation(err)
-        const existing = yield* fromPromise(() => Manager.get(params.id))
+        const existing = yield* fromPromise(() => Manager.get(instance.project.id, params.id))
         if (!existing) return yield* failNotFound(`Mission "${params.id}" not found`)
-        const saved = yield* fromPromise(() => Manager.upsert(body))
+        const saved = yield* upsertDefinition(body)
         yield* publishUpserted(saved.id)
         return saved
       }),
 
     remove: ({ params }: { params: { id: string } }) =>
       Effect.gen(function* () {
-        const def = yield* fromPromise(() => Manager.get(params.id))
+        const instance = yield* InstanceState.context
+        const def = yield* fromPromise(() => Manager.get(instance.project.id, params.id))
         if (!def) return yield* failNotFound(`Mission "${params.id}" not found`)
         // Cancel any in-flight orchestration *before* removing the definition
         // so no orphan `MissionExec` is written for a mission the user just
@@ -406,7 +452,7 @@ export namespace MissionHttpApi {
             log.warn("cancel on delete failed", { id: params.id, error })
           }),
         )
-        const removed = yield* fromPromise(() => Manager.remove(params.id))
+        const removed = yield* fromPromise(() => Manager.remove(instance.project.id, instance.directory, params.id))
         if (!removed) return yield* failNotFound(`Mission "${params.id}" not found`)
         yield* Effect.sync(() => {
           void Bus.publish(Engine.MissionEvent.Removed, { missionID: params.id })
@@ -414,9 +460,10 @@ export namespace MissionHttpApi {
         return true
       }),
 
-    start: ({ params, payload }: { params: { id: string }; payload?: { sessionID?: string } }) =>
+    start: ({ params, payload }: { params: { id: string }; payload: typeof StartPayload.Type | void }) =>
       Effect.gen(function* () {
-        const def = yield* fromPromise(() => Manager.get(params.id))
+        const instance = yield* InstanceState.context
+        const def = yield* fromPromise(() => Manager.get(instance.project.id, params.id))
         if (!def) return yield* failNotFound(`Mission "${params.id}" not found`)
         void Engine.start(params.id, payload?.sessionID ? { callerSessionID: payload.sessionID } : {})
         return true
@@ -424,7 +471,8 @@ export namespace MissionHttpApi {
 
     pause: ({ params }: { params: { id: string } }) =>
       Effect.gen(function* () {
-        const def = yield* fromPromise(() => Manager.get(params.id))
+        const instance = yield* InstanceState.context
+        const def = yield* fromPromise(() => Manager.get(instance.project.id, params.id))
         if (!def) return yield* failNotFound(`Mission "${params.id}" not found`)
         yield* fromPromise(() => Engine.pause(params.id))
         return true
@@ -432,7 +480,8 @@ export namespace MissionHttpApi {
 
     cancel: ({ params }: { params: { id: string } }) =>
       Effect.gen(function* () {
-        const def = yield* fromPromise(() => Manager.get(params.id))
+        const instance = yield* InstanceState.context
+        const def = yield* fromPromise(() => Manager.get(instance.project.id, params.id))
         if (!def) return yield* failNotFound(`Mission "${params.id}" not found`)
         yield* fromPromise(() => Engine.cancel(params.id))
         return true
@@ -446,7 +495,8 @@ export namespace MissionHttpApi {
       payload: typeof FeatureMutatePayload.Type
     }) =>
       Effect.gen(function* () {
-        const def = yield* fromPromise(() => Manager.get(params.id))
+        const instance = yield* InstanceState.context
+        const def = yield* fromPromise(() => Manager.get(instance.project.id, params.id))
         if (!def) return yield* failNotFound(`Mission "${params.id}" not found`)
         let found = false
         const milestones = def.milestones.map((m) => ({
@@ -456,7 +506,10 @@ export namespace MissionHttpApi {
             found = true
             const next: typeof f = { ...f }
             if (payload.status !== undefined) next.status = payload.status
-            if (payload.status === "done") next.error = undefined
+            // Delete rather than assign `undefined`: `MissionFeature.error` is
+            // `optionalKey`, which rejects a present `undefined` at encode time
+            // and turns the whole response into an empty 400.
+            if (payload.status === "done") delete next.error
             if (payload.error !== undefined) next.error = payload.error
             if (payload.appendDependsOn && payload.appendDependsOn.length > 0) {
               const known = new Set(m.features.map((ff) => ff.id))
@@ -472,20 +525,20 @@ export namespace MissionHttpApi {
         const updated: MissionDefinition = { ...def, milestones }
         const err = validateDefinition(updated)
         if (err) return yield* failValidation(err)
-        const saved = yield* fromPromise(() => Manager.upsert(updated))
+        const saved = yield* upsertDefinition(updated)
         yield* publishUpserted(saved.id)
         return saved
       }),
 
     execs: ({ params, query }: { params: { id: string }; query: typeof ExecsQuery.Type }) =>
-      fromPromise(async () => {
-        const execs = await Manager.listExecs(params.id, query.limit ?? 100)
+      withInstance(async (instance) => {
+        const execs = await Manager.listExecs(instance.project.id, params.id, query.limit ?? 100)
         return { execs }
       }),
 
     recentExecs: ({ query }: { query: typeof ExecsQuery.Type }) =>
-      fromPromise(async () => {
-        const records = await Manager.listRunningExecs()
+      withInstance(async (instance) => {
+        const records = await Manager.listRunningExecs(instance.project.id)
         return { execs: records.slice(0, query.limit ?? 100) }
       }),
   }

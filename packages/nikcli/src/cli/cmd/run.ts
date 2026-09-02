@@ -8,18 +8,17 @@ import { Command } from "../../command"
 import { EOL } from "os"
 import { pathToFileURL } from "url"
 import { select } from "@clack/prompts"
-import { createNikcliClient, type NikcliClient } from "@nikcli-ai/sdk/httpapi"
+import { createNikcliClient, type Event as SdkEvent, type NikcliClient } from "@nikcli-ai/sdk/httpapi"
 import { Server } from "../../server/server"
 import { Provider } from "../../provider/provider"
 import { Agent } from "../../agent/agent"
 import { SessionRepo } from "../../session/repo"
-import { MessageRepo } from "../../session/message-repo"
+import type { Project } from "@/project/project"
 import { SessionDiffRepo } from "../../session/diff-repo"
-import { SessionEntryProjection } from "../../session/v2/projection"
+import { SessionV2Write } from "../../session/v2/write"
 import type { Session } from "../../session"
 import type { MessageV2 } from "../../session/message-v2"
 import type { Snapshot } from "../../snapshot"
-import { Instance } from "../../project/instance"
 import { Config } from "../../config/config"
 import { ShareNext } from "../../share/share-next"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -29,46 +28,48 @@ import z from "zod"
 
 const log = Log.create({ service: "run-command" })
 
-const TOOL: Record<string, [string, string]> = {
-  todowrite: ["Todo", UI.Style.TEXT_WARNING_BOLD],
-  todoread: ["Todo", UI.Style.TEXT_WARNING_BOLD],
-  bash: ["Bash", UI.Style.TEXT_DANGER_BOLD],
-  edit: ["Edit", UI.Style.TEXT_SUCCESS_BOLD],
-  glob: ["Glob", UI.Style.TEXT_INFO_BOLD],
-  grep: ["Grep", UI.Style.TEXT_INFO_BOLD],
-  list: ["List", UI.Style.TEXT_INFO_BOLD],
-  read: ["Read", UI.Style.TEXT_HIGHLIGHT_BOLD],
-  write: ["Write", UI.Style.TEXT_SUCCESS_BOLD],
-  websearch: ["Search", UI.Style.TEXT_DIM_BOLD],
-  webfetch: ["Fetch", UI.Style.TEXT_DIM_BOLD],
-  codesearch: ["Code", UI.Style.TEXT_DIM_BOLD],
-  task: ["Task", UI.Style.TEXT_INFO_BOLD],
-  monitor: ["Monitor", UI.Style.TEXT_DANGER_BOLD],
-  apply_patch: ["Patch", UI.Style.TEXT_SUCCESS_BOLD],
-  multiedit: ["Edit", UI.Style.TEXT_SUCCESS_BOLD],
-  tree: ["Tree", UI.Style.TEXT_INFO_BOLD],
-  browser_control: ["Browser", UI.Style.TEXT_INFO_BOLD],
-  computer: ["Computer", UI.Style.TEXT_INFO_BOLD],
-  skill: ["Skill", UI.Style.TEXT_HIGHLIGHT_BOLD],
-  lsp: ["LSP", UI.Style.TEXT_INFO_BOLD],
-  delegation: ["Delegate", UI.Style.TEXT_INFO_BOLD],
-  delegator: ["Delegator", UI.Style.TEXT_INFO_BOLD],
-  search_tools: ["Tools", UI.Style.TEXT_DIM_BOLD],
-  memory_search: ["Memory", UI.Style.TEXT_DIM_BOLD],
-  generate_image: ["Image", UI.Style.TEXT_HIGHLIGHT_BOLD],
-  speak: ["Speak", UI.Style.TEXT_DIM_BOLD],
-  question: ["Question", UI.Style.TEXT_WARNING_BOLD],
-  repo_clone: ["Repo", UI.Style.TEXT_INFO_BOLD],
-  repo_overview: ["Repo", UI.Style.TEXT_INFO_BOLD],
-  exec_code: ["Exec", UI.Style.TEXT_DANGER_BOLD],
-  code_mode: ["Exec", UI.Style.TEXT_WARNING_BOLD],
-  plan_enter: ["Plan", UI.Style.TEXT_WARNING_BOLD],
-  plan_exit: ["Plan", UI.Style.TEXT_WARNING_BOLD],
-  advisor: ["Advisor", UI.Style.TEXT_HIGHLIGHT_BOLD],
-  context_collect: ["Context", UI.Style.TEXT_DIM_BOLD],
-  context_related: ["Context", UI.Style.TEXT_DIM_BOLD],
-  context_diagnostics: ["Context", UI.Style.TEXT_DIM_BOLD],
-}
+const TOOL = new Map<string, [string, string]>(
+  Object.entries({
+    todowrite: ["Todo", UI.Style.TEXT_WARNING_BOLD],
+    todoread: ["Todo", UI.Style.TEXT_WARNING_BOLD],
+    bash: ["Bash", UI.Style.TEXT_DANGER_BOLD],
+    edit: ["Edit", UI.Style.TEXT_SUCCESS_BOLD],
+    glob: ["Glob", UI.Style.TEXT_INFO_BOLD],
+    grep: ["Grep", UI.Style.TEXT_INFO_BOLD],
+    list: ["List", UI.Style.TEXT_INFO_BOLD],
+    read: ["Read", UI.Style.TEXT_HIGHLIGHT_BOLD],
+    write: ["Write", UI.Style.TEXT_SUCCESS_BOLD],
+    websearch: ["Search", UI.Style.TEXT_DIM_BOLD],
+    webfetch: ["Fetch", UI.Style.TEXT_DIM_BOLD],
+    codesearch: ["Code", UI.Style.TEXT_DIM_BOLD],
+    task: ["Task", UI.Style.TEXT_INFO_BOLD],
+    monitor: ["Monitor", UI.Style.TEXT_DANGER_BOLD],
+    apply_patch: ["Patch", UI.Style.TEXT_SUCCESS_BOLD],
+    multiedit: ["Edit", UI.Style.TEXT_SUCCESS_BOLD],
+    tree: ["Tree", UI.Style.TEXT_INFO_BOLD],
+    browser_control: ["Browser", UI.Style.TEXT_INFO_BOLD],
+    computer: ["Computer", UI.Style.TEXT_INFO_BOLD],
+    skill: ["Skill", UI.Style.TEXT_HIGHLIGHT_BOLD],
+    lsp: ["LSP", UI.Style.TEXT_INFO_BOLD],
+    delegation: ["Delegate", UI.Style.TEXT_INFO_BOLD],
+    delegator: ["Delegator", UI.Style.TEXT_INFO_BOLD],
+    search_tools: ["Tools", UI.Style.TEXT_DIM_BOLD],
+    memory_search: ["Memory", UI.Style.TEXT_DIM_BOLD],
+    generate_image: ["Image", UI.Style.TEXT_HIGHLIGHT_BOLD],
+    speak: ["Speak", UI.Style.TEXT_DIM_BOLD],
+    question: ["Question", UI.Style.TEXT_WARNING_BOLD],
+    repo_clone: ["Repo", UI.Style.TEXT_INFO_BOLD],
+    repo_overview: ["Repo", UI.Style.TEXT_INFO_BOLD],
+    exec_code: ["Exec", UI.Style.TEXT_DANGER_BOLD],
+    code_mode: ["Exec", UI.Style.TEXT_WARNING_BOLD],
+    plan_enter: ["Plan", UI.Style.TEXT_WARNING_BOLD],
+    plan_exit: ["Plan", UI.Style.TEXT_WARNING_BOLD],
+    advisor: ["Advisor", UI.Style.TEXT_HIGHLIGHT_BOLD],
+    context_collect: ["Context", UI.Style.TEXT_DIM_BOLD],
+    context_related: ["Context", UI.Style.TEXT_DIM_BOLD],
+    context_diagnostics: ["Context", UI.Style.TEXT_DIM_BOLD],
+  } satisfies Record<string, [string, string]>),
+)
 
 const SHARE_ID = /^[0-9a-z]{26}$/i
 
@@ -117,15 +118,19 @@ function agentGet(name: string) {
   )
 }
 
-function shareErrorMessage(error: unknown): string {
+const ShareErrorBody = z.object({
+  error: z.object({ message: z.string().optional() }).catch({}).optional(),
+  data: z.object({ message: z.string().optional() }).catch({}).optional(),
+  message: z.string().optional().catch(undefined),
+})
+type ShareErrorBody = z.infer<typeof ShareErrorBody>
+
+function shareErrorMessage(error: Error | ShareErrorBody): string {
   if (error instanceof Error && error.message) return error.message
-  if (error && typeof error === "object") {
-    const value = error as Record<string, unknown>
-    const message =
-      (value?.error as { message?: string })?.message ??
-      (value?.data as { message?: string })?.message ??
-      (value?.message as string)
-    if (typeof message === "string" && message.trim()) return message.trim()
+  const parsed = ShareErrorBody.safeParse(error)
+  if (parsed.success) {
+    const message = parsed.data.error?.message ?? parsed.data.data?.message ?? parsed.data.message
+    if (message && message.trim()) return message.trim()
   }
   return "Failed to share session"
 }
@@ -180,7 +185,38 @@ function parseShareReference(input: string): z.infer<typeof ShareReferenceSchema
   }
 }
 
-async function fetchSharePayload(origins: string[], shareID: string): Promise<unknown | undefined> {
+const ShareTime = z.looseObject({ created: z.number().optional() }).catch({})
+
+const ShareSessionInfo = z.looseObject({ id: z.string() })
+type ShareSessionInfo = z.infer<typeof ShareSessionInfo>
+
+const ShareMessageInfo = z.looseObject({
+  id: z.string().optional().catch(undefined),
+  time: ShareTime.optional(),
+})
+type ShareMessageInfo = z.infer<typeof ShareMessageInfo>
+
+const SharePartData = z.looseObject({ messageID: z.string().optional().catch(undefined) })
+
+const ShareEntry = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("session"), data: ShareSessionInfo }),
+  z.object({ type: z.literal("session_diff"), data: z.array(z.unknown()) }),
+  z.object({ type: z.literal("message"), data: ShareMessageInfo }),
+  z.object({ type: z.literal("part"), data: SharePartData }),
+])
+
+const ShareStreamPayload = z.array(ShareEntry.nullable().catch(null))
+
+const ShareObjectPayload = z.looseObject({
+  info: ShareSessionInfo,
+  messages: z.record(z.string(), z.looseObject({ parts: z.array(z.unknown()).optional() })),
+  diff: z.array(z.unknown()).optional().catch(undefined),
+})
+
+const SharePayload = z.union([ShareStreamPayload, ShareObjectPayload])
+type SharePayload = z.infer<typeof SharePayload>
+
+async function fetchSharePayload(origins: string[], shareID: string): Promise<SharePayload | undefined> {
   const urls = origins.flatMap((origin) => [`${origin}/api/share/${shareID}/data`, `${origin}/api/share/${shareID}`])
 
   for (const url of urls) {
@@ -188,7 +224,9 @@ async function fetchSharePayload(origins: string[], shareID: string): Promise<un
       const response = await fetch(url)
       if (!response.ok) continue
       const json = await response.json().catch(() => undefined)
-      if (json) return json
+      if (!json) continue
+      const parsed = SharePayload.safeParse(json)
+      if (parsed.success) return parsed.data
     } catch (error) {
       log.debug("Failed to fetch share payload", { url, error })
     }
@@ -197,57 +235,52 @@ async function fetchSharePayload(origins: string[], shareID: string): Promise<un
 }
 
 interface SharePayloadMessage {
-  info: Record<string, unknown>
+  info: ShareMessageInfo
   parts: unknown[]
 }
 
 interface NormalizedSharePayload {
-  info: Record<string, unknown>
+  info: ShareSessionInfo
   messages: SharePayloadMessage[]
   diff?: unknown[]
 }
 
-function normalizeSharePayload(payload: unknown): NormalizedSharePayload | undefined {
-  if (!payload || typeof payload !== "object") return undefined
-
+function normalizeSharePayload(payload: SharePayload): NormalizedSharePayload | undefined {
   if (Array.isArray(payload)) {
-    let info: Record<string, unknown> | undefined
+    let info: ShareSessionInfo | undefined
     let diff: unknown[] | undefined
-    const messages = new Map<string, { info?: Record<string, unknown>; parts: unknown[] }>()
+    const messages = new Map<string, { info?: ShareMessageInfo; parts: unknown[] }>()
 
     for (const item of payload) {
-      if (!item || typeof item !== "object") continue
-      const typedItem = item as Record<string, unknown>
+      if (!item) continue
 
-      if (typedItem.type === "session") {
-        info = typedItem.data as Record<string, unknown>
+      if (item.type === "session") {
+        info = item.data
         continue
       }
-      if (typedItem.type === "session_diff" && Array.isArray(typedItem.data)) {
-        diff = typedItem.data
+      if (item.type === "session_diff") {
+        diff = item.data
         continue
       }
-      if (typedItem.type === "message") {
-        const data = typedItem.data as Record<string, unknown>
-        const messageID = data?.id
+      if (item.type === "message") {
+        const messageID = item.data.id
         if (!messageID) continue
-        const existing = messages.get(messageID as string)
-        messages.set(messageID as string, {
-          info: data,
+        const existing = messages.get(messageID)
+        messages.set(messageID, {
+          info: item.data,
           parts: existing?.parts ?? [],
         })
         continue
       }
-      if (typedItem.type === "part") {
-        const data = typedItem.data as Record<string, unknown>
-        const messageID = data?.messageID
+      if (item.type === "part") {
+        const messageID = item.data.messageID
         if (!messageID) continue
-        const existing = messages.get(messageID as string)
+        const existing = messages.get(messageID)
         if (existing) {
-          existing.parts.push(data)
+          existing.parts.push(item.data)
         } else {
-          messages.set(messageID as string, {
-            parts: [data],
+          messages.set(messageID, {
+            parts: [item.data],
           })
         }
       }
@@ -259,65 +292,53 @@ function normalizeSharePayload(payload: unknown): NormalizedSharePayload | undef
       info,
       diff,
       messages: Array.from(messages.values())
-        .filter((item): item is { info: Record<string, unknown>; parts: unknown[] } => Boolean(item.info))
-        .sort((a, b) => {
-          const aTime = (a.info?.time as { created?: number })?.created ?? 0
-          const bTime = (b.info?.time as { created?: number })?.created ?? 0
-          return aTime - bTime
-        })
+        .filter((item): item is { info: ShareMessageInfo; parts: unknown[] } => Boolean(item.info))
+        .sort((a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0))
         .map((item) => ({
-          info: item.info!,
+          info: item.info,
           parts: item.parts,
         })),
     }
   }
 
-  const typedPayload = payload as {
-    info?: unknown
-    messages?: unknown
-    diff?: unknown
-  }
-  if (!typedPayload.info || !typedPayload.messages) return undefined
-
   return {
-    info: typedPayload.info as Record<string, unknown>,
-    diff: Array.isArray(typedPayload.diff) ? typedPayload.diff : undefined,
-    messages: Object.values(typedPayload.messages as Record<string, unknown>).map((msg) => {
-      const { parts, ...info } = msg as {
-        parts: unknown[]
-        [key: string]: unknown
-      }
+    info: payload.info,
+    diff: payload.diff,
+    messages: Object.values(payload.messages).map((msg) => {
+      const { parts, ...info } = msg
       return {
-        info,
+        info: ShareMessageInfo.parse(info),
         parts: parts ?? [],
       }
     }),
   }
 }
 
-async function importShareReference(input: string): Promise<string | undefined> {
+async function importShareReference(project: Project.Info, input: string): Promise<string | undefined> {
   const parsed = parseShareReference(input)
   if (!parsed) return undefined
 
   log.debug("Importing share reference", { shareID: parsed.shareID })
 
-  let payload: unknown = await runShareNext(
+  const local = await runShareNext(
     Effect.gen(function* () {
       const shareNext = yield* ShareNext.Service
       return yield* shareNext.publicData(parsed.shareID)
     }),
   ).catch(() => undefined)
 
-  if (!payload) {
+  let payload: SharePayload | undefined
+  if (local) {
+    const parsedLocal = SharePayload.safeParse(local)
+    if (parsedLocal.success) payload = parsedLocal.data
+  } else {
     const configOrigin = await configGet()
       .then((config) => config.enterprise?.url ?? "https://s.nikcli.store")
       .catch(() => "https://s.nikcli.store")
-    payload = (await fetchSharePayload(parsed.origins.length ? parsed.origins : [configOrigin], parsed.shareID)) as
-      | Record<string, unknown>
-      | undefined
+    payload = await fetchSharePayload(parsed.origins.length ? parsed.origins : [configOrigin], parsed.shareID)
   }
 
-  const normalized = normalizeSharePayload(payload)
+  const normalized = payload ? normalizeSharePayload(payload) : undefined
   if (!normalized) {
     throw new Error(`Share not found: ${parsed.shareID}`)
   }
@@ -325,41 +346,55 @@ async function importShareReference(input: string): Promise<string | undefined> 
   const info = normalized.info
   SessionRepo.upsert({
     ...(info as Session.Info),
-    projectID: Instance.project.id,
+    projectID: project.id,
   })
 
   if (normalized.diff) {
-    SessionDiffRepo.upsert(info.id as string, normalized.diff as Snapshot.FileDiff[])
+    SessionDiffRepo.upsert(info.id, normalized.diff as Snapshot.FileDiff[])
   }
 
-  const imported: MessageV2.WithParts[] = []
+  const projectID = project.id
   for (const msg of normalized.messages) {
     const messageInfo = {
       ...(msg.info as MessageV2.Info),
-      sessionID: info.id as string,
+      sessionID: info.id,
     }
-    MessageRepo.upsertMessage(messageInfo)
     const parts = msg.parts.map(
       (part) =>
         ({
           ...(part as MessageV2.Part),
-          sessionID: info.id as string,
+          sessionID: info.id,
           messageID: msg.info.id as string,
         }) as MessageV2.Part,
     )
-    for (const part of parts) MessageRepo.upsertPart(part)
-    imported.push({ info: messageInfo, parts })
+    // Entry-first persist: a projection throw cannot commit v1 rows the
+    // entry table cannot represent.
+    SessionV2Write.persist({
+      prepared: { info: messageInfo, parts },
+      promptData: "",
+      projectID,
+    })
   }
-  // Written straight through MessageRepo, so no projector saw them — project
-  // the v2 entries the imported session will be read from.
-  SessionEntryProjection.rebuild(info.id as string, imported)
 
   log.info("Share imported successfully", {
     shareID: parsed.shareID,
     sessionID: info.id,
   })
-  return info.id as string
+  return info.id
 }
+
+/**
+ * The per-event fields `--format json` merges into a line, beside the common
+ * `type` / `timestamp` / `sessionID`. Derived from the SDK event union so a
+ * changed event body fails here instead of silently reshaping the output.
+ */
+type RunJsonFields =
+  | {
+      part: Extract<SdkEvent, { type: "message.part.updated" }>["properties"]["part"]
+    }
+  | {
+      error: NonNullable<Extract<SdkEvent, { type: "session.error" }>["properties"]["error"]>
+    }
 
 export const RunCommand = cmd({
   command: "run [message..]",
@@ -504,7 +539,7 @@ export const RunCommand = cmd({
         )
       }
 
-      const outputJsonEvent = (type: string, data: object) => {
+      const outputJsonEvent = (type: string, data: RunJsonFields) => {
         if (args.format === "json") {
           process.stdout.write(
             JSON.stringify({
@@ -530,7 +565,7 @@ export const RunCommand = cmd({
 
             if (part.type === "tool" && part.state.status === "completed") {
               if (outputJsonEvent("tool_use", { part })) continue
-              const [tool, color] = TOOL[part.tool] ?? [part.tool, UI.Style.TEXT_INFO_BOLD]
+              const [tool, color] = TOOL.get(part.tool) ?? [part.tool, UI.Style.TEXT_INFO_BOLD]
               const title =
                 part.state.title ||
                 (Object.keys(part.state.input).length > 0 ? JSON.stringify(part.state.input) : "Unknown")
@@ -561,14 +596,7 @@ export const RunCommand = cmd({
           if (event.type === "session.error") {
             const props = event.properties
             if (props.sessionID !== sessionID || !props.error) continue
-            let err = String(props.error.name)
-            if (
-              "data" in props.error &&
-              props.error.data &&
-              "message" in (props.error.data as Record<string, unknown>)
-            ) {
-              err = String((props.error.data as { message: string }).message)
-            }
+            const err = props.error.name === "MessageOutputLengthError" ? props.error.name : props.error.data.message
             errorMsg = errorMsg ? errorMsg + EOL + err : err
             if (outputJsonEvent("error", { error: props.error })) continue
             UI.error(err)
@@ -730,7 +758,7 @@ export const RunCommand = cmd({
       return await execute(sdk, sessionID)
     }
 
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.cwd(), async (instance) => {
       log.debug("Running local nikcli session")
 
       const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -758,7 +786,7 @@ export const RunCommand = cmd({
         }
         if (args.session) {
           if (args.session.startsWith("ses_")) return args.session
-          const imported = await importShareReference(args.session)
+          const imported = await importShareReference(instance.project, args.session)
           if (!imported) invalidSessionReference()
           return imported
         }

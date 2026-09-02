@@ -4,6 +4,7 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { removeTestDir } from "../helpers/fs"
+import { InstanceState } from "@/effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-processor-retry-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -101,7 +102,9 @@ describe("SessionProcessor retry cleanup", () => {
                   }
                   yield* session.updateMessage(assistantMessage as any)
                   const processor = yield* SessionProcessor.Service
+                  const instance = yield* InstanceState.context
                   const result = yield* processor.create({
+                    instance,
                     assistantMessage: assistantMessage as any,
                     sessionID: created.id,
                     model: { id: "test-model", providerID: "test-provider" } as any,

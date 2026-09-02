@@ -119,7 +119,7 @@ export namespace RunSandbox {
       return {
         name: created.name,
         directory: created.directory,
-        ...(created.branch ? { branch: created.branch } : {}),
+        ...(created.branch ? { branch: created.branch } : undefined),
       }
     } catch (error) {
       if (error instanceof Worktree.NotGitError) {

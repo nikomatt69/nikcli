@@ -87,7 +87,7 @@ export function fuzzyMatch(
   originalLines: string[],
   oldLines: string[],
   newLines: string[],
-  options: FuzzyMatchOptions = {},
+  _options: FuzzyMatchOptions = {},
 ): {
   success: boolean
   applied: string[]
@@ -97,9 +97,6 @@ export function fuzzyMatch(
   newStart: number
   newEnd: number
 } {
-  const context = options.context ?? 3
-  const maxAttempts = options.maxAttempts ?? 10
-
   let bestMatch: {
     index: number
     strategy: MatchStrategy
@@ -140,8 +137,6 @@ export function fuzzyMatch(
   }
 
   const { index: startIndex, strategy } = bestMatch
-  const contextStart = Math.max(0, startIndex - context)
-  const contextEnd = Math.min(originalLines.length, startIndex + oldLines.length + context)
 
   const beforeContext = originalLines.slice(0, startIndex)
   const afterContext = originalLines.slice(startIndex + oldLines.length)

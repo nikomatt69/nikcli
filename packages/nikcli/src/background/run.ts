@@ -88,6 +88,7 @@ export namespace BackgroundRun {
     })
   }
 
+  /** R2 boundary: module funnel — one repo key for every export; threading would leave this file. */
   function projectID() {
     return Instance.project.id
   }
@@ -229,7 +230,7 @@ export namespace BackgroundRun {
       sessionID: parentSessionID,
       delivery: "queue" as const,
       model: result.parentModel,
-      ...(result.parentAgent ? { agent: result.parentAgent } : {}),
+      ...(result.parentAgent ? { agent: result.parentAgent } : undefined),
       parts: [
         {
           type: "text" as const,
@@ -398,22 +399,31 @@ ${result}
   // Short-lived cache to avoid re-loading all records within a single logical operation.
   // Multiple list* calls in the same call chain (e.g. listJobs -> listForParent, then
   // projectJob -> listForJob) hit the cache instead of re-reading every row.
-  let listCache: { records: Record[]; expiresAt: number } | undefined
+  //
+  // Per instance, not per process. What it holds are the rows of one project id,
+  // and one process drives many instances — the server runs a worktree per
+  // session. As a module-level value it handed whichever project filled it first
+  // to every other project for the next two seconds, and a mutation in one
+  // project invalidated the cache of all of them. Every caller below already
+  // stands in an instance scope: each is preceded by a repo call keyed on
+  // `projectID()`.
+  const listCache = Instance.state(() => ({ value: undefined as { records: Record[]; expiresAt: number } | undefined }))
   const LIST_CACHE_TTL_MS = 2_000
 
   async function listAll(): Promise<Record[]> {
+    const cache = listCache()
     const now = Date.now()
-    if (listCache && now < listCache.expiresAt) {
-      return listCache.records
+    if (cache.value && now < cache.value.expiresAt) {
+      return cache.value.records
     }
     const records = BackgroundRunRepo.list(projectID())
-    listCache = { records, expiresAt: now + LIST_CACHE_TTL_MS }
+    cache.value = { records, expiresAt: now + LIST_CACHE_TTL_MS }
     return records
   }
 
   /** Invalidate the list cache after a mutation (create, finalize, update). */
   function invalidateListCache() {
-    listCache = undefined
+    listCache().value = undefined
   }
 
   async function filtered(predicate: (record: Record) => boolean): Promise<Record[]> {

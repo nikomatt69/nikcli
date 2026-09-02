@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "createdAt": "2026-08-30T00:57:07.682Z",
+  "result": "passed",
+  "title": "TUI verification (Effect rc.112)",
+  "summary": "Real OpenTUI session: welcome wizard painted, Enter opened the account step, Escape returned to welcome. Device-auth frames were excluded from the public clip.",
+  "capture": {
+    "marker": "verified",
+    "final": false
+  },
+  "sourceRecordingSha256": "e41812f121670ffaadd788209dffefebddd08f47a4763baa561636dd11c0b626",
+  "artifacts": [
+    {
+      "kind": "screen-text",
+      "path": "screen.txt",
+      "bytes": 2095,
+      "sha256": "c5ad698a44ad0d27185d0594fdddd80bf256dcb87be599bd0b0ec066c68b7168"
+    },
+    {
+      "kind": "screen-frame",
+      "path": "screen.json",
+      "bytes": 1747870,
+      "sha256": "2bd5a1b72d4c2003edcae0295febc0a38ce340e4d58cb16b9853fdc594c84d72"
+    },
+    {
+      "kind": "screen-svg",
+      "path": "screen.svg",
+      "bytes": 411662,
+      "sha256": "d45f014d11368481b617d1839a2e0355a0072957e8dc74f3734a40e08057935a"
+    },
+    {
+      "kind": "screen-png",
+      "path": "screen.png",
+      "bytes": 100089,
+      "sha256": "86dc007bf3f0fc05167c4cb166fe243e54235069039fb95400ffb2d8ad4f6027"
+    },
+    {
+      "kind": "video",
+      "path": "demo.mp4",
+      "bytes": 102576,
+      "sha256": "b2a228d9a424574e1b3b0d9aa05c452dc7c5f8b159862e83c71780e1f7f50f83"
+    },
+    {
+      "kind": "preview",
+      "path": "preview.gif",
+      "bytes": 173546,
+      "sha256": "e281ca727dab08f19d5c8435c1c5ac210f3099599863fb90da429e960907fc29"
+    },
+    {
+      "kind": "pr-markdown",
+      "path": "pr.md",
+      "bytes": 358,
+      "sha256": "082998211da80896a21a24715cdb566a7dda8a5089bc0da657b1134d235a3eee"
+    }
+  ]
+}

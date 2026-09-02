@@ -3,10 +3,7 @@ import { Session } from "../../session"
 import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
 import { SessionRepo } from "../../session/repo"
-import { MessageRepo } from "../../session/message-repo"
-import type { MessageV2 } from "../../session/message-v2"
-import { SessionEntryProjection } from "../../session/v2/projection"
-import { Instance } from "../../project/instance"
+import { SessionV2Write } from "../../session/v2/write"
 import { EOL } from "os"
 
 const SHARE_ID = /^[a-zA-Z0-9_-]+$/
@@ -138,7 +135,7 @@ export const ImportCommand = cmd({
     })
   },
   handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(process.cwd(), async (instance) => {
       let exportData:
         | {
             info: Session.Info
@@ -188,20 +185,27 @@ export const ImportCommand = cmd({
       }
 
       // Import into the current project regardless of where the export came from
-      SessionRepo.upsert({ ...exportData.info, projectID: Instance.project.id })
+      SessionRepo.upsert({
+        ...exportData.info,
+        projectID: instance.project.id,
+      })
 
-      const imported: MessageV2.WithParts[] = []
+      const projectID = instance.project.id
       for (const msg of exportData.messages) {
         const info = { ...msg.info, sessionID: exportData.info.id }
-        MessageRepo.upsertMessage(info)
-
-        const parts = msg.parts.map((part) => ({ ...part, sessionID: exportData.info.id, messageID: msg.info.id }))
-        for (const part of parts) MessageRepo.upsertPart(part)
-        imported.push({ info, parts })
+        const parts = msg.parts.map((part) => ({
+          ...part,
+          sessionID: exportData.info.id,
+          messageID: msg.info.id,
+        }))
+        // Entry-first persist: a projection throw cannot commit v1 rows the
+        // entry table cannot represent.
+        SessionV2Write.persist({
+          prepared: { info, parts },
+          promptData: "",
+          projectID,
+        })
       }
-      // Written straight through MessageRepo, so no projector saw them —
-      // project the v2 entries the imported session will be read from.
-      SessionEntryProjection.rebuild(exportData.info.id, imported)
 
       process.stdout.write(`Imported session: ${exportData.info.id}`)
       process.stdout.write(EOL)

@@ -3,6 +3,8 @@ import { Config } from "@/config/config"
 import { Policy } from "@/policy/policy"
 
 function config(input: Partial<Config.Info>): Config.Info {
+  // SAFETY: `Policy` reads only the handful of fields each test sets; the rest
+  // of the config document is irrelevant to the rules under test.
   return input as Config.Info
 }
 

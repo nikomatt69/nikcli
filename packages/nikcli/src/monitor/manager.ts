@@ -19,6 +19,7 @@ import { ulid } from "ulid"
 import { Effect, Schema } from "effect"
 import { type DeepMutable, zod, zodObject } from "@nikcli-ai/util/effect-zod"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { setOptional } from "@/util/optional-key"
 
 const OUTPUT_EVENT_MAX_BYTES = 32 * 1024
 const OUTPUT_TAIL_MAX_BYTES = 64 * 1024
@@ -53,17 +54,17 @@ export namespace Monitor {
     sessionID: Schema.String,
     messageID: Schema.String.pipe(Schema.check(Schema.isStartsWith("msg"))),
     callID: Schema.String,
-    partID: Schema.optional(Schema.String.pipe(Schema.check(Schema.isStartsWith("prt")))),
+    partID: Schema.optionalKey(Schema.String.pipe(Schema.check(Schema.isStartsWith("prt")))),
     title: Schema.String,
     command: Schema.String,
     cwd: Schema.String,
     agent: Schema.String,
     wake: Schema.Boolean,
-    timeoutMs: Schema.optional(Schema.Number),
+    timeoutMs: Schema.optionalKey(Schema.Number),
     status: StatusSchema,
-    pid: Schema.optional(Schema.Number),
-    exitCode: Schema.optional(Schema.Number),
-    signal: Schema.optional(Schema.String),
+    pid: Schema.optionalKey(Schema.Number),
+    exitCode: Schema.optionalKey(Schema.Number),
+    signal: Schema.optionalKey(Schema.String),
     logPath: Schema.String,
     commandPath: Schema.String,
     pidPath: Schema.String,
@@ -73,7 +74,7 @@ export namespace Monitor {
     time: Schema.Struct({
       created: Schema.Number,
       updated: Schema.Number,
-      completed: Schema.optional(Schema.Number),
+      completed: Schema.optionalKey(Schema.Number),
     }),
   })
   export const Record = zodObject(RecordSchema)
@@ -150,9 +151,14 @@ export namespace Monitor {
       await Promise.all(
         Array.from(current.values()).map(async (runtime) => {
           clearRuntimeTimers(runtime)
-          runtime.requestedFinalization = { status: "cancelled", error: "Nikcli shut down" }
+          runtime.requestedFinalization = {
+            status: "cancelled",
+            error: "Nikcli shut down",
+          }
           try {
-            await Shell.killTree(runtime.process, { exited: () => runtime.exited })
+            await Shell.killTree(runtime.process, {
+              exited: () => runtime.exited,
+            })
           } catch {}
           try {
             runtime.logStream.end()
@@ -182,7 +188,7 @@ export namespace Monitor {
   }
 
   function stripAnsi(value: string) {
-    return value.replace(/\u001b\[[0-9;]*m/g, "")
+    return value.replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g"), "")
   }
 
   function appendTail(current: string, chunk: string) {
@@ -309,7 +315,10 @@ export namespace Monitor {
       try {
         flushRuntime(runtime)
       } catch (error) {
-        log.error("failed to flush monitor output", { error: String(error), monitorID: runtime.record.id })
+        log.error("failed to flush monitor output", {
+          error: String(error),
+          monitorID: runtime.record.id,
+        })
       }
     }, OUTPUT_FLUSH_MS)
   }
@@ -340,8 +349,8 @@ export namespace Monitor {
 
     const finalStatus = runtime.requestedFinalization?.status ?? status
     runtime.record.status = finalStatus
-    runtime.record.exitCode = typeof exitCode === "number" ? exitCode : undefined
-    runtime.record.signal = signal ?? undefined
+    setOptional(runtime.record, "exitCode", typeof exitCode === "number" ? exitCode : undefined)
+    setOptional(runtime.record, "signal", signal ?? undefined)
     runtime.record.time.completed = Date.now()
     runtime.record.time.updated = runtime.record.time.completed
     runtime.record.preview = buildPreview(runtime.outputTail)
@@ -349,7 +358,10 @@ export namespace Monitor {
     try {
       await fs.writeFile(runtime.record.exitCodePath, runtime.record.exitCode?.toString() ?? "", "utf8")
     } catch (error) {
-      log.error("failed to persist monitor exit code", { error: String(error), monitorID: runtime.record.id })
+      log.error("failed to persist monitor exit code", {
+        error: String(error),
+        monitorID: runtime.record.id,
+      })
     }
 
     await new Promise<void>((resolve) => {
@@ -382,8 +394,13 @@ export namespace Monitor {
     if (!runtime.record.timeoutMs) return
     runtime.timeoutTimer = setTimeout(() => {
       runtime.requestedFinalization = { status: "timeout", error: "Timed out" }
-      void Shell.killTree(runtime.process, { exited: () => runtime.exited }).catch((error) => {
-        log.error("failed to timeout monitor", { error: String(error), monitorID: runtime.record.id })
+      void Shell.killTree(runtime.process, {
+        exited: () => runtime.exited,
+      }).catch((error) => {
+        log.error("failed to timeout monitor", {
+          error: String(error),
+          monitorID: runtime.record.id,
+        })
       })
     }, runtime.record.timeoutMs)
   }
@@ -444,7 +461,7 @@ export namespace Monitor {
             delivery: "queue",
             // Preserve the agent that started the monitor so a completion wake
             // doesn't silently switch the session to the default agent.
-            ...(record.agent ? { agent: record.agent } : {}),
+            ...(record.agent ? { agent: record.agent } : undefined),
             parts: [
               {
                 type: "text",
@@ -455,7 +472,10 @@ export namespace Monitor {
         }),
       )
     } catch (error) {
-      log.error("failed to wake monitor session", { error: String(error), monitorID: record.id })
+      log.error("failed to wake monitor session", {
+        error: String(error),
+        monitorID: record.id,
+      })
     }
   }
 
@@ -544,7 +564,9 @@ export namespace Monitor {
       cwd: input.cwd,
       agent: input.agent,
       wake: input.wake !== false,
-      timeoutMs: input.timeoutMs,
+      // `optionalKey` rejects a present `undefined` at encode time; the
+      // monitor routes return this record straight to the client.
+      ...(input.timeoutMs !== undefined && { timeoutMs: input.timeoutMs }),
       status: "running",
       pid: proc.pid,
       logPath,
@@ -568,7 +590,10 @@ export namespace Monitor {
       exited: false,
       persistThrottle: throttleTrailing(() => {
         void publishUpdated(record).catch((error) => {
-          log.error("failed to persist monitor record", { error: String(error), monitorID: record.id })
+          log.error("failed to persist monitor record", {
+            error: String(error),
+            monitorID: record.id,
+          })
         })
       }, RECORD_PERSIST_THROTTLE_MS),
     }
@@ -603,11 +628,16 @@ export namespace Monitor {
     const active = state().get(key(monitorID))
     if (active && active.record.sessionID === sessionID) {
       clearRuntimeTimers(active)
-      active.requestedFinalization = { status: "cancelled", error: "Cancelled" }
+      active.requestedFinalization = {
+        status: "cancelled",
+        error: "Cancelled",
+      }
       active.record.status = "cancelled"
       active.record.time.updated = Date.now()
       await publishUpdated(active.record)
-      await Shell.killTree(active.process, { exited: () => active.exited }).catch(() => {})
+      await Shell.killTree(active.process, {
+        exited: () => active.exited,
+      }).catch(() => {})
       return active.record
     }
 
@@ -677,7 +707,10 @@ export namespace Monitor {
       record.time.completed = Date.now()
       record.time.updated = record.time.completed
       await persist(record).catch((error) => {
-        log.error("failed to reconcile monitor", { error: String(error), monitorID: record.id })
+        log.error("failed to reconcile monitor", {
+          error: String(error),
+          monitorID: record.id,
+        })
       })
       void syncToolPart(record)
       Bus.publish(Event.Completed, {

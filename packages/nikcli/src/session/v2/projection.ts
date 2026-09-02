@@ -152,14 +152,10 @@ export namespace SessionEntryProjection {
   }
 
   /**
-   * `backfill` in its own transaction, for the bulk importers.
-   *
-   * A teleport landing, `nikcli import` and a shared-session import all write
-   * message rows straight through `MessageRepo`, so no projector ever sees
-   * them. `entries()` would notice and rebuild on first read, but that leaves
-   * a window where the session exists with no entries — long enough for a
-   * client that opened it from an event to draw nothing. Projecting at the
-   * end of the import closes it.
+   * `backfill` in its own transaction. Production writers persist through
+   * `SessionV2Write.persist`; this remains the repair path for sessions
+   * whose v1 rows predate the entry table, and for tests that still
+   * insert through `MessageRepo`.
    *
    * Must run *after* the v1 rows are written: a user entry still folds
    * already-committed parts.

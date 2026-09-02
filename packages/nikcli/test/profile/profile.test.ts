@@ -27,6 +27,8 @@ const { Profile } = await import("@/profile")
 // `Profile` arrives through a dynamic import (the env has to be set first), so
 // its namespace is not usable as a type here — hence the untyped requirement.
 function run<A, E>(effect: Effect.Effect<A, E, any>) {
+  // SAFETY: `Profile.defaultLayer` provides every requirement the effect
+  // declares; the comment above explains why `R` cannot be named here.
   return Effect.runPromise(effect.pipe(Effect.provide(Profile.defaultLayer)) as Effect.Effect<A, E>)
 }
 

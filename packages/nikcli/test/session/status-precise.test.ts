@@ -10,6 +10,8 @@ describe("SessionStatus.Info — zod rejects invalid unions", () => {
   }
 
   it("strips unknown keys on idle (zod object default)", () => {
+    // SAFETY: `extra` is deliberately unknown — the assertion lets the test
+    // feed a key the schema is expected to strip.
     expect(SessionStatus.Info.parse({ type: "idle", extra: 1 } as any)).toEqual({ type: "idle" })
   })
 })

@@ -31,7 +31,7 @@ export interface EvidenceBundleOptions {
   readonly atMarker?: string
   /** Derive the screenshot from the frame nearest this timestamp (ms). Requires `recordingData`. */
   readonly atMs?: number
-  /** webm video produced by a session started with `record: true`, after `stop()`. Takes priority over `recordingData` samples. */
+  /** mp4 video produced by a session started with `record: true`, after `stop()`. Takes priority over `recordingData` samples. */
   readonly videoPath?: string
   /** trace.zip produced by `stopRecording()`. Can contain page content/network — excluded by default. */
   readonly tracePath?: string
@@ -111,7 +111,7 @@ export function renderPullRequestMarkdown(input: {
   if (input.summary.trim()) lines.push("", input.summary.trim())
   lines.push("", `![${title}](${image})`)
   if (input.hasVideo) lines.push("", `[Full MP4 recording](${base}/demo.mp4)`)
-  if (input.hasTrace) lines.push("", `[Playwright trace](${base}/trace.zip)`)
+  if (input.hasTrace) lines.push("", `[Session trace](${base}/trace.zip)`)
   lines.push("")
   return lines.join("\n")
 }

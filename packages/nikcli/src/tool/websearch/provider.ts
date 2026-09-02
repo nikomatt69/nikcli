@@ -62,7 +62,9 @@ export function exa(config: WebSearchConfig): Provider {
           numResults: input.numResults ?? DEFAULT_NUM_RESULTS,
           type: input.type ?? "auto",
           livecrawl: input.livecrawl ?? "fallback",
-          ...(input.contextMaxCharacters !== undefined ? { contextMaxCharacters: input.contextMaxCharacters } : {}),
+          ...(input.contextMaxCharacters !== undefined
+            ? { contextMaxCharacters: input.contextMaxCharacters }
+            : undefined),
         },
       })
       return result.text ? parseExaText(result.text) : []
@@ -149,9 +151,9 @@ export function parseExaText(text: string): SearchResult[] {
     return [
       {
         url,
-        ...(title ? { title } : {}),
-        ...(content ? { content } : {}),
-        ...(published !== undefined && Number.isFinite(published) ? { published } : {}),
+        ...(title ? { title } : undefined),
+        ...(content ? { content } : undefined),
+        ...(published !== undefined && Number.isFinite(published) ? { published } : undefined),
       },
     ]
   })
@@ -171,9 +173,9 @@ export function parseParallelStructured(structured: unknown): SearchResult[] {
     return [
       {
         url: item.url,
-        ...(typeof item.title === "string" ? { title: item.title } : {}),
-        ...(excerpts.length ? { content: excerpts.join("\n\n") } : {}),
-        ...(published !== undefined && Number.isFinite(published) ? { published } : {}),
+        ...(typeof item.title === "string" ? { title: item.title } : undefined),
+        ...(excerpts.length ? { content: excerpts.join("\n\n") } : undefined),
+        ...(published !== undefined && Number.isFinite(published) ? { published } : undefined),
       },
     ]
   })

@@ -20,7 +20,7 @@ import { Monitor } from "@/monitor/manager"
 import * as LoopEngine from "@/loop/engine"
 import * as MissionOrchestrator from "@/mission/orchestrator"
 import { Routine } from "@/mobile/routine"
-import { runPromiseWithLayer, runService, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, runService, withCurrentInstance, type InstanceContext } from "@/effect"
 import { Effect } from "effect"
 
 function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
@@ -47,8 +47,8 @@ function background(service: string, promise: Promise<unknown>) {
   })
 }
 
-export async function InstanceBootstrap() {
-  Log.Default.info("bootstrapping", { directory: Instance.directory })
+export async function InstanceBootstrap(instance: InstanceContext) {
+  Log.Default.info("bootstrapping", { directory: instance.directory })
   await runPlugin(
     Effect.gen(function* () {
       const plugin = yield* Plugin.Service
@@ -185,7 +185,7 @@ export async function InstanceBootstrap() {
   })
   // Re-arm scheduled routine triggers for this instance. Without this, cron
   // routines silently stop firing after a process restart.
-  await Routine.restoreSchedulers().catch((error) => {
+  await Routine.restoreSchedulers(instance).catch((error) => {
     Log.Default.warn("failed to restore routines on startup", { error })
   })
 
@@ -206,7 +206,7 @@ export async function InstanceBootstrap() {
   if (!Flag.NIKCLI_DISABLE_HOT_RELOAD) {
     background(
       "hot-reload",
-      InstanceReload.watch().then((stop) => {
+      InstanceReload.watch(instance).then((stop) => {
         Instance.registerDisposer(stop)
       }),
     )
@@ -219,7 +219,7 @@ export async function InstanceBootstrap() {
   if (!Flag.NIKCLI_DISABLE_SESSION_JOURNAL) {
     try {
       const { SessionSyncBridge } = await import("../session/sync-bridge")
-      Instance.registerDisposer(SessionSyncBridge.init())
+      Instance.registerDisposer(SessionSyncBridge.init(instance))
     } catch (error) {
       Log.Default.warn("session sync bridge init failed", { error })
     }
@@ -231,7 +231,7 @@ export async function InstanceBootstrap() {
   background(
     "remote-sync",
     import("@/sync/cli-init").then(async ({ SyncCliInit }) => {
-      const stop = await SyncCliInit.initRemoteSyncFromEnv()
+      const stop = await SyncCliInit.initRemoteSyncFromEnv(instance)
       if (stop) Instance.registerDisposer(stop)
     }),
   )
@@ -241,7 +241,7 @@ export async function InstanceBootstrap() {
       await runProject(
         Effect.gen(function* () {
           const project = yield* Project.Service
-          yield* project.setInitialized(Instance.project.id)
+          yield* project.setInitialized(instance.project.id)
         }),
       )
     }

@@ -129,9 +129,9 @@ const toc = [
   <section id="agent" class="doc-section">
     <h2>Agent integration</h2>
     <p>
-      The <a href="/docs/tools">browser tool</a> (<code>packages/nikcli/src/tool/browser.ts</code>)
+      The <a href="/docs/tools">browser tool</a> (<code>packages/nikcli/src/tool/browser-control.ts</code>)
       and the <code>browser</code> TUI feature plugin
-      (<code>packages/nikcli/src/cli/cmd/tui/feature-plugins/browser/</code>) both delegate to
+      (<code>packages/tui/src/feature-plugins/browser/</code>) both delegate to
       the package — agents only need the tool name; humans only need the CLI. Permission
       gating for browser actions goes through the existing
       <a href="/docs/permissions">permission</a> pipeline.
@@ -209,12 +209,12 @@ const toc = [
         </tr>
         <tr>
           <td>Agent tool wrapper</td>
-          <td><code>packages/nikcli/src/tool/browser.ts</code></td>
+          <td><code>packages/nikcli/src/tool/browser-control.ts</code></td>
         </tr>
         <tr>
           <td>TUI plugin</td>
           <td>
-            <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/browser/</code>
+            <code>packages/tui/src/feature-plugins/browser/</code>
           </td>
         </tr>
       </tbody>

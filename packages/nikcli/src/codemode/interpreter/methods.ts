@@ -12,6 +12,7 @@ import {
 } from "./model"
 import { rejectCircularInsertion } from "./references"
 import { isBlockedMember, type SafeObject } from "../tool-runtime"
+import type { JsonValue } from "../../util/json"
 import {
   CodeModeDate,
   CodeModeMap,
@@ -20,6 +21,7 @@ import {
   CodeModeSet,
   CodeModeURL,
   CodeModeURLSearchParams,
+  type CodeModeData,
 } from "../values"
 import { invokeDateMethod, invokeDateStatic } from "../stdlib/date"
 import { invokeJsonMethod } from "../stdlib/json"
@@ -78,7 +80,11 @@ export const invokeIntrinsic = <R>(
   throw new InterpreterRuntimeError(`Method '${ref.name}' is not available in CodeMode.`, node)
 }
 
-export const invokeGlobalMethod = (ref: GlobalMethodReference, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeGlobalMethod = (
+  ref: GlobalMethodReference,
+  args: Array<unknown>,
+  node: AstNode,
+): JsonValue | CodeModeURL | Array<unknown> | SafeObject | undefined => {
   if (ref.namespace === "console")
     throw new InterpreterRuntimeError(`console.${ref.name} is not available in CodeMode.`, node)
   if (ref.namespace === "Object") return invokeObjectMethod(ref.name, args, node)
@@ -99,7 +105,12 @@ export const invokeGlobalMethod = (ref: GlobalMethodReference, args: Array<unkno
   return invokeJsonMethod(ref.name, args, node)
 }
 
-const invokeStringMethod = (value: string, name: string, args: Array<unknown>, node: AstNode): unknown => {
+const invokeStringMethod = (
+  value: string,
+  name: string,
+  args: Array<unknown>,
+  node: AstNode,
+): CodeModeData | Array<unknown> => {
   const str = (index: number): string => {
     const arg = args[index]
     if (typeof arg !== "string")
@@ -263,7 +274,7 @@ const invokeStringMethod = (value: string, name: string, args: Array<unknown>, n
   return boundedData(result, `String.${name} result`)
 }
 
-const invokeArrayStatic = (name: string, args: Array<unknown>, node: AstNode): unknown => {
+const invokeArrayStatic = (name: string, args: Array<unknown>, node: AstNode): boolean | Array<unknown> => {
   switch (name) {
     case "isArray":
       return Array.isArray(args[0])
@@ -319,8 +330,13 @@ const invokeStringReplacer = <R>(
   args: Array<unknown>,
   node: AstNode,
 ): Effect.Effect<unknown, unknown, R> => {
-  const apply = applyCollectionCallback(runner, args[1], `String.${name}`, node)
-  const matches: Array<{ readonly match: string; readonly offset: number; readonly args: Array<unknown> }> = []
+  const replacer = args[1]
+  const apply = applyCollectionCallback(runner, replacer, `String.${name}`, node)
+  const matches: Array<{
+    readonly match: string
+    readonly offset: number
+    readonly args: Array<unknown>
+  }> = []
   const collect = (...callbackArgs: Array<unknown>): string => {
     const match = callbackArgs[0]
     const groups = callbackArgs[callbackArgs.length - 1]
@@ -364,7 +380,7 @@ const invokeStringReplacer = <R>(
     for (const match of matches) {
       const replacement = yield* apply(match.args)
       const resolved =
-        args[1] instanceof CodeModeFunction && args[1].async && replacement instanceof CodeModePromise
+        replacer instanceof CodeModeFunction && replacer.async && replacement instanceof CodeModePromise
           ? yield* runner.settlePromise(replacement)
           : replacement
       output.push(

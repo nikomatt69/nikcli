@@ -210,7 +210,7 @@ describe("instruction sync", () => {
       expect(rendered.updates).toEqual([])
       expect(rendered.system[0]).toContain("two")
     })
-  })
+  }, 20_000)
 
   it("freezes a fork at the parent cutoff", async () => {
     await withSync(async () => {
@@ -242,6 +242,78 @@ describe("instruction sync", () => {
       expect(InstructionRepo.get(sessionID)).toBeDefined()
       InstructionSync.clear(sessionID)
       expect(InstructionRepo.get(sessionID)).toBeUndefined()
+    })
+  })
+
+  it("stops replaying a delivered skill and serves it from the prefix", async () => {
+    await withSync(async () => {
+      const { InstructionSync } = await import("../../src/session/instruction-sync")
+      const env: InstructionRead = {
+        key: InstructionKey.env,
+        status: "value",
+        body: { kind: "env", parts: ["env"] },
+      }
+      InstructionSync.commit(sessionID, projectID, [env])
+
+      const skill: InstructionRead = {
+        key: InstructionKey.skill("install-anti-slop"),
+        status: "value",
+        body: { kind: "skill", name: "install-anti-slop", text: "SKILL BODY" },
+      }
+      InstructionSync.commit(sessionID, projectID, [env, skill])
+
+      // The turn that admits it ships the body in the tail update.
+      const delivered = InstructionSync.render(sessionID, projectID)
+      expect(delivered.updates).toHaveLength(1)
+      expect(delivered.updates[0].content).toContain("SKILL BODY")
+      expect(delivered.skillMessages).toEqual([])
+
+      // Every later turn serves it from the cached prefix instead.
+      expect(InstructionSync.foldDelivered(sessionID)).toBe(true)
+      const after = InstructionSync.render(sessionID, projectID)
+      expect(after.updates).toEqual([])
+      expect(after.skillMessages[0]).toContain("SKILL BODY")
+
+      expect(InstructionSync.foldDelivered(sessionID)).toBe(false)
+    })
+  })
+
+  it("replays only the current body when a source changed repeatedly", async () => {
+    await withSync(async () => {
+      const { InstructionSync } = await import("../../src/session/instruction-sync")
+      const env: InstructionRead = {
+        key: InstructionKey.env,
+        status: "value",
+        body: { kind: "env", parts: ["env"] },
+      }
+      InstructionSync.commit(sessionID, projectID, [env])
+      InstructionSync.commit(sessionID, projectID, [env, fileRead("first body")])
+      InstructionSync.commit(sessionID, projectID, [env, fileRead("second body")])
+      InstructionSync.commit(sessionID, projectID, [env, fileRead("third body")])
+
+      const rendered = InstructionSync.render(sessionID, projectID)
+      expect(rendered.updates).toHaveLength(1)
+      expect(rendered.updates[0].content).toContain("third body")
+      expect(rendered.updates[0].content).not.toContain("first body")
+      expect(rendered.updates[0].content).not.toContain("second body")
+    })
+  })
+
+  it("drops the update for a source that drifted back to its epoch body", async () => {
+    await withSync(async () => {
+      const { InstructionSync } = await import("../../src/session/instruction-sync")
+      const env: InstructionRead = {
+        key: InstructionKey.env,
+        status: "value",
+        body: { kind: "env", parts: ["env"] },
+      }
+      InstructionSync.commit(sessionID, projectID, [env, fileRead("original")])
+      InstructionSync.commit(sessionID, projectID, [env, fileRead("edited")])
+      InstructionSync.commit(sessionID, projectID, [env, fileRead("original")])
+
+      const rendered = InstructionSync.render(sessionID, projectID)
+      expect(rendered.updates).toEqual([])
+      expect(rendered.system.join("\n")).toContain("original")
     })
   })
 

@@ -18,18 +18,20 @@ import { mkdtempSync, existsSync } from "node:fs"
 import { rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { spawn } from "bun-pty"
+import { spawnPty } from "@nikcli-ai/util/pty"
 
 const BIN = process.argv[2] ?? ""
 if (!BIN || !existsSync(BIN)) throw new Error(`usage: tui-startup.ts <binary>  (got ${BIN || "nothing"})`)
 const RUNS = Number(process.env.RUNS ?? 3)
 
+const ESC = String.fromCharCode(27)
+const BEL = String.fromCharCode(7)
+const ANSI_OSC = new RegExp(`${ESC}\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)`, "g")
+const ANSI_DCS = new RegExp(`${ESC}P[^${ESC}]*${ESC}\\\\`, "g")
+const ANSI_CSI = new RegExp(`${ESC}\\[[0-9;?<>=]*[ -/]*[@-~]`, "g")
+const ANSI_OTHER = new RegExp(`${ESC}[@-Z\\\\-_]`, "g")
 function plain(raw: string) {
-  return raw
-    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
-    .replace(/\x1bP[^\x1b]*\x1b\\/g, "")
-    .replace(/\x1b\[[0-9;?<>=]*[ -/]*[@-~]/g, "")
-    .replace(/\x1b[@-Z\\-_]/g, "")
+  return raw.replace(ANSI_OSC, "").replace(ANSI_DCS, "").replace(ANSI_CSI, "").replace(ANSI_OTHER, "")
 }
 
 const home = mkdtempSync(path.join(os.tmpdir(), "nikcli-startup-"))
@@ -39,8 +41,8 @@ async function once(): Promise<number> {
   let painted = 0
   let raw = ""
 
-  const pty = spawn(BIN, [], {
-    name: "xterm-256color",
+  const pty = spawnPty({
+    command: BIN,
     cols: 100,
     rows: 30,
     cwd: home,
@@ -48,8 +50,9 @@ async function once(): Promise<number> {
       ...process.env,
       NIKCLI_TEST_HOME: home,
       NIKCLI_DISABLE_AUTOUPDATE: "1",
+      NIKCLI_TERMINAL: "1",
       TERM: "xterm-256color",
-    } as Record<string, string>,
+    },
   })
 
   pty.onData((data) => {

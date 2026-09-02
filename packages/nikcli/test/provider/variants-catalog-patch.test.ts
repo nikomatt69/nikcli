@@ -167,7 +167,7 @@ describe("patchReasoningOptions — catalog-wide merge", () => {
       id: "test",
       name: "Test",
       env: [],
-      ...(npm ? { npm } : {}),
+      ...(npm ? { npm } : undefined),
       models: out,
     } as unknown as ModelsDev.Provider
   }

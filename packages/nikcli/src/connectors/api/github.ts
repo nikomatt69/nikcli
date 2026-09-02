@@ -2,7 +2,7 @@ import { ConnectorAuth } from "../auth"
 import { Effect, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 
-export class GithubApiError extends Schema.TaggedErrorClass<GithubApiError>()("GithubApiError", {
+export class GithubApiError extends Schema.TaggedError<GithubApiError>()("GithubApiError", {
   message: Schema.String,
   status: Schema.optional(Schema.Number),
 }) {}
@@ -185,8 +185,17 @@ export namespace GithubApi {
     type: "all" | "owner" | "member" = "owner",
     sort?: "updated" | "pushed" | "full_name",
   ): Promise<any> {
-    let url = `${GITHUB_API_BASE}/user/repos?type=${type}`
-    if (sort) url += `&sort=${sort}`
+    // GitHub Apps and fine-grained PATs reject `type` (422). `affiliation` +
+    // `visibility` cover the same filters and work for every token class.
+    const affiliation =
+      type === "owner"
+        ? "owner"
+        : type === "member"
+          ? "collaborator,organization_member"
+          : "owner,collaborator,organization_member"
+    const params = new URLSearchParams({ affiliation, visibility: "all" })
+    if (sort) params.set("sort", sort)
+    const url = `${GITHUB_API_BASE}/user/repos?${params.toString()}`
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -240,6 +249,8 @@ export namespace GithubApi {
         status: response.status,
       })
     }
+    // SAFETY: the non-ok branch above already returned, so this is the GitHub
+    // pulls list body; the caller reads only the first element.
     const pulls = (await response.json()) as any[]
     return pulls[0]
   }

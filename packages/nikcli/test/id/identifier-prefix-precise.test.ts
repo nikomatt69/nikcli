@@ -21,6 +21,8 @@ const minimalBySchema = {
 
 describe("Identifier.schema — every prefix accepts minimal valid and rejects wrong prefix", () => {
   for (const [key, sample] of Object.entries(minimalBySchema)) {
+    // SAFETY: `key` comes from `Object.entries(minimalBySchema)`, which widens
+    // its own keys to `string`; the value is one of that object's own keys.
     const k = key as keyof typeof minimalBySchema
     it(`${key}: parse(${JSON.stringify(sample)}) === sample`, () => {
       expect(Identifier.schema(k).parse(sample)).toBe(sample)

@@ -1,15 +1,16 @@
 import { randomBytes } from "crypto"
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator"
 import z from "zod"
-import { Instance } from "@/project/instance"
 import { Scheduler } from "@/scheduler"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
+import { bunUtils } from "@/bun"
 import { Log } from "@nikcli-ai/util/log"
 import { Provider } from "@/provider/provider"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { RoutineRepo } from "./repo"
+import type { InstanceContext } from "@/effect"
 
 function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
   return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
@@ -106,10 +107,6 @@ export namespace Routine {
 
   // ── Identity ───────────────────────────────────────────────────────────────
 
-  function projectID() {
-    return Instance.project.id
-  }
-
   function missing(id: string): never {
     throw new Error(`Routine "${id}" not found.`)
   }
@@ -124,35 +121,36 @@ export namespace Routine {
 
   // ── Cron interval parser ───────────────────────────────────────────────────
 
-  export const SUPPORTED_CRON_HELP = "Supported schedules: @hourly, @daily, @weekly, */N minutes, or 0 */N * * * hours."
+  export const SUPPORTED_CRON_HELP =
+    "Supported schedules: standard 5-field cron, @hourly/@daily/@weekly/@monthly/@yearly, or */N minutes."
 
-  export function parseCronInterval(cron: string): number | null {
+  // Expand star-slash-N (minutes) into a 5-field expression Bun.cron accepts.
+  export function normalizeCron(cron: string): string {
     const trimmed = cron.trim()
+    if (/^\*\/\d+$/.test(trimmed)) return `${trimmed} * * * *`
+    return trimmed
+  }
 
-    if (trimmed === "@hourly") return 60 * 60 * 1000
-    if (trimmed === "@daily") return 24 * 60 * 60 * 1000
-    if (trimmed === "@weekly") return 7 * 24 * 60 * 60 * 1000
-
-    // */N (minutes) — e.g. "*/15"
-    const everyNMinutes = trimmed.match(/^\*\/(\d+)$/)
-    if (everyNMinutes) {
-      const n = Number.parseInt(everyNMinutes[1], 10)
-      if (n > 0) return n * 60 * 1000
+  export function parseCron(cron: string): Date | null {
+    const expr = normalizeCron(cron)
+    if (!expr) return null
+    try {
+      return bunUtils.cron.parse(expr) ?? null
+    } catch {
+      return null
     }
+  }
 
-    // 0 */N * * * (hours) — e.g. "0 */2 * * *"
-    const everyNHours = trimmed.match(/^0 \*\/(\d+) \* \* \*$/)
-    if (everyNHours) {
-      const n = Number.parseInt(everyNHours[1], 10)
-      if (n > 0) return n * 60 * 60 * 1000
-    }
-
-    return null
+  /** True when the expression is a valid in-process cron schedule. */
+  export function parseCronInterval(cron: string): number | null {
+    const next = parseCron(cron)
+    if (!next) return null
+    return Math.max(1, next.getTime() - Date.now())
   }
 
   function validateTriggers(triggers: Trigger[]) {
     for (const trigger of triggers) {
-      if (trigger.type === "schedule" && trigger.enabled && !parseCronInterval(trigger.cron)) {
+      if (trigger.type === "schedule" && trigger.enabled && !parseCron(trigger.cron)) {
         throw new Error(`Unsupported cron pattern "${trigger.cron}". ${SUPPORTED_CRON_HELP}`)
       }
     }
@@ -175,8 +173,8 @@ export namespace Routine {
       return
     }
 
-    const intervalMs = parseCronInterval(scheduleTrigger.cron)
-    if (!intervalMs) {
+    const expr = normalizeCron(scheduleTrigger.cron)
+    if (!parseCron(expr)) {
       unregisterScheduler(routine.id)
       log.warn("unrecognized cron pattern, skipping scheduler registration", {
         id: routine.id,
@@ -185,40 +183,43 @@ export namespace Routine {
       return
     }
 
-    log.info("registering scheduler", { id: routine.id, cron: scheduleTrigger.cron, intervalMs })
+    log.info("registering scheduler", { id: routine.id, cron: expr })
 
     Scheduler.register({
       id: schedulerID(routine.id),
-      interval: intervalMs,
+      cron: expr,
       scope: "instance",
       skipInitialRun: true,
       run: async () => {
-        await withInstanceAsync({ directory: routine.directory }, () => run(routine.id))
+        // The routine records the directory it belongs to, so this re-enters
+        // that instance and hands the body the context it installed rather
+        // than reading whatever scope the timer fired on.
+        await withInstanceAsync({ directory: routine.directory }, (instance) => run(instance, routine.id))
       },
     })
   }
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
-  export async function list(): Promise<Record[]> {
+  export async function list(instance: InstanceContext): Promise<Record[]> {
     // Resolve the project id in the caller's instance scope, exactly like
     // `LoopManager.list` (`src/loop/manager.ts`).
-    return RoutineRepo.list(projectID())
+    return RoutineRepo.list(instance.project.id)
   }
 
-  export async function get(id: string): Promise<Record | undefined> {
-    return RoutineRepo.get(projectID(), id)
+  export async function get(instance: InstanceContext, id: string): Promise<Record | undefined> {
+    return RoutineRepo.get(instance.project.id, id)
   }
 
-  export async function getByToken(token: string): Promise<Record | null> {
-    const all = await list()
+  export async function getByToken(instance: InstanceContext, token: string): Promise<Record | null> {
+    const all = await list(instance)
     return (
       all.find((r) => r.triggers.some((t): t is TriggerApi => t.type === "api" && t.enabled && t.token === token)) ??
       null
     )
   }
 
-  export async function create(input: CreateInput): Promise<Record> {
+  export async function create(instance: InstanceContext, input: CreateInput): Promise<Record> {
     const id = generateID()
     const now = Date.now()
 
@@ -243,21 +244,21 @@ export namespace Routine {
       triggers,
       model,
       paused: false,
-      projectID: Instance.project.id,
-      directory: Instance.directory,
+      projectID: instance.project.id,
+      directory: instance.directory,
       createdAt: now,
       updatedAt: now,
     }
 
-    RoutineRepo.upsert(projectID(), record)
+    RoutineRepo.upsert(instance.project.id, record)
     log.info("created", { id, name: record.name })
     registerScheduler(record)
     return record
   }
 
-  export async function update(id: string, input: UpdateInput): Promise<Record> {
+  export async function update(instance: InstanceContext, id: string, input: UpdateInput): Promise<Record> {
     if (input.triggers) validateTriggers(input.triggers)
-    const record = RoutineRepo.update(projectID(), id, (draft) => {
+    const record = RoutineRepo.update(instance.project.id, id, (draft) => {
       if (input.name !== undefined) draft.name = input.name
       if (input.prompt !== undefined) draft.prompt = input.prompt
       if (input.triggers !== undefined) draft.triggers = input.triggers
@@ -270,27 +271,28 @@ export namespace Routine {
     return record
   }
 
-  export async function remove(id: string): Promise<void> {
+  export async function remove(instance: InstanceContext, id: string): Promise<void> {
     unregisterScheduler(id)
-    RoutineRepo.remove(projectID(), id)
+    RoutineRepo.remove(instance.project.id, id)
     log.info("removed", { id })
   }
 
-  export async function pause(id: string): Promise<Record> {
-    return update(id, { paused: true })
+  export async function pause(instance: InstanceContext, id: string): Promise<Record> {
+    return update(instance, id, { paused: true })
   }
 
-  export async function resume(id: string): Promise<Record> {
-    return update(id, { paused: false })
+  export async function resume(instance: InstanceContext, id: string): Promise<Record> {
+    return update(instance, id, { paused: false })
   }
 
   // ── Run ────────────────────────────────────────────────────────────────────
 
   export async function run(
+    instance: InstanceContext,
     id: string,
     input?: { text?: string; model?: { providerID: string; modelID: string } },
   ): Promise<Session.Info> {
-    const routine = await get(id)
+    const routine = await get(instance, id)
     if (!routine) missing(id)
     log.info("running", { id, name: routine.name, model: input?.model ?? routine.model })
 
@@ -318,7 +320,7 @@ export namespace Routine {
       }),
     )
 
-    const updated = RoutineRepo.update(projectID(), id, (draft) => {
+    const updated = RoutineRepo.update(instance.project.id, id, (draft) => {
       draft.lastRunAt = Date.now()
       draft.lastSessionID = session.id
       draft.updatedAt = Date.now()
@@ -330,9 +332,9 @@ export namespace Routine {
 
   // ── Bootstrap: re-register all active schedules on startup ─────────────────
 
-  export async function restoreSchedulers(): Promise<void> {
+  export async function restoreSchedulers(instance: InstanceContext): Promise<void> {
     try {
-      const records = await list()
+      const records = await list(instance)
       for (const record of records) {
         registerScheduler(record)
       }

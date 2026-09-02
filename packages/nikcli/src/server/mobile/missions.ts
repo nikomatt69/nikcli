@@ -1,9 +1,14 @@
-import z from "zod"
 import { Bus } from "@/bus"
 import { generateFromDescription } from "@/mission/generate"
 import * as MissionManager from "@/mission/manager"
 import * as Engine from "@/mission/orchestrator"
-import { generateID, MISSION_TEMPLATES, validateDefinition, type MissionDefinition } from "@/mission/schema"
+import {
+  generateID,
+  MISSION_TEMPLATES,
+  MissionDefinitionSchema,
+  validateDefinition,
+  type MissionDefinition,
+} from "@/mission/schema"
 import {
   log,
   MobileMissionFeatureMutateInput,
@@ -11,138 +16,144 @@ import {
   MobileMissionUpdateInput,
   MobileMissionWriteInput,
 } from "./helpers"
-import { body, isResponse, json, query } from "./request"
+import { MobileHttpError } from "./request"
+import type { InstanceContext } from "@/effect"
 
-const match = (path: string, pattern: RegExp) => path.match(pattern)?.slice(1).map(decodeURIComponent)
-const Limit = z.object({ limit: z.coerce.number().int().positive().max(200).optional() })
-const found = (id: string) => json({ error: `Mission "${id}" not found` }, 404)
+const notFound = (id: string) => new MobileHttpError(`Mission "${id}" not found`, 404)
 
 function runtimeOf(id: string) {
   return { missionID: id, ...Engine.getRuntime(id) }
 }
 
-export async function handleMissionsRequest(request: Request): Promise<Response | undefined> {
-  const path = new URL(request.url).pathname
-  if (!path.startsWith("/mobile/missions")) return
+export async function missionTemplates() {
+  return { templates: MISSION_TEMPLATES }
+}
 
-  if (path === "/mobile/missions/templates" && request.method === "GET") {
-    return json({ templates: MISSION_TEMPLATES })
+export async function missionGenerate(input: typeof MobileMissionGenerateInput._output) {
+  try {
+    return await generateFromDescription(input.description, {
+      model: input.model,
+      agent: input.agent,
+      sessionID: input.sessionID,
+    })
+  } catch (error) {
+    throw new MobileHttpError(error instanceof Error ? error.message : String(error), 400)
   }
-  if (path === "/mobile/missions/generate" && request.method === "POST") {
-    const input = await body(request, MobileMissionGenerateInput)
-    if (isResponse(input)) return input
-    try {
-      return json(await generateFromDescription(input.description, { model: input.model, agent: input.agent }))
-    } catch (error) {
-      return json({ error: error instanceof Error ? error.message : String(error) }, 400)
-    }
-  }
-  if (path === "/mobile/missions/execs/recent" && request.method === "GET") {
-    const input = query(request, Limit)
-    if (isResponse(input)) return input
-    const execs = await MissionManager.listRunningExecs()
-    return json({ execs: execs.slice(0, input.limit ?? 50) })
-  }
-  if (path === "/mobile/missions" && request.method === "GET") {
-    const missions = await MissionManager.list()
-    return json({ missions, runtimes: missions.map((mission) => runtimeOf(mission.id)) })
-  }
-  if (path === "/mobile/missions" && request.method === "POST") {
-    const input = await body(request, MobileMissionWriteInput)
-    if (isResponse(input)) return input
-    const mission: MissionDefinition = {
-      ...input,
-      id: generateID(),
-      createdAt: Date.now(),
-      status: "ready",
-      models: input.models ?? {},
-    }
-    const error = validateDefinition(mission)
-    if (error) return json({ error }, 400)
-    const saved = await MissionManager.upsert(mission)
-    void Bus.publish(Engine.MissionEvent.Upserted, { missionID: saved.id })
-    return json(saved)
-  }
+}
 
-  const feature = match(path, /^\/mobile\/missions\/([^/]+)\/feature\/([^/]+)$/)
-  if (feature && request.method === "POST") {
-    const [id, featureID] = feature
-    const def = await MissionManager.get(id)
-    if (!def) return found(id)
-    const input = await body(request, MobileMissionFeatureMutateInput)
-    if (isResponse(input)) return input
-    let foundFeature = false
-    const milestones = def.milestones.map((milestone) => ({
-      ...milestone,
-      features: milestone.features.map((item) => {
-        if (item.id !== featureID) return item
-        foundFeature = true
-        const next = { ...item }
-        if (input.status !== undefined) next.status = input.status
-        if (input.status === "done") next.error = undefined
-        if (input.error !== undefined) next.error = input.error
-        if (input.appendDependsOn && input.appendDependsOn.length > 0) {
-          const known = new Set(milestone.features.map((sibling) => sibling.id))
-          const extras = input.appendDependsOn.filter(
-            (dep) => known.has(dep) && dep !== next.id && !next.dependsOn.includes(dep),
-          )
-          next.dependsOn = [...next.dependsOn, ...extras]
-        }
-        return next
-      }),
-    }))
-    if (!foundFeature) return json({ error: `Feature "${featureID}" not found` }, 404)
-    const updated: MissionDefinition = { ...def, milestones }
-    const error = validateDefinition(updated)
-    if (error) return json({ error }, 400)
-    const saved = await MissionManager.upsert(updated)
-    void Bus.publish(Engine.MissionEvent.Upserted, { missionID: saved.id })
-    return json(saved)
-  }
+export async function missionExecsRecent(instance: InstanceContext, query: { limit?: number }) {
+  const execs = await MissionManager.listRunningExecs(instance.project.id)
+  return { execs: execs.slice(0, query.limit ?? 50) }
+}
 
-  const action = match(path, /^\/mobile\/missions\/([^/]+)\/(execs|start|pause|cancel)$/)
-  if (action) {
-    const [id, kind] = action
-    if (!(await MissionManager.get(id))) return found(id)
-    if (kind === "execs" && request.method === "GET") {
-      const input = query(request, Limit)
-      if (isResponse(input)) return input
-      return json({ execs: await MissionManager.listExecs(id, input.limit ?? 50) })
-    }
-    if (request.method !== "POST") return
-    if (kind === "start") {
-      void Engine.start(id).catch((error) => log.error("mission start failed", { id, error }))
-      return json({ success: true })
-    }
-    if (kind === "pause") {
-      await Engine.pause(id)
-      return json({ success: true })
-    }
-    await Engine.cancel(id)
-    return json({ success: true })
-  }
+export async function missionList(instance: InstanceContext) {
+  const missions = await MissionManager.list(instance.project.id)
+  return { missions, runtimes: missions.map((mission) => runtimeOf(mission.id)) }
+}
 
-  const detail = match(path, /^\/mobile\/missions\/([^/]+)$/)
-  if (!detail) return
-  const id = detail[0]
-  const existing = await MissionManager.get(id)
-  if (!existing) return found(id)
-  if (request.method === "GET") return json({ mission: existing, runtime: runtimeOf(id) })
-  if (request.method === "PATCH" || request.method === "PUT") {
-    const input = await body(request, MobileMissionUpdateInput)
-    if (isResponse(input)) return input
-    const next = { ...input, id }
-    const error = validateDefinition(next)
-    if (error) return json({ error }, 400)
-    const saved = await MissionManager.upsert(next)
-    void Bus.publish(Engine.MissionEvent.Upserted, { missionID: id })
-    return json(saved)
-  }
-  if (request.method === "DELETE") {
-    await Engine.cancel(id).catch((error) => log.warn("cancel on delete failed", { id, error }))
-    const removed = await MissionManager.remove(id)
-    if (!removed) return found(id)
-    void Bus.publish(Engine.MissionEvent.Removed, { missionID: id })
-    return json({ success: true })
-  }
+export async function missionCreate(instance: InstanceContext, input: typeof MobileMissionWriteInput._output) {
+  // `MobileMissionWriteInput` is the definition minus the server-assigned
+  // fields, but the schema's `.default()`s (`models`, `status`, per-feature
+  // `dependsOn` / `status`) only apply through the full schema — the contract
+  // decode does not run zod defaults, so `validateDefinition` would otherwise
+  // iterate an absent `dependsOn`. Parse through the schema to normalize.
+  const parsed = MissionDefinitionSchema.safeParse({ ...input, id: generateID(), createdAt: Date.now() })
+  if (!parsed.success) throw new MobileHttpError("Validation failed", 400)
+  const mission = parsed.data
+  const error = validateDefinition(mission)
+  if (error) throw new MobileHttpError(error, 400)
+  const saved = await MissionManager.upsert(instance.project.id, mission)
+  void Bus.publish(Engine.MissionEvent.Upserted, { missionID: saved.id })
+  return saved
+}
+
+export async function missionGet(instance: InstanceContext, id: string) {
+  const existing = await MissionManager.get(instance.project.id, id)
+  if (!existing) throw notFound(id)
+  return { mission: existing, runtime: runtimeOf(id) }
+}
+
+export async function missionUpdate(
+  instance: InstanceContext,
+  id: string,
+  input: typeof MobileMissionUpdateInput._output,
+) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
+  const parsed = MissionDefinitionSchema.safeParse({ ...input, id })
+  if (!parsed.success) throw new MobileHttpError("Validation failed", 400)
+  const mission = parsed.data
+  const error = validateDefinition(mission)
+  if (error) throw new MobileHttpError(error, 400)
+  const saved = await MissionManager.upsert(instance.project.id, mission)
+  void Bus.publish(Engine.MissionEvent.Upserted, { missionID: id })
+  return saved
+}
+
+export async function missionDelete(instance: InstanceContext, id: string) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
+  await Engine.cancel(id).catch((error) => log.warn("cancel on delete failed", { id, error }))
+  const removed = await MissionManager.remove(instance.project.id, instance.directory, id)
+  if (!removed) throw notFound(id)
+  void Bus.publish(Engine.MissionEvent.Removed, { missionID: id })
+  return { success: true as const }
+}
+
+export async function missionExecs(instance: InstanceContext, id: string, query: { limit?: number }) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
+  return { execs: await MissionManager.listExecs(instance.project.id, id, query.limit ?? 50) }
+}
+
+export async function missionStart(instance: InstanceContext, id: string) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
+  void Engine.start(id).catch((error) => log.error("mission start failed", { id, error }))
+  return { success: true as const }
+}
+
+export async function missionPause(instance: InstanceContext, id: string) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
+  await Engine.pause(id)
+  return { success: true as const }
+}
+
+export async function missionCancel(instance: InstanceContext, id: string) {
+  if (!(await MissionManager.get(instance.project.id, id))) throw notFound(id)
+  await Engine.cancel(id)
+  return { success: true as const }
+}
+
+export async function missionFeatureMutate(
+  instance: InstanceContext,
+  id: string,
+  featureID: string,
+  input: typeof MobileMissionFeatureMutateInput._output,
+) {
+  const def = await MissionManager.get(instance.project.id, id)
+  if (!def) throw notFound(id)
+  let foundFeature = false
+  const milestones = def.milestones.map((milestone) => ({
+    ...milestone,
+    features: milestone.features.map((item) => {
+      if (item.id !== featureID) return item
+      foundFeature = true
+      const next = { ...item }
+      if (input.status !== undefined) next.status = input.status
+      if (input.status === "done") next.error = undefined
+      if (input.error !== undefined) next.error = input.error
+      if (input.appendDependsOn && input.appendDependsOn.length > 0) {
+        const known = new Set(milestone.features.map((sibling) => sibling.id))
+        const extras = input.appendDependsOn.filter(
+          (dep) => known.has(dep) && dep !== next.id && !next.dependsOn.includes(dep),
+        )
+        next.dependsOn = [...next.dependsOn, ...extras]
+      }
+      return next
+    }),
+  }))
+  if (!foundFeature) throw new MobileHttpError(`Feature "${featureID}" not found`, 404)
+  const updated: MissionDefinition = { ...def, milestones }
+  const error = validateDefinition(updated)
+  if (error) throw new MobileHttpError(error, 400)
+  const saved = await MissionManager.upsert(instance.project.id, updated)
+  void Bus.publish(Engine.MissionEvent.Upserted, { missionID: saved.id })
+  return saved
 }

@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.12-debian
+FROM oven/bun:1.4.0-debian
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl ca-certificates openssh-client \
@@ -19,6 +19,7 @@ COPY packages/remote/package.json packages/remote/
 COPY packages/plugin/package.json packages/plugin/
 COPY packages/companion/package.json packages/companion/
 COPY packages/slack/package.json packages/slack/
+COPY packages/discord/package.json packages/discord/
 COPY packages/identity/package.json packages/identity/
 COPY packages/auth/package.json packages/auth/
 COPY packages/llm/package.json packages/llm/

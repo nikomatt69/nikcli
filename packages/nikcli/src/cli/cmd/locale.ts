@@ -71,6 +71,9 @@ export const LocaleCommand = cmd({
         if (args.locale !== undefined) next.locale = args.locale
         if (args.timezone !== undefined) next.timezone = args.timezone
         if (args.currency !== undefined) next.currency = args.currency
+        // SAFETY: the builder declares `reply-language` as a string option, so
+        // yargs yields a string or leaves it absent; `parseReplyLanguage`
+        // validates the value itself.
         const reply = parseReplyLanguage(args["reply-language"] as string | undefined)
         if (reply !== undefined) next.replyLanguage = reply
         if (args["auto-detect"] === false) next.autoDetect = false

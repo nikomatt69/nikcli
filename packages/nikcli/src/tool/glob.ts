@@ -5,7 +5,6 @@ import { zod } from "@nikcli-ai/util/effect-zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./glob.txt"
 import { FFF } from "../file/fff"
-import { Instance } from "../project/instance"
 import { assertExternalDirectory } from "./external-directory"
 import { withSearchDeadline } from "./search-deadline"
 
@@ -115,8 +114,8 @@ export const GlobTool = Tool.define("glob", {
     // Models serialize an absent path as the literal string sometimes; treat it
     // as "not provided" rather than as a directory named "undefined".
     const requested = params.path === "undefined" || params.path === "null" ? undefined : params.path
-    let dir = requested ?? Instance.directory
-    dir = path.isAbsolute(dir) ? dir : path.resolve(Instance.directory, dir)
+    let dir = requested ?? ctx.instance.directory
+    dir = path.isAbsolute(dir) ? dir : path.resolve(ctx.instance.directory, dir)
     await assertExternalDirectory(ctx, dir, { kind: "directory" })
 
     // The search root has to be a directory. A missing or file path used to fall
@@ -203,7 +202,7 @@ export const GlobTool = Tool.define("glob", {
     }
 
     return {
-      title: path.relative(Instance.worktree, dir),
+      title: path.relative(ctx.instance.worktree, dir),
       metadata: {
         count: files.length,
         truncated,

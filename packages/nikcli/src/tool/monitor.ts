@@ -1,4 +1,3 @@
-import { Instance } from "@/project/instance"
 import { Monitor } from "@/monitor/manager"
 import { authorizeBashCommand } from "./bash"
 import DESCRIPTION from "./monitor.txt"
@@ -54,7 +53,7 @@ export const MonitorTool = Tool.define<typeof parameters, MonitorMetadata>("moni
   description: DESCRIPTION,
   parameters,
   async execute(params, ctx) {
-    const cwd = params.workdir || Instance.directory
+    const cwd = params.workdir || ctx.instance.directory
     if (params.timeout !== undefined && params.timeout <= 0) {
       throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be greater than 0.`)
     }

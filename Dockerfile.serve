@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.14-debian AS base
+FROM oven/bun:1.4.0-debian AS base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash git libgcc-s1 libstdc++6 openssh-server curl ca-certificates patchelf \
@@ -29,8 +29,7 @@ COPY packages/sdk/js/package.json /app/packages/sdk/js/
 COPY packages/remote/package.json /app/packages/remote/
 COPY packages/plugin/package.json /app/packages/plugin/
 COPY packages/companion/package.json /app/packages/companion/
-COPY packages/slack/package.json /app/packages/slack/
-COPY packages/identity/package.json /app/packages/identity/
+COPY packages/discord/package.json /app/packages/discord/
 COPY packages/auth/package.json /app/packages/auth/
 COPY packages/llm/package.json /app/packages/llm/
 COPY packages/http-recorder/package.json /app/packages/http-recorder/
@@ -39,12 +38,14 @@ COPY packages/simulation/package.json /app/packages/simulation/
 COPY packages/tui/package.json /app/packages/tui/
 COPY packages/tui-image/package.json /app/packages/tui-image/
 COPY packages/tui-math/package.json /app/packages/tui-math/
-COPY packages/terminal-control/package.json /app/packages/terminal-control/
 COPY packages/browser-control/package.json /app/packages/browser-control/
 COPY packages/computer-use/package.json /app/packages/computer-use/
-COPY github/package.json /app/github/
 
-# Stub package.json for workspace packages not built in this image
+# Stub package.json for workspace packages not built in this image. slack,
+# identity, terminal-control and github sit outside packages/nikcli's
+# workspace closure and nothing under src imports them; stubbing keeps the
+# workspace members that bun.lock knows about while skipping their npm deps
+# (@slack/bolt, jose, @octokit/*, @ffmpeg-installer/ffmpeg).
 RUN set -e; \
     for entry in \
       "packages/app:@nikcli-ai/app" \
@@ -59,6 +60,7 @@ RUN set -e; \
       "packages/desktop:@nikcli-ai/desktop" \
       "packages/enterprise:@nikcli-ai/enterprise" \
       "packages/function:@nikcli-ai/function" \
+      "packages/identity:@nikcli-ai/identity" \
       "packages/inference:@nikcli-ai/inference" \
       "packages/inference-dashboard:@nikcli-ai/inference-dashboard" \
       "packages/mobile:@nikcli-ai/mobile" \
@@ -75,9 +77,12 @@ RUN set -e; \
       "packages/plugin/plugins/smart-title:@nikcli-ai/plugin-smart-title" \
       "packages/remote/web-client:@nikcli-ai/remote-client" \
       "packages/sdk-next:@nikcli-ai/sdk-next" \
+      "packages/slack:@nikcli-ai/slack" \
+      "packages/terminal-control:@nikcli-ai/terminal-control" \
       "packages/ui:@nikcli-ai/ui" \
       "packages/web:@nikcli-ai/web" \
       "packages/webrenderer:@opentui/webrenderer" \
+      "github:github" \
     ; do \
       dir="${entry%%:*}"; name="${entry##*:}"; \
       mkdir -p "/app/$dir" && \
@@ -93,8 +98,7 @@ COPY packages/sdk/js /app/packages/sdk/js
 COPY packages/remote /app/packages/remote
 COPY packages/plugin /app/packages/plugin
 COPY packages/companion /app/packages/companion
-COPY packages/slack /app/packages/slack
-COPY packages/identity /app/packages/identity
+COPY packages/discord /app/packages/discord
 COPY packages/auth /app/packages/auth
 COPY packages/llm /app/packages/llm
 COPY packages/http-recorder /app/packages/http-recorder
@@ -103,15 +107,18 @@ COPY packages/simulation /app/packages/simulation
 COPY packages/tui /app/packages/tui
 COPY packages/tui-image /app/packages/tui-image
 COPY packages/tui-math /app/packages/tui-math
-COPY packages/terminal-control /app/packages/terminal-control
 COPY packages/browser-control /app/packages/browser-control
 COPY packages/computer-use /app/packages/computer-use
-COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest
-ENV NIKCLI_VERSION=1.216.0
 RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.4.5 @effect/platform-bun@4.0.0-beta.83
-RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install
+# NIKCLI_VERSION was pinned here as a literal and went stale (the image kept
+# stamping 1.216.0 long after the repo moved on). Read it off the manifest that
+# is already in the layer instead: deterministic, and no npm lookup at build
+# time, which is what the pin was there to avoid.
+RUN cd /app/packages/nikcli && \
+    NIKCLI_VERSION="$(bun -e 'console.log(require("./package.json").version)')" \
+    bun run script/build.ts --single --skip-install
 
 FROM base AS runtime
 

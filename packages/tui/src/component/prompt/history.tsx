@@ -11,6 +11,7 @@ import {
   hydratePromptEntry,
   PromptBlob,
 } from "@nikcli-ai/util/prompt-blob"
+import { parseJsonl } from "@nikcli-ai/util/bun-utils"
 import { PromptStashStore } from "@nikcli-ai/util/prompt-stash"
 import type { AgentPart, FilePart, TextPart } from "@nikcli-ai/sdk/httpapi"
 
@@ -53,17 +54,8 @@ export const { use: usePromptHistory, provider: PromptHistoryProvider } = create
 
     onMount(async () => {
       const text = await historyFile.text().catch(() => "")
-      const parsed = text
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => {
-          try {
-            return JSON.parse(line)
-          } catch {
-            return null
-          }
-        })
-        .filter((line): line is PromptInfo => line !== null)
+      const parsed = parseJsonl(text)
+        .filter((line): line is PromptInfo => !!line && typeof line === "object")
         .slice(-MAX_HISTORY_ENTRIES)
 
       // Rebuild image dataUrls from blob refs so history navigation works without async hydration.

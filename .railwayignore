@@ -1,56 +1,43 @@
+# Upload context for the nikcli-mobile Railway service (Dockerfile.serve).
+#
+# This is an exclusion list, deliberately not a `packages/*` blanket plus a
+# re-include allowlist. The allowlist form fails CLOSED: a package added to
+# Dockerfile.serve but forgotten here silently drops out of the context and the
+# build dies on `COPY packages/<name>` with "not found". That is exactly how
+# packages/discord broke. It also rested the whole deploy on the uploader
+# implementing last-match-wins re-inclusion of an already-pruned directory,
+# which is not behaviour worth depending on.
+#
+# Excluding what the image does not need fails OPEN instead: a newly added
+# package rides along as a few KB of upload until someone trims it, and the
+# build keeps working. Keep this list in sync with the stub block in
+# Dockerfile.serve — anything stubbed there belongs here.
+
 node_modules
 .git
+# .agents/skills/native-ui is a symlink to packages/native-control, which is
+# not in the repo; the uploader aborts on the dangling link.
+.agents
 .worktrees
 .nikcli
 .expo
 .sst
 dist
-ts-dist
+/ts-dist
 .turbo
 tmp
-logs
-playground
-infra
+/logs
+/playground
+/infra
 build
 *.log
 package-lock.json
 yarn.lock
+
+# Build output and dependency trees at any depth.
 packages/*/node_modules
 packages/*/*/node_modules
 packages/*/*/*/node_modules
-packages/*/dist
-packages/*/build
-packages/*/out
-packages/*/.output
-packages/*/*/.output
-packages/*/target
-packages/desktop/src-tauri/target
-packages/mobile/ios/build
-packages/mobile/ios/Pods
-packages/mobile/android/build
-packages/mobile/android/.gradle
-packages/desktop/src-tauri/sidecars
-packages/*
-!packages/nikcli
-!packages/nikcli/**
-!packages/script
-!packages/script/**
-!packages/util
-!packages/util/**
-!packages/remote
-!packages/remote/**
-!packages/plugin
-!packages/plugin/**
-!packages/companion
-!packages/companion/**
-!packages/slack
-!packages/slack/**
-!packages/sdk
-packages/sdk/*
-!packages/sdk/js
-!packages/sdk/js/**
-!packages/tui-image
-!packages/tui-image/**
 packages/**/node_modules
 packages/**/dist
 packages/**/build
@@ -58,3 +45,36 @@ packages/**/out
 packages/**/.output
 packages/**/target
 github/node_modules
+
+# Platform build artifacts.
+packages/desktop/src-tauri/target
+packages/desktop/src-tauri/sidecars
+packages/mobile/ios/build
+packages/mobile/ios/Pods
+packages/mobile/android/build
+packages/mobile/android/.gradle
+
+# Workspace packages Dockerfile.serve stubs rather than builds. packages/sdk is
+# absent on purpose: the image needs packages/sdk/js, and the two other files
+# under packages/sdk are not worth a negation rule to drop.
+packages/app
+packages/bench-tui
+packages/cloud
+packages/console
+packages/containers
+packages/desktop
+packages/enterprise
+packages/extensions
+packages/function
+packages/identity
+packages/inference
+packages/inference-dashboard
+packages/mobile
+packages/nikcli-island
+packages/sdk-next
+packages/slack
+packages/terminal-control
+packages/ui
+packages/web
+packages/webrenderer
+/github

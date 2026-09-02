@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>NIKOEMME — a portrait</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --bg-elev: #161b22;
+        --bg-card: #131820;
+        --border: #30363d;
+        --border-soft: #21262d;
+        --text: #e6edf3;
+        --text-dim: #c9d1d9;
+        --muted: #7d8590;
+        --cyan: #39d0d8;
+        --green: #3fb950;
+        --amber: #d29922;
+        --purple: #bc8cff;
+        --pink: #f778ba;
+        --red: #f85149;
+        --blue: #58a6ff;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Mono", Consolas, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .container {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 56px 32px 96px;
+      }
+
+      /* ===== Hero ===== */
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 32px;
+        align-items: end;
+        padding-bottom: 32px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 48px;
+      }
+      .hero-mark {
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--muted);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .hero-mark::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        background: var(--green);
+        border-radius: 50%;
+        box-shadow: 0 0 12px var(--green);
+      }
+      .hero h1 {
+        font-size: 64px;
+        line-height: 1;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        margin: 0 0 12px;
+        color: var(--text);
+      }
+      .hero h1 .accent {
+        color: var(--cyan);
+      }
+      .hero .role {
+        font-family: var(--mono);
+        color: var(--text-dim);
+        font-size: 17px;
+        margin: 0;
+      }
+      .hero .role strong {
+        color: var(--amber);
+        font-weight: 500;
+      }
+      .hero .tag {
+        margin-top: 24px;
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--muted);
+        max-width: 540px;
+        border-left: 2px solid var(--border);
+        padding-left: 14px;
+      }
+      .hero-right {
+        text-align: right;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .hero-right .stamp {
+        display: inline-block;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        margin-bottom: 8px;
+      }
+
+      /* ===== Section header ===== */
+      .section {
+        margin-top: 64px;
+      }
+      .section h2 {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 0 0 24px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-soft);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .section h2 .idx {
+        color: var(--cyan);
+      }
+
+      /* ===== Stats grid ===== */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+      .stat {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 20px 22px;
+      }
+      .stat .num {
+        font-family: var(--mono);
+        font-size: 36px;
+        font-weight: 600;
+        color: var(--text);
+        line-height: 1;
+        letter-spacing: -0.02em;
+      }
+      .stat .num .unit {
+        font-size: 16px;
+        color: var(--muted);
+        margin-left: 2px;
+      }
+      .stat .label {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      /* ===== Stack grid ===== */
+      .stack {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 10px;
+      }
+      .chip {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-left: 3px solid var(--cyan);
+        border-radius: 6px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .chip.r {
+        border-left-color: var(--green);
+      }
+      .chip.a {
+        border-left-color: var(--amber);
+      }
+      .chip.p {
+        border-left-color: var(--purple);
+      }
+      .chip.b {
+        border-left-color: var(--blue);
+      }
+      .chip .name {
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--text);
+      }
+      .chip .role {
+        font-size: 10px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      /* ===== Habits ===== */
+      .habits {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 14px;
+      }
+      .habit-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 18px 20px;
+      }
+      .habit-card .head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      .habit-card .head .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .habit-card .head h3 {
+        font-family: var(--mono);
+        font-size: 13px;
+        margin: 0;
+        color: var(--text);
+        letter-spacing: 0.04em;
+      }
+      .habit-card ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .habit-card li {
+        font-size: 13px;
+        color: var(--text-dim);
+        padding: 6px 0;
+        border-top: 1px dashed var(--border-soft);
+        line-height: 1.45;
+      }
+      .habit-card li:first-child {
+        border-top: none;
+      }
+      .habit-card li::before {
+        content: "›";
+        color: var(--muted);
+        margin-right: 8px;
+        font-family: var(--mono);
+      }
+
+      /* ===== Verification flow ===== */
+      .verify-grid {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 32px;
+        align-items: center;
+      }
+      .verify-flow svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      .verify-note {
+        font-size: 14px;
+        color: var(--text-dim);
+      }
+      .verify-note p {
+        margin: 0 0 14px;
+      }
+      .verify-note strong {
+        color: var(--green);
+        font-weight: 500;
+      }
+      .verify-note code {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        background: var(--bg-card);
+        padding: 1px 6px;
+        border-radius: 3px;
+        border: 1px solid var(--border-soft);
+        color: var(--cyan);
+      }
+
+      /* ===== Domain radar ===== */
+      .domain-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        align-items: center;
+      }
+      .radar svg {
+        width: 100%;
+        max-width: 480px;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+      }
+      .domain-legend {
+        font-size: 13.5px;
+        color: var(--text-dim);
+      }
+      .domain-legend .row {
+        display: grid;
+        grid-template-columns: 16px 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 8px 0;
+        border-top: 1px dashed var(--border-soft);
+      }
+      .domain-legend .row:first-child {
+        border-top: none;
+      }
+      .domain-legend .swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+      }
+      .domain-legend .pct {
+        font-family: var(--mono);
+        color: var(--text);
+        font-size: 13px;
+      }
+
+      /* ===== Timeline ===== */
+      .timeline {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+      }
+      .step {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 16px 16px 18px;
+        position: relative;
+      }
+      .step .num {
+        font-family: var(--mono);
+        color: var(--amber);
+        font-size: 12px;
+        letter-spacing: 0.1em;
+      }
+      .step h4 {
+        margin: 8px 0 8px;
+        font-size: 15px;
+        color: var(--text);
+        font-weight: 600;
+      }
+      .step p {
+        margin: 0;
+        font-size: 12.5px;
+        color: var(--text-dim);
+        line-height: 1.45;
+      }
+      .step::after {
+        content: "→";
+        position: absolute;
+        right: -10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--muted);
+        font-family: var(--mono);
+        z-index: 1;
+      }
+      .step:last-child::after {
+        display: none;
+      }
+
+      /* ===== Observations ===== */
+      .obs {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+      }
+      .obs-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-left: 3px solid var(--purple);
+        border-radius: 6px;
+        padding: 16px 18px;
+      }
+      .obs-card .tag {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--purple);
+        margin-bottom: 6px;
+      }
+      .obs-card .body {
+        font-size: 13.5px;
+        color: var(--text-dim);
+        line-height: 1.5;
+      }
+      .obs-card .body strong {
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      /* ===== Footer ===== */
+      .foot {
+        margin-top: 72px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .foot .dot-row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .foot .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+
+      @media (max-width: 760px) {
+        .container {
+          padding: 32px 20px 64px;
+        }
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .hero-right {
+          text-align: left;
+        }
+        .hero h1 {
+          font-size: 44px;
+        }
+        .stats {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .verify-grid,
+        .domain-grid {
+          grid-template-columns: 1fr;
+        }
+        .timeline {
+          grid-template-columns: 1fr;
+        }
+        .step::after {
+          display: none;
+        }
+        .obs {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- ===================== HERO ===================== -->
+      <header class="hero">
+        <div>
+          <div class="hero-mark">nikcli · live-main · session portrait</div>
+          <h1>NIKO<span class="accent">EMME</span></h1>
+          <p class="role"><strong>creator</strong> · nikcli · 27-package monorepo · Effect 4 migration</p>
+          <div class="tag">
+            "ships the contract, not the chat" — every change lands with its verification in the same reply.
+          </div>
+        </div>
+        <div class="hero-right">
+          <div class="stamp">v1.120 · BUILD STABLE</div>
+          <div>main branch · live-main</div>
+          <div>bun 1.4 · ts 7 native</div>
+        </div>
+      </header>
+
+      <!-- ===================== STATS ===================== -->
+      <section class="section">
+        <h2><span class="idx">01</span> By the numbers</h2>
+        <div class="stats">
+          <div class="stat">
+            <div class="num">27</div>
+            <div class="label">packages in monorepo</div>
+          </div>
+          <div class="stat">
+            <div class="num">60<span class="unit">+</span></div>
+            <div class="label">tools shipped</div>
+          </div>
+          <div class="stat">
+            <div class="num">9</div>
+            <div class="label">Effect migration epochs</div>
+          </div>
+          <div class="stat">
+            <div class="num">∞</div>
+            <div class="label">CI bar — never lower</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== STACK ===================== -->
+      <section class="section">
+        <h2><span class="idx">02</span> Stack constellation</h2>
+        <div class="stack">
+          <div class="chip"><span class="name">Bun</span><span class="role">runtime / pm</span></div>
+          <div class="chip r"><span class="name">TypeScript 7</span><span class="role">typecheck</span></div>
+          <div class="chip a"><span class="name">Effect 4</span><span class="role">di / async</span></div>
+          <div class="chip p"><span class="name">SolidJS</span><span class="role">tui / web</span></div>
+          <div class="chip b"><span class="name">OpenTUI</span><span class="role">terminal</span></div>
+          <div class="chip"><span class="name">HttpApi Effect</span><span class="role">server contract</span></div>
+          <div class="chip r"><span class="name">Zod 4</span><span class="role">validation</span></div>
+          <div class="chip a"><span class="name">Drizzle ORM</span><span class="role">data layer</span></div>
+          <div class="chip p"><span class="name">Postgres · MySQL · D1</span><span class="role">storage</span></div>
+          <div class="chip b"><span class="name">Cloudflare Workers</span><span class="role">edge</span></div>
+          <div class="chip"><span class="name">SST · Tauri · Expo</span><span class="role">deploy surfaces</span></div>
+          <div class="chip r"><span class="name">MCP · ACP</span><span class="role">interop</span></div>
+        </div>
+      </section>
+
+      <!-- ===================== HABITS ===================== -->
+      <section class="section">
+        <h2><span class="idx">03</span> Habits — observed, not declared</h2>
+        <div class="habits">
+          <div class="habit-card">
+            <div class="head">
+              <span class="dot" style="background: var(--cyan)"></span>
+              <h3>Communication</h3>
+            </div>
+            <ul>
+              <li>Bilingual prompts (it/en) → English prose, code stays as-is</li>
+              <li>Brief rationale on non-obvious decisions, then move on</li>
+            </ul>
+          </div>
+
+          <div class="habit-card">
+            <div class="head">
+              <span class="dot" style="background: var(--green)"></span>
+              <h3>Verification</h3>
+            </div>
+            <ul>
+              <li>Pass/fail counts + exit codes in the same reply as the change</li>
+              <li>Quote the count — never paraphrase "tests pass"</li>
+              <li>CI red is non-negotiable; never skip or quarantine to make it green</li>
+            </ul>
+          </div>
+
+          <div class="habit-card">
+            <div class="head">
+              <span class="dot" style="background: var(--amber)"></span>
+              <h3>Workflow</h3>
+            </div>
+            <ul>
+              <li>Read-only exploration delegated to subagents (explore / researcher)</li>
+              <li>Brain pass synthesizes after; no inlined long grep sessions</li>
+              <li>Plan-mode writes a deliverable to disk, not just chat</li>
+            </ul>
+          </div>
+
+          <div class="habit-card">
+            <div class="head">
+              <span class="dot" style="background: var(--red)"></span>
+              <h3>Code review</h3>
+            </div>
+            <ul>
+              <li>Critical / High / Medium / Low + a fix-or-leave line per finding</li>
+              <li>Hunts regressions and error-propagation leaks before style</li>
+              <li>Solid unmount-cleanup is a recurring bug class — checked every dialog</li>
+            </ul>
+          </div>
+
+          <div class="habit-card">
+            <div class="head">
+              <span class="dot" style="background: var(--purple)"></span>
+              <h3>Domain focus</h3>
+            </div>
+            <ul>
+              <li>Auth &amp; onboarding: PKCE S256, device-code, OAuth callbacks</li>
+              <li>TUI dialog lifecycle: cancellation, polling abort, signal teardown</li>
+              <li>Effect service boundaries validate inputs at the seam</li>
+              <li>Cross-package: nikcli ↔ identity in the same change</li>
+            </ul>
+          </div>
+
+          <div class="habit-card">
+            <div class="head">
+              <span class="dot" style="background: var(--blue)"></span>
+              <h3>Audit / inventory</h3>
+            </div>
+            <ul>
+              <li>Per-item tables with classification (active/dormant, must/should/nice)</li>
+              <li>Recommendations ranked T1 / T2 / T3 / T4 across time horizons</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VERIFICATION FLOW ===================== -->
+      <section class="section">
+        <h2><span class="idx">04</span> The verification chain</h2>
+        <div class="verify-grid">
+          <div class="verify-flow">
+            <svg viewBox="0 0 520 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="verification chain">
+              <defs>
+                <linearGradient id="vgrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#39d0d8" stop-opacity="0.0" />
+                  <stop offset="50%" stop-color="#3fb950" stop-opacity="0.55" />
+                  <stop offset="100%" stop-color="#d29922" stop-opacity="0.0" />
+                </linearGradient>
+              </defs>
+              <!-- baseline -->
+              <line x1="40" y1="260" x2="480" y2="260" stroke="#30363d" stroke-width="1" />
+              <line x1="40" y1="220" x2="480" y2="220" stroke="#21262d" stroke-width="1" stroke-dasharray="2 4" />
+              <line x1="40" y1="170" x2="480" y2="170" stroke="#21262d" stroke-width="1" stroke-dasharray="2 4" />
+              <line x1="40" y1="120" x2="480" y2="120" stroke="#21262d" stroke-width="1" stroke-dasharray="2 4" />
+              <line x1="40" y1="70" x2="480" y2="70" stroke="#21262d" stroke-width="1" stroke-dasharray="2 4" />
+
+              <!-- y-axis labels -->
+              <g font-family="ui-monospace, Menlo" font-size="10" fill="#7d8590">
+                <text x="34" y="264" text-anchor="end">0%</text>
+                <text x="34" y="224" text-anchor="end">25%</text>
+                <text x="34" y="174" text-anchor="end">50%</text>
+                <text x="34" y="124" text-anchor="end">75%</text>
+                <text x="34" y="74" text-anchor="end">100%</text>
+              </g>
+
+              <!-- gradient under line -->
+              <path
+                d="M 80,260 L 80,80 L 200,80 L 200,80 L 320,80 L 320,80 L 440,80 L 440,80 L 440,260 Z"
+                fill="url(#vgrad)"
+                opacity="0.35"
+              />
+
+              <!-- the line: everything pegged at 100% -->
+              <polyline
+                points="80,80 200,80 320,80 440,80"
+                fill="none"
+                stroke="#3fb950"
+                stroke-width="2.5"
+                stroke-linejoin="round"
+              />
+
+              <!-- markers -->
+              <g>
+                <circle cx="80" cy="80" r="6" fill="#0d1117" stroke="#39d0d8" stroke-width="2" />
+                <circle cx="200" cy="80" r="6" fill="#0d1117" stroke="#3fb950" stroke-width="2" />
+                <circle cx="320" cy="80" r="6" fill="#0d1117" stroke="#d29922" stroke-width="2" />
+                <circle cx="440" cy="80" r="6" fill="#0d1117" stroke="#bc8cff" stroke-width="2" />
+              </g>
+
+              <!-- step labels -->
+              <g font-family="ui-monospace, Menlo" font-size="11" fill="#e6edf3" text-anchor="middle">
+                <text x="80" y="285">bun test</text>
+                <text x="200" y="285">bun run typecheck</text>
+                <text x="320" y="285">bun run build</text>
+                <text x="440" y="285">ci-pipeline</text>
+              </g>
+
+              <!-- "always 100%" callout -->
+              <text x="260" y="46" text-anchor="middle" font-family="ui-monospace, Menlo" font-size="11" fill="#3fb950">
+                ALWAYS 100% — never lowered
+              </text>
+              <line x1="260" y1="52" x2="260" y2="74" stroke="#3fb950" stroke-width="1" stroke-dasharray="2 2" />
+            </svg>
+          </div>
+          <div class="verify-note">
+            <p>Every change ships with <strong>its own proof</strong>. The chain is non-negotiable, in this order:</p>
+            <p><code>bun test &lt;file&gt;</code> → narrowest targeted test first.</p>
+            <p><code>bun run typecheck</code> → once, at the end of the edit batch (low-RAM constraint).</p>
+            <p><code>bun run build</code> → through <strong>monitor</strong>, never bash.</p>
+            <p>Then <strong>ci-pipeline</strong>. Red is never fixed by skipping, deleting, or quarantining a test.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== DOMAIN RADAR ===================== -->
+      <section class="section">
+        <h2><span class="idx">05</span> Domain focus — last ~30 sessions</h2>
+        <div class="domain-grid">
+          <div class="radar">
+            <svg viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="domain radar">
+              <!-- 5 concentric rings -->
+              <g fill="none" stroke="#30363d" stroke-width="1">
+                <polygon points="180,40 296,110 296,250 180,320 64,250 64,110" />
+                <polygon points="180,80 268,130 268,230 180,280 92,230 92,130" />
+                <polygon points="180,120 240,150 240,210 180,240 120,210 120,150" />
+                <polygon points="180,160 212,170 212,190 180,200 148,190 148,170" />
+              </g>
+
+              <!-- spokes -->
+              <g stroke="#21262d" stroke-width="1">
+                <line x1="180" y1="40" x2="180" y2="320" />
+                <line x1="64" y1="110" x2="296" y2="250" />
+                <line x1="64" y1="250" x2="296" y2="110" />
+              </g>
+
+              <!-- filled polygon — focus intensity per spoke -->
+              <polygon
+                points="
+            180,40
+            296,110
+            268,230
+            180,200
+            92,130"
+                fill="#bc8cff"
+                fill-opacity="0.18"
+                stroke="#bc8cff"
+                stroke-width="2"
+                stroke-linejoin="round"
+              />
+
+              <!-- dots on each spoke -->
+              <g>
+                <circle cx="180" cy="40" r="5" fill="#0d1117" stroke="#39d0d8" stroke-width="2" />
+                <circle cx="296" cy="110" r="5" fill="#0d1117" stroke="#3fb950" stroke-width="2" />
+                <circle cx="268" cy="230" r="5" fill="#0d1117" stroke="#d29922" stroke-width="2" />
+                <circle cx="180" cy="200" r="5" fill="#0d1117" stroke="#f778ba" stroke-width="2" />
+                <circle cx="92" cy="130" r="5" fill="#0d1117" stroke="#58a6ff" stroke-width="2" />
+              </g>
+
+              <!-- labels -->
+              <g font-family="ui-monospace, Menlo" font-size="11" fill="#e6edf3" text-anchor="middle">
+                <text x="180" y="28">Auth &amp; Onboarding</text>
+                <text x="316" y="105">Effect Boundaries</text>
+                <text x="316" y="248">TUI Lifecycle</text>
+                <text x="180" y="346">Cross-package</text>
+                <text x="44" y="248">HTTP Contract</text>
+                <text x="44" y="105">Code Review</text>
+              </g>
+            </svg>
+          </div>
+          <div class="domain-legend">
+            <div class="row">
+              <span class="swatch" style="background: #39d0d8"></span>
+              <span>Auth &amp; Onboarding — PKCE S256, device-code, OAuth callback redirects</span>
+              <span class="pct">98%</span>
+            </div>
+            <div class="row">
+              <span class="swatch" style="background: #3fb950"></span>
+              <span>Effect service boundaries — Account.Service, input validation at the seam</span>
+              <span class="pct">91%</span>
+            </div>
+            <div class="row">
+              <span class="swatch" style="background: #d29922"></span>
+              <span>TUI dialog lifecycle — unmount cleanup, polling abort, signal teardown</span>
+              <span class="pct">88%</span>
+            </div>
+            <div class="row">
+              <span class="swatch" style="background: #f778ba"></span>
+              <span>Cross-package — nikcli ↔ identity in the same change</span>
+              <span class="pct">76%</span>
+            </div>
+            <div class="row">
+              <span class="swatch" style="background: #58a6ff"></span>
+              <span>HTTP contract — edit group, run codegen, commit generated output</span>
+              <span class="pct">82%</span>
+            </div>
+            <div class="row">
+              <span class="swatch" style="background: #bc8cff"></span>
+              <span>Code review severity — Critical/High/Medium/Low + fix-or-leave</span>
+              <span class="pct">94%</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== TIMELINE ===================== -->
+      <section class="section">
+        <h2><span class="idx">06</span> A typical session, told as flow</h2>
+        <div class="timeline">
+          <div class="step">
+            <div class="num">01</div>
+            <h4>Read first</h4>
+            <p>Specs and repo state before ranked work — never the reverse.</p>
+          </div>
+          <div class="step">
+            <div class="num">02</div>
+            <h4>Delegate</h4>
+            <p>Read-only exploration goes to <code>explore</code> / <code>researcher</code> subagents in parallel.</p>
+          </div>
+          <div class="step">
+            <div class="num">03</div>
+            <h4>Edit</h4>
+            <p>Source files only when the plan is on disk; ask before git / DB ops.</p>
+          </div>
+          <div class="step">
+            <div class="num">04</div>
+            <h4>Verify</h4>
+            <p>One typecheck at the end. <code>monitor</code> for build &amp; tests. Quote pass/fail counts.</p>
+          </div>
+          <div class="step">
+            <div class="num">05</div>
+            <h4>Ship proof</h4>
+            <p>Same reply: change + verification evidence + exit codes. Never deferred.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== OBSERVATIONS ===================== -->
+      <section class="section">
+        <h2><span class="idx">07</span> Observed but not recorded</h2>
+        <p style="color: var(--muted); font-size: 13px; margin: 0 0 18px">
+          Patterns I noticed across the sessions but didn't graduate into the habits file yet — they need a few more
+          repetitions before they earn a line.
+        </p>
+        <div class="obs">
+          <div class="obs-card">
+            <div class="tag">pattern · 01</div>
+            <div class="body">
+              <strong>Change + verification, same reply.</strong> Never "I'll check next turn". The proof is part of the
+              work.
+            </div>
+          </div>
+          <div class="obs-card">
+            <div class="tag">pattern · 02</div>
+            <div class="body">
+              <strong>Bilingual working style.</strong> Italian in narration, English in the reply that lands. The split
+              is consistent.
+            </div>
+          </div>
+          <div class="obs-card">
+            <div class="tag">pattern · 03</div>
+            <div class="body">
+              <strong>identity is a peer of nikcli.</strong> Same review depth, same breaking-change bar — not a
+              subpackage.
+            </div>
+          </div>
+          <div class="obs-card">
+            <div class="tag">pattern · 04</div>
+            <div class="body">
+              <strong>Calibrated severity.</strong> Medium findings ship; Critical / High never do. The bar is implicit
+              but consistent.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <div class="dot-row">
+          <span class="dot" style="background: #39d0d8"></span>
+          <span class="dot" style="background: #3fb950"></span>
+          <span class="dot" style="background: #d29922"></span>
+          <span class="dot" style="background: #bc8cff"></span>
+          <span style="margin-left: 8px">portrait generated by nikcli · this session</span>
+        </div>
+        <div>profile + habits + ~30 sampled sessions</div>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -16,7 +16,10 @@ export const compoundOperators = new Set(["+=", "-=", "*=", "/=", "%=", "**=", "
 const ErrorBrand: unique symbol = Symbol("codemode.error")
 
 export const createErrorValue = (name: string, message: string): SafeObject => {
-  const value = Object.assign(Object.create(null) as SafeObject, { name, message })
+  const value = Object.assign(Object.create(null) as SafeObject, {
+    name,
+    message,
+  })
   Object.defineProperty(value, ErrorBrand, { value: name })
   return value
 }
@@ -29,7 +32,7 @@ export const errorBrandName = (value: unknown): string | undefined =>
     ? ((value as Record<PropertyKey, unknown>)[ErrorBrand] as string | undefined)
     : undefined
 
-export const boundedData = (value: unknown, label: string): unknown => copyIn(value, label, true)
+export const boundedData = (value: unknown, label: string): CodeModeData => copyIn(value, label, true)
 
 export const coerceToString = (value: unknown): string => {
   if (value === null) return "null"
@@ -55,7 +58,11 @@ export const coerceToNumber = (value: unknown): number => {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? Number.NaN : Number(value)
 }
 
-export const invokeCoercion = (ref: CoercionFunction, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeCoercion = (
+  ref: CoercionFunction,
+  args: Array<unknown>,
+  node: AstNode,
+): boolean | number | string => {
   const raw = args[0]
   if (isCodeModeValue(raw)) {
     if (ref.name === "Boolean") return true
@@ -87,4 +94,5 @@ import {
   CodeModeSet,
   CodeModeURL,
   CodeModeURLSearchParams,
+  type CodeModeData,
 } from "../values"

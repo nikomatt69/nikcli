@@ -21,7 +21,7 @@ import { rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { spawn, type IExitEvent } from "bun-pty"
+import { spawnPty, type PtyExitEvent } from "@nikcli-ai/util/pty"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const dir = path.resolve(__dirname, "..")
@@ -57,12 +57,14 @@ function resolveBinary() {
 }
 
 /** Drop ANSI/OSC control sequences so cell-by-cell text reassembles into words. */
+const ESC = String.fromCharCode(27)
+const BEL = String.fromCharCode(7)
+const ANSI_OSC = new RegExp(`${ESC}\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)`, "g")
+const ANSI_DCS = new RegExp(`${ESC}P[^${ESC}]*${ESC}\\\\`, "g")
+const ANSI_CSI = new RegExp(`${ESC}\\[[0-9;?<>=]*[ -/]*[@-~]`, "g")
+const ANSI_OTHER = new RegExp(`${ESC}[@-Z\\\\-_]`, "g")
 function plain(raw: string) {
-  return raw
-    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
-    .replace(/\x1bP[^\x1b]*\x1b\\/g, "")
-    .replace(/\x1b\[[0-9;?<>=]*[ -/]*[@-~]/g, "")
-    .replace(/\x1b[@-Z\\-_]/g, "")
+  return raw.replace(ANSI_OSC, "").replace(ANSI_DCS, "").replace(ANSI_CSI, "").replace(ANSI_OTHER, "")
 }
 
 const binary = resolveBinary()
@@ -73,21 +75,23 @@ console.log(`[tui-smoke] home   ${home}`)
 console.log(`[tui-smoke] pty    ${COLS}x${ROWS}, settling for ${SETTLE_MS}ms`)
 
 let raw = ""
-let exit: IExitEvent | undefined
+let exit: PtyExitEvent | undefined
 
-const pty = spawn(binary, [], {
-  name: "xterm-256color",
+const pty = spawnPty({
+  command: binary,
   cols: COLS,
   rows: ROWS,
   cwd: home,
   env: {
     ...process.env,
-    // Isolate every path the CLI writes to, so the smoke never touches the
-    // developer's (or the runner's) real nikcli state.
     NIKCLI_TEST_HOME: home,
     NIKCLI_DISABLE_AUTOUPDATE: "1",
+    // Bun's native Windows ConPTY currently reports stdin.isTTY=false. Without
+    // the managed-terminal marker the CLI treats stdin as a pipe and waits for
+    // EOF forever, so the renderer never starts and the smoke sees no output.
+    NIKCLI_TERMINAL: "1",
     TERM: "xterm-256color",
-  } as Record<string, string>,
+  },
 })
 
 pty.onData((data) => {

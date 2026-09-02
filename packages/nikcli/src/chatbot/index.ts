@@ -25,7 +25,7 @@ export namespace ChatBot {
   }
 
   export function isChatPlatform(type: string): type is ChatPlatform {
-    return CHAT_SDK_PLATFORMS.includes(type as ChatPlatform)
+    return CHAT_SDK_PLATFORMS.some((platform) => platform === type)
   }
 
   export async function createBot(name: string, config: Config.Connector): Promise<Chat | null> {

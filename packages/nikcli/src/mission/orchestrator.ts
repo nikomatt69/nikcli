@@ -17,7 +17,6 @@
  * projects can't collide.
  */
 
-import z from "zod"
 import { Effect, Schema } from "effect"
 import { BusEvent } from "../bus/bus-event"
 import { Bus } from "../bus"
@@ -28,12 +27,17 @@ import { SessionPrompt } from "../session/prompt"
 import { PermissionNext } from "../permission/next"
 import { RunSandbox } from "../worktree/sandbox"
 import { DEFAULT_LOOP_AGENT } from "../loop/schema"
-import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "../effect"
+import {
+  InstanceState,
+  runPromiseWithLayer,
+  withCurrentInstance,
+  withInstanceAsync,
+  type InstanceContext,
+} from "../effect"
 import * as Manager from "./manager"
 import {
   DEFAULT_FEATURE_TIMEOUT_MS,
   ExecStatusEffect,
-  ExecStatusSchema,
   MAX_CONCURRENT_MISSIONS,
   MAX_FEATURE_TIMEOUT_MS,
   MIN_FEATURE_TIMEOUT_MS,
@@ -194,16 +198,16 @@ function inSandbox<T>(directory: string | undefined, fn: () => Promise<T>): Prom
  * and persist the handle so a resume rebinds to the same one. Returns
  * `undefined` when the mission opted out or the project cannot be sandboxed.
  */
-async function ensureSandbox(def: MissionDefinition): Promise<RunSandbox.Info | undefined> {
+async function ensureSandbox(instance: InstanceContext, def: MissionDefinition): Promise<RunSandbox.Info | undefined> {
   if (!isSandboxed(def)) return undefined
   const sandbox = await RunSandbox.ensure({
-    hostDirectory: Instance.directory,
+    hostDirectory: instance.directory,
     name: `mission-${def.name}`,
     branchPrefix: "nikcli/mission",
-    ...(def.worktree ? { existing: def.worktree } : {}),
+    ...(def.worktree ? { existing: def.worktree } : undefined),
   })
   if (sandbox && sandbox.directory !== def.worktree?.directory) {
-    await Manager.setWorktree(def.id, sandbox).catch((error) =>
+    await Manager.setWorktree(instance.project.id, def.id, sandbox).catch((error) =>
       log.warn("failed to persist sandbox worktree", {
         missionID: def.id,
         error: describeError(error),
@@ -223,7 +227,7 @@ async function ensureSession(title: string, sandboxed: boolean, directory?: stri
           // A mission runs unattended for hours; there is nobody to answer a
           // permission prompt. Full access is only defensible because the run
           // is confined to its own worktree.
-          ...(sandboxed ? { permission: PermissionNext.fullAccess() } : {}),
+          ...(sandboxed ? { permission: PermissionNext.fullAccess() } : undefined),
         })
       }),
     ),
@@ -286,8 +290,8 @@ async function runGoal(
       command: "goal",
       arguments: objective,
       agent: args.agent || DEFAULT_LOOP_AGENT,
-      ...(args.model ? { model: args.model } : {}),
-      ...(args.parentSessionID ? { parentSessionID: args.parentSessionID } : {}),
+      ...(args.model ? { model: args.model } : undefined),
+      ...(args.parentSessionID ? { parentSessionID: args.parentSessionID } : undefined),
     }
     await inSandbox(args.directory, () =>
       runSessionPrompt(
@@ -330,6 +334,7 @@ function execStatusFor(result: { ok: boolean; timedOut: boolean }, aborted: bool
 // ── One feature / one validation ───────────────────────────────────────────────
 
 async function runOneExec(
+  instance: InstanceContext,
   def: MissionDefinition,
   kind: ExecKind,
   target: {
@@ -345,9 +350,12 @@ async function runOneExec(
   timeoutMs: number,
   slot: InFlight,
 ): Promise<{ ok: boolean; error?: string; timedOut: boolean }> {
-  const exec = await Manager.startExec(def.id, kind, target.id, target.name, sessionID)
+  const exec = await Manager.startExec(instance.project.id, def.id, kind, target.id, target.name, sessionID)
   slot.execID = exec.id
-  const heartbeat = setInterval(() => void Manager.touchExec(def.id, exec.id), Math.floor(MISSION_EXEC_LEASE_MS / 3))
+  const heartbeat = setInterval(
+    () => void Manager.touchExec(instance.project.id, def.id, exec.id),
+    Math.floor(MISSION_EXEC_LEASE_MS / 3),
+  )
   void Bus.publish(MissionEvent.ExecStarted, {
     missionID: def.id,
     execID: exec.id,
@@ -362,20 +370,20 @@ async function runOneExec(
         sessionID,
         objective: target.objective,
         agent: target.agent,
-        ...(target.model ? { model: target.model } : {}),
-        ...(target.tokenBudget ? { tokenBudget: target.tokenBudget } : {}),
+        ...(target.model ? { model: target.model } : undefined),
+        ...(target.tokenBudget ? { tokenBudget: target.tokenBudget } : undefined),
         timeoutMs,
-        ...(slot.directory ? { directory: slot.directory } : {}),
-        ...(slot.callerSessionID ? { parentSessionID: slot.callerSessionID } : {}),
+        ...(slot.directory ? { directory: slot.directory } : undefined),
+        ...(slot.callerSessionID ? { parentSessionID: slot.callerSessionID } : undefined),
       },
       signal,
     )
     const status = execStatusFor(result, signal.aborted && !result.timedOut)
-    await Manager.finishExec(def.id, exec.id, {
+    await Manager.finishExec(instance.project.id, def.id, exec.id, {
       status,
       ok: result.ok,
       endedAt: Date.now(),
-      ...(result.error !== undefined ? { error: result.error } : {}),
+      ...(result.error !== undefined ? { error: result.error } : undefined),
     })
     void Bus.publish(MissionEvent.ExecFinished, {
       missionID: def.id,
@@ -384,7 +392,7 @@ async function runOneExec(
       targetID: target.id,
       status,
       ok: result.ok,
-      ...(result.error !== undefined ? { error: result.error } : {}),
+      ...(result.error !== undefined ? { error: result.error } : undefined),
     })
     return result
   } finally {
@@ -430,16 +438,17 @@ function featureTimeoutMs(def: MissionDefinition): number {
  * of the global provider default.
  */
 async function orchestrate(
+  instance: InstanceContext,
   missionID: string,
   signal: AbortSignal,
   slot: InFlight,
   callerSessionID?: string,
 ): Promise<void> {
-  const initial = await requireDef(missionID)
+  const initial = await requireDef(instance, missionID)
   // Materialize the sandbox first: every worker in this mission runs bound to
   // it. `ensureSandbox` never throws — a project that cannot be sandboxed
   // falls back to the host directory.
-  const sandbox = await ensureSandbox(initial)
+  const sandbox = await ensureSandbox(instance, initial)
   slot.directory = sandbox?.directory
   const sessionID = await ensureSession(`mission: ${initial.name}`, sandbox !== undefined, sandbox?.directory)
   slot.sessionID = sessionID
@@ -452,13 +461,13 @@ async function orchestrate(
   }))
   void Bus.publish(MissionEvent.Started, { missionID })
 
-  const timeoutMs = featureTimeoutMs(await requireDef(missionID))
+  const timeoutMs = featureTimeoutMs(await requireDef(instance, missionID))
 
   // Re-read the definition each loop so user intervention (skip/add/drop) and
   // persisted feature status are always respected.
   for (;;) {
     if (signal.aborted) return finalize(missionID, "cancelled-or-paused")
-    const def = await Manager.get(missionID)
+    const def = await Manager.get(instance.project.id, missionID)
     if (!def) return
     if (def.status === "paused" || runtimeOf(missionID).status === "paused") {
       return finalize(missionID, "paused")
@@ -466,7 +475,7 @@ async function orchestrate(
 
     const milestone = currentMilestone(def)
     if (!milestone) {
-      await Manager.setStatus(missionID, "complete")
+      await Manager.setStatus(instance.project.id, missionID, "complete")
       patch(missionID, (prev) => ({
         ...prev,
         status: "idle",
@@ -480,7 +489,8 @@ async function orchestrate(
       return
     }
 
-    if (milestone.status === "pending") await Manager.setMilestoneStatus(missionID, milestone.id, "running")
+    if (milestone.status === "pending")
+      await Manager.setMilestoneStatus(instance.project.id, missionID, milestone.id, "running")
     patch(missionID, (prev) => ({ ...prev, currentMilestoneID: milestone.id }))
 
     // ── Run the next ready feature, if any ──────────────────────────────────
@@ -492,12 +502,12 @@ async function orchestrate(
         currentFeatureID: feature.id,
         ...progressInto(def),
       }))
-      await Manager.setFeatureStatus(missionID, feature.id, "running")
-      const result = await runOneFeature(def, feature, sessionID, signal, timeoutMs, slot)
+      await Manager.setFeatureStatus(instance.project.id, missionID, feature.id, "running")
+      const result = await runOneFeature(instance, def, feature, sessionID, signal, timeoutMs, slot)
       if (result.timedOut || (!result.ok && !signal.aborted)) {
-        await Manager.setFeatureStatus(missionID, feature.id, "error", result.error)
-        await Manager.setMilestoneStatus(missionID, milestone.id, "blocked")
-        await Manager.setStatus(missionID, "error")
+        await Manager.setFeatureStatus(instance.project.id, missionID, feature.id, "error", result.error)
+        await Manager.setMilestoneStatus(instance.project.id, missionID, milestone.id, "blocked")
+        await Manager.setStatus(instance.project.id, missionID, "error")
         patch(missionID, (prev) => ({
           ...prev,
           status: "error",
@@ -507,22 +517,22 @@ async function orchestrate(
         void Bus.publish(MissionEvent.Finished, {
           missionID,
           status: "error",
-          ...(result.error ? { error: result.error } : {}),
+          ...(result.error ? { error: result.error } : undefined),
         })
         return
       }
       if (signal.aborted) return finalize(missionID, "cancelled-or-paused")
-      await Manager.setFeatureStatus(missionID, feature.id, "done")
+      await Manager.setFeatureStatus(instance.project.id, missionID, feature.id, "done")
       continue
     }
 
     // ── No ready features: either all settled (validate) or genuinely stuck ──
-    const fresh = (await Manager.get(missionID))?.milestones.find((m) => m.id === milestone.id)
+    const fresh = (await Manager.get(instance.project.id, missionID))?.milestones.find((m) => m.id === milestone.id)
     if (!fresh) return
     if (!milestoneFeaturesSettled(fresh)) {
       // Remaining features are blocked by unsatisfiable deps (deps that errored).
-      await Manager.setMilestoneStatus(missionID, milestone.id, "blocked")
-      await Manager.setStatus(missionID, "error")
+      await Manager.setMilestoneStatus(instance.project.id, missionID, milestone.id, "blocked")
+      await Manager.setStatus(instance.project.id, missionID, "error")
       const err = "Milestone has features blocked by failed dependencies"
       patch(missionID, (prev) => ({
         ...prev,
@@ -539,9 +549,10 @@ async function orchestrate(
     }
 
     if (fresh.validation !== "none" && fresh.status !== "validating") {
-      await Manager.setMilestoneStatus(missionID, milestone.id, "validating")
+      await Manager.setMilestoneStatus(instance.project.id, missionID, milestone.id, "validating")
       patch(missionID, (prev) => ({ ...prev, currentFeatureID: undefined }))
       const result = await runOneExec(
+        instance,
         def,
         "validation",
         {
@@ -557,8 +568,8 @@ async function orchestrate(
         slot,
       )
       if (result.timedOut || (!result.ok && !signal.aborted)) {
-        await Manager.setMilestoneStatus(missionID, milestone.id, "blocked")
-        await Manager.setStatus(missionID, "error")
+        await Manager.setMilestoneStatus(instance.project.id, missionID, milestone.id, "blocked")
+        await Manager.setStatus(instance.project.id, missionID, "error")
         patch(missionID, (prev) => ({
           ...prev,
           status: "error",
@@ -567,15 +578,15 @@ async function orchestrate(
         void Bus.publish(MissionEvent.Finished, {
           missionID,
           status: "error",
-          ...(result.error ? { error: result.error } : {}),
+          ...(result.error ? { error: result.error } : undefined),
         })
         return
       }
       if (signal.aborted) return finalize(missionID, "cancelled-or-paused")
     }
 
-    await Manager.setMilestoneStatus(missionID, milestone.id, "done")
-    const progressDef = (await Manager.get(missionID)) ?? def
+    await Manager.setMilestoneStatus(instance.project.id, missionID, milestone.id, "done")
+    const progressDef = (await Manager.get(instance.project.id, missionID)) ?? def
     patch(missionID, (prev) => ({ ...prev, ...progressInto(progressDef) }))
   }
 }
@@ -586,6 +597,7 @@ function progressInto(def: MissionDefinition): Partial<Runtime> {
 }
 
 async function runOneFeature(
+  instance: InstanceContext,
   def: MissionDefinition,
   feature: MissionFeature,
   sessionID: string,
@@ -594,6 +606,7 @@ async function runOneFeature(
   slot: InFlight,
 ) {
   return runOneExec(
+    instance,
     def,
     "feature",
     {
@@ -602,7 +615,7 @@ async function runOneFeature(
       objective: feature.objective,
       agent: feature.agent,
       model: feature.model ?? def.models.worker,
-      ...(feature.tokenBudget ? { tokenBudget: feature.tokenBudget } : {}),
+      ...(feature.tokenBudget ? { tokenBudget: feature.tokenBudget } : undefined),
     },
     sessionID,
     signal,
@@ -611,8 +624,8 @@ async function runOneFeature(
   )
 }
 
-async function requireDef(missionID: string): Promise<MissionDefinition> {
-  const def = await Manager.get(missionID)
+async function requireDef(instance: InstanceContext, missionID: string): Promise<MissionDefinition> {
+  const def = await Manager.get(instance.project.id, missionID)
   if (!def) throw new Error(`Mission ${missionID} not found`)
   return def
 }
@@ -641,6 +654,7 @@ function finalize(missionID: string, reason: "paused" | "cancelled-or-paused"): 
  * goes through `prepareUserMessage` directly).
  */
 export async function start(missionID: string, options?: { callerSessionID?: string }): Promise<void> {
+  const instance = InstanceState.ambient()
   const callerSessionID = options?.callerSessionID
   const { inFlight } = instanceState()
   if (inFlight.has(missionID)) return
@@ -655,7 +669,7 @@ export async function start(missionID: string, options?: { callerSessionID?: str
       void Bus.publish(MissionEvent.Aborted, { missionID, reason: "capacity" })
       return
     }
-    const def = await Manager.get(missionID)
+    const def = await Manager.get(instance.project.id, missionID)
     if (!def) {
       log.warn("start called for unknown mission", { missionID })
       return
@@ -663,16 +677,16 @@ export async function start(missionID: string, options?: { callerSessionID?: str
     if (def.status === "complete") return
     if (def.status === "paused" || def.status === "frozen") {
       // Resuming clears the persisted pause flag.
-      await Manager.setStatus(missionID, "running")
+      await Manager.setStatus(instance.project.id, missionID, "running")
     }
 
     const real = (async () => {
       try {
-        await orchestrate(missionID, ctrl.signal, slot, callerSessionID)
+        await orchestrate(instance, missionID, ctrl.signal, slot, callerSessionID)
       } catch (error) {
         const message = describeError(error)
         log.error("orchestration failed", { missionID, error: message })
-        await Manager.setStatus(missionID, "error").catch(() => {})
+        await Manager.setStatus(instance.project.id, missionID, "error").catch(() => {})
         patch(missionID, (prev) => ({
           ...prev,
           status: "error",
@@ -694,7 +708,8 @@ export async function start(missionID: string, options?: { callerSessionID?: str
 
 /** Pause an in-flight mission: persists the flag and aborts the current worker. */
 export async function pause(missionID: string): Promise<void> {
-  await Manager.setStatus(missionID, "paused")
+  const instance = InstanceState.ambient()
+  await Manager.setStatus(instance.project.id, missionID, "paused")
   patch(missionID, (prev) => ({ ...prev, status: "paused" }))
   const slot = instanceState().inFlight.get(missionID)
   if (slot) {
@@ -706,9 +721,10 @@ export async function pause(missionID: string): Promise<void> {
 
 /** Cancel an in-flight mission and freeze it for reassessment. */
 export async function cancel(missionID: string): Promise<void> {
+  const instance = InstanceState.ambient()
   const slot = instanceState().inFlight.get(missionID)
   patch(missionID, (prev) => ({ ...prev, status: "cancelling" }))
-  await Manager.setStatus(missionID, "frozen")
+  await Manager.setStatus(instance.project.id, missionID, "frozen")
   if (slot) {
     slot.controller.abort("cancel")
     if (slot.sessionID) await promptCancel(slot.sessionID, slot.directory).catch(() => {})
@@ -733,7 +749,8 @@ export function inflight(missionID: string): Promise<void> | undefined {
  * user action — but it does surface any mission left mid-flight by a crash.
  */
 export async function restore(): Promise<void> {
-  const defs = await Manager.list()
+  const instance = InstanceState.ambient()
+  const defs = await Manager.list(instance.project.id)
   for (const def of defs) {
     const p = progressOf(def)
     const status: RuntimeStatus = def.status === "running" ? "paused" : def.status === "error" ? "error" : "idle"
@@ -746,10 +763,10 @@ export async function restore(): Promise<void> {
     }
     // A mission persisted as "running" but with no live process is stranded:
     // demote it to "paused" so the user can explicitly resume it.
-    if (def.status === "running") await Manager.setStatus(def.id, "paused").catch(() => {})
+    if (def.status === "running") await Manager.setStatus(instance.project.id, def.id, "paused").catch(() => {})
   }
 
-  const stale = await Manager.listRunningExecs()
+  const stale = await Manager.listRunningExecs(instance.project.id)
   const cutoff = Date.now() - MISSION_EXEC_LEASE_MS
   const isExpired = (e: MissionExec) => (e.heartbeatAt ?? e.startedAt) < cutoff
   for (const exec of stale) {
@@ -758,7 +775,7 @@ export async function restore(): Promise<void> {
         missionID: exec.missionID,
         execID: exec.id,
       })
-      await Manager.orphanExec(exec.missionID, exec.id)
+      await Manager.orphanExec(instance.project.id, exec.missionID, exec.id)
       void Bus.publish(MissionEvent.ExecFinished, {
         missionID: exec.missionID,
         execID: exec.id,

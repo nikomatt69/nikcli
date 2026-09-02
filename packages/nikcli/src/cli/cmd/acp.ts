@@ -21,6 +21,9 @@ export const AcpCommand = cmd({
   },
   handler: async (args) => {
     await bootstrap(process.cwd(), async () => {
+      // SAFETY: this command's builder is `withNetworkOptions`, which declares
+      // exactly the flags `resolveNetworkOptions` reads. yargs infers a wider
+      // argv type than the builder guarantees.
       const opts = await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0])
       const server = Server.listen(opts)
 

@@ -8,7 +8,7 @@
 
 ### Core
 
-- **Bun** 1.3.14 — runtime, package manager
+- **Bun** 1.4.0 — runtime, package manager
 - **TypeScript** 7.0 native (`tsc` via `@typescript/native`) for typecheck; JS-based TypeScript 5.8/5.9 stays for the programmatic API (codemode transpile, Astro tooling)
 - **Turborepo** — monorepo orchestration
 - **Zod** 4.1.8 — validation (with `.meta()` for OpenAPI refs)
@@ -80,6 +80,7 @@
 | `packages/companion`                                           | `@nikcli-ai/companion`           | Companion server (Hono + WebSocket + Cloudflare Workers)                                                              |
 | `packages/remote`                                              | `@nikcli-ai/remote`              | Remote terminal via WebSocket + QR code + tunnels                                                                     |
 | `packages/slack`                                               | `@nikcli-ai/slack`               | Slack bot (@slack/bolt + Cloudflare Workers)                                                                          |
+| `packages/discord`                                             | `@nikcli-ai/discord`             | Discord Gateway bot (discord.js) + invite helpers; TUI `/discord` wizard via HttpApi                                  |
 | `packages/web`                                                 | `@nikcli-ai/web`                 | Marketing/docs site at `nikcli.store` (Astro + React + Cloudflare)                                                    |
 | `packages/inference`                                           | `@nikcli-ai/inference`           | Inference service                                                                                                     |
 | `packages/inference-dashboard`                                 | `@nikcli-ai/inference-dashboard` | Analytics dashboard (Astro)                                                                                           |

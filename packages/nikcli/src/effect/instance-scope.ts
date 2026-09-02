@@ -1,11 +1,19 @@
 import { Instance } from "@/project/instance"
 import { Effect, Fiber, type Exit } from "effect"
 import { locallyInstance, locallyWorkspace, type InstanceContext } from "./instance-ref"
-import { AppRuntime } from "./runtime"
 
 export interface WithInput {
   readonly directory: string
   readonly workspaceID?: string
+  /**
+   * Bootstrap to run for this instance if it has not had one yet — in
+   * practice always `InstanceBootstrap`, which is the only `init` passed
+   * anywhere in `src`. It is a property of the instance, not of this call:
+   * `Instance.provide` runs it once per directory, retroactively for an
+   * instance an earlier bootstrap-free acquisition created, and shares one
+   * run between concurrent askers.
+   */
+  readonly init?: (instance: InstanceContext) => Promise<void>
 }
 
 export const InstanceScope = {
@@ -14,8 +22,10 @@ export const InstanceScope = {
    *
    * The effect must execute inside `Instance.provide`'s AsyncLocalStorage
    * scope (legacy code in effect bodies still reads `Instance.directory`
-   * from ALS), so it is forked onto the shared AppRuntime from within that
-   * scope. Unlike a plain promise hand-off, the bridge stays structured:
+   * from ALS), so it is forked onto that instance's `ManagedRuntime` from
+   * within the scope. The runtime's layer provides `InstanceRef`, so fibers
+   * see the instance without an ALS fallback. Unlike a plain promise
+   * hand-off, the bridge stays structured:
    *
    * - the inner fiber's full Exit (typed failures, defects, interruption)
    *   is rethrown in the caller's fiber instead of being squashed to Error
@@ -31,7 +41,9 @@ export const InstanceScope = {
 
       Instance.provide({
         directory: input.directory,
+        init: input.init,
         fn: () => {
+          // R2 boundary: builds InstanceContext inside provide after lookup/bootstrap.
           const ctx: InstanceContext = {
             directory: Instance.directory,
             worktree: Instance.worktree,
@@ -40,7 +52,11 @@ export const InstanceScope = {
           const scoped = input.workspaceID
             ? locallyWorkspace({ id: input.workspaceID }, locallyInstance(ctx, effect))
             : locallyInstance(ctx, effect)
-          const fiber = AppRuntime.runFork(scoped as Effect.Effect<A, E, never>)
+          // SAFETY: `locallyInstance` (and `locallyWorkspace` when a workspace is
+          // pinned) provide every requirement the effect declares. The instance
+          // runtime's layer also provides `InstanceRef`; the explicit provide
+          // keeps the same ctx the ALS scope just installed.
+          const fiber = Instance.runtime.runFork(scoped as Effect.Effect<A, E, never>)
           inner = fiber
           if (cancelled) fiber.interruptUnsafe()
           return new Promise<Exit.Exit<A, E>>((resolve) => {

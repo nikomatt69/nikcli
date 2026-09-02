@@ -1,3 +1,4 @@
+import type { JsonValue } from "@/util/json"
 export interface CacheEntry<T> {
   value: T
   expiresAt: number
@@ -63,13 +64,13 @@ const statusCache = new Cache<Record<string, any>>()
 const toolsCache = new Cache<Record<string, any>>()
 const configHashCache = new Cache<string>()
 
-function normalize(value: unknown): unknown {
+function normalize(value: JsonValue): JsonValue {
   if (Array.isArray(value)) {
     return value.map((item) => normalize(item))
   }
 
   if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))
+    const entries = Object.entries(value).sort(([a], [b]) => a.localeCompare(b))
     return Object.fromEntries(entries.map(([key, entry]) => [key, normalize(entry)]))
   }
 

@@ -72,6 +72,8 @@ export class PromiseRuntime<R> {
 
   // Re-check because a straggler can create promises before its interruption lands.
   interrupt(): Effect.Effect<Array<Diagnostic>> {
+    // Effect.gen generators do not bind `this`; alias is required.
+    // oxlint-disable-next-line typescript/no-this-alias
     const self = this
     return Effect.gen(function* () {
       while (self.active.size > 0) {
@@ -136,7 +138,10 @@ export const invokePromiseMethod = <R>(
               const exit = yield* observation
               if (Exit.isSuccess(exit)) {
                 outcomes.push(
-                  Object.assign(Object.create(null) as SafeObject, { status: "fulfilled", value: exit.value }),
+                  Object.assign(Object.create(null) as SafeObject, {
+                    status: "fulfilled",
+                    value: exit.value,
+                  }),
                 )
                 continue
               }

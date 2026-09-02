@@ -2,7 +2,7 @@
 
 These documents explain behavior that is hard to recover from one source file: cross-module contracts, decisions and their alternatives, and the migrations still in flight.
 
-They are **not** API reference and **not** a backlog. Generated clients follow the assembled `HttpApi`; work items live in [ROADMAP.md](./ROADMAP.md) and in issues.
+They are **not** API reference and **not** a backlog. Generated clients follow the assembled `HttpApi`; evidenced engineering work lives in [ROADMAP.md](./ROADMAP.md), while user outcomes and product bets live in [PRODUCT_ROADMAP.md](./PRODUCT_ROADMAP.md).
 
 ## Authority
 
@@ -23,6 +23,8 @@ Authority follows the concern. When a document and the code disagree, the code w
 | Document                                                           | Status      | Job                                                                    |
 | ------------------------------------------------------------------ | ----------- | ---------------------------------------------------------------------- |
 | [ROADMAP](./ROADMAP.md)                                            | Live        | The ordered plan: what is done, what is next, and what each step buys. |
+| [Product roadmap](./PRODUCT_ROADMAP.md)                            | Proposed    | Outcome priorities, evidence gates, and promotion into engineering.    |
+| [Effect 4 release candidate](./research-effect-4-rc.md)            | Current     | The measured break surface behind the `beta.83` pin: what E6 costs.    |
 | [Project / multi-directory](./project.md)                          | Historical  | Why the HTTP surface is flat instead of nested under `/project/:id`.   |
 | [TUI package extraction](./tui-package.md)                         | Complete    | TUI lives in `packages/tui`; host files stay in `packages/nikcli`.     |
 | [v2 contracts](./v2/README.md)                                     | Index       | Session, tools, events, instructions, catalog, provider policy.        |
@@ -35,9 +37,9 @@ Authority follows the concern. When a document and the code disagree, the code w
 `Schema.Unknown` on an endpoint `success` or a domain object compiles to `any` in the SDK. Keep it only for payloads that are genuinely open, and name the reason here rather than in a side document:
 
 - **Upstream passthrough** — a third-party body the server does not interpret.
-- **Polymorphic event-sourced entries** — `session_entry` / sync frames whose variant set grows without a contract bump.
+- **Polymorphic event-sourced entries** — `session_entry` / sync frames whose variant set grows without a contract bump. Re-checked 2026-08-30 (H10): `Schema.TaggedUnion.matchOrElse` does not change this. A half-open union of known variants plus a catch-all was measured and rejected — a malformed known member decodes as the fallback.
 - **SSE frames** — the encoded event feed; the wire is `{ type, properties }`, not a closed union at the HTTP layer.
-- **Bodyless redirects** — share short-links and similar 3xx responses.
+- **Bodyless redirects** — share short-links used to stay `Unknown` so a 308 did not invent a JSON body. H9 (2026-08-30) declared `location` with `HttpApiSchema.WithHeaders`, so `ShareShortOutput` is `{ body: void, headers: { location } }` and this category is empty.
 
 Everything else gets a real schema. Measure top-level leftovers with:
 
@@ -47,15 +49,16 @@ grep -cE '^export type [A-Za-z0-9_]+ = (unknown|Array<unknown>)$' packages/sdk/j
 
 That command only sees an alias whose **whole** right-hand side is open. It is the headline number, not the whole count, and an item is not done because it reached zero. An open payload nested inside a struct is invisible to it.
 
-Measured **2026-08-18** (H6 landed): open payloads emit `unknown`, not `any` — the codegen no longer rewrites `\bunknown\b` → `any`. Index-signature catchalls still emit `{ [x: string]: any }`. Top-level open aliases are now `SessionV2EntryList = Array<unknown>`, `SessionV2State = unknown`, `SessionV2EventList = Array<unknown>`, `AccountResponse = unknown`, `WorkspaceJournalEvent = unknown`, `MobileGithubReposOutput = Array<unknown>`, `MobileSessionStreamOutput = unknown`, `MobileEventsOutput = unknown`, `SyncStreamOutput = unknown`, `ShareShortOutput = unknown` (all justified in the categories above). Flattened write inputs are `{ name: OpPayload["name"]; … }` plus path params. Loop/mission create-update, `MobileProject`, and `ProfilePatchInput` are real structs.
+Measured **2026-08-19** (H1 closed; unchanged since H6 landed): open payloads emit `unknown`, not `any` — the codegen no longer rewrites `\bunknown\b` → `any`. Index-signature catchalls still emit `{ [x: string]: any }`. Top-level open aliases as of H9 (2026-08-30) are `SessionV2EntryList = Array<unknown>`, `SessionV2State = unknown`, `SessionV2EventList = Array<unknown>`, `AccountResponse = unknown`, `WorkspaceJournalEvent = unknown`, `MobileGithubReposOutput = Array<unknown>`, `MobileSessionStreamOutput = unknown`, `MobileEventsOutput = unknown`, `SyncStreamOutput = unknown` (all justified in the categories above). `ShareShortOutput` left that list when H9 declared `location`. Flattened write inputs are `{ name: OpPayload["name"]; … }` plus path params. Loop/mission create-update, `MobileProject`, and `ProfilePatchInput` are real structs.
 
 ```sh
 grep -nE '(\[x: string\]: any|Array<unknown>|: unknown\b)' packages/sdk/js/src/httpapi/generated/types.ts
 ```
 
-- **`{ [x: string]: any }` as a whole body** — `MobileConfigInfo` is the config document (`fromZod(Config.Info)`). The catchall is the zod document’s open tail. Pin it or name it here as the one config exception (roadmap H1).
+- **`{ [x: string]: any }` as a top-level tail** — `Config`, `AgentConfig`, `TuiConfig`. These are the `nikcli.json` document (`fromZod(Config.Info)`); the tail is that zod document’s deliberate open end, and it is the **only** whole-body catchall left. `MobileConfigInfo` is no longer one — it emits the full struct with the tail only where the zod document has it. Find them with `awk '/^export type/{n=$3} /^  \[x: string\]: any/{print n}'`; the flat grep above cannot tell a top-level tail from a nested field.
 - **`{ [x: string]: any }` as one field** — `metadata`, tool `input`, `JSONSchema`. Justified: the value is caller-defined or already a JSON Schema.
-- **`payload: unknown` on a write input** — six TUI payloads (`TuiAppendPromptInput`, `TuiExecuteCommandInput`, `TuiShowToastInput`, `TuiPublishInput`, `TuiSelectSessionInput`, `TuiControlResponseInput`) and `ConnectorsAuthSetInput.payload`. Never justified; the codecs exist in `httpapi/tui.ts` / connector auth. `MobileLoopCreateInput` and `MissionUpdateInput` are typed as of 2026-08-17.
+- **`properties: unknown` on `TuiPublishInput`; `body: unknown` on `TuiControlResponseInput` / `TuiControlRequest`** — the publish route is the write side of the SSE `{ type, properties }` envelope: the runtime check on `type` finds the entry in the `TuiEvent` registry (`bus/tui-event.ts`) and the matching per-event schema parses `properties`. The control channel is a verbatim relay queue (`server/tui-control.ts`); the server never interprets the body. Justified — a contract-time union would freeze HTTP to the bus registry or the control protocol.
+- **`payload: unknown` on a write input** — **none left** (H1, 2026-08-17). The six TUI payloads reuse `TuiEventPayload`, `ConnectorsAuthSetInput.payload` is `ConnectorAuth.EntrySchema`, and `MobileLoopCreateInput` / `MissionUpdateInput` are structs. `grep -c 'payload: unknown'` on the generated types is 0; it staying 0 is the check.
 
 ## Rules
 

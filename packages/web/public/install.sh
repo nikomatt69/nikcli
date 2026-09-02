@@ -299,12 +299,23 @@ else
       fi
     fi
 
-    target="$os-$arch"
-    if [ "$needs_baseline" = "true" ]; then
-      target="$target-baseline"
-    fi
+    # Bun 1.4 emits one x64 build that is itself baseline (no AVX2 required), so
+    # releases from 1.300.0 on ship no `-baseline` asset at all; earlier releases
+    # do. When the CPU needs baseline we therefore try the baseline asset first
+    # and fall back to the plain target. Both orders are safe: on an old release
+    # the baseline asset exists and wins, and on a new one the plain asset it
+    # falls back to runs everywhere. The reverse — handing an AVX2 build to a CPU
+    # without AVX2 — is a SIGILL, so the plain target is never tried first here.
+    musl_suffix=""
     if [ "$is_musl" = "true" ]; then
-      target="$target-musl"
+      musl_suffix="-musl"
+    fi
+
+    target="$os-$arch$musl_suffix"
+    target_fallback=""
+    if [ "$needs_baseline" = "true" ]; then
+      target_fallback="$target"
+      target="$os-$arch-baseline$musl_suffix"
     fi
 
     filename="$ASSET_PREFIX-$target$archive_ext"
@@ -326,8 +337,8 @@ else
     step "Detected: ${BOLD}${os}${NC} ${DIM}(${arch})${NC}"
 
     if [ -z "$requested_version" ]; then
-        url_primary="https://nikcli.store/releases/latest/download/$filename"
-        url_fallback="https://github.com/nikomatt69/nikcli/releases/latest/download/$filename"
+        release_url_primary="https://nikcli.store/releases/latest/download"
+        release_url_fallback="https://github.com/nikomatt69/nikcli/releases/latest/download"
         spinner_start "Resolving latest version"
         specific_version=$(curl -s https://api.github.com/repos/nikomatt69/nikcli/releases/latest | sed -E -n 's/.*"tag_name": *"v?([^"]*)".*/\1/p' || true)
         if [ -z "$specific_version" ]; then
@@ -339,8 +350,8 @@ else
     else
         requested_version="${requested_version#v}"
         release_tag="v${requested_version}"
-        url_primary="https://nikcli.store/releases/download/${release_tag}/$filename"
-        url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${release_tag}/$filename"
+        release_url_primary="https://nikcli.store/releases/download/${release_tag}"
+        release_url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${release_tag}"
         specific_version=$requested_version
 
         http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/${release_tag}")
@@ -348,8 +359,8 @@ else
             http_status_bare=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/${requested_version}")
             if [ "$http_status_bare" = "200" ] || [ "$http_status_bare" = "302" ]; then
                 release_tag="${requested_version}"
-                url_primary="https://nikcli.store/releases/download/${release_tag}/$filename"
-                url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${release_tag}/$filename"
+                release_url_primary="https://nikcli.store/releases/download/${release_tag}"
+                release_url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${release_tag}"
             else
                 fail "Release ${requested_version} not found"
                 ui "${GRAY}${G_BAR}${NC}  ${DIM}See https://github.com/nikomatt69/nikcli/releases${NC}"
@@ -389,21 +400,33 @@ download_and_install() {
     local download_success=false
     spinner_start "Downloading ${APP} ${specific_version}"
 
+    # $target is the baseline asset and $target_fallback the plain one when the
+    # CPU needs baseline; otherwise $target_fallback is empty and there is a
+    # single candidate. A release carrying neither is a genuine failure.
     local http_code
-    http_code=$(curl -sL -w "%{http_code}" -o "$tmp_dir/$filename" "$url_primary" 2>/dev/null || echo "000")
-    if [ "$http_code" = "200" ] && [ -s "$tmp_dir/$filename" ]; then
-        download_success=true
-    fi
+    local candidate_target
+    local candidate_url
+    for candidate_target in "$target" "$target_fallback"; do
+        if [ -z "$candidate_target" ]; then
+            continue
+        fi
+        target="$candidate_target"
+        filename="$ASSET_PREFIX-$target$archive_ext"
+        for candidate_url in "$release_url_primary/$filename" "$release_url_fallback/$filename"; do
+            rm -f "$tmp_dir/$filename"
+            http_code=$(curl -sL -w "%{http_code}" -o "$tmp_dir/$filename" "$candidate_url" 2>/dev/null || echo "000")
+            if [ "$http_code" = "200" ] && [ -s "$tmp_dir/$filename" ]; then
+                download_success=true
+                break
+            fi
+        done
+        if [ "$download_success" = true ]; then
+            break
+        fi
+    done
 
     if [ "$download_success" = false ]; then
         rm -f "$tmp_dir/$filename"
-        http_code=$(curl -sL -w "%{http_code}" -o "$tmp_dir/$filename" "$url_fallback" 2>/dev/null || echo "000")
-        if [ "$http_code" = "200" ] && [ -s "$tmp_dir/$filename" ]; then
-            download_success=true
-        fi
-    fi
-
-    if [ "$download_success" = false ]; then
         spinner_stop err "Failed to download nikcli"
         rm -rf "$tmp_dir"
         outro "Aborted"

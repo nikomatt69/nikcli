@@ -11,13 +11,14 @@ const toc = [
   { title: "Start a server", href: "#start", depth: 2 },
   { title: "Request pipeline", href: "#pipeline", depth: 2 },
   { title: "Auth layers", href: "#auth", depth: 2 },
-  { title: "Workspace context", href: "#workspace-context", depth: 2 },
+  { title: "Instance & workspace context", href: "#workspace-context", depth: 2 },
   { title: "Route groups", href: "#routes", depth: 2 },
+  { title: "Raw handlers", href: "#raw-handlers", depth: 2 },
   { title: "Session API", href: "#session-api", depth: 2 },
   { title: "Mobile API", href: "#mobile-api", depth: 2 },
-  { title: "Effect HttpApi bridge", href: "#httpapi", depth: 2 },
+  { title: "The HttpApi bridge", href: "#httpapi", depth: 2 },
   { title: "Events and streaming", href: "#streaming", depth: 2 },
-  { title: "OpenAPI docs", href: "#openapi", depth: 2 },
+  { title: "OpenAPI and SDK generation", href: "#openapi", depth: 2 },
   { title: "Failure modes", href: "#failure-modes", depth: 2 },
   { title: "Source anchors", href: "#source-anchors", depth: 2 },
 ];
@@ -25,8 +26,8 @@ const toc = [
 
 <DocsLayout
   title="Server API"
-  subtitle="How the nikcli Hono server exposes CLI, TUI, mobile, workspace, and generated Effect HttpApi routes."
-  description="Reference for nikcli’s Hono server routes, SDK boundary, mobile auth, and generated Effect HttpApi routes."
+  subtitle="How the nikcli server exposes CLI, TUI, mobile, and workspace routes through a single typed Effect HttpApi surface."
+  description="Reference for nikcli’s Effect HttpApi server routes, request pipeline, auth layers, mobile API, and SDK generation."
   toc={toc}
 >
   <section id="overview" class="doc-section">
@@ -34,26 +35,50 @@ const toc = [
     <p>
       The server in <code>packages/nikcli/src/server/server.ts</code> is the shared HTTP surface for
       web clients, the desktop app, the TUI control channel, mobile pairing, PTYs, workspace routing,
-      connector settings, MCP, analytics, and generated SDK-compatible APIs.
+      connector settings, MCP, analytics, and the generated SDK.
     </p>
     <p>
-      It is built on Hono. Most route groups are classic Hono route files under
-      <code>packages/nikcli/src/server/routes</code>. A second set of typed route groups lives under
-      <code>packages/nikcli/src/server/httpapi</code> and is activated by
-      <code>NIKCLI_EXPERIMENTAL_HTTPAPI</code> through <code>HttpApiBridge</code>.
+      It runs on <code>Bun.serve</code> with a hand-written request pipeline in
+      <code>server/server-router.ts</code>. Every declared route lives in a typed
+      <code>effect/unstable/httpapi</code> group under
+      <code>packages/nikcli/src/server/httpapi/</code>, assembled into one API in
+      <code>httpapi/public.ts</code> and served through <code>HttpApiBridge</code>.
     </p>
+    <DocCallout type="info" title="There is no Hono layer any more">
+      <p>
+        Earlier releases mounted classic Hono route files under
+        <code>src/server/routes/</code> and put the typed groups behind a
+        <code>NIKCLI_EXPERIMENTAL_HTTPAPI</code> flag. Both are gone: the routes directory was
+        deleted, the flag was removed, and the typed groups are the only implementation. If you are
+        looking for <code>routes/session.ts</code>, read
+        <code>httpapi/session.ts</code> instead.
+      </p>
+    </DocCallout>
     <div class="doc-grid not-prose">
-      <DocCard title="Classic Hono routes" eyebrow="Default">
-        <p><code>/session</code>, <code>/mobile</code>, <code>/provider</code>, <code>/mcp</code>, <code>/connectors</code>, <code>/analytics</code>, and other route groups mounted directly in <code>server.ts</code>.</p>
+      <DocCard title="Typed HttpApi groups" eyebrow="httpapi/*.ts">
+        <p>
+          One <code>HttpApiGroup</code> per domain — session, file, provider, mcp, mobile, sync,
+          loop, mission, analytics — with schema-checked request and response bodies.
+        </p>
       </DocCard>
-      <DocCard title="Effect HttpApi routes" eyebrow="Typed">
-        <p>Typed groups for SDK generation and stricter request/response contracts. The bridge handles matching paths before the classic route group runs.</p>
+      <DocCard title="Raw handlers" eyebrow="public.ts / extra.ts">
+        <p>
+          Streaming and upgrade paths that a schema cannot express (SSE feeds, prompt streaming,
+          webhooks, websocket upgrades) are served as plain <code>Request → Response</code>
+          handlers ahead of the bridge.
+        </p>
       </DocCard>
-      <DocCard title="Workspace-aware execution" eyebrow="Context">
-        <p>Every non-user request gets an instance context from <code>x-nikcli-directory</code>, <code>directory</code>, <code>x-nikcli-workspace</code>, or the route session.</p>
+      <DocCard title="Instance-aware execution" eyebrow="Context">
+        <p>
+          Every non-global request gets an instance context from <code>x-nikcli-directory</code>,
+          <code>directory</code>, <code>x-nikcli-workspace</code>, or the session named in the path.
+        </p>
       </DocCard>
-      <DocCard title="Mobile bearer auth" eyebrow="Remote">
-        <p>Mobile tokens and user session tokens can satisfy server auth before Basic Auth is checked.</p>
+      <DocCard title="Layered auth" eyebrow="httpapi/auth.ts">
+        <p>
+          Mobile bearer tokens, account tokens, Tailscale identity, and Basic Auth all resolve to a
+          single <code>Auth.Principal</code> before dispatch.
+        </p>
       </DocCard>
     </div>
   </section>
@@ -80,31 +105,41 @@ NIKCLI_SERVER_PASSWORD=secret \
         <tr><td>Local API</td><td><code>nikcli serve</code></td><td>All mounted server routes</td><td>Safe for loopback development. Password is optional on loopback.</td></tr>
         <tr><td>Public API</td><td><code>nikcli serve --hostname 0.0.0.0</code></td><td>All mounted server routes</td><td>Set <code>NIKCLI_SERVER_PASSWORD</code> or use loopback Tailscale identity mode.</td></tr>
         <tr><td>Mobile host</td><td><code>nikcli mobile serve --pair</code></td><td><code>/mobile/*</code>, <code>/user/*</code>, shared project/session routes</td><td>Bearer token auth is minted by the mobile pairing commands.</td></tr>
+        <tr><td>Workspace host</td><td><code>nikcli workspace-serve</code></td><td><code>/experimental/workspace/*</code> plus the standard API</td><td>Hosts workspace contexts, status, events, and session proxying.</td></tr>
         <tr><td>TUI external</td><td><code>nikcli --port 0</code></td><td>TUI worker server plus standard API</td><td>Used when the terminal UI needs network-visible access.</td></tr>
       </tbody>
     </table>
+    <DocCallout type="note" title="Port fallback is automatic">
+      <p>
+        <code>Server.listen()</code> tries the requested port, then falls back to an ephemeral one
+        rather than failing. <code>--port 0</code> tries <code>4096</code> first. The concrete URL is
+        always read back from the returned server, never assumed.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="pipeline" class="doc-section">
     <h2>Request pipeline</h2>
-    <p>The mounted app in <code>Server.App</code> processes requests in this order:</p>
+    <p>
+      <code>ServerRouter.make()</code> builds the fetch handler. Each request walks the same path:
+    </p>
     <ol>
-      <li>Global error mapping converts known domain errors into JSON status responses.</li>
-      <li>Public share routes run before user/server auth: <code>/s/:shareID</code>, <code>/share/:shareID</code>, and <code>/api/share/:shareID</code>.</li>
-      <li>User auth middleware attaches an account session when the request carries a valid user token.</li>
-      <li>Server-level auth checks mobile bearer tokens, Tailscale identity headers, and optional Basic Auth.</li>
-      <li>CORS allows local, app, Tailscale, <code>nikcli.store</code>, and configured origins.</li>
-      <li><code>/global</code> health and global routes mount before workspace scoping.</li>
-      <li>Workspace context resolves directory, workspace, and remote workspace proxying.</li>
-      <li><code>/doc</code> serves OpenAPI documentation generated from the Hono app.</li>
-      <li>The Effect <code>HttpApiBridge</code> handles supported paths when <code>NIKCLI_EXPERIMENTAL_HTTPAPI</code> is enabled.</li>
-      <li>Classic Hono route groups are mounted after the bridge.</li>
+      <li><strong>Body limit.</strong> Oversized bodies are rejected before anything is parsed (<code>middleware/body-limit.ts</code>).</li>
+      <li><strong>CORS preflight.</strong> <code>OPTIONS</code> short-circuits with the computed CORS headers.</li>
+      <li><strong>Public share routes.</strong> <code>/s/:shareID</code>, <code>/share/:shareID</code>, and <code>/api/share/:shareID</code> answer before any auth check.</li>
+      <li><strong>Auth.</strong> <code>Auth.authenticate()</code> resolves a principal from mobile tokens, account tokens, Tailscale identity, or Basic Auth. Public paths are allowed through unauthenticated.</li>
+      <li><strong>Global vs instance split.</strong> <code>isInstanceLessPath()</code> routes <code>/global</code>, <code>/user</code>, <code>/account</code> (plus the <code>/sync/stream</code> SSE feed) to the global branch, which never binds a project directory.</li>
+      <li><strong>Context resolution.</strong> Everything else resolves a directory and workspace, proxies remote workspaces through <code>ServerProxy</code>, and enters <code>WorkspaceContext.provide</code> + <code>withInstanceAsync</code>.</li>
+      <li><strong>Websocket upgrades.</strong> PTY connect paths upgrade in place instead of returning a body.</li>
+      <li><strong>Raw handlers.</strong> <code>PublicRoutes.instanceRequest()</code> claims SSE, prompt streaming, chatbot webhooks, and the <code>extra.ts</code> routes.</li>
+      <li><strong>HttpApi bridge.</strong> If <code>HttpApiBridge.supports(path, method)</code> matches, the typed handler answers.</li>
+      <li><strong>Fallback.</strong> Unmatched non-<code>/mobile</code> paths are proxied to <code>app.nikcli.store</code> so the hosted web app can be served from the same origin.</li>
     </ol>
-    <DocCallout type="info" title="Bridge before classic routes">
+    <DocCallout type="info" title="Raw before typed, always">
       <p>
-        The bridge check runs after query validation and workspace context, but before the classic
-        route groups. This lets typed handlers own a route when the feature flag is active while the
-        old Hono route remains the fallback.
+        The raw handlers run <em>before</em> the bridge on purpose. A schema-encoded response cannot
+        hold an open SSE stream or a websocket, so those paths have to claim the request first.
+        Everything a schema <em>can</em> describe belongs in an HttpApi group.
       </p>
     </DocCallout>
   </section>
@@ -113,16 +148,18 @@ NIKCLI_SERVER_PASSWORD=secret \
     <h2>Auth layers</h2>
     <p>
       Server auth is layered so browser user sessions, mobile device tokens, Tailscale identity, and
-      Basic Auth can coexist.
+      Basic Auth can coexist. All of it resolves in <code>server/httpapi/auth.ts</code>, which
+      returns a single principal the rest of the pipeline reads via
+      <code>ServerRouter.principal()</code>.
     </p>
     <table class="doc-table">
-      <thead><tr><th>Layer</th><th>Accepted input</th><th>Where checked</th><th>Behavior</th></tr></thead>
+      <thead><tr><th>Layer</th><th>Accepted input</th><th>Behavior</th></tr></thead>
       <tbody>
-        <tr><td>User endpoints</td><td><code>/user/login</code>, <code>/user/register</code>, <code>/user/status</code></td><td><code>server.ts</code> auth bypass</td><td>Public by design so accounts can be created and login status can be checked.</td></tr>
-        <tr><td>User session</td><td>Bearer token from user auth</td><td><code>userAuthMiddleware</code></td><td>Sets <code>userSession</code>. If present with a bearer token, request proceeds.</td></tr>
-        <tr><td>Mobile token</td><td><code>Authorization: Bearer</code> or <code>?token=</code></td><td><code>MobileAuth.verify</code></td><td>Sets <code>mobileAuth</code> for mobile route handlers and websocket-style token flows.</td></tr>
-        <tr><td>Tailscale identity</td><td><code>Tailscale-User-Login</code></td><td>Loopback listener with <code>NIKCLI_SERVER_TAILSCALE_AUTH</code></td><td>Allows configured users from <code>NIKCLI_SERVER_TAILSCALE_USERS</code>.</td></tr>
-        <tr><td>Basic Auth</td><td>Username and password</td><td><code>basicAuth</code></td><td>Username defaults to <code>nikcli</code>; password comes from <code>NIKCLI_SERVER_PASSWORD</code>.</td></tr>
+        <tr><td>Public paths</td><td><code>/user/login</code>, <code>/user/register</code>, <code>/user/status</code>, share routes</td><td>Public by design so accounts can be created and login status can be checked.</td></tr>
+        <tr><td>Account token</td><td><code>Authorization: Bearer nku_…</code></td><td>Resolves the local account record; <code>/account/*</code> and <code>/user/*</code> run instance-less.</td></tr>
+        <tr><td>Mobile token</td><td><code>Authorization: Bearer</code> or <code>?token=</code></td><td>Verified against hashed tokens in the mobile auth table; required for <code>/mobile/*</code> when <code>mobileAuthRequired</code> is set.</td></tr>
+        <tr><td>Tailscale identity</td><td><code>Tailscale-User-Login</code></td><td>Trusted only on a loopback listener with <code>NIKCLI_SERVER_TAILSCALE_AUTH</code>; allows users from <code>NIKCLI_SERVER_TAILSCALE_USERS</code>.</td></tr>
+        <tr><td>Basic Auth</td><td>Username and password</td><td>Username defaults to <code>nikcli</code>; password comes from <code>NIKCLI_SERVER_PASSWORD</code>.</td></tr>
       </tbody>
     </table>
     <DocCode language="bash">
@@ -134,14 +171,22 @@ NIKCLI_SERVER_TAILSCALE_AUTH=1 \
 NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
   nikcli serve --hostname 127.0.0.1 --port 4096
     </DocCode>
+    <DocCallout type="warn" title="Tailscale identity needs loopback">
+      <p>
+        The server logs a warning and refuses to trust identity headers when
+        <code>NIKCLI_SERVER_TAILSCALE_AUTH</code> is set but the listener is not bound to loopback —
+        otherwise anyone able to reach the port could forge the header.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="workspace-context" class="doc-section">
-    <h2>Workspace context</h2>
+    <h2>Instance &amp; workspace context</h2>
     <p>
-      After auth, non-user routes run inside an instance context. The server chooses the directory
-      from <code>directory</code> query, <code>x-nikcli-directory</code> header, current process cwd,
-      or the directory stored on a session referenced by the route path.
+      After auth, instance-bound routes run inside a project instance. The server chooses the
+      directory from the <code>directory</code> query parameter, the <code>x-nikcli-directory</code>
+      header, the current process cwd, or the directory stored on a session referenced by the route
+      path.
     </p>
     <p>
       Workspace routing then looks at <code>workspace</code>, <code>x-nikcli-workspace</code>, or
@@ -152,43 +197,85 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
     <table class="doc-table">
       <thead><tr><th>Input</th><th>Priority</th><th>Effect</th></tr></thead>
       <tbody>
+        <tr><td><code>x-nikcli-workspace</code> / <code>?workspace=</code></td><td>Highest</td><td>Pins the workspace and skips the session lookup entirely.</td></tr>
         <tr><td><code>directory</code> query</td><td>High</td><td>Sets the instance directory unless a workspace target overrides it.</td></tr>
-        <tr><td><code>x-nikcli-directory</code></td><td>High</td><td>Same as query, used by SDK and mobile clients.</td></tr>
-        <tr><td>Session route id</td><td>Fallback</td><td>If the path starts with <code>/session/:id</code>, the server can recover the session's directory and workspace.</td></tr>
-        <tr><td><code>x-nikcli-workspace</code></td><td>Workspace override</td><td>Routes to local or remote workspace target.</td></tr>
+        <tr><td><code>x-nikcli-directory</code></td><td>High</td><td>Same as query; used by the SDK and mobile clients.</td></tr>
+        <tr><td>Session route id</td><td>Fallback</td><td>For <code>/session/:id…</code> paths the server recovers the session's directory and workspace.</td></tr>
+        <tr><td>Instance-less roots</td><td>Bypass</td><td><code>/global</code>, <code>/user</code>, <code>/account</code> never bind a directory.</td></tr>
       </tbody>
     </table>
+    <DocCallout type="note" title="Instance-less roots are a single table">
+      <p>
+        <code>httpapi/instance-less.ts</code> owns the list. Four call sites — the bridge, the
+        server fallback, the router's global test, and <code>PublicRoutes.globalRequest</code> —
+        read it, so adding a global root is one edit instead of four silent 404s.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="routes" class="doc-section">
     <h2>Route groups</h2>
-    <p>The classic Hono route groups are mounted in <code>server.ts</code> after workspace context.</p>
+    <p>
+      Every group is declared in its own file under <code>server/httpapi/</code> and composed into
+      <code>PublicHttpApi.Api</code> in <code>httpapi/public.ts</code>.
+    </p>
     <table class="doc-table">
       <thead><tr><th>Prefix</th><th>Source</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td><code>/project</code></td><td><code>routes/project.ts</code></td><td>Current project and project updates.</td></tr>
-        <tr><td><code>/pty</code></td><td><code>routes/pty.ts</code></td><td>PTY sessions and websocket terminal connections.</td></tr>
-        <tr><td><code>/config</code></td><td><code>routes/config.ts</code></td><td>Read, patch, profiles, provider/MCP config mutations.</td></tr>
-        <tr><td><code>/experimental</code></td><td><code>routes/experimental.ts</code></td><td>Worktrees, tool metadata, resources, and workspace warp routes.</td></tr>
-        <tr><td><code>/session</code></td><td><code>routes/session.ts</code></td><td>Session lifecycle, messages, streaming, revert, share, monitors, todos.</td></tr>
-        <tr><td><code>/permission</code></td><td><code>routes/permission.ts</code></td><td>Pending permission requests and replies.</td></tr>
-        <tr><td><code>/question</code></td><td><code>routes/question.ts</code></td><td>User question requests and replies.</td></tr>
-        <tr><td><code>/provider</code></td><td><code>routes/provider.ts</code></td><td>Provider catalog, auth, refresh, and model metadata.</td></tr>
-        <tr><td><code>/companion</code></td><td><code>routes/companion.ts</code></td><td>Companion app endpoints and embedded assets.</td></tr>
-        <tr><td><code>/user</code></td><td><code>routes/users.ts</code></td><td>Local account login, registration, profile, and user admin.</td></tr>
-        <tr><td><code>/mobile</code></td><td><code>routes/mobile.ts</code></td><td>Mobile bootstrap, sessions, repos, git, approvals, routines, terminals, teleport.</td></tr>
-        <tr><td><code>/connectors</code></td><td><code>routes/connectors.ts</code></td><td>Connector status, auth, logout, cache invalidation.</td></tr>
-        <tr><td><code>/chatbot</code></td><td><code>routes/chatbot.ts</code></td><td>Slack, Discord, Teams, Google Chat, Linear, and GitHub bot webhooks.</td></tr>
-        <tr><td><code>/brain</code></td><td><code>routes/brain.ts</code></td><td>Brain model selection, periodic re-evaluation, and idle nudge scheduler state.</td></tr>
-        <tr><td><code>/mission</code></td><td><code>routes/mission.ts</code></td><td>Mission list, draft, validation review, and run endpoints.</td></tr>
-        <tr><td><code>/sync</code></td><td><code>routes/sync.ts</code></td><td>Hub config, stats, outbox snapshot, and push endpoint. See <a href="/docs/sync">Sync</a>.</td></tr>
-        <tr><td><code>/mcp</code></td><td><code>routes/mcp.ts</code></td><td>MCP status, add, OAuth, connect, disconnect, toggle.</td></tr>
-        <tr><td><code>/tui</code></td><td><code>routes/tui.ts</code></td><td>Remote control endpoints that publish TUI command events.</td></tr>
-        <tr><td><code>/analytics</code></td><td><code>routes/analytics.ts</code></td><td>Analytics summaries and drilldowns for usage, sessions, tools, projects, and runs.</td></tr>
-        <tr><td><code>/doctor</code></td><td><code>routes/doctor.ts</code></td><td>Health, connectivity, and runtime diagnostics surfaced through the host CLI and web app.</td></tr>
-        <tr><td><code>/global</code></td><td><code>routes/global.ts</code></td><td>Global SSE stream and metadata used by SDK clients and UI surfaces.</td></tr>
-        <tr><td><code>/workspace</code></td><td><code>routes/workspace.ts</code></td><td>Workspace list, status, event history, and session proxy routing.</td></tr>
-        <tr><td><code>/loop</code></td><td><code>routes/loop.ts</code></td><td><a href="/docs/loops">Loops</a> CRUD, run, pause, resume, and schedule endpoints.</td></tr>
+        <tr><td><code>/session</code></td><td><code>httpapi/session.ts</code></td><td>Session lifecycle, messages, parts, revert, share, todos, diffs, context breakdown, background delegations, monitors, v2 entries.</td></tr>
+        <tr><td><code>/project</code></td><td><code>httpapi/project.ts</code></td><td>Project list, current project, and project updates.</td></tr>
+        <tr><td><code>/config</code></td><td><code>httpapi/config.ts</code></td><td>Read and update config plus the provider summary.</td></tr>
+        <tr><td><code>/provider</code></td><td><code>httpapi/provider.ts</code></td><td>Provider catalog, auth methods, API token write, auth removal.</td></tr>
+        <tr><td><code>/mcp</code></td><td><code>httpapi/mcp.ts</code></td><td>MCP status, add, OAuth start/callback/authenticate, connect, disconnect, toggle.</td></tr>
+        <tr><td><code>/permission</code></td><td><code>httpapi/permission.ts</code></td><td>Pending permission requests and replies.</td></tr>
+        <tr><td><code>/question</code></td><td><code>httpapi/question.ts</code></td><td>User question requests, replies, and rejections.</td></tr>
+        <tr><td><code>/pty</code></td><td><code>httpapi/pty.ts</code></td><td>PTY lifecycle: create, list, input, resize, close. The websocket connect path upgrades in the router.</td></tr>
+        <tr><td><code>/experimental</code></td><td><code>httpapi/experimental.ts</code></td><td>Tool metadata and ids, worktrees, and other unstable surfaces.</td></tr>
+        <tr><td><code>/experimental/workspace</code></td><td><code>httpapi/workspace.ts</code></td><td>Adaptors, create/list/remove/restore, status, session restore, warp.</td></tr>
+        <tr><td><code>/mobile</code></td><td><code>httpapi/mobile.ts</code>, handlers in <code>server/mobile/</code></td><td>Mobile bootstrap, sessions, repos, git, GitHub, approvals, routines, loops, missions, terminals, teleport, memory.</td></tr>
+        <tr><td><code>/connectors</code></td><td><code>httpapi/connectors.ts</code></td><td>Connector status, auth, logout, cache invalidation.</td></tr>
+        <tr><td><code>/chatbot</code></td><td><code>httpapi/chatbot-api.ts</code></td><td>Bot config CRUD, start/stop, and delivery state.</td></tr>
+        <tr><td><code>/discord</code></td><td><code>httpapi/discord.ts</code></td><td>Discord bot setup and lifecycle.</td></tr>
+        <tr><td><code>/brain</code></td><td><code>httpapi/brain.ts</code></td><td>Brain model selection, scheduler state, and manual triggers.</td></tr>
+        <tr><td><code>/mission</code></td><td><code>httpapi/mission.ts</code></td><td>Mission list, templates, generate, validation review, and run endpoints.</td></tr>
+        <tr><td><code>/loop</code></td><td><code>httpapi/loop.ts</code></td><td><a href="/docs/loops">Loops</a> CRUD, templates, generate, run, pause, resume, schedule.</td></tr>
+        <tr><td><code>/sync</code></td><td><code>httpapi/sync.ts</code></td><td>Event push, outbox, snapshots, stats, config, connect/disconnect/drain. See <a href="/docs/sync">Sync</a>.</td></tr>
+        <tr><td><code>/analytics</code></td><td><code>httpapi/analytics.ts</code></td><td>Global, daily, and per-session analytics summaries and drilldowns.</td></tr>
+        <tr><td><code>/doctor</code></td><td><code>httpapi/doctor.ts</code></td><td>Health, connectivity, and runtime diagnostics behind <code>nikcli doctor</code>.</td></tr>
+        <tr><td><code>/profile</code></td><td><code>httpapi/profile.ts</code></td><td>Declared user profile and learned habits.</td></tr>
+        <tr><td><code>/voice</code></td><td><code>httpapi/voice.ts</code></td><td>Audio transcription for voice input.</td></tr>
+        <tr><td><code>/tui</code></td><td><code>httpapi/tui.ts</code></td><td>Remote control: append/submit/clear prompt, open dialogs, execute commands, toasts, control channel.</td></tr>
+        <tr><td><code>/global</code></td><td><code>httpapi/global.ts</code></td><td>Instance-less health and dispose. <code>/global/event</code> is the raw SSE feed.</td></tr>
+        <tr><td><code>/user</code></td><td><code>httpapi/users.ts</code></td><td>Local account login, registration, profile, and user admin. Instance-less.</td></tr>
+        <tr><td><code>/account</code></td><td><code>httpapi/account.ts</code></td><td>nikcli account records and tokens. Instance-less.</td></tr>
+        <tr><td><em>(root)</em></td><td><code>httpapi/top-level.ts</code></td><td><code>/path</code>, <code>/vcs</code>, <code>/vcs/status</code>, <code>/vcs/diff/raw</code>, <code>/vcs/apply</code>, <code>/command</code>, <code>/agent</code>, <code>/skill</code>, <code>/lsp</code>, <code>/formatter</code>, <code>/instance/dispose</code>.</td></tr>
+        <tr><td><em>(root)</em></td><td><code>httpapi/file.ts</code></td><td><code>/find</code>, <code>/find/file</code>, <code>/find/symbol</code>, <code>/file</code>, <code>/file/content</code>, <code>/file/status</code>.</td></tr>
+        <tr><td><em>(root)</em></td><td><code>httpapi/app.ts</code></td><td><code>POST /log</code> for client log forwarding and <code>POST /skill</code> for skill creation.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="raw-handlers" class="doc-section">
+    <h2>Raw handlers</h2>
+    <p>
+      A handful of paths are served as plain <code>Request → Response</code> functions because their
+      shape cannot round-trip through a schema. Their contracts still live in the API — as
+      <code>ContractExtraHttpApi</code> groups on <code>PublicApi</code> — so the generated SDK and
+      the OpenAPI document stay complete.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Path</th><th>Handler</th><th>Why it is raw</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /event</code></td><td><code>httpapi/event.ts</code></td><td>Long-lived instance SSE feed.</td></tr>
+        <tr><td><code>GET /global/event</code></td><td><code>httpapi/event.ts</code></td><td>Long-lived instance-less SSE feed.</td></tr>
+        <tr><td><code>GET /sync/stream</code></td><td><code>httpapi/sync.ts</code></td><td>Sync SSE feed; the only <code>/sync/</code> path served instance-less.</td></tr>
+        <tr><td><code>POST /session/:id/message</code></td><td><code>httpapi/prompt.ts</code></td><td>Streams assistant output as it is produced.</td></tr>
+        <tr><td><code>POST /session/:id/prompt_async</code></td><td><code>httpapi/prompt.ts</code></td><td>Fire-and-forget prompt submission.</td></tr>
+        <tr><td><code>/chatbot/*</code> webhooks</td><td><code>httpapi/chatbot.ts</code></td><td>Provider-defined bodies and signature verification; falls through so <code>/chatbot/bots*</code> stays typed.</td></tr>
+        <tr><td><code>/auth/:providerID</code>, <code>/config/reload</code>, <code>/config/mcp</code>, <code>/config/profiles</code></td><td><code>server/extra.ts</code></td><td>Union payloads and mutations the encoded router cannot express yet.</td></tr>
+        <tr><td><code>/pty/:ptyID/connect</code></td><td><code>server/websocket.ts</code></td><td>Websocket upgrade.</td></tr>
+        <tr><td><code>GET /companion</code></td><td><code>server/companion.ts</code></td><td>Serves the embedded companion HTML shell.</td></tr>
+        <tr><td><code>/share/:shareID</code>, <code>/s/:shareID</code></td><td><code>server/public.ts</code></td><td>Must answer before auth.</td></tr>
       </tbody>
     </table>
   </section>
@@ -196,9 +283,8 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
   <section id="session-api" class="doc-section">
     <h2>Session API</h2>
     <p>
-      The typed session API in <code>server/httpapi/session.ts</code> is the compact source for the
-      main SDK contract. The classic <code>routes/session.ts</code> file exposes the same domain plus
-      richer event-stream and compatibility routes.
+      <code>httpapi/session.ts</code> is the largest group and the core of the SDK contract.
+      Streaming the prompt itself is the one carve-out — that lives in <code>httpapi/prompt.ts</code>.
     </p>
     <table class="doc-table">
       <thead><tr><th>Method</th><th>Path</th><th>Behavior</th></tr></thead>
@@ -206,13 +292,17 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
         <tr><td>GET</td><td><code>/session</code></td><td>List sessions, filtered by directory, roots, start timestamp, search, and limit.</td></tr>
         <tr><td>POST</td><td><code>/session</code></td><td>Create a session with optional parent, title, permission rules, skills, GitHub metadata, and workspace id.</td></tr>
         <tr><td>GET</td><td><code>/session/status</code></td><td>Return the current session status map.</td></tr>
-        <tr><td>GET/PATCH/DELETE</td><td><code>/session/:sessionID</code></td><td>Read, update title/archive time, or remove a session.</td></tr>
+        <tr><td>GET/PATCH</td><td><code>/session/:sessionID</code></td><td>Read or update title and archive time.</td></tr>
         <tr><td>POST</td><td><code>/session/:sessionID/fork</code></td><td>Fork from a session, optionally at a message id.</td></tr>
         <tr><td>POST</td><td><code>/session/:sessionID/abort</code></td><td>Cancel prompt execution, owned delegation jobs, and monitors.</td></tr>
-        <tr><td>POST</td><td><code>/session/:sessionID/revert</code></td><td>Revert the diff associated with a message or part.</td></tr>
-        <tr><td>POST</td><td><code>/session/:sessionID/unrevert</code></td><td>Undo the previous revert.</td></tr>
+        <tr><td>POST</td><td><code>/session/:sessionID/revert</code> / <code>/unrevert</code></td><td>Revert the diff associated with a message or part, or undo the previous revert.</td></tr>
+        <tr><td>POST</td><td><code>/session/:sessionID/summarize</code></td><td>Compact the transcript into a summary.</td></tr>
+        <tr><td>POST</td><td><code>/session/:sessionID/command</code>, <code>/shell</code></td><td>Run a prompt command or a shell command inside the session.</td></tr>
         <tr><td>GET</td><td><code>/session/:sessionID/message</code></td><td>List messages, optionally limited.</td></tr>
-        <tr><td>GET/PATCH/DELETE</td><td><code>/session/:sessionID/message/:messageID</code></td><td>Read or remove a message; patch/remove individual parts through the nested part route.</td></tr>
+        <tr><td>GET/PATCH</td><td><code>/session/:sessionID/message/:messageID[/part/:partID]</code></td><td>Read a message or patch an individual part.</td></tr>
+        <tr><td>GET</td><td><code>/session/:sessionID/v2/entries</code>, <code>/v2/state</code>, <code>/v2/events</code></td><td>The flat event-sourced session projection. See <a href="/docs/sessions">Sessions</a>.</td></tr>
+        <tr><td>GET/POST</td><td><code>/session/:sessionID/context</code>, <code>/context/toggle</code></td><td>Context breakdown and per-source enable/disable — what the TUI context manager drives.</td></tr>
+        <tr><td>GET/POST</td><td><code>/session/:sessionID/background/*</code>, <code>/monitor/*</code></td><td>Inspect, read, and cancel background delegations and long-lived monitors.</td></tr>
       </tbody>
     </table>
   </section>
@@ -220,21 +310,21 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
   <section id="mobile-api" class="doc-section">
     <h2>Mobile API</h2>
     <p>
-      <code>routes/mobile.ts</code> is intentionally larger than the base API because it exposes
-      a complete phone workflow: bootstrap, pairing tokens, account state, sessions, git review,
-      GitHub repo import, workspace/container execution, terminal tabs, settings, MCP, plugins,
-      routines, approvals, and streaming.
+      The <code>/mobile</code> group is intentionally larger than the base API because it exposes a
+      complete phone workflow. Its endpoints are declared in <code>httpapi/mobile.ts</code>; the
+      implementations are split by concern across <code>server/mobile/</code> and wired up in
+      <code>httpapi/mobile-handlers.ts</code>.
     </p>
     <table class="doc-table">
-      <thead><tr><th>Route area</th><th>Examples</th><th>Used by</th></tr></thead>
+      <thead><tr><th>Route area</th><th>Examples</th><th>Handler</th></tr></thead>
       <tbody>
-        <tr><td>Pairing and bootstrap</td><td><code>/mobile/auth/token</code>, <code>/mobile/bootstrap</code></td><td>Connect screen and host smoke tests.</td></tr>
-        <tr><td>Sessions</td><td><code>/mobile/sessions</code>, stream endpoints, prompt endpoints</td><td>Sessions tab and chat screen.</td></tr>
-        <tr><td>Permissions/questions</td><td>Approval and question reply endpoints</td><td>Composer approval bars and pending prompts.</td></tr>
-        <tr><td>Git and files</td><td>Status, diff, commit, file tree, editor endpoints</td><td>Git review and editor screens.</td></tr>
-        <tr><td>Repos and GitHub</td><td>Repo search/import/session launch endpoints</td><td>Repos tab and GitHub-backed workspaces.</td></tr>
-        <tr><td>Terminal</td><td>PTY create/list/input/resize/close endpoints</td><td>Terminal tab.</td></tr>
-        <tr><td>Routines</td><td>Routine CRUD, run, pause, resume, API trigger endpoints</td><td>Routines tab.</td></tr>
+        <tr><td>Pairing and bootstrap</td><td><code>/mobile/auth/token</code>, <code>/mobile/bootstrap</code></td><td><code>server/mobile/auth.ts</code>, <code>helpers.ts</code></td></tr>
+        <tr><td>Sessions</td><td>List, create, prompt, stream, lifecycle</td><td><code>server/mobile/session.ts</code>, <code>session-lifecycle.ts</code>, <code>events.ts</code></td></tr>
+        <tr><td>Git and GitHub</td><td>Status, diff, commit, repo search and import</td><td><code>server/mobile/git.ts</code>, <code>github.ts</code>, <code>worktree.ts</code></td></tr>
+        <tr><td>Terminal</td><td>PTY create/list/input/resize/close</td><td><code>server/mobile/pty.ts</code></td></tr>
+        <tr><td>Automation</td><td>Loops, missions, routines</td><td><code>server/mobile/loops.ts</code>, <code>missions.ts</code></td></tr>
+        <tr><td>Teleport</td><td>Push a local session to a remote host</td><td><code>server/mobile/teleport.ts</code></td></tr>
+        <tr><td>Host state</td><td>Feature flags, host status, memory</td><td><code>server/mobile/features.ts</code>, <code>host-status.ts</code>, <code>memory.ts</code></td></tr>
       </tbody>
     </table>
     <DocCallout type="note" title="Prefer narrow mobile smokes">
@@ -244,66 +334,86 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
         detection, GitHub, Expo, container runtime, and config.
       </p>
     </DocCallout>
+    <DocCallout type="warn" title="Never resurrect routes/mobile.ts">
+      <p>
+        A single-file <code>server/routes/mobile.ts</code> shadows the split <code>server/mobile/</code>
+        directory and silently serves an empty session list. If that file reappears, delete it.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="httpapi" class="doc-section">
-    <h2>Effect HttpApi bridge</h2>
+    <h2>The HttpApi bridge</h2>
     <p>
-      The typed API groups use <code>effect/unstable/httpapi</code>. They are mounted through
-      <code>HttpApiBridge</code> only when <code>NIKCLI_EXPERIMENTAL_HTTPAPI</code> is truthy and
-      the bridge says a request path and method are supported.
+      <code>httpapi/bridge.ts</code> turns the declared API into a served one. It builds an Effect
+      <code>HttpRouter</code> from <code>PublicHttpApi.Api</code>, keeps a machine-readable
+      <code>RoutePattern</code> table for coverage checks, and exposes two entry points:
+      <code>handle()</code> for instance-bound requests and <code>handleGlobal()</code> for the
+      instance-less roots.
     </p>
-    <table class="doc-table">
-      <thead><tr><th>Group</th><th>Source</th><th>Notes</th></tr></thead>
-      <tbody>
-        <tr><td>Session</td><td><code>httpapi/session.ts</code></td><td>Normalizes undefined fields by JSON round trip before returning unknown-shaped session payloads.</td></tr>
-        <tr><td>File</td><td><code>httpapi/file.ts</code></td><td>Find text, find file, symbol search, list, read, write, status.</td></tr>
-        <tr><td>MCP</td><td><code>httpapi/mcp.ts</code></td><td>Status, add, OAuth start/callback/authenticate, auth removal, connect/disconnect, toggle.</td></tr>
-        <tr><td>Provider</td><td><code>httpapi/provider.ts</code></td><td>Provider list, auth methods, API token write, auth removal.</td></tr>
-        <tr><td>Config</td><td><code>httpapi/config.ts</code></td><td>Read and update config plus provider summary.</td></tr>
-        <tr><td>Workspace</td><td><code>httpapi/workspace.ts</code></td><td>Adaptors, create/list/remove/restore, session restore, warp.</td></tr>
-        <tr><td>Brain</td><td><code>httpapi/brain.ts</code></td><td>Brain model picker and scheduler state, periodic re-evaluation triggers.</td></tr>
-        <tr><td>ChatBot</td><td><code>httpapi/chatbot.ts</code></td><td>Bot config CRUD, restart, and webhook delivery state.</td></tr>
-        <tr><td>Sync</td><td><code>httpapi/sync.ts</code></td><td>Hub push, snapshot, config, and stats endpoints. See <a href="/docs/sync">Sync</a>.</td></tr>
-        <tr><td>Pty</td><td><code>httpapi/pty.ts</code></td><td>PTY lifecycle: create, list, input, resize, close, websocket upgrade.</td></tr>
-        <tr><td>Doctor</td><td><code>httpapi/doctor.ts</code></td><td>Health diagnostics used by the <code>nikcli doctor</code> command and the web app.</td></tr>
-        <tr><td>Analytics</td><td><code>httpapi/analytics.ts</code></td><td>Typed analytics summaries and drilldowns.</td></tr>
-        <tr><td>Loop</td><td><code>httpapi/loop.ts</code></td><td>Typed CRUD and run / pause / resume / schedule for <a href="/docs/loops">Loops</a>.</td></tr>
-        <tr><td>Top-level</td><td><code>httpapi/top-level.ts</code></td><td>Path, VCS, command, agent, skill, LSP, formatter, dispose.</td></tr>
-      </tbody>
-    </table>
+    <ul>
+      <li><code>supports(path, method)</code> and <code>supportsGlobal(path, method)</code> decide whether the bridge claims a request; a miss falls through to the proxy.</li>
+      <li>Path templates (<code>/session/&#123;sessionID&#125;/message</code>) are compiled to RegExps, with name segments matched as <code>[^/]+</code>.</li>
+      <li><code>script/check-route-coverage.ts</code> and <code>test/server/routes-coverage.test.ts</code> assert every entry in the table still matches, so a renamed path fails CI instead of 404ing in production.</li>
+    </ul>
+    <DocCallout type="warn" title="Strict schemas validate responses too">
+      <p>
+        Unlike the old Hono handlers, the bridge validates response bodies at runtime. A schema that
+        is stricter than the real data turns a working route into a 500 — verify new or tightened
+        response schemas against a live <code>curl</code>, not just against types.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="streaming" class="doc-section">
     <h2>Events and streaming</h2>
     <p>
-      The server uses two event styles. Hono routes stream server-sent events where a client needs
-      a long-lived feed, while many TUI, permission, MCP, and session state changes also publish
-      internal <code>BusEvent</code> events.
+      The server has two event styles. SSE endpoints give clients a long-lived feed; internal
+      <code>Bus</code> events carry state changes between subsystems in-process.
     </p>
     <ul>
-      <li><code>streamSSE</code> is imported in the server and mobile route layers for live feeds.</li>
-      <li><code>TuiRoutes</code> publish <code>TuiEvent.CommandExecute</code> so external clients can open dialogs or run commands in the active TUI.</li>
+      <li><code>GET /event</code> streams instance-scoped events; <code>GET /global/event</code> streams instance-less ones.</li>
+      <li><code>GET /sync/stream</code> streams the sync projection feed. See <a href="/docs/sync">Sync</a>.</li>
+      <li>The <code>/tui</code> group publishes <code>TuiEvent.CommandExecute</code> so external clients can open dialogs or run commands in the active TUI.</li>
       <li>Permission and question routes publish request/reply events through their services.</li>
       <li>MCP publishes <code>mcp.tools.changed</code> when a connected server sends a tool-list notification.</li>
+      <li>PTY output rides a websocket rather than SSE, upgraded in <code>server/websocket.ts</code>.</li>
     </ul>
   </section>
 
   <section id="openapi" class="doc-section">
-    <h2>OpenAPI docs</h2>
+    <h2>OpenAPI and SDK generation</h2>
     <p>
-      <code>GET /doc</code> uses <code>openAPIRouteHandler</code> from <code>hono-openapi</code>
-      against the Hono app. Classic route files use <code>describeRoute</code>, validators, and
-      resolvers to contribute route metadata.
+      <code>Server.openapi()</code> returns <code>OpenApi.fromApi(PublicApi)</code> — the document is
+      derived from the same typed API that serves the traffic, so it cannot drift from the
+      implementation.
     </p>
+    <p>
+      The JavaScript SDK is generated from that API by
+      <code>packages/nikcli/script/generate-httpapi-clients.ts</code>, using
+      <code>@nikcli-ai/httpapi-codegen</code>. One run emits three artifacts:
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Emitter</th><th>Output</th><th>Consumer</th></tr></thead>
+      <tbody>
+        <tr><td><code>emitPromise</code></td><td><code>packages/sdk/js/src/httpapi/generated</code></td><td>The public Promise-based SDK (<code>@nikcli-ai/sdk/httpapi</code>).</td></tr>
+        <tr><td><code>emitEffectImported</code></td><td><code>src/server/httpapi/client/generated</code></td><td>In-process Effect clients.</td></tr>
+        <tr><td><code>emitEffectShape</code></td><td><code>src/server/httpapi/client/api</code></td><td>Standalone Effect client shapes.</td></tr>
+      </tbody>
+    </table>
     <DocCode language="bash">
-curl http://127.0.0.1:4096/doc
+bun run --cwd packages/nikcli generate:httpapi-clients
+# or, equivalently, from the SDK package:
+bun run --cwd packages/sdk/js generate:httpapi
     </DocCode>
-    <DocCallout type="warn" title="SDK regeneration">
+    <DocCallout type="warn" title="Do not hand-edit generated files">
       <p>
-        Docs-only edits do not require SDK regeneration. If a server endpoint contract changes in
-        <code>packages/nikcli/src/server/server.ts</code> or typed HttpApi route files, regenerate
-        the JavaScript SDK with <code>./packages/sdk/js/script/build.ts</code>.
+        Everything under <code>src/httpapi/generated</code> and
+        <code>server/httpapi/client/</code> is emitted. Change the endpoint declaration in the
+        HttpApi group and re-run the generator. Two endpoint families are deliberately skipped by
+        the generator: websocket upgrades (<code>pty-connect.connect</code>,
+        <code>mobile.ptyConnect</code>) and union payloads (<code>auth.set</code>,
+        <code>session.partUpdate</code>).
       </p>
     </DocCallout>
   </section>
@@ -314,11 +424,13 @@ curl http://127.0.0.1:4096/doc
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Check</th></tr></thead>
       <tbody>
         <tr><td>401 on every request</td><td>Missing bearer token, Basic Auth password mismatch, or Tailscale identity header absent.</td><td>Check auth headers and <code>NIKCLI_SERVER_PASSWORD</code>.</td></tr>
-        <tr><td>Workspace not found</td><td><code>x-nikcli-workspace</code> points at a workspace with no target.</td><td>Call workspace list or remove stale workspace id.</td></tr>
-        <tr><td>Route handled by old implementation</td><td><code>NIKCLI_EXPERIMENTAL_HTTPAPI</code> is unset or bridge does not support that method/path.</td><td>Inspect <code>HttpApiBridge.supports</code>.</td></tr>
+        <tr><td>Workspace not found</td><td><code>x-nikcli-workspace</code> points at a workspace with no target.</td><td>Call workspace list or remove the stale workspace id.</td></tr>
+        <tr><td>Route returns the hosted web app</td><td>The bridge does not claim that method/path, so the fallback proxied it to <code>app.nikcli.store</code>.</td><td>Inspect <code>HttpApiBridge.supports</code> and the <code>RoutePattern</code> table.</td></tr>
+        <tr><td>500 on a route that used to work</td><td>A response schema is stricter than the real payload — the bridge validates responses.</td><td><code>curl</code> the route and diff the body against the schema.</td></tr>
+        <tr><td>Empty mobile session list</td><td>A resurrected <code>server/routes/mobile.ts</code> shadowing <code>server/mobile/</code>.</td><td>Delete the monolith file.</td></tr>
         <tr><td>CORS preflight fails</td><td>Origin is not local, app, Tailscale, <code>nikcli.store</code>, or whitelisted.</td><td>Set <code>NIKCLI_SERVER_CORS_ORIGINS</code> for custom origins.</td></tr>
         <tr><td>Mobile bootstrap is slow</td><td>Bootstrap hits project, GitHub, Expo, container, provider, and config checks.</td><td>Smoke <code>/mobile/auth/token</code> first.</td></tr>
-        <tr><td>Unknown error JSON</td><td>Error did not match known domain classes.</td><td>Use <code>--print-logs</code> and inspect <code>Global.Path.log</code>.</td></tr>
+        <tr><td>Unknown error JSON</td><td>Error did not match a known domain class in <code>ServerRouter.mapError</code>.</td><td>Use <code>--print-logs</code> and inspect <code>Global.Path.log</code>.</td></tr>
       </tbody>
     </table>
   </section>
@@ -328,18 +440,20 @@ curl http://127.0.0.1:4096/doc
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th></tr></thead>
       <tbody>
-        <tr><td>Main server pipeline</td><td><code>packages/nikcli/src/server/server.ts</code></td></tr>
-        <tr><td>Classic session routes</td><td><code>packages/nikcli/src/server/routes/session.ts</code></td></tr>
+        <tr><td>Listener, ports, OpenAPI, memory pressure</td><td><code>packages/nikcli/src/server/server.ts</code></td></tr>
+        <tr><td>Request pipeline, CORS, context, dispatch, error mapping</td><td><code>packages/nikcli/src/server/server-router.ts</code></td></tr>
+        <tr><td>API composition and handler wiring</td><td><code>packages/nikcli/src/server/httpapi/public.ts</code></td></tr>
+        <tr><td>Bridge, route table, coverage</td><td><code>packages/nikcli/src/server/httpapi/bridge.ts</code></td></tr>
+        <tr><td>Raw handlers before the bridge</td><td><code>packages/nikcli/src/server/public.ts</code>, <code>server/extra.ts</code></td></tr>
+        <tr><td>Instance-less roots</td><td><code>packages/nikcli/src/server/httpapi/instance-less.ts</code></td></tr>
+        <tr><td>Auth principal resolution</td><td><code>packages/nikcli/src/server/httpapi/auth.ts</code></td></tr>
         <tr><td>Typed session API</td><td><code>packages/nikcli/src/server/httpapi/session.ts</code></td></tr>
-        <tr><td>Mobile API</td><td><code>packages/nikcli/src/server/routes/mobile.ts</code></td></tr>
-        <tr><td>MCP typed API</td><td><code>packages/nikcli/src/server/httpapi/mcp.ts</code></td></tr>
-        <tr><td>Sync routes and bridge</td><td><code>packages/nikcli/src/server/routes/sync.ts</code>, <code>httpapi/sync.ts</code>, <code>src/sync/</code></td></tr>
-        <tr><td>Brain routes and bridge</td><td><code>packages/nikcli/src/server/routes/brain.ts</code>, <code>httpapi/brain.ts</code></td></tr>
-        <tr><td>ChatBot routes and bridge</td><td><code>packages/nikcli/src/server/routes/chatbot.ts</code>, <code>httpapi/chatbot.ts</code></td></tr>
-        <tr><td>Pty routes and bridge</td><td><code>packages/nikcli/src/server/routes/pty.ts</code>, <code>httpapi/pty.ts</code></td></tr>
-        <tr><td>Doctor / analytics / global routes</td><td><code>packages/nikcli/src/server/routes/doctor.ts</code>, <code>routes/analytics.ts</code>, <code>routes/global.ts</code></td></tr>
+        <tr><td>Prompt streaming</td><td><code>packages/nikcli/src/server/httpapi/prompt.ts</code></td></tr>
+        <tr><td>Mobile API and handlers</td><td><code>packages/nikcli/src/server/httpapi/mobile.ts</code>, <code>server/mobile/</code></td></tr>
+        <tr><td>SSE feeds</td><td><code>packages/nikcli/src/server/httpapi/event.ts</code>, <code>event-feed.ts</code></td></tr>
+        <tr><td>Websocket upgrades</td><td><code>packages/nikcli/src/server/websocket.ts</code></td></tr>
         <tr><td>Workspace proxying</td><td><code>packages/nikcli/src/server/proxy.ts</code>, <code>packages/nikcli/src/workspace</code></td></tr>
-        <tr><td>Auth tokens</td><td><code>packages/nikcli/src/mobile/auth.ts</code>, <code>packages/nikcli/src/server/routes/users.ts</code></td></tr>
+        <tr><td>SDK generation</td><td><code>packages/nikcli/script/generate-httpapi-clients.ts</code>, <code>packages/httpapi-codegen</code></td></tr>
       </tbody>
     </table>
   </section>

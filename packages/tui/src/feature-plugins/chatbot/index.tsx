@@ -116,7 +116,12 @@ export function openManager(api: TuiPluginApi): void {
     if (entries.length === 0) {
       const Alert = api.ui.DialogAlert
       api.ui.dialog.replace(() => (
-        <Alert title="Chat Bots" message={"No chat bots configured.\nAdd one with: nikcli bot add"} />
+        <Alert
+          title="Chat Bots"
+          message={
+            "No chat bots configured.\nAdd a webhook bot with: nikcli bot add\nFor Discord Gateway, run /discord"
+          }
+        />
       ))
       return
     }

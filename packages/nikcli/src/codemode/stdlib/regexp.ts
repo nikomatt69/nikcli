@@ -54,7 +54,7 @@ export const invokeRegExpMethod = (
   name: string,
   args: Array<unknown>,
   node: AstNode,
-): unknown => {
+): boolean | string | Array<unknown> | null => {
   switch (name) {
     case "test":
       return value.regex.test(coerceToString(args[0]))

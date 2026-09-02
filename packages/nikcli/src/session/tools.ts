@@ -14,7 +14,7 @@ import { Truncate } from "@/tool/truncation"
 import { Tool } from "@/tool/tool"
 import { Config } from "@/config/config"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Session } from "."
 import z from "zod"
 
@@ -222,6 +222,7 @@ export async function resolveTools(input: {
 
   const context = (args: Record<string, unknown>, options: ToolCallOptions): Tool.Context => ({
     sessionID: input.session.id,
+    instance: InstanceState.ambient(),
     abort: options.abortSignal!,
     messageID: input.processor.message.id,
     callID: options.toolCallId,
@@ -570,7 +571,7 @@ export function createStructuredOutputTool(input: {
   schema: Record<string, unknown>
   onSuccess: (output: unknown) => void
 }): AITool {
-  const { $schema, ...toolSchema } = input.schema
+  const { $schema: _$schema, ...toolSchema } = input.schema
 
   return tool({
     id: "StructuredOutput" as `${string}.${string}`,

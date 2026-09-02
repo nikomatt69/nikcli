@@ -240,7 +240,10 @@ function playAudioNonBlocking(player: AudioPlayer, filePath: string, volume: num
   child.unref()
   child.once("exit", cleanup)
   child.once("error", (error) => {
-    log.error("audio playback failed", { error: error.message, player: player.name })
+    log.error("audio playback failed", {
+      error: error.message,
+      player: player.name,
+    })
     cleanup()
   })
 }
@@ -257,21 +260,31 @@ export const SpeakTool = Tool.define("speak", {
       }),
       stability: Schema.optional(
         Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(1))),
-      ).annotate({ description: "Voice stability (0-1). Lower = more expressive. Default: 0.5" }),
+      ).annotate({
+        description: "Voice stability (0-1). Lower = more expressive. Default: 0.5",
+      }),
       similarityBoost: Schema.optional(
         Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(1))),
-      ).annotate({ description: "Voice similarity boost (0-1). Default: 0.75" }),
+      ).annotate({
+        description: "Voice similarity boost (0-1). Default: 0.75",
+      }),
       speed: Schema.optional(
         Schema.Number.pipe(
           Schema.check(Schema.isGreaterThanOrEqualTo(0.5)),
           Schema.check(Schema.isLessThanOrEqualTo(2)),
         ),
-      ).annotate({ description: "Speech speed multiplier (0.5-2). Default: 1.0" }),
+      ).annotate({
+        description: "Speech speed multiplier (0.5-2). Default: 1.0",
+      }),
       volume: Schema.optional(
         Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(2))),
       ).annotate({ description: "Playback volume (0-2). Default: 1.0" }),
-      voiceId: Schema.optional(Schema.String).annotate({ description: "TTS voice ID (provider-dependent default)" }),
-      modelId: Schema.optional(Schema.String).annotate({ description: "TTS model ID (provider-dependent default)" }),
+      voiceId: Schema.optional(Schema.String).annotate({
+        description: "TTS voice ID (provider-dependent default)",
+      }),
+      modelId: Schema.optional(Schema.String).annotate({
+        description: "TTS model ID (provider-dependent default)",
+      }),
       outputFormat: Schema.optional(Schema.String).annotate({
         description: "TTS output format (provider-dependent default)",
       }),
@@ -327,29 +340,26 @@ export const SpeakTool = Tool.define("speak", {
       // This helps quickly skip providers that are unconfigured
       const validation = await ttsProvider.validate().catch((e) => ({ valid: false, error: e.message }))
       if (!validation.valid) {
-        log.warn(`Provider ${providerId} validation failed, skipping`, { error: validation.error })
+        log.warn(`Provider ${providerId} validation failed, skipping`, {
+          error: validation.error,
+        })
         failureLogs.push(`[${providerId}] Skipped: Configuration invalid or missing API key (${validation.error})`)
         continue
       }
 
-      try {
-        await ctx.ask({
-          permission: "speak",
-          patterns: [`${providerId}:${voiceId}`],
-          always: [`${providerId}*`],
-          metadata: {
-            provider: providerId,
-            voiceId,
-            modelId,
-            outputFormat,
-            player: player.name,
-            timeoutMs,
-          },
-        })
-      } catch (askError: any) {
-        // If the user rejects the permission, we must throw immediately
-        throw askError
-      }
+      await ctx.ask({
+        permission: "speak",
+        patterns: [`${providerId}:${voiceId}`],
+        always: [`${providerId}*`],
+        metadata: {
+          provider: providerId,
+          voiceId,
+          modelId,
+          outputFormat,
+          player: player.name,
+          timeoutMs,
+        },
+      })
 
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
@@ -416,7 +426,12 @@ export const SpeakTool = Tool.define("speak", {
             log.warn("request cancelled by user", { timeoutMs })
             throw new Error("Speech request was cancelled")
           }
-          log.error("request timed out", { timeoutMs, voiceId, modelId, provider: providerId })
+          log.error("request timed out", {
+            timeoutMs,
+            voiceId,
+            modelId,
+            provider: providerId,
+          })
           failureLogs.push(`[${providerId}] Failed: Request timed out after ${timeoutMs}ms`)
           continue
         }

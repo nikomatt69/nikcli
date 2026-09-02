@@ -3,7 +3,9 @@ import { Server } from "@/server/server"
 import { Log } from "@nikcli-ai/util/log"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"
+import { withInstanceAsync } from "@/effect"
 import { Rpc } from "@tui/util/rpc"
+import { setMainThreadDaemonHost } from "@nikcli-ai/browser-control/daemon-client"
 import { upgrade, upgradeNow } from "@/cli/upgrade"
 import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
@@ -11,6 +13,8 @@ import { Flag } from "@nikcli-ai/util/flag"
 import { Process } from "@nikcli-ai/util/process"
 import { IslandBridge } from "@nikcli-ai/util/island-bridge"
 import { MobileAuth } from "@/mobile/auth"
+import { BrowserControl } from "@/browser-control/browser-control"
+import { errorMessage } from "@nikcli-ai/util/error-format"
 
 Process.ensureMetadata("worker")
 
@@ -39,6 +43,12 @@ process.on("uncaughtException", (e) => {
 GlobalBus.on("event", (event) => {
   Rpc.emit("global.event", event)
 })
+
+// Browser sessions live in a Bun.WebView, which cannot be constructed on a
+// worker thread. This is the worker, so the daemon that owns those views has to
+// be bound by the TUI process's main thread instead; it answers on the same
+// socket, so nothing else about the client changes.
+setMainThreadDaemonHost((socket) => Rpc.emit("browser-control.host-daemon", { socket }))
 
 let server: ReturnType<typeof Server.listen> | undefined
 let shuttingDown: Promise<void> | undefined
@@ -151,25 +161,17 @@ export const rpc = {
     return MobileAuth.create(input)
   },
   async checkUpgrade(input: { directory: string }) {
-    await Instance.provide({
-      directory: input.directory,
-      init: InstanceBootstrap,
-      fn: async () => {
-        await upgrade().catch((error) => {
-          Log.Default.debug("upgrade check failed", {
-            error: error instanceof Error ? error.message : String(error),
-          })
+    await withInstanceAsync({ directory: input.directory, init: InstanceBootstrap }, async () => {
+      await upgrade().catch((error) => {
+        Log.Default.debug("upgrade check failed", {
+          error: error instanceof Error ? error.message : String(error),
         })
-      },
+      })
     })
   },
   async upgradeNow(input: { directory: string; method: string; version: string }) {
-    await Instance.provide({
-      directory: input.directory,
-      init: InstanceBootstrap,
-      fn: async () => {
-        await upgradeNow(input.method as Installation.Method, input.version)
-      },
+    await withInstanceAsync({ directory: input.directory, init: InstanceBootstrap }, async () => {
+      await upgradeNow(input.method as Installation.Method, input.version)
     })
   },
   async reload() {
@@ -184,9 +186,19 @@ export const rpc = {
   async shutdown() {
     const shutdown = (shuttingDown ??= (async () => {
       Log.Default.info("worker shutting down")
-      for (const id of [...eventStreams.keys()]) {
+      for (const id of eventStreams.keys()) {
         stopEventStream(id)
       }
+      // Stop the browser-control daemons (and any Chromium/WebView children
+      // they spawned) before tearing the HTTP server and Instances down.
+      // `closeAll()` sweeps every workspace this process resolved a socket
+      // for, so it does not depend on standing in an instance scope — this
+      // RPC handler stands in none.
+      await BrowserControl.closeAll().catch((error) => {
+        Log.Default.warn("browser-control shutdown failed", {
+          error: errorMessage(error),
+        })
+      })
       await Instance.disposeAll()
       if (server) {
         const current = server

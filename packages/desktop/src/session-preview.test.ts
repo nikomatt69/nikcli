@@ -26,6 +26,7 @@ describe("desktop session previews", () => {
 
     const previews = collectSessionPreviews(parts)
     expect(previews.map((item) => item.kind)).toEqual(["image", "video"])
+    expect(previews[1]?.url).toBe("https://nikcli.store/artifact/video?key=view-key")
     expect(previews[1]?.previewUrl).toBe("https://nikcli.store/artifact/video/raw?key=view-key")
   })
 

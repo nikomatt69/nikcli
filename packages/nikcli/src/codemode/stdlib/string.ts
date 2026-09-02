@@ -32,7 +32,7 @@ export const stringMethods = new Set([
 
 export const stringStatics = new Set(["fromCharCode", "fromCodePoint"])
 
-export const invokeStringStatic = (name: string, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeStringStatic = (name: string, args: Array<unknown>, node: AstNode): string => {
   const codes = args.map((arg) => {
     if (typeof arg !== "number") throw new InterpreterRuntimeError(`String.${name} expects number arguments.`, node)
     return arg

@@ -1,0 +1,20 @@
+name = "nikcli-discord-bot"
+app = "nikcli-discord-bot"
+primaryRegion = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+  context = "../.."
+
+[http_service]
+  port = 3000
+  force_https = true
+
+[[http_service.checks]]
+  path = "/health"
+  interval = "30s"
+  timeout = "10s"
+  grace_period = "5s"
+
+[env]
+  NODE_ENV = "production"

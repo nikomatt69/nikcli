@@ -28,6 +28,7 @@ import { Locale } from "@nikcli-ai/util/locale"
 import { reasoningSummary } from "@tui/context/thinking"
 import { Token } from "@nikcli-ai/util/token"
 import {
+  artifactPublishedHref,
   diagnosticMessage,
   type ApplyPatchShape,
   type ArtifactShape,
@@ -67,7 +68,7 @@ import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv.tsx"
 import { useServer } from "../../context/server"
 import { Editor } from "../../util/editor"
-import stripAnsi from "strip-ansi"
+import { stripAnsi } from "@nikcli-ai/util/bun-utils"
 import { SubagentFooter } from "./subagent-footer.tsx"
 import { usePromptRef } from "../../context/prompt"
 import { useExit } from "../../context/exit"
@@ -140,9 +141,8 @@ export function ToolPartView(props: { last: boolean; streaming: boolean; entry: 
   /** v1 parts name it `tool`, v2 entries name it `name`. */
   const toolName = createMemo(() => props.entry.tool ?? props.entry.name ?? "")
   const sync = useSync()
-  const terminalDimensions = useTerminalDimensions()
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
-  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
+  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(ctx.height / 3)))
   const imagePreviewUrls = createMemo(() => {
     if (props.entry.state.status !== "completed") return []
     return (props.entry.state.attachments ?? [])
@@ -344,7 +344,7 @@ function ComputerUse(props: ToolProps<ComputerShape>) {
 function ArtifactView(props: ToolProps<ArtifactShape>) {
   const { theme } = useTheme()
   const title = createMemo(() => props.metadata.title ?? props.input.title ?? "Artifact")
-  const url = createMemo(() => props.metadata.url)
+  const url = createMemo(() => artifactPublishedHref(props.metadata, props.output))
   const detail = createMemo(() => {
     const kind = props.metadata.kind ? String(props.metadata.kind).toUpperCase() : "ARTIFACT"
     const version = props.metadata.version ? ` · v${props.metadata.version}` : ""

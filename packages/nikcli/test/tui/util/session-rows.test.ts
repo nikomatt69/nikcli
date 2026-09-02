@@ -13,8 +13,8 @@ type Part = RowPart & { id: string }
 const tool = (id: string, name: string): Part => ({ id, type: "tool", tool: name, callID: id })
 const text = (id: string): Part => ({ id, type: "text" })
 
-/** Compact shape assertions read better than deep-equalling whole rows. */
-const shape = (rows: SessionRow<Part>[]) =>
+/** Compact layout assertions read better than deep-equalling whole rows. */
+const layout = (rows: SessionRow<Part>[]) =>
   rows.map((row) => (row.type === "part" ? row.part.id : `[${row.parts.map((p) => p.id).join(",")}]`))
 
 const groups = (rows: SessionRow<Part>[]) => rows.filter((row): row is ExplorationGroup<Part> => row.type === "group")
@@ -30,24 +30,24 @@ describe("session rows", () => {
 
   it("folds a run of consecutive exploration calls into one row", () => {
     const rows = groupParts([tool("a", "read"), tool("b", "grep"), tool("c", "glob")])
-    expect(shape(rows)).toEqual(["[a,b,c]"])
+    expect(layout(rows)).toEqual(["[a,b,c]"])
   })
 
   it("keeps non-exploration parts as their own rows and splits runs around them", () => {
     const rows = groupParts([tool("a", "read"), tool("b", "grep"), text("t"), tool("c", "glob"), tool("d", "list")])
-    expect(shape(rows)).toEqual(["[a,b]", "t", "[c,d]"])
+    expect(layout(rows)).toEqual(["[a,b]", "t", "[c,d]"])
   })
 
   it("does not fold a mutating call into a surrounding run", () => {
     const rows = groupParts([tool("a", "read"), tool("w", "edit"), tool("b", "grep")])
-    expect(shape(rows)).toEqual(["a", "w", "b"])
+    expect(layout(rows)).toEqual(["a", "w", "b"])
   })
 
   it("unfolds runs shorter than the minimum back into plain part rows", () => {
-    expect(shape(groupParts([tool("a", "read"), text("t")]))).toEqual(["a", "t"])
-    expect(shape(groupParts([tool("a", "read")], { minimum: 3 }))).toEqual(["a"])
-    expect(shape(groupParts([tool("a", "read"), tool("b", "read")], { minimum: 3 }))).toEqual(["a", "b"])
-    expect(shape(groupParts([tool("a", "read"), tool("b", "read"), tool("c", "read")], { minimum: 3 }))).toEqual([
+    expect(layout(groupParts([tool("a", "read"), text("t")]))).toEqual(["a", "t"])
+    expect(layout(groupParts([tool("a", "read")], { minimum: 3 }))).toEqual(["a"])
+    expect(layout(groupParts([tool("a", "read"), tool("b", "read")], { minimum: 3 }))).toEqual(["a", "b"])
+    expect(layout(groupParts([tool("a", "read"), tool("b", "read"), tool("c", "read")], { minimum: 3 }))).toEqual([
       "[a,b,c]",
     ])
   })

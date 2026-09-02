@@ -118,7 +118,7 @@ function finishStep(state: AdapterState, event: FinishEvent): ProcessorStreamEve
     {
       type: "finish-step",
       finishReason: finishReason(event.reason),
-      ...(event.rawReason ? { rawReason: event.rawReason } : {}),
+      ...(event.rawReason ? { rawReason: event.rawReason } : undefined),
       usage: usageToAISDK(event),
       providerMetadata: metadataWithCacheWrite(event),
     } as ProcessorStreamEvent,

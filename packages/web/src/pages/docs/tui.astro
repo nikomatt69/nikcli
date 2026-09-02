@@ -106,7 +106,7 @@ const toc = [
       <DocCard title="OpenTUI renderer" eyebrow="Solid">
         <p><code>app.tsx</code> builds the Solid provider tree, command registry, route switch, dialogs, plugin routes, and keyboard handling.</p>
       </DocCard>
-      <DocCard title="SDK surface" eyebrow="@nikcli-ai/sdk/v2">
+      <DocCard title="SDK surface" eyebrow="@nikcli-ai/sdk/httpapi">
         <p>The UI talks to the same Hono app as external clients, either through in-process fetch or through an HTTP server when network access is enabled.</p>
       </DocCard>
     </div>
@@ -333,7 +333,7 @@ const toc = [
   <section id="renderer-tree" class="doc-section">
     <h2>Renderer tree</h2>
     <p>
-      <code>packages/nikcli/src/cli/cmd/tui/app.tsx</code> creates an OpenTUI renderer with a 45 FPS
+      <code>packages/tui/src/app.tsx</code> creates an OpenTUI renderer with a 45 FPS
       target, Kitty keyboard support, mouse support from TUI config, copy selection handling, and
       explicit Ctrl-C behavior. The Solid app is mounted inside an error boundary and a deep provider
       stack.
@@ -357,7 +357,7 @@ const toc = [
     <p>
       Almost every surface the TUI shows — home tips, sidebar panels, the plugin manager,
       the wallpaper, the loop and mission managers — is a self-contained feature plugin
-      under <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code>, loaded through the
+      under <code>packages/tui/src/feature-plugins/</code>, loaded through the
       same runtime that loads third-party plugins from npm. The larger ones follow the same
       layout: <code>store.ts</code> for reactive state, <code>sdk.ts</code> for typed SDK
       bindings, <code>runner.ts</code> for the local control plane, and <code>dialogs.tsx</code>
@@ -388,7 +388,7 @@ const toc = [
     <DocCallout type="info" title="TUI plugin runtime">
       <p>
         Plugins register commands, routes, dialogs, keybinds, and sidebar / status slots through
-        <code>cli/cmd/tui/plugin/api.tsx</code>. Runtime cleanup runs on exit through
+        <code>packages/tui/src/plugin/api.tsx</code>. Runtime cleanup runs on exit through
         <code>TuiPluginRuntime.dispose()</code> — plugins should not rely on process exit for
         teardown.
       </p>
@@ -398,7 +398,7 @@ const toc = [
   <section id="dialogs" class="doc-section">
     <h2>Dialogs</h2>
     <p>
-      All dialogs live in <code>packages/nikcli/src/cli/cmd/tui/component/</code> and are
+      All dialogs live in <code>packages/tui/src/component/</code> and are
       registered through the <code>DialogProvider</code> and the command palette. The full list
       (in addition to those in the top-level README):
     </p>
@@ -552,7 +552,7 @@ const toc = [
       separate IPC channel.
     </p>
     <p>
-      The bridge lives in <code>packages/nikcli/src/plugin/island/bridge.ts</code> and is
+      The bridge lives in <code>@nikcli-ai/util/island-bridge</code> and is
       self-activating: <code>Bus.publish</code> itself calls <code>start()</code> on first
       publish (idempotent, no-op after the first real call). That matters because the TUI's real
       session / bus activity runs inside a <code>Worker</code> thread with isolated module state —
@@ -602,7 +602,7 @@ NIKCLI_ISLAND_DISABLE=1 nikcli
   <section id="http-control" class="doc-section">
     <h2>HTTP control routes</h2>
     <p>
-      <code>packages/nikcli/src/server/routes/tui.ts</code> exposes routes that remote clients,
+      <code>packages/nikcli/src/server/httpapi/tui.ts</code> exposes routes that remote clients,
       companion surfaces, and automation can use to nudge the running TUI. Most routes publish a
       typed <code>TuiEvent</code> onto the bus. <code>/tui/control</code> is a queue bridge for
       request/response handoff.
@@ -724,21 +724,21 @@ curl -i -X POST http://127.0.0.1:4096/tui/open-help
       <tbody>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/thread.ts</code></td><td>Default command, worker startup, network mode selection, session validation, prompt input, restart, and shutdown.</td></tr>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/worker.ts</code></td><td>RPC server, worker fetch, event stream bridge, server startup, reload, upgrade, cleanup, and <code>IslandBridge.stop()</code>.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/app.tsx</code></td><td>OpenTUI renderer config, provider tree, route rendering, dialogs, command registration, plugin runtime, and event handlers.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/context/sdk.tsx</code></td><td>SDK client creation, direct event source support, SSE retry loop, event batching, and cleanup.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/context/route.tsx</code></td><td>Route shapes, route store initialization from <code>NIKCLI_ROUTE</code>, navigation, and override provider.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/context/remote-sync.tsx</code></td><td>Remote sync state and stats used by the sync dialog.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-command.tsx</code></td><td>Command registry, slash command projection, keybind handling, suspension, and palette dialog.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-sync.tsx</code></td><td>Sync dialog: URL / token config, autostart toggle, reconnect.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-teleport.tsx</code></td><td>Teleport dialog: pick a session and remote target, then ship it.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-mobile-connect.tsx</code></td><td>Pairing QR + bearer token from inside the TUI.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-browser-use.tsx</code></td><td>Browser-use control surface for the <code>browser</code> tool.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/event.ts</code></td><td>Typed TUI bus events and zod payload schemas.</td></tr>
-        <tr><td><code>packages/nikcli/src/server/routes/tui.ts</code></td><td>Remote TUI control HTTP routes and queue bridge.</td></tr>
+        <tr><td><code>packages/tui/src/app.tsx</code></td><td>OpenTUI renderer config, provider tree, route rendering, dialogs, command registration, plugin runtime, and event handlers.</td></tr>
+        <tr><td><code>packages/tui/src/context/sdk.tsx</code></td><td>SDK client creation, direct event source support, SSE retry loop, event batching, and cleanup.</td></tr>
+        <tr><td><code>packages/tui/src/context/route.tsx</code></td><td>Route shapes, route store initialization from <code>NIKCLI_ROUTE</code>, navigation, and override provider.</td></tr>
+        <tr><td><code>packages/tui/src/context/remote-sync.tsx</code></td><td>Remote sync state and stats used by the sync dialog.</td></tr>
+        <tr><td><code>packages/tui/src/component/dialog-command.tsx</code></td><td>Command registry, slash command projection, keybind handling, suspension, and palette dialog.</td></tr>
+        <tr><td><code>packages/tui/src/component/dialog-sync.tsx</code></td><td>Sync dialog: URL / token config, autostart toggle, reconnect.</td></tr>
+        <tr><td><code>packages/tui/src/component/dialog-teleport.tsx</code></td><td>Teleport dialog: pick a session and remote target, then ship it.</td></tr>
+        <tr><td><code>packages/tui/src/component/dialog-mobile-connect.tsx</code></td><td>Pairing QR + bearer token from inside the TUI.</td></tr>
+        <tr><td><code>packages/tui/src/component/dialog-browser-use.tsx</code></td><td>Browser-use control surface for the <code>browser</code> tool.</td></tr>
+        <tr><td><code>packages/tui/src/event.ts</code></td><td>Typed TUI bus events and zod payload schemas.</td></tr>
+        <tr><td><code>packages/nikcli/src/server/httpapi/tui.ts</code></td><td>Remote TUI control HTTP routes and queue bridge.</td></tr>
         <tr><td><code>packages/nikcli/src/config/tui.ts</code></td><td>TUI config loading, migration, keybind parsing, plugin deduplication, and plugin metadata.</td></tr>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/attach.ts</code></td><td>Attach command path for connecting the renderer to an existing server URL.</td></tr>
-        <tr><td><code>packages/nikcli/src/plugin/island/bridge.ts</code></td><td>Island file-contract writer, <code>setEnabled</code>, and shutdown semantics.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/island/index.tsx</code></td><td>TUI-side Island plugin (activate / deactivate the bridge).</td></tr>
+        <tr><td><code>@nikcli-ai/util/island-bridge</code></td><td>Island file-contract writer, <code>setEnabled</code>, and shutdown semantics.</td></tr>
+        <tr><td><code>packages/tui/src/feature-plugins/island/index.tsx</code></td><td>TUI-side Island plugin (activate / deactivate the bridge).</td></tr>
       </tbody>
     </table>
   </section>

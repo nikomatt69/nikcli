@@ -93,6 +93,8 @@ export function createOpenaiCompatible(options: OpenaiCompatibleProviderSettings
   provider.chat = createChatModel
   provider.responses = createResponsesModel
 
+  // SAFETY: the three assignments above add exactly the members
+  // `OpenaiCompatibleProvider` declares on top of the base provider.
   return provider as OpenaiCompatibleProvider
 }
 

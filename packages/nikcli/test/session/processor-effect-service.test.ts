@@ -50,7 +50,11 @@ describe("SessionProcessor.Service", () => {
     const processor = await Effect.runPromise(
       Effect.gen(function* () {
         const service = yield* SessionProcessor.Service
+        // No instance scope here on purpose: this test exercises the service
+        // boundary alone, so the instance is supplied as data like any other
+        // field of the input.
         return yield* service.create({
+          instance: { directory: "/tmp", worktree: "/tmp", project: { id: "prj_test" } } as any,
           assistantMessage,
           sessionID: "ses_test",
           model: { id: "test-model", providerID: "test-provider" } as any,

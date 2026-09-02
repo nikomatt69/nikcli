@@ -194,7 +194,9 @@ export namespace SearchBackend {
   async function fffSearch(input: SearchInput): Promise<SearchResult | undefined> {
     if (input.prefer && input.prefer !== "fff") return undefined
     if (input.follow === false) return undefined
-    const prefix = await FilePathFilters.relativePrefix(input.cwd)
+    const root = await FFF.root()
+    if (root === undefined) return undefined
+    const prefix = await FilePathFilters.relativePrefix(root, input.cwd)
     if (prefix === undefined) return undefined
 
     const result = await FFF.grep(input.pattern, {

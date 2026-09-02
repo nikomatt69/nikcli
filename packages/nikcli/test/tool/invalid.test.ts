@@ -19,6 +19,12 @@ describe("InvalidTool", () => {
     const result = await def.executeAsync(
       { tool: "read", error: "missing path" },
       {
+        // This file stands in no instance scope, and `InvalidTool` never
+        // touches the instance — so the field is present for the contract and
+        // throws only if something starts reading it.
+        get instance(): never {
+          throw new Error("InvalidTool must not read the instance")
+        },
         sessionID: "ses_test",
         messageID: "msg_test",
         callID: "call_test",
@@ -37,6 +43,9 @@ describe("InvalidTool", () => {
   it("forwards progress from Promise and Effect tool implementations", async () => {
     const updates: Tool.Progress[] = []
     const context: Tool.Context = {
+      get instance(): never {
+        throw new Error("this test must not read the instance")
+      },
       sessionID: "ses_progress",
       messageID: "msg_progress",
       callID: "call_progress",

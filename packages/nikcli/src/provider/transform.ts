@@ -72,7 +72,25 @@ function sdkKey(npm: string): string | undefined {
   return undefined
 }
 
-// TODO: fix this stupid inefficient dogshit function
+// Several conditional passes, kept on purpose rather than by neglect.
+//
+// Measured 2026-08-24 on a 601-message / 2.4MB history — about the largest a
+// 200k-token context can hold. `ProviderTransform.message` costs ~2.1ms, and
+// ~72% of that is `sanitizeSurrogates` scanning characters: per-byte work that
+// survives any restructuring of the passes. A single structural walk over every
+// message and part costs 0.012ms, so the passes themselves are ~0.5ms of
+// allocation, and `JSON.stringify` of the same payload — unavoidable, it is the
+// request body — is 0.8x the cost of this entire function. Fusing the passes
+// would buy under a millisecond on a request that then waits seconds for a
+// model, while merging eight provider-specific rules (two of which reorder or
+// split messages, and one of which returns early) into one walk.
+//
+// The one lever that would matter is not re-sanitizing history that previous
+// turns already sanitized. That needs provenance on the message, which is a
+// correctness change and not a refactor.
+//
+// The passes are pinned by `test/provider/transform-normalize.test.ts` and the
+// numbers are reproducible from `test/provider/hot-paths.benchmark.test.ts`.
 function normalizeMessages(
   msgs: ModelMessage[],
   model: Provider.Model,
@@ -946,7 +964,7 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
             {
               thinking: {
                 type: "adaptive",
-                ...(adaptiveOpus ? { display: "summarized" } : {}),
+                ...(adaptiveOpus ? { display: "summarized" } : undefined),
               },
               effort,
             },
@@ -983,7 +1001,7 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
               reasoningConfig: {
                 type: "adaptive",
                 maxReasoningEffort: effort,
-                ...(adaptiveOpus ? { display: "summarized" } : {}),
+                ...(adaptiveOpus ? { display: "summarized" } : undefined),
               },
             },
           ]),

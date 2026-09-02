@@ -64,9 +64,21 @@ jobs:
           Write-Host "pwsh:  $($PSVersionTable.PSVersion)"
 
       # --- typecheck + unit suites that exercise the Windows fixes ---
+      #
+      # These four suites were briefly removed when test execution was stripped
+      # from CI, and then put back: they were passing, on this workflow and on
+      # live-main, and they run in about 40s total. Working signal does not get
+      # deleted. They are targeted files, not the nikcli suite — that one is
+      # genuinely gone from CI (it OOM'd the runner, then failed 2 batches in 15)
+      # and lives at `bun run test:ci` in packages/nikcli.
 
       - name: typecheck
         shell: pwsh
+        env:
+          # tsc on windows-latest hits the default 4GB V8 heap and exits 134
+          # (Allocation failed). The check is the same; only the cap is raised.
+          # 8GB fits the 16GB windows-latest runner; do not lower this back.
+          NODE_OPTIONS: --max-old-space-size=8192
         run: bun run typecheck
 
       - name: tests — double-ESC interrupt state machine
@@ -107,7 +119,7 @@ jobs:
         shell: pwsh
         run: |
           $script = @'
-          import { Global } from "@/global"
+          import { Global } from "@nikcli-ai/util/global"
           const data = Global.Path.data
           const cfg = Global.Path.config
           console.log("data:", data, "config:", cfg)
@@ -116,8 +128,9 @@ jobs:
           if (data.includes("/.local/share/")) { console.error("XDG POSIX fallback leaked:", data); process.exit(1) }
           console.log("Global.Path Windows fallback ok")
           '@
-          # Inside packages/nikcli, not RUNNER_TEMP: `@/` is a tsconfig paths
-          # alias, and bun resolves it from the nearest tsconfig to the file.
+          # Inside packages/nikcli, not RUNNER_TEMP: @nikcli-ai/util is a
+          # workspace dependency, so bun only resolves it from a file that sits
+          # inside the package that declares it.
           $tmp = "global-path-check.ts"
           Set-Content -Path $tmp -Value $script -Encoding UTF8
           try { & bun --conditions=browser $tmp } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }

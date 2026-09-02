@@ -7,6 +7,7 @@
  */
 import { Effect } from "effect"
 import { Session } from "../session"
+import { sessionModelRef } from "../session/model"
 import { SessionPrompt } from "../session/prompt"
 import { runPromiseWithLayer, withCurrentInstance } from "../effect"
 import { definitionFromGenerated, definitionFromGeneratedText, type MissionDefinition } from "./schema"
@@ -49,7 +50,7 @@ export const GENERATE_SYSTEM_PROMPT = [
 
 export async function generateFromDescription(
   description: string,
-  opts: { model?: string; agent?: string },
+  opts: { model?: string; agent?: string; sessionID?: string },
 ): Promise<MissionDefinition> {
   // Create a throwaway session to ask the configured model to author the plan.
   const session = await runSession(
@@ -57,10 +58,17 @@ export async function generateFromDescription(
       const service = yield* Session.Service
       return yield* service.create({
         title: "mission: generate from description",
+        // Parent the drafting session to the one that asked for it, so the
+        // model inheritance chain in `SessionPrompt` has something to walk
+        // even when the reference below resolves to nothing.
+        ...(opts.sessionID ? { parentID: opts.sessionID } : undefined),
       })
     }),
   )
-  const modelID = opts.model ?? ""
+  // The user launched this from a session whose footer shows a model; that is
+  // the model they expect to draft the plan. An explicit `model` still wins,
+  // and an absent one falls through to the agent's own model as before.
+  const modelID = opts.model ?? (await sessionModelRef(opts.sessionID)) ?? ""
   const agent = opts.agent ?? "general"
 
   const userMessage = `${description}\n\nRespond with the JSON object and nothing else. When the JSON is fully emitted, call the update_goal tool with status="complete" and your one-line summary.`
@@ -75,7 +83,7 @@ export async function generateFromDescription(
           command: "goal",
           arguments: userMessage,
           agent,
-          ...(modelID ? { model: modelID } : {}),
+          ...(modelID ? { model: modelID } : undefined),
         })
       }),
     )

@@ -1,37 +1,19 @@
-import { handleSessionRequest } from "./session"
-import { handleTeleportRequest } from "./teleport"
-import { handleWorktreeRequest } from "./worktree"
-import { handleGitRequest } from "./git"
-import { handleAuthRequest } from "./auth"
-import { handleMiscRequest } from "./misc"
-import { handleMemoryRequest } from "./memory"
-import { handleGithubRequest } from "./github"
-import { handleSessionLifecycleRequest } from "./session-lifecycle"
-import { handleLoopsRequest } from "./loops"
-import { handleMissionsRequest } from "./missions"
 import { handleEventsRequest } from "./events"
-import { handleFeaturesRequest } from "./features"
-import { handleHostStatusRequest } from "./host-status"
-import { handlePtyRequest } from "./pty"
+import { handleSessionStreamRequest } from "./session-lifecycle"
+import { handleTeleportUploadChunkRequest } from "./teleport"
 
+/**
+ * The four `/mobile/*` routes that cannot go through the encoded router —
+ * the two SSE streams, the binary teleport chunk upload, and the WebSocket
+ * upgrade (which has never had a dispatcher handler; see `mobile-handlers.ts`).
+ * Everything else is an encoded `.handle` on the mobile group.
+ */
 export async function dispatchMobileRequest(request: Request): Promise<Response | undefined> {
   const pathname = new URL(request.url).pathname
   if (pathname !== "/mobile" && !pathname.startsWith("/mobile/")) return
   return (
-    (await handleAuthRequest(request)) ??
-    (await handleMiscRequest(request)) ??
-    (await handleMemoryRequest(request)) ??
-    (await handleGithubRequest(request)) ??
-    (await handleSessionLifecycleRequest(request)) ??
-    (await handleSessionRequest(request)) ??
-    (await handleTeleportRequest(request)) ??
-    (await handleWorktreeRequest(request)) ??
-    (await handleGitRequest(request)) ??
-    (await handleLoopsRequest(request)) ??
-    (await handleMissionsRequest(request)) ??
     (await handleEventsRequest(request)) ??
-    (await handleFeaturesRequest(request)) ??
-    (await handleHostStatusRequest(request)) ??
-    (await handlePtyRequest(request))
+    (await handleSessionStreamRequest(request)) ??
+    (await handleTeleportUploadChunkRequest(request))
   )
 }

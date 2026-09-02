@@ -154,6 +154,8 @@ export namespace Flag {
   // Confined code-mode tool (interpreter port from opencode v2 codemode); see specs/codemode.md.
   // Default-on; opt out with NIKCLI_DISABLE_CODE_MODE.
   export const NIKCLI_EXPERIMENTAL_CODE_MODE = !truthy("NIKCLI_DISABLE_CODE_MODE")
+  // Linux-only: place sandboxed children in this cgroup before they start.
+  export const NIKCLI_SANDBOX_CGROUP = process.env["NIKCLI_SANDBOX_CGROUP"]
 
   // Computer & browser control ("computer use" like Codex / Claude Code).
   // The browser_control tool drives @nikcli-ai/browser-control's local,

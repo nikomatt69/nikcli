@@ -2,6 +2,7 @@ type QueueInput = {
   paused: () => boolean
   bootstrap: () => Promise<void>
   bootstrapInstance: (directory: string) => Promise<void> | void
+  onError: (error: unknown) => void
 }
 
 export function createRefreshQueue(input: QueueInput) {
@@ -27,7 +28,7 @@ export function createRefreshQueue(input: QueueInput) {
     if (timer) return
     timer = setTimeout(() => {
       timer = undefined
-      void drain()
+      void drain().catch(input.onError)
     }, 0)
   }
 
@@ -63,8 +64,7 @@ export function createRefreshQueue(input: QueueInput) {
       }
     } finally {
       running = false
-      if (input.paused()) return
-      if (root || queued.size) schedule()
+      if (!input.paused() && (root || queued.size)) schedule()
     }
   }
 

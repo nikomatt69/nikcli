@@ -32,6 +32,8 @@ describe("withSearchDeadline", () => {
     ).catch(() => undefined)
 
     expect(observed?.aborted).toBe(true)
+    // SAFETY: the assertion above proves the signal aborted, and the tool sets
+    // its abort reason to the `SearchTimeoutError` this line checks for.
     expect((observed?.reason as Error)?.name).toBe("SearchTimeoutError")
   })
 

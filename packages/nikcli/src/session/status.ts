@@ -3,7 +3,6 @@ import { Bus } from "@/bus"
 import { InstanceState } from "@/effect"
 import { zod, zodObjectMode } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-import z from "zod"
 
 export namespace SessionStatus {
   // Legacy callers depend on `parse({type:"idle", extra: 1})` stripping unknown keys; the

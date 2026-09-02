@@ -18,9 +18,10 @@ import type { JSONFrame } from "./render/json"
 const HELP = `browser-control COMMAND [options]
 
 Background headless-browser sessions, driven the way terminal-control drives
-PTY sessions — but for web pages. A per-workspace daemon holds one shared
-Chromium process; sessions persist across separate CLI invocations and the
-daemon exits on its own after 10 idle minutes.
+PTY sessions — but for web pages. A per-workspace daemon holds Bun.WebView
+sessions (WebKit on macOS); they persist across separate CLI invocations.
+A session unused for 30 minutes is stopped; the daemon then exits 10 minutes
+later. Set NIKCLI_BROWSER_IDLE_MINUTES to override the session window, or 0 to disable it.
 
 Session commands:
   browser-control start [NAME] --url URL [--viewport WxH] [--record]
@@ -47,12 +48,12 @@ Recording:
 
     --fps enables periodic real-screenshot sampling, usable for a video and
     for exact-marker frame lookup at any time — even before stop, unlike the
-    --record webm which only finalizes on stop. Omit for trace-only recording.
+    --record mp4 which only finalizes on stop. Omit for screenshot-only recording.
 
   browser-control marker NAME LABEL
   browser-control stop-recording NAME
   browser-control recording-data NAME   current recording state, without stopping
-  browser-control videoPath NAME        path to the --record webm; only after stop
+  browser-control videoPath NAME        path to the --record mp4; only after stop
 
 Evidence:
   browser-control bundle (--screenshot FILE | --recording FILE) --out DIR --result passed|failed|unverified [options]
@@ -65,7 +66,7 @@ Evidence:
       --at-marker NAME         with --recording: screenshot at this marker
       --at-ms MS                with --recording: screenshot nearest this timestamp
       --fps NUMBER              with --recording: video fps (default: as sampled)
-      --video FILE              webm from a --record session (after stop); takes
+      --video FILE              mp4 from a --record session (after stop); takes
                                  priority over frames in --recording
       --trace FILE              trace.zip from stop-recording
       --title TEXT              PR section title

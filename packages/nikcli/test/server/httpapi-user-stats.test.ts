@@ -76,6 +76,7 @@ describe("GET /user/me/stats", () => {
     UserDB.addContact(owner.id, friend.id)
     UserDB.sendMessage(friend.id, owner.id, "hello")
 
+    // SAFETY: this is the body of `/user/me/stats`, the route under test.
     const filled = (await (await request("/user/me/stats", token)).json()) as {
       contacts: number
       unread: number

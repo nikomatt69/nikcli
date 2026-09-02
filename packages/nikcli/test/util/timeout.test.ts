@@ -28,6 +28,8 @@ describe("withTimeout", () => {
     try {
       await withTimeout(slow, 50)
     } catch (e) {
+      // SAFETY: `withTimeout` rejects with an `Error`; this catch wraps only
+      // that call.
       msg = (e as Error).message
     }
     expect(msg).toContain("50ms")

@@ -4,6 +4,7 @@ import { $ } from "bun"
 import { Log } from "@nikcli-ai/util/log"
 import { iife } from "@nikcli-ai/util/iife"
 import { Flag } from "@nikcli-ai/util/flag"
+import { bunUtils } from "@/bun"
 import { zodObject } from "@nikcli-ai/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import * as BuildVersion from "@nikcli-ai/util/version"
@@ -80,6 +81,10 @@ export namespace Installation {
     return CHANNEL === "local"
   }
 
+  export function isStandaloneExecutable() {
+    return bunUtils.isStandaloneExecutable
+  }
+
   async function methodImpl(): Promise<Method> {
     if (process.execPath.includes(path.join(".nikcli", "bin"))) return "curl"
     if (process.execPath.includes(path.join(".local", "bin"))) return "curl"
@@ -136,7 +141,7 @@ export namespace Installation {
     return "unknown"
   }
 
-  export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
+  export class UpgradeFailedError extends Schema.TaggedError<UpgradeFailedError>()("UpgradeFailedError", {
     stderr: Schema.String,
   }) {}
 
@@ -304,6 +309,9 @@ export namespace Installation {
         // failing the whole update check.
         const res = await fetch("https://formulae.brew.sh/api/formula/nikcli.json").catch(() => null)
         if (res?.ok) {
+          // SAFETY: only `versions.stable` is read, optional-chained on the next
+          // line, so a brew response of any other shape yields undefined and
+          // falls through to the GitHub release path below.
           const data = (await res.json()) as { versions?: { stable?: string } }
           if (data.versions?.stable) return data.versions.stable
         }

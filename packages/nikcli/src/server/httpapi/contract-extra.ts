@@ -1,3 +1,4 @@
+import type { JsonValue } from "@/util/json"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
@@ -9,9 +10,9 @@ import { MessageV2 } from "@/session/message-v2"
 import { SessionPending } from "@/session/pending"
 import { Session } from "@/session"
 import { Snapshot } from "@/snapshot"
+import { HttpApiAuth } from "./security"
 import { Config } from "@/config/config"
-import { InstanceState, runPromiseWithLayer } from "@/effect"
-import { Instance } from "@/project/instance"
+import { InstanceState, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { InstanceReload } from "@/project/reload"
 import { Provider } from "@/provider/provider"
 import { ShareNext } from "@/share/share-next"
@@ -204,7 +205,10 @@ export namespace ContractExtraHttpApi {
     .add(
       HttpApiEndpoint.get("short", "/s/:shareID", {
         params: SharePath,
-        success: Schema.Unknown.annotate({
+        success: HttpApiSchema.WithHeaders(HttpApiSchema.Empty(308), {
+          location: Schema.String,
+        }).annotate({
+          identifier: "ShareShortRedirect",
           description: "308 redirect to /share/:shareID",
         }),
       }).annotate(OpenApi.Identifier, "getS:shareID"),
@@ -334,6 +338,9 @@ export namespace ContractExtraHttpApi {
       }).annotate(OpenApi.Identifier, "postUserLogin"),
     )
     .add(
+      // Mixed group: register and login are in `Auth.isPublicPath` — a caller
+      // creating or claiming an account has no credentials yet — so only the
+      // update endpoint declares the security middleware (H8).
       HttpApiEndpoint.patch("update", "/user/:id", {
         params: Schema.Struct({ id: Schema.String }),
         payload: Schema.Struct({
@@ -342,7 +349,9 @@ export namespace ContractExtraHttpApi {
           role: Schema.optional(Schema.Literals(["admin", "user"])),
         }),
         success: PublicUser,
-      }).annotate(OpenApi.Identifier, "patchUser:id"),
+      })
+        .middleware(HttpApiAuth.Middleware)
+        .annotate(OpenApi.Identifier, "patchUser:id"),
     )
 
   // --- pty websocket upgrade — not an HTTP transport endpoint for the
@@ -402,19 +411,28 @@ export namespace ContractExtraHttpApi {
     .add(UsersGroup)
     .add(AccountGroup)
 
-  function raw(handler: (request: Request) => Promise<Response> | Response) {
+  /**
+   * Adapt a plain-async raw handler. The instance is resolved here and handed
+   * to the handler, so a body that writes into the project does not have to
+   * find the directory by reading whatever scope its fiber woke up in.
+   */
+  function raw(handler: (request: Request, instance: InstanceContext) => Promise<Response> | Response) {
     return ({ request }: { readonly request: HttpServerRequest.HttpServerRequest }) =>
-      Effect.promise(async () => HttpServerResponse.fromWeb(await handler(request.source as Request)))
+      InstanceState.context.pipe(
+        Effect.flatMap((instance) =>
+          Effect.promise(async () => HttpServerResponse.fromWeb(await handler(request.source as Request, instance))),
+        ),
+      )
   }
 
   function json(body: unknown, status = 200) {
     return Response.json(body, { status })
   }
 
-  async function body(request: Request): Promise<Record<string, unknown> | undefined> {
+  async function body(request: Request): Promise<Record<string, JsonValue> | undefined> {
     const value = await request.json().catch(() => undefined)
     return value !== null && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
+      ? (value as Record<string, JsonValue>)
       : undefined
   }
 
@@ -486,7 +504,7 @@ export namespace ContractExtraHttpApi {
       .handle("reload", () =>
         Effect.gen(function* () {
           const context = yield* InstanceState.context
-          yield* Effect.promise(() => InstanceReload.reload(["api"]))
+          yield* Effect.promise(() => InstanceReload.reload(context.directory, ["api"]))
           return { reloaded: true, directory: context.directory }
         }).pipe(Effect.orDie),
       )
@@ -518,14 +536,14 @@ export namespace ContractExtraHttpApi {
       )
       .handleRaw(
         "mcpRemove",
-        raw(async (request) => {
+        raw(async (request, instance) => {
           const name = decodeURIComponent(new URL(request.url).pathname.split("/").at(-1) ?? "")
           const current = await runConfig(configService((service) => service.get()))
           const next = { ...current.mcp }
           if (!(name in next)) return json({ error: "MCP server not found" }, 404)
           delete next[name]
           await Bun.write(
-            path.join(Instance.directory, "nikcli.json"),
+            path.join(instance.directory, "nikcli.json"),
             JSON.stringify({ ...current, mcp: next }, null, 2),
           )
           return json({ success: true })
@@ -576,7 +594,7 @@ export namespace ContractExtraHttpApi {
       )
       .handleRaw(
         "profileActivate",
-        raw(async (request) => {
+        raw(async (request, instance) => {
           const requested = decodeURIComponent(new URL(request.url).pathname.split("/").at(-1) ?? "").trim()
           await fs.mkdir(profileDir(), { recursive: true })
           if (requested === "default") {
@@ -593,7 +611,7 @@ export namespace ContractExtraHttpApi {
             )
           const file = Bun.file(profilePath(name))
           if (!(await file.exists())) return json({ error: "Profile not found" }, 404)
-          await Bun.write(path.join(Instance.directory, "nikcli.json"), JSON.stringify(await file.json(), null, 2))
+          await Bun.write(path.join(instance.directory, "nikcli.json"), JSON.stringify(await file.json(), null, 2))
           await Bun.write(activeProfilePath(), name)
           return json({ success: true })
         }),
@@ -704,6 +722,12 @@ export namespace ContractExtraHttpApi {
     EventsHandlersLive,
     WorkspaceHandlersLive,
     UsersHandlersLive,
+  ).pipe(
+    // The `users` group marks `update` with the security middleware, so its
+    // implementation has to be in scope while these group layers are built —
+    // `HttpApiBuilder.group` resolves middleware out of the context it
+    // captures, not from whatever is provided later (H8).
+    Layer.provide(HttpApiAuth.layer),
   )
 
   export const DependenciesLive = Layer.mergeAll(Auth.defaultLayer, Config.defaultLayer, Provider.defaultLayer)

@@ -39,7 +39,7 @@ export namespace File {
    * rejected for diagnostics. Tagged so the Effect channel can be narrowed
    * and call sites can use `Effect.catchTag("FileAccessDenied", ...)`.
    */
-  export class AccessDeniedError extends Schema.TaggedErrorClass<AccessDeniedError>()("FileAccessDenied", {
+  export class AccessDeniedError extends Schema.TaggedError<AccessDeniedError>()("FileAccessDenied", {
     path: Schema.String,
     message: Schema.String,
   }) {}
@@ -49,7 +49,7 @@ export namespace File {
    * methods. Carries the original cause so `Effect.catchTag` handlers can
    * still inspect the underlying error if needed.
    */
-  export class IOError extends Schema.TaggedErrorClass<IOError>()("FileIOError", {
+  export class IOError extends Schema.TaggedError<IOError>()("FileIOError", {
     message: Schema.String,
     path: Schema.optional(Schema.String),
     cause: Schema.optional(Schema.Unknown),
@@ -206,7 +206,10 @@ export namespace File {
     return new IOError({ message: String(e) })
   }
 
+  // Effect.gen without `yield` is valid here: the body only sets up
+  // sync state and returns the State object — no Effect work is performed.
   const state = InstanceState.make<State>((ctx) =>
+    // oxlint-disable-next-line eslint/require-yield
     Effect.gen(function* () {
       let cache: Entry = { files: [], dirs: [] }
       let cacheReady = false
@@ -446,7 +449,7 @@ export namespace File {
     const ctx = s.context
     const exclude = [".git", ".DS_Store"]
     const project = ctx.project
-    let ignored = (_: string) => false
+    let ignored = (__: string) => false
     if (project.vcs === "git") {
       if (!s.ignoreCache || s.ignoreCache.worktree !== ctx.worktree) {
         const ig = ignore()

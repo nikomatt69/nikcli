@@ -67,13 +67,6 @@ function pluginList() {
   )
 }
 
-function handlePromptCancel<T>(value: unknown, fallback: T): T {
-  if (prompts.isCancel(value)) {
-    throw new UI.CancelledError()
-  }
-  return value as T
-}
-
 /**
  * Handle plugin-based authentication flow.
  * Returns true if auth was handled, false if it should fall through to default handling.

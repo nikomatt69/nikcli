@@ -1,10 +1,9 @@
 import { Log } from "@nikcli-ai/util/log"
 import { Database } from "@/database/database"
-import { Instance } from "@/project/instance"
 import { Config } from "@/config/config"
 import { Skill } from "@/skill"
 import { Profile } from "@/profile"
-import { runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import { InstanceState, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 import { Effect } from "effect"
 import { SyncEvent } from "@/sync/sync-event"
 import type { SyncEventRecord } from "@/sync/index"
@@ -188,13 +187,26 @@ export namespace InstructionSync {
         (event.type === INSTRUCTION_EVENT_LOGGED || event.type.startsWith(`${INSTRUCTION_EVENT_TYPE}.`)) &&
         event.seq > state.epochSeq,
     )
-    const updates: Array<{ role: "user"; content: string }> = []
+    // Collapse to the newest hash per key. Replaying one update per event
+    // resent every superseded body on every request; the model only needs the
+    // current one, and a key that has drifted back to its epoch value needs
+    // nothing at all because the prefix already carries it.
+    const latest = new Map<string, string>()
     for (const event of events) {
       const data = event.data as { delta?: Record<string, string> } | null
-      if (!data?.delta || Object.keys(data.delta).length === 0) continue
-      const needed = Object.values(data.delta).filter((value) => value !== INSTRUCTION_REMOVED)
+      if (!data?.delta) continue
+      for (const [key, value] of Object.entries(data.delta)) latest.set(key, value)
+    }
+    for (const [key, value] of latest) {
+      if ((state.data.epoch_values[key] ?? INSTRUCTION_REMOVED) === value) latest.delete(key)
+    }
+
+    const updates: Array<{ role: "user"; content: string }> = []
+    if (latest.size > 0) {
+      const delta = Object.fromEntries(latest)
+      const needed = [...latest.values()].filter((value) => value !== INSTRUCTION_REMOVED)
       const extra = InstructionRepo.getBlobs(needed)
-      updates.push({ role: "user", content: renderUpdate(data.delta, { ...blobs, ...extra }) })
+      updates.push({ role: "user", content: renderUpdate(delta, { ...blobs, ...extra }) })
     }
 
     return {
@@ -285,11 +297,7 @@ export namespace InstructionSync {
     skills: string[]
     disabled: string[]
   }): Promise<AssembleResult> {
-    const ctx: InstanceContext = {
-      directory: Instance.directory,
-      worktree: Instance.worktree,
-      project: Instance.project,
-    }
+    const ctx = InstanceState.ambient()
     const config = await runPromiseWithLayer(
       Config.defaultLayer,
       withCurrentInstance(
@@ -351,9 +359,22 @@ export namespace InstructionSync {
     InstructionRepo.inherit(parentID, childID)
   }
 
-  export function advanceEpoch(sessionID: string, projectID: string) {
-    const seq = InstructionRepo.latestAggregateSeq(projectID, sessionID)
-    InstructionRepo.advanceEpoch(sessionID, seq)
+  /**
+   * Fold instruction changes the model has already been shown into the epoch
+   * prefix.
+   *
+   * A post-epoch delta is replayed as a tail message carrying the full body on
+   * every single request until the epoch moves, so a skill added mid-session
+   * used to cost its whole body again every turn until the next compaction.
+   * Called at the start of a turn — by which point the turn that emitted the
+   * delta has finished delivering it — this moves that body into the stable
+   * prefix, where it is served from the prompt cache and never re-sent.
+   */
+  export function foldDelivered(sessionID: string): boolean {
+    const state = InstructionRepo.get(sessionID)
+    if (!state || state.updatedSeq <= state.epochSeq) return false
+    InstructionRepo.advanceEpoch(sessionID, state.updatedSeq)
+    return true
   }
 
   export function hydrate(delta: Record<string, string>): Record<string, string> {

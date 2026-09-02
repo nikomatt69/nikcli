@@ -21,17 +21,12 @@ import { Snapshot } from "@/snapshot"
 import type { Provider } from "@/provider/provider"
 import { PermissionNext } from "@/permission/next"
 import { Global } from "@nikcli-ai/util/global"
+import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { WorkspaceContext } from "../workspace/workspace-context"
 import { WorkspaceDB } from "../workspace/db"
-import {
-  InstanceState,
-  locallyInstance,
-  runPromiseWithLayer,
-  withCurrentInstance,
-  type InstanceContext,
-} from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { Context, Effect, Layer, Schema } from "effect"
-import { zodObject, zodObjectMode, type DeepMutable } from "@nikcli-ai/util/effect-zod"
+import { zod, zodObject, zodObjectMode, type DeepMutable } from "@nikcli-ai/util/effect-zod"
 import { Analytics } from "../analytics/analytics"
 import { SessionRepo } from "./repo"
 import { GoalRepo } from "./goal-repo"
@@ -42,12 +37,12 @@ import { SessionSync } from "./projectors"
 import { SyncEvent } from "@/sync/sync-event"
 import { MessageRepo } from "./message-repo"
 
-function configGet(ctx?: InstanceContext) {
+function configGet(ctx: InstanceContext) {
   const effect = Effect.gen(function* () {
     const config = yield* Config.Service
     return yield* config.get()
   })
-  return runPromiseWithLayer(Config.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
+  return runPromiseWithLayer(Config.defaultLayer, locallyInstance(ctx, effect))
 }
 
 export namespace Session {
@@ -66,8 +61,8 @@ export namespace Session {
      * sessions already carry the equivalent `github.repositoryDirectory`
      * as a sibling field.
      */
-    repositoryDirectory: Schema.optional(Schema.String),
-    cleanedAt: Schema.optional(Schema.Number),
+    repositoryDirectory: Schema.optionalKey(Schema.String),
+    cleanedAt: Schema.optionalKey(Schema.Number),
   }).annotate({ ...strip, identifier: "SessionWorktree" })
   const WorktreeInfo = zodObject(WorktreeInfoSchema)
 
@@ -77,21 +72,21 @@ export namespace Session {
     fullName: Schema.String,
     baseBranch: Schema.String,
     headBranch: Schema.String,
-    repositoryDirectory: Schema.optional(Schema.String),
-    cloneUrl: Schema.optional(Schema.String),
-    htmlUrl: Schema.optional(Schema.String),
-    private: Schema.optional(Schema.Boolean),
+    repositoryDirectory: Schema.optionalKey(Schema.String),
+    cloneUrl: Schema.optionalKey(Schema.String),
+    htmlUrl: Schema.optionalKey(Schema.String),
+    private: Schema.optionalKey(Schema.Boolean),
     worktree: WorktreeInfoSchema,
-    pullRequest: Schema.optional(
+    pullRequest: Schema.optionalKey(
       Schema.Struct({
         number: Schema.Number,
         url: Schema.String,
         title: Schema.String,
       }).annotate(strip),
     ),
-    lastCommitSha: Schema.optional(Schema.String),
-    publishedAt: Schema.optional(Schema.Number),
-    publishError: Schema.optional(Schema.String),
+    lastCommitSha: Schema.optionalKey(Schema.String),
+    publishedAt: Schema.optionalKey(Schema.Number),
+    publishError: Schema.optionalKey(Schema.String),
   }).annotate({ ...strip, identifier: "SessionGithub" })
   const GithubInfo = zodObject(GithubInfoSchema)
 
@@ -100,15 +95,15 @@ export namespace Session {
     primaryPlatform: Schema.String,
     method: Schema.String,
     detectedAt: Schema.Number,
-    buildStatus: Schema.optional(Schema.Literals(["unknown", "building", "succeeded", "failed"])),
-    lastBuildAt: Schema.optional(Schema.Number),
-    artifacts: Schema.optional(
+    buildStatus: Schema.optionalKey(Schema.Literals(["unknown", "building", "succeeded", "failed"])),
+    lastBuildAt: Schema.optionalKey(Schema.Number),
+    artifacts: Schema.optionalKey(
       Schema.Array(
         Schema.Struct({
           platform: Schema.String,
           path: Schema.String,
-          size: Schema.optional(Schema.Number),
-          createdAt: Schema.optional(Schema.Number),
+          size: Schema.optionalKey(Schema.Number),
+          createdAt: Schema.optionalKey(Schema.Number),
         }).annotate(strip),
       ),
     ),
@@ -125,41 +120,41 @@ export namespace Session {
     slug: Schema.String,
     projectID: Schema.String,
     directory: Schema.String,
-    parentID: Schema.optional(Identifier.schemaEffect("session")),
-    workspaceID: Schema.optional(Schema.String),
-    summary: Schema.optional(
+    parentID: Schema.optionalKey(Identifier.schemaEffect("session")),
+    workspaceID: Schema.optionalKey(Schema.String),
+    summary: Schema.optionalKey(
       Schema.Struct({
         additions: Schema.Number,
         deletions: Schema.Number,
         files: Schema.Number,
-        diffs: Schema.optional(Schema.Array(Snapshot.FileDiffSchema)),
+        diffs: Schema.optionalKey(Schema.Array(Snapshot.FileDiffSchema)),
       }).annotate(strip),
     ),
-    share: Schema.optional(
+    share: Schema.optionalKey(
       Schema.Struct({
         url: Schema.String,
       }).annotate(strip),
     ),
-    github: Schema.optional(GithubInfoSchema),
+    github: Schema.optionalKey(GithubInfoSchema),
     /**
      * Isolated worktree for plain (non-GitHub) sessions -- see
      * createSessionWorktreeContext in server/mobile/helpers.ts.
      * GitHub-linked sessions keep their worktree nested under `github`
      * instead, since it doubles as PR/publish metadata there.
      */
-    worktree: Schema.optional(WorktreeInfoSchema),
-    mobile: Schema.optional(MobileInfoSchema),
+    worktree: Schema.optionalKey(WorktreeInfoSchema),
+    mobile: Schema.optionalKey(MobileInfoSchema),
     title: Schema.String,
-    activeCommand: Schema.optional(Schema.String),
+    activeCommand: Schema.optionalKey(Schema.String),
     version: Schema.String,
     time: Schema.Struct({
       created: Schema.Number,
       updated: Schema.Number,
-      compacting: Schema.optional(Schema.Number),
-      archived: Schema.optional(Schema.Number),
+      compacting: Schema.optionalKey(Schema.Number),
+      archived: Schema.optionalKey(Schema.Number),
     }).annotate(strip),
-    permission: Schema.optional(PermissionNext.RulesetSchema),
-    skills: Schema.optional(Schema.Array(Schema.String)),
+    permission: Schema.optionalKey(PermissionNext.RulesetSchema),
+    skills: Schema.optionalKey(Schema.Array(Schema.String)),
     /**
      * Paths of custom instruction files (AGENTS.md, CLAUDE.md, etc.) that
      * the user has explicitly disabled for this session. The server
@@ -167,20 +162,20 @@ export namespace Session {
      * never sees them — the only way to actually shrink that part of the
      * context.
      */
-    disabledInstructions: Schema.optional(Schema.Array(Schema.String)),
+    disabledInstructions: Schema.optionalKey(Schema.Array(Schema.String)),
     /**
      * Tool IDs the user has disabled for this session. Both the schema
      * (so the model never sees them) and the permission rule are
      * suppressed. Map value is unused but kept as a record for forward
      * compatibility with "true/false" partial disables.
      */
-    disabledTools: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
-    revert: Schema.optional(
+    disabledTools: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
+    revert: Schema.optionalKey(
       Schema.Struct({
         messageID: Schema.String,
-        partID: Schema.optional(Schema.String),
-        snapshot: Schema.optional(Schema.String),
-        diff: Schema.optional(Schema.String),
+        partID: Schema.optionalKey(Schema.String),
+        snapshot: Schema.optionalKey(Schema.String),
+        diff: Schema.optionalKey(Schema.String),
       }).annotate(strip),
     ),
     /**
@@ -189,7 +184,7 @@ export namespace Session {
      * from this session can inherit the model without re-prompting the user
      * and without falling back to the global provider default.
      */
-    lastModel: Schema.optional(
+    lastModel: Schema.optionalKey(
       Schema.Struct({
         providerID: Schema.String,
         modelID: Schema.String,
@@ -214,13 +209,13 @@ export namespace Session {
     .object({
       parentID: ID.optional(),
       title: z.string().optional(),
-      permission: Info.shape.permission,
+      permission: zod(InfoSchema.fields.permission).optional(),
       skills: z.array(z.string()).optional(),
       disabledInstructions: z.array(z.string()).optional(),
       disabledTools: z.record(z.string(), z.boolean()).optional(),
       github: GithubInfo.optional(),
       worktree: WorktreeInfo.optional(),
-      workspaceID: Info.shape.workspaceID,
+      workspaceID: zod(InfoSchema.fields.workspaceID).optional(),
     })
     .optional()
   export type CreateInput = z.infer<typeof CreateInput>
@@ -236,6 +231,19 @@ export namespace Session {
     limit: z.number().optional(),
   })
   export type MessagesInput = z.infer<typeof MessagesInput>
+
+  /**
+   * Filters for the session list read (P2.1). `directory` is a path — the
+   * service converts it to the stored `Filesystem.comparisonKey`, so callers
+   * never handle the key form.
+   */
+  export type QueryInput = {
+    directory?: string | undefined
+    roots?: boolean | undefined
+    start?: number | undefined
+    search?: string | undefined
+    limit?: number | undefined
+  }
 
   export const RemoveMessageInput = z.object({
     sessionID: ID,
@@ -410,7 +418,7 @@ export namespace Session {
       ctx,
       id,
       (draft) => {
-        draft.share = undefined
+        delete draft.share
       },
       { touch: false },
     )
@@ -456,22 +464,27 @@ export namespace Session {
   async function createNextImpl(ctx: InstanceContext, input: CreateNextInput) {
     const inheritedSkills =
       !input.skills && input.parentID ? (await getImpl(ctx, input.parentID).catch(() => undefined))?.skills : undefined
+    const workspaceID = input.workspaceID ?? WorkspaceContext.workspaceID
+    // The optional members are spread in only when they have a value. They are
+    // `Schema.optionalKey`, which rejects a *present* `undefined` at encode
+    // time, and this object is what `POST /session` returns — writing the key
+    // unconditionally answers 400 instead of omitting the field.
     const result: Info = {
       id: Identifier.descending("session", input.id),
       slug: Slug.create(),
       version: Installation.VERSION,
       projectID: ctx.project.id,
       directory: input.directory,
-      parentID: input.parentID,
-      workspaceID: input.workspaceID ?? WorkspaceContext.workspaceID,
+      ...(input.parentID !== undefined && { parentID: input.parentID }),
+      ...(workspaceID !== undefined && { workspaceID }),
       title: input.title ?? createDefaultTitle(!!input.parentID),
-      permission: input.permission,
+      ...(input.permission !== undefined && { permission: input.permission }),
       skills: input.skills ?? inheritedSkills ?? [],
-      disabledInstructions: input.disabledInstructions,
-      disabledTools: input.disabledTools,
-      github: input.github,
-      worktree: input.worktree,
-      mobile: input.mobile,
+      ...(input.disabledInstructions !== undefined && { disabledInstructions: input.disabledInstructions }),
+      ...(input.disabledTools !== undefined && { disabledTools: input.disabledTools }),
+      ...(input.github !== undefined && { github: input.github }),
+      ...(input.worktree !== undefined && { worktree: input.worktree }),
+      ...(input.mobile !== undefined && { mobile: input.mobile }),
       time: {
         created: Date.now(),
         updated: Date.now(),
@@ -552,6 +565,28 @@ export namespace Session {
       if (activeWorkspaceID && session.workspaceID !== activeWorkspaceID) continue
       yield session
     }
+  }
+
+  /**
+   * The list route's filters, ordering, and limit, evaluated in SQL.
+   *
+   * `list()` stays: it is the "walk every session of this project" iterator
+   * other callers still want. This is the filtered read (P2.1), and it takes
+   * a `directory` path rather than a comparison key so the caller cannot
+   * accidentally pass a raw path where a key is expected — the conversion
+   * happens here, next to the write path that stores it.
+   */
+  function queryImpl(ctx: InstanceContext, input: QueryInput): Info[] {
+    const activeWorkspaceID = WorkspaceContext.workspaceID
+    return SessionRepo.query({
+      projectId: ctx.project.id,
+      ...(activeWorkspaceID ? { workspaceId: activeWorkspaceID } : {}),
+      ...(input.directory !== undefined ? { directoryKey: Filesystem.comparisonKey(input.directory) } : {}),
+      ...(input.roots !== undefined ? { roots: input.roots } : {}),
+      ...(input.start !== undefined ? { start: input.start } : {}),
+      ...(input.search !== undefined ? { search: input.search } : {}),
+      ...(input.limit !== undefined ? { limit: input.limit } : {}),
+    })
   }
 
   async function childrenImpl(ctx: InstanceContext, parentID: string) {
@@ -845,7 +880,7 @@ export namespace Session {
     }
   })
 
-  export class BusyError extends Schema.TaggedErrorClass<BusyError>()("SessionBusyError", {
+  export class BusyError extends Schema.TaggedError<BusyError>()("SessionBusyError", {
     sessionID: Schema.String,
     message: Schema.String,
   }) {
@@ -887,6 +922,7 @@ export namespace Session {
     diff(sessionID: string): Effect.Effect<Snapshot.FileDiff[], Error>
     messages(input: MessagesInput): Effect.Effect<MessageV2.WithParts[], Error>
     list(): Effect.Effect<AsyncIterable<Info>>
+    query(input: QueryInput): Effect.Effect<Info[], Error>
     children(parentID: string): Effect.Effect<Info[], Error>
     remove(sessionID: string): Effect.Effect<void, Error>
     removeMessageWithParts(sessionID: string, messageID: string): Effect.Effect<void, Error>
@@ -904,8 +940,13 @@ export namespace Session {
    *
    * Session rows and derived state are SQL. Keep implementation failures in
    * the closed session-domain error union exposed by the service.
+   *
+   * Exported (E5.2) so the cross-service adapters in `session/revert.ts` and
+   * `session/summary.ts` can normalize their Promise rejections onto the
+   * same channel instead of falling through `Effect.tryPromise`'s default
+   * `UnknownError` wrapping.
    */
-  function asSessionError(e: unknown): Error {
+  export function asSessionError(e: unknown): Error {
     if (e instanceof BusyError) return e
     if (e instanceof SessionError.NotFoundError) return e
     if (e instanceof SessionError.IOError) return e
@@ -1042,6 +1083,15 @@ export namespace Session {
           ),
         ),
       list: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.sync(() => listImpl(ctx)))),
+      query: (input) =>
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.try({
+              try: () => queryImpl(ctx, input),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       children: (parentID) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) =>

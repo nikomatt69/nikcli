@@ -21,15 +21,16 @@ import { LSP } from "../lsp"
 import { ReadTool } from "../tool/read"
 import { ListTool } from "../tool/ls"
 import { FileTime } from "../file/time"
-import { Flag } from "@nikcli-ai/util/flag"
 import { ulid } from "ulid"
 import { Command } from "../command"
 import { fileURLToPath } from "bun"
 import { Config } from "../config/config"
 import { SessionSummary } from "./summary"
+import { Snapshot } from "@/snapshot"
 import { SessionGoal } from "./goal"
 import { EventError } from "./event-error"
 import { fn } from "@/util/fn"
+import { setOptional } from "@/util/optional-key"
 import { SessionProcessor } from "./processor"
 import { TaskTool } from "@/tool/task"
 import { Tool } from "@/tool/tool"
@@ -37,7 +38,7 @@ import { PermissionNext } from "@/permission/next"
 import { SessionStatus } from "./status"
 import { Context, Effect, Layer } from "effect"
 import { Instance } from "@/project/instance"
-import { AppRuntime, InstanceState, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { errorMessage } from "@nikcli-ai/util/error-format"
 import { resolveTools, createStructuredOutputTool } from "./tools"
 import { PromptParts } from "./prompt-parts"
@@ -70,7 +71,8 @@ export namespace SessionPrompt {
   function askPermission(input: PermissionNext.AskInput) {
     return runPromiseWithLayer(
       PermissionNext.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const permission = yield* PermissionNext.Service
           return yield* permission.ask(input)
@@ -82,7 +84,8 @@ export namespace SessionPrompt {
   function configGet() {
     return runPromiseWithLayer(
       Config.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const config = yield* Config.Service
           return yield* config.get()
@@ -94,7 +97,8 @@ export namespace SessionPrompt {
   function commandGet(name: string) {
     return runPromiseWithLayer(
       Command.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const command = yield* Command.Service
           return yield* command.get(name)
@@ -106,7 +110,8 @@ export namespace SessionPrompt {
   function agentGet(name: string) {
     return runPromiseWithLayer(
       Agent.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const agent = yield* Agent.Service
           return yield* agent.get(name)
@@ -124,7 +129,8 @@ export namespace SessionPrompt {
   function agentList() {
     return runPromiseWithLayer(
       Agent.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const agent = yield* Agent.Service
           return yield* agent.list()
@@ -136,7 +142,8 @@ export namespace SessionPrompt {
   function defaultAgent() {
     return runPromiseWithLayer(
       Agent.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const agent = yield* Agent.Service
           return yield* agent.defaultAgent()
@@ -145,20 +152,20 @@ export namespace SessionPrompt {
     )
   }
 
-  function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service>) {
-    return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
+  function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service | Session.Service | Snapshot.Service>) {
+    return runPromiseWithLayer(SessionSummary.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function runRevert<A, E>(effect: Effect.Effect<A, E, SessionRevert.Service>) {
-    return runPromiseWithLayer(SessionRevert.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(SessionRevert.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function runCompaction<A, E>(effect: Effect.Effect<A, E, SessionCompaction.Service>) {
-    return runPromiseWithLayer(SessionCompaction.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(SessionCompaction.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-    return runPromiseWithLayer(Session.layer, withCurrentInstance(effect))
+    return runPromiseWithLayer(Session.layer, locallyInstance(currentContext(), effect))
   }
 
   function runGoal<A, E>(effect: Effect.Effect<A, E, SessionGoal.Service>) {
@@ -262,11 +269,11 @@ export namespace SessionPrompt {
   }
 
   function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
-    return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(Plugin.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
-    return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(Provider.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function providerGetModel(providerID: string, modelID: string) {
@@ -297,17 +304,18 @@ export namespace SessionPrompt {
   }
 
   function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
-    return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(LSP.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function runMCP<A, E>(effect: Effect.Effect<A, E, MCP.Service>) {
-    return runPromiseWithLayer(MCP.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(MCP.defaultLayer, locallyInstance(currentContext(), effect))
   }
 
   function setStatus(sessionID: string, status: SessionStatus.Info) {
     return runPromiseWithLayer(
       SessionStatus.defaultLayer,
-      withCurrentInstance(
+      locallyInstance(
+        currentContext(),
         Effect.gen(function* () {
           const sessionStatus = yield* SessionStatus.Service
           return yield* sessionStatus.set(sessionID, status)
@@ -316,8 +324,21 @@ export namespace SessionPrompt {
     )
   }
 
-  function currentContext(): Promise<InstanceContext> {
-    return AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
+  /**
+   * The instance this service call is running in.
+   *
+   * Every entry point into this module is a `Service` method that goes through
+   * `withInstanceContext`, which resolves an `InstanceContext` and re-enters
+   * `Instance.provide` with it. The ambient scope read here is therefore not an
+   * accident of whoever called us — it is the context this module installed one
+   * frame up, so reading it is equivalent to threading that context through the
+   * ~40 signatures between here and there, and cannot disagree with it.
+   *
+   * `test/session/prompt-instance-scope.test.ts` pins the premise: a service
+   * method that reaches these helpers without installing the scope fails there.
+   */
+  function currentContext(): InstanceContext {
+    return InstanceState.ambient()
   }
 
   function runInInstanceContext<A>(ctx: InstanceContext, fn: () => Promise<A>): Effect.Effect<A, Error> {
@@ -348,7 +369,13 @@ export namespace SessionPrompt {
   }
 
   export interface Interface {
-    assertNotBusy(sessionID: string): Effect.Effect<void>
+    /**
+     * Fails with `Session.BusyError` when the session already has a running
+     * turn. Declared on the typed channel (E8.1): a busy session is an
+     * expected 409, not a defect, so every caller — Effect-side or through
+     * the Promise bridge — sees it without a `catchDefect` arm.
+     */
+    assertNotBusy(sessionID: string): Effect.Effect<void, Session.BusyError>
     /**
      * Persist the user message (and optional tool permissions) without starting
      * the model loop. Used by `prompt_async` so clients can observe the message
@@ -502,7 +529,7 @@ export namespace SessionPrompt {
         } satisfies Admission
       }
 
-      const ctx = await currentContext()
+      const ctx = currentContext()
       const prepared = await prepareUserMessage(admitted)
       const result = Database.transaction(() => {
         const raced = existingAdmission(admitted.sessionID, messageID, promptData)
@@ -604,7 +631,7 @@ export namespace SessionPrompt {
         promptData: SessionPending.canonical(row.data),
       })
     }
-    const ctx = await currentContext()
+    const ctx = currentContext()
 
     const promoted = Database.transaction((tx) => {
       const available = new Map(SessionPending.list(sessionID, delivery, tx).map((row) => [row.id, row]))
@@ -676,7 +703,13 @@ export namespace SessionPrompt {
     const abort = controller.signal
 
     await using _ = defer(() => PromptState.finish(sessionID, controller))
-    const ctx = await currentContext()
+    const ctx = currentContext()
+
+    // Instruction deltas emitted by earlier turns have been delivered by now.
+    // Fold them into the epoch prefix so they stop being replayed, in full, on
+    // every request for the rest of the session. Done before the step loop so
+    // the prefix stays byte-stable across the steps of this turn.
+    InstructionSync.foldDelivered(sessionID)
 
     // Structured output state
     // Note: On session resumption, state is reset but format is preserved
@@ -891,6 +924,7 @@ export namespace SessionPrompt {
         let executionError: Error | undefined
         const taskAgent = await agentRequired(task.agent)
         const taskCtx: Tool.Context = {
+          instance: currentContext(),
           agent: lastUser.agent ?? task.agent,
           messageID: assistantMessage.id,
           sessionID: sessionID,
@@ -1052,6 +1086,7 @@ export namespace SessionPrompt {
       })
 
       const processor = SessionProcessor.create({
+        instance: ctx,
         assistantMessage: (await sessionUpdateMessage({
           id: Identifier.ascending("message"),
           parentID: lastUser.id,
@@ -1245,7 +1280,7 @@ export namespace SessionPrompt {
         const continuation = await nextGoalPrompt(sessionID)
         if (continuation) {
           await sessionUpdate(sessionID, (draft) => {
-            draft.activeCommand = continuation.activeCommand
+            setOptional(draft, "activeCommand", continuation.activeCommand)
           })
           const continueMsg: MessageV2.User = {
             id: Identifier.ascending("message"),
@@ -1609,6 +1644,7 @@ export namespace SessionPrompt {
                   const tool = await ReadTool.init()
                   const model = await providerGetModel(info.model.providerID, info.model.modelID)
                   const readCtx: Tool.Context = {
+                    instance: currentContext(),
                     sessionID: input.sessionID,
                     abort: new AbortController().signal,
                     agent: input.agent!,
@@ -1669,6 +1705,7 @@ export namespace SessionPrompt {
               if (part.mime === "application/x-directory") {
                 const args = { path: filepath }
                 const listCtx: Tool.Context = {
+                  instance: currentContext(),
                   sessionID: input.sessionID,
                   abort: new AbortController().signal,
                   agent: input.agent!,
@@ -2004,10 +2041,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         Effect.gen(function* () {
           const match = (yield* PromptState.getServiceStateEffect())[sessionID]
           if (match)
-            throw new Session.BusyError({
-              sessionID,
-              message: "Session is busy",
-            })
+            return yield* Effect.fail(
+              new Session.BusyError({
+                sessionID,
+                message: "Session is busy",
+              }),
+            )
         }),
       admit: (input) => withInstanceContext(() => admit(input)),
       steerPending: (input) => withInstanceContext(() => steerPending(input)),

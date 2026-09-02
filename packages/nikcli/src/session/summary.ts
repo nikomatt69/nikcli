@@ -30,8 +30,8 @@ export namespace SessionSummary {
   export type DiffInput = Schema.Schema.Type<typeof DiffInputSchema>
 
   export interface Interface {
-    summarize(input: SummarizeInput): Effect.Effect<void, unknown>
-    diff(input: DiffInput): Effect.Effect<Snapshot.FileDiff[], unknown>
+    summarize(input: SummarizeInput): Effect.Effect<void, Session.Error, Session.Service>
+    diff(input: DiffInput): Effect.Effect<Snapshot.FileDiff[], Session.Error, Session.Service | Snapshot.Service>
     computeDiff(input: { messages: MessageV2.WithParts[] }): Effect.Effect<Snapshot.FileDiff[], unknown>
   }
 
@@ -229,40 +229,60 @@ export namespace SessionSummary {
         summarize: (input) =>
           InstanceState.context.pipe(
             Effect.flatMap((ctx) =>
-              Effect.tryPromise(async () => {
-                const all = await runSession(
-                  Effect.gen(function* () {
-                    const session = yield* Session.Service
-                    return yield* session.messages({ sessionID: input.sessionID })
-                  }),
-                  ctx,
-                )
-                await Promise.all([
-                  summarizeSession(ctx, { sessionID: input.sessionID, messages: all }),
-                  summarizeMessage(ctx, { messageID: input.messageID, messages: all }),
-                ])
+              Effect.tryPromise({
+                try: async () => {
+                  const all = await runSession(
+                    Effect.gen(function* () {
+                      const session = yield* Session.Service
+                      return yield* session.messages({
+                        sessionID: input.sessionID,
+                      })
+                    }),
+                    ctx,
+                  )
+                  await Promise.all([
+                    summarizeSession(ctx, {
+                      sessionID: input.sessionID,
+                      messages: all,
+                    }),
+                    summarizeMessage(ctx, {
+                      messageID: input.messageID,
+                      messages: all,
+                    }),
+                  ])
+                },
+                catch: Session.asSessionError,
               }),
             ),
           ),
         diff: (input) =>
           Effect.gen(function* () {
+            // Resolve the session so a missing one rejects on the typed
+            // channel instead of silently returning an empty diff (E5.2).
+            const sessionSvc = yield* Session.Service
+            yield* sessionSvc.get(input.sessionID)
+
             if (!input.messageID) {
               return SessionDiffRepo.get(input.sessionID)
             }
 
             const ctx = yield* InstanceState.context
-            const { focus, rootID } = yield* Effect.tryPromise(() =>
-              messagesForSummary(ctx, {
-                sessionID: input.sessionID,
-                messageID: input.messageID!,
-              }),
-            )
+            const { focus, rootID } = yield* Effect.tryPromise({
+              try: () =>
+                messagesForSummary(ctx, {
+                  sessionID: input.sessionID,
+                  messageID: input.messageID!,
+                }),
+              catch: Session.asSessionError,
+            })
             const root = focus.find((message) => message.info.id === rootID)
             if (root?.info.role === "user" && root.info.summary?.diffs) {
               return root.info.summary.diffs
             }
             if (!focus.length) return []
-            return yield* computeDiff({ messages: focus })
+            // `computeDiff` is intentionally `unknown` (real dependency I/O);
+            // remap the error union so the route-facing surface stays typed.
+            return yield* computeDiff({ messages: focus }).pipe(Effect.mapError(Session.asSessionError))
           }),
         computeDiff,
       })

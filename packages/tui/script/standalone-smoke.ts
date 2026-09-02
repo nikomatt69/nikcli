@@ -15,7 +15,7 @@ import { rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { spawn } from "bun-pty"
+import { spawnPty } from "@nikcli-ai/util/pty"
 
 const url = process.argv[2]
 if (!url) throw new Error("usage: standalone-smoke.ts <server-url>")
@@ -43,12 +43,13 @@ let raw = ""
 // `react/jsx-dev-runtime` and the app cannot load. A consumer runs from its own
 // root with its own tsconfig — the CLI does the same thing explicitly, by
 // passing `tsconfig` and the Solid plugin to `Bun.build`.
-const pty = spawn(process.execPath, ["--conditions=browser", entry, url], {
-  name: "xterm-256color",
+const pty = spawnPty({
+  command: process.execPath,
+  args: ["--conditions=browser", entry, url],
   cols: 100,
   rows: 30,
   cwd: path.resolve(here, ".."),
-  env: { ...process.env, NIKCLI_TEST_HOME: home, TERM: "xterm-256color" } as Record<string, string>,
+  env: { ...process.env, NIKCLI_TEST_HOME: home, TERM: "xterm-256color" },
 })
 pty.onData((data) => {
   raw += data
