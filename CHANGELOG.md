@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.324.0 (September 2026)
+
+## Core
+
+- Raise declared failures with Effect.fail, not throw inside Effect.gen (E8) (#247) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(effect): raise declared failures with Effect.fail, not throw inside Effect.gen (E8) (#247)
+  - docs: close the 2026-08-26 engineering refill
+
 ## v1.322.0 (August 2026)
 
 ## Core

@@ -20528,6 +20528,35 @@
         "responses": {
           "204": {
             "description": "<No Content>"
+          },
+          "401": {
+            "description": "UnauthorizedChallenge",
+            "headers": {
+              "www-authenticate": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "required": false
+              }
+            }
+          },
+          "429": {
+            "description": "SyncRateLimited",
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": true
+              }
+            }
           }
         },
         "requestBody": {
@@ -23191,11 +23220,14 @@
         ],
         "security": [],
         "responses": {
-          "200": {
+          "308": {
             "description": "308 redirect to /share/:shareID",
-            "content": {
-              "application/json": {
-                "schema": {}
+            "headers": {
+              "location": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": true
               }
             }
           }
