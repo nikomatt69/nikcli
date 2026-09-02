@@ -7,7 +7,7 @@ import { httpInteractions, type Cassette, type RequestSnapshot } from "./schema"
 const safeText = (value: unknown) => {
   if (value === undefined) return "undefined"
   if (secretFindings(value).length > 0) return JSON.stringify(REDACTED)
-  const text = typeof value === "string" ? JSON.stringify(value) : JSON.stringify(value)
+  const text = typeof value === "string" ? value : JSON.stringify(value)
   if (!text) return String(value)
   return text.length > 300 ? `${text.slice(0, 300)}...` : text
 }

@@ -200,7 +200,7 @@ export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): Res
   tokens["icon-strong-focus"] = isDark ? "#fdfcfc" : "#020202"
   tokens["icon-brand-base"] = isDark ? "#ffffff" : neutral[11]
   tokens["icon-interactive-base"] = interactive[8]
-  tokens["icon-success-base"] = success[isDark ? 6 : 6]
+  tokens["icon-success-base"] = success[6]
   tokens["icon-success-hover"] = success[7]
   tokens["icon-success-active"] = success[10]
   tokens["icon-warning-base"] = warning[6]
@@ -209,7 +209,7 @@ export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): Res
   tokens["icon-critical-base"] = error[isDark ? 8 : 9]
   tokens["icon-critical-hover"] = error[10]
   tokens["icon-critical-active"] = error[11]
-  tokens["icon-info-base"] = info[isDark ? 6 : 6]
+  tokens["icon-info-base"] = info[6]
   tokens["icon-info-hover"] = info[7]
   tokens["icon-info-active"] = info[10]
   tokens["icon-on-brand-base"] = neutralAlpha[10]
@@ -258,7 +258,7 @@ export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): Res
   tokens["syntax-unknown"] = isDark ? "#c586c0" : "#af00db"
   tokens["syntax-success"] = success[9]
   tokens["syntax-warning"] = warning[9]
-  tokens["syntax-critical"] = error[isDark ? 9 : 9]
+  tokens["syntax-critical"] = error[9]
   tokens["syntax-info"] = isDark ? "#569cd6" : "#0000ff"
   tokens["syntax-diff-add"] = diffAdd[10]
   tokens["syntax-diff-delete"] = diffDelete[10]

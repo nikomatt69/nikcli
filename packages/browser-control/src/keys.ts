@@ -55,7 +55,7 @@ const MODIFIERS: Record<string, WebViewModifier> = {
 }
 
 function namedKey(base: string): string {
-  return NAMED[base.toLowerCase()] ?? (base.length === 1 ? base : base)
+  return NAMED[base.toLowerCase()] ?? base
 }
 
 export function parseKeyChord(token: string): { key: string; modifiers: WebViewModifier[] } {
@@ -74,7 +74,7 @@ export function parseKeyChord(token: string): { key: string; modifiers: WebViewM
     }
   }
 
-  return { key: raw.length === 1 ? raw : raw, modifiers: [] }
+  return { key: raw, modifiers: [] }
 }
 
 /** Join a chord as `Control+a` / `Enter` — kept for callers that still want a single string. */

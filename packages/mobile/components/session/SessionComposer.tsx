@@ -372,12 +372,12 @@ export function SessionComposer({
 
   const segmentLabelPlan = modeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [isDark ? palette.accentLight : palette.accentLight, palette.muted],
+    outputRange: [isDark ? palette.accentLight : palette.accent, palette.muted],
   })
 
   const segmentLabelCode = modeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [palette.muted, isDark ? palette.accentLight : palette.accentLight],
+    outputRange: [palette.muted, isDark ? palette.accentLight : palette.accent],
   })
 
   const slashTranslateY = slashAnim.interpolate({

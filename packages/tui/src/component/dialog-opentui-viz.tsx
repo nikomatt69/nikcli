@@ -738,8 +738,8 @@ function StatTile(props: { stat: StatLike; compact?: boolean }) {
       borderColor={theme.border.subtle}
       paddingLeft={1}
       paddingRight={1}
-      paddingTop={props.compact ? 0 : 0}
-      paddingBottom={props.compact ? 0 : 0}
+      paddingTop={props.compact ? 0 : 1}
+      paddingBottom={props.compact ? 0 : 1}
       flexDirection="column"
       gap={0}
       flexGrow={1}
@@ -1600,7 +1600,7 @@ function CardRenderer(props: { comp: Of<"card"> }) {
 
 function ListRenderer(props: { comp: Of<"list"> }) {
   const { theme } = useTheme()
-  const gap = () => (props.comp.dense ? 0 : 0)
+  const gap = () => (props.comp.dense ? 0 : 1)
   return (
     <box gap={gap()}>
       <Title title={props.comp.title} />

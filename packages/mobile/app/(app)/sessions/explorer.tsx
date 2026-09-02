@@ -569,8 +569,9 @@ export default function ExplorerScreen() {
         if (searchRequestRef.current !== requestId) return
         setFileResults([])
       } finally {
-        if (searchRequestRef.current !== requestId) return
-        setFileSearchLoading(false)
+        if (searchRequestRef.current === requestId) {
+          setFileSearchLoading(false)
+        }
       }
     }, 250)
     return () => clearTimeout(t)

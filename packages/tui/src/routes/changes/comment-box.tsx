@@ -271,8 +271,7 @@ export function CommentInput(props: {
         </box>
         <box flexDirection="row" gap={2} paddingLeft={2} paddingBottom={1} flexWrap="wrap">
           <text fg={theme.foreground.default}>
-            {process.platform === "darwin" ? "ctrl+s" : "ctrl+s"}{" "}
-            <span style={{ fg: theme.foreground.muted }}>save</span>
+            ctrl+s <span style={{ fg: theme.foreground.muted }}>save</span>
           </text>
           <text fg={theme.foreground.muted} wrapMode="word">
             ({process.platform === "darwin" ? "cmd" : "ctrl"}+enter if terminal supports)

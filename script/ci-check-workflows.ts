@@ -188,7 +188,7 @@ async function listRecentRuns(windowHours: number): Promise<WorkflowRun[]> {
             `/repos/${owner}/${repoName}/actions/runs?per_page=100&page=${page}&created=%3E=${encodeURIComponent(sinceIso)}`,
           ),
         }
-    const runs: WorkflowRun[] = octokit ? res.data.workflow_runs : res.data.workflow_runs
+    const runs: WorkflowRun[] = res.data.workflow_runs
     collected.push(...runs)
     if (runs.length < 100) break
     page++
