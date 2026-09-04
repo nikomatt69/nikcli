@@ -18,8 +18,8 @@ function survivors(...apiIds: string[]) {
 }
 
 describe("filterCodexOAuthModels", () => {
-  it("keeps gpt-6-astra", () => {
-    expect(survivors("gpt-6-astra")).toEqual(["gpt-6-astra"])
+  it("keeps gpt-6-astra and its aeon sibling slug", () => {
+    expect(survivors("gpt-6-astra", "gpt-6-astra-aeon")).toEqual(["gpt-6-astra", "gpt-6-astra-aeon"])
   })
 
   it("keeps every codex model", () => {

@@ -1,0 +1,32 @@
+   ✓ name                               "GPT-6 Astra"
+   ✓ context window                     1050000
+   ✓ max output                         128000
+   ✓ cost per 1M                        {"input":10,"output":50,"cache_read":1,"cache_write":12.5}
+   ✓ modalities in                      ["text","image"]
+   ✓ temperature                        false
+
+ 2. Reasoning effort tiers  ProviderTransform.variants()
+   Astra drops none/minimal (both 400) and adds max
+   ✓ openai (Responses)                 ["low","medium","high","xhigh","max"]
+   ✓ openrouter (chat)                  ["low","medium","high","xhigh"]
+   ✓ copilot (chat)                     ["low","medium","high","xhigh"]
+   gpt-5.x is untouched
+   ✓ gpt-5.2 (unchanged)                ["none","low","medium","high","xhigh"]
+
+ 3. Request defaults  ProviderTransform.options()
+   ✓ reasoningEffort                    "medium"
+   ✓ reasoningSummary                   "detailed"
+   ✓ include                            ["reasoning.encrypted_content"]
+   textVerbosity is undocumented for Astra, so it is never sent
+   ✓ textVerbosity                      undefined
+
+ 4. Codex OAuth catalog  filterCodexOAuthModels()
+   what a ChatGPT Pro/Plus login is offered
+   before  gpt-6-astra  gpt-5.5  gpt-5.2-codex  gpt-4o  o3  gpt-3.5-turbo
+   ✓ after                              ["gpt-5.2-codex","gpt-5.5","gpt-6-astra"]
+
+ 5. Summary
+   all 15 assertions passed — Astra is wired end to end
+
+   no network, no credentials: this proves the integration,
+   not a live completion against OpenAI.

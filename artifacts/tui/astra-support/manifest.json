@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "createdAt": "2026-09-04T16:45:45.979Z",
+  "result": "passed",
+  "title": "GPT-6 Astra support verified in a real terminal",
+  "summary": "A live PTY run of the shipped code: catalog entry, reasoning-effort tiers, request defaults and the Codex OAuth filter. All 15 assertions pass.",
+  "capture": {
+    "marker": "verified",
+    "final": false
+  },
+  "sourceRecordingSha256": "02df6d86e86fb6b68a856756ff7f4d874fcc99ba87c0f3db188fd386d87a7f97",
+  "artifacts": [
+    {
+      "kind": "screen-text",
+      "path": "screen.txt",
+      "bytes": 1576,
+      "sha256": "1ab646907506e0870677e75063c96ebc11c561484c8625b519a78c17c61230f7"
+    },
+    {
+      "kind": "screen-frame",
+      "path": "screen.json",
+      "bytes": 695949,
+      "sha256": "ca698458ef5eb0487c09082adc84444cc737d0a40dd7da2e041b6da77c3407ce"
+    },
+    {
+      "kind": "screen-svg",
+      "path": "screen.svg",
+      "bytes": 80895,
+      "sha256": "a9a2e0cc6762c2e5e4ec302c59a413192f3bb06a784c58e7f8e1977ef09da68f"
+    },
+    {
+      "kind": "screen-png",
+      "path": "screen.png",
+      "bytes": 145431,
+      "sha256": "821f993b5ffcad9a2f2e17a2f97459e593c08e2241b1ac830c058037bc9dadb3"
+    },
+    {
+      "kind": "video",
+      "path": "demo.mp4",
+      "bytes": 297629,
+      "sha256": "812f74d6dc0ac6d93139e533026b2f76d9c94f447db87dcd546dda951ff50134"
+    },
+    {
+      "kind": "preview",
+      "path": "preview.gif",
+      "bytes": 564138,
+      "sha256": "0de49a506c261818e6872f5f562131144d678480a9d18aae5d3e7d4a8d89455e"
+    },
+    {
+      "kind": "recording",
+      "path": "recording.termctrl",
+      "bytes": 9062,
+      "sha256": "02df6d86e86fb6b68a856756ff7f4d874fcc99ba87c0f3db188fd386d87a7f97"
+    },
+    {
+      "kind": "pr-markdown",
+      "path": "pr.md",
+      "bytes": 716,
+      "sha256": "f9d8780cd89c129def4f71f032ab94a8f4786eaabb154e50b788caf3eb4e1725"
+    }
+  ]
+}

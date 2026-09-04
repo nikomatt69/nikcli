@@ -116,10 +116,11 @@ type CodexOAuthModel = {
 }
 
 // gpt-6 and later ship to ChatGPT plans at launch, so the whole family is
-// allowed through without an explicit per-id entry. The major version is read
-// numerically rather than matched as a prefix, so "gpt-60" resolves to major 60
-// instead of accidentally reading as gpt-6. GPT-6 Astra ("gpt-6-astra", Codex
-// CLI v0.153.1) is the first id this covers.
+// allowed by rule rather than by a per-id entry in the list above. The major
+// version is read numerically rather than matched as a prefix, so "gpt-60"
+// resolves to major 60 instead of accidentally reading as gpt-6. GPT-6 Astra
+// ("gpt-6-astra", Codex CLI v0.153.1) is the first id this covers, and its
+// "-aeon" sibling slug is covered by the same rule.
 const GPT_MAJOR_VERSION_RE = /^gpt-(\d+)(?:[.-]|$)/
 
 function gptMajorVersion(apiId: string) {
@@ -138,7 +139,6 @@ export function filterCodexOAuthModels(provider: { models: Record<string, CodexO
     "gpt-5.4",
     "gpt-5.4-mini",
     "gpt-5.5",
-    "gpt-6-astra",
   ])
   for (const [modelId, model] of Object.entries(provider.models)) {
     if (modelId.includes("codex")) continue
