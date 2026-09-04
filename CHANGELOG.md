@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.327.0 (September 2026)
+
+## Core
+
+- Add GPT-6 Astra support (#255) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(provider): add GPT-6 Astra support (#255)
+
 ## v1.326.0 (September 2026)
 
 ## Mobile
