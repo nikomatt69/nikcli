@@ -464,6 +464,14 @@ describe("Provider pure helpers", () => {
     const ordered = Provider.sort([c, a, b])
     expect(ordered[0]!.id).toContain("gpt-5")
   })
+
+  it("sort ranks gpt-6-astra above gpt-5, so it becomes the openai default", () => {
+    // `Provider.sort(...)[0].id` is what the HTTP API reports as a provider's
+    // default model, so this ordering picks OpenAI's current flagship.
+    const astra = makeModel({ id: "gpt-6-astra" })
+    const gpt5 = makeModel({ id: "gpt-5.5" })
+    expect(Provider.sort([gpt5, astra])[0]!.id).toBe("gpt-6-astra")
+  })
 })
 
 describe("ModelsDev schemas", () => {

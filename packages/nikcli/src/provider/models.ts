@@ -33,7 +33,12 @@ export namespace ModelsDev {
     provider.models[modelID] = model
   }
 
-  function patch(database: Record<string, Provider>): Record<string, Provider> {
+  /**
+   * Enrich the raw models.dev database with entries and fields the upstream
+   * registry does not carry yet. Exported so the seeding can be asserted
+   * directly, the same way `patchReasoningOptions` is.
+   */
+  export function patch(database: Record<string, Provider>): Record<string, Provider> {
     // MiniMax M2.5 (models.dev PR #875)
     const releaseDate = "2026-02-12"
     const limit = {
@@ -169,6 +174,47 @@ export namespace ModelsDev {
     ensureModel(database, "minimax-coding-plan", "MiniMax-M3", minimaxM3)
     ensureModel(database, "minimax-cn-coding-plan", "MiniMax-M3", minimaxM3)
     ensureModel(database, "openrouter", "minimax/minimax-m3", openrouterM3)
+
+    // ---- GPT-6 Astra ----
+    // OpenAI shipped gpt-6-astra on 2026-09-03; models.dev has no row for it
+    // yet, so seed one. `ensureModel` merges rather than replaces, so once the
+    // upstream registry lists it the catalog entry wins.
+    //
+    // Pricing is the standard (<=272K input) tier: $10/M input, $1/M cached
+    // input, $12.50/M cache write, $50/M output. The long-context tier (>272K
+    // input re-prices the whole request at 2x input/cache and 1.5x output) is
+    // deliberately NOT modelled as `context_over_200k`: that field's threshold
+    // is hard-coded at 200K in session cost accounting, which would over-bill
+    // every request in the 200K-272K band. Base rates stay exact there.
+    // see: https://developers.openai.com/api/docs/models/gpt-6-astra
+    const gpt6Astra: Model = {
+      id: "gpt-6-astra",
+      name: "GPT-6 Astra",
+      family: "gpt-6",
+      release_date: "2026-09-03",
+      attachment: true,
+      reasoning: true,
+      tool_call: true,
+      // Reasoning is always on for Astra, and `temperature` cannot be used
+      // while reasoning is enabled.
+      temperature: false,
+      cost: {
+        input: 10,
+        output: 50,
+        cache_read: 1,
+        cache_write: 12.5,
+      },
+      limit: {
+        context: 1_050_000,
+        output: 128_000,
+      },
+      modalities: {
+        input: ["text", "image"],
+        output: ["text"],
+      },
+      options: {},
+    }
+    ensureModel(database, "openai", "gpt-6-astra", gpt6Astra)
 
     // ---- Image models (registered because models.dev does not yet list these AI SDK image factories) ----
     const imageModalities: NonNullable<Model["modalities"]> = {

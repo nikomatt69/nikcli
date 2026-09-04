@@ -1634,14 +1634,24 @@ type ResponsesModelConfig = {
   supportsPriorityProcessing: boolean
 }
 
+// gpt-6 and later ("gpt-6-astra", ...) behave like gpt-5 here: reasoning-only,
+// developer-role system messages, flex/priority service tiers. The major
+// version is read numerically so "gpt-60" resolves to major 60 rather than
+// accidentally reading as gpt-6.
+const GPT_MAJOR_VERSION_RE = /^gpt-(\d+)(?:[.-]|$)/
+
 function getResponsesModelConfig(modelId: string): ResponsesModelConfig {
+  const gptMajor = Number(GPT_MAJOR_VERSION_RE.exec(modelId)?.[1])
+  const isGpt6Plus = Number.isFinite(gptMajor) && gptMajor >= 6
   const supportsFlexProcessing =
     modelId.startsWith("o3") ||
     modelId.startsWith("o4-mini") ||
+    isGpt6Plus ||
     (modelId.startsWith("gpt-5") && !modelId.startsWith("gpt-5-chat"))
   const supportsPriorityProcessing =
     modelId.startsWith("gpt-4") ||
     modelId.startsWith("gpt-5-mini") ||
+    isGpt6Plus ||
     (modelId.startsWith("gpt-5") && !modelId.startsWith("gpt-5-nano") && !modelId.startsWith("gpt-5-chat")) ||
     modelId.startsWith("o3") ||
     modelId.startsWith("o4-mini")
@@ -1664,6 +1674,7 @@ function getResponsesModelConfig(modelId: string): ResponsesModelConfig {
   if (
     modelId.startsWith("o") ||
     modelId.startsWith("gpt-5") ||
+    isGpt6Plus ||
     modelId.startsWith("codex-") ||
     modelId.startsWith("computer-use")
   ) {

@@ -33,11 +33,20 @@ const openAIProviderOptions = (options: OpenAIOptionsInput | undefined): Provide
   return { openai }
 }
 
+// Matches the gpt-6 family ("gpt-6-astra", "openai/gpt-6-astra") without
+// false-matching "gpt-60". GPT-6 Astra always reasons and rejects both `none`
+// and `minimal`, so it takes the same medium-effort default as gpt-5.x.
+// `text.verbosity` is undocumented for the family, so it is never sent.
+const GPT6_FAMILY_RE = /(?:^|\/)gpt-6(?:[.-]|$)/
+
 export const gpt5DefaultOptions = (
   modelID: string,
   options: { readonly textVerbosity?: boolean } = {},
 ): ProviderOptions | undefined => {
   const id = modelID.toLowerCase()
+  if (GPT6_FAMILY_RE.test(id)) {
+    return openAIProviderOptions({ reasoningEffort: "medium", reasoningSummary: "detailed" })
+  }
   if (!id.includes("gpt-5") || id.includes("gpt-5-chat") || id.includes("gpt-5-pro")) return undefined
   return openAIProviderOptions({
     reasoningEffort: "medium",
