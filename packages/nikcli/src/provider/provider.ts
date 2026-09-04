@@ -2369,7 +2369,9 @@ export namespace Provider {
 
   export const defaultLayer = layer
 
-  const priority = ["gpt-5", "claude-sonnet-4", "big-pickle", "gemini-3-pro"]
+  // Ascending priority: `sort` orders by `findIndex` descending, so the last
+  // entry wins. gpt-6-astra is OpenAI's current flagship, ahead of gpt-5.
+  const priority = ["gpt-5", "claude-sonnet-4", "big-pickle", "gemini-3-pro", "gpt-6-astra"]
   export function sort(models: Model[]) {
     return sortBy(
       models,

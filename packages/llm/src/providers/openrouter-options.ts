@@ -83,8 +83,13 @@ export const openRouterDefaultOptions = (modelID: string): ProviderOptions | und
   const id = modelID.toLowerCase()
   const usageDefault: OpenRouterOptionsInput = { usage: true }
 
-  // OpenAI gpt-5 / o-series via OpenRouter.
+  // OpenAI gpt-5 / gpt-6 / o-series via OpenRouter.
   if (id.startsWith("openai/gpt-5") && !id.includes("gpt-5-chat") && !id.includes("gpt-5-pro")) {
+    return openRouterProviderOptions({ ...usageDefault, reasoning: { effort: "medium" } })
+  }
+  // gpt-6 (Astra) always reasons; OpenRouter has no row for it yet, so this is
+  // in place for when it lands.
+  if (id.startsWith("openai/gpt-6")) {
     return openRouterProviderOptions({ ...usageDefault, reasoning: { effort: "medium" } })
   }
   if (id.startsWith("openai/o1") || id.startsWith("openai/o3") || id.startsWith("openai/o4")) {

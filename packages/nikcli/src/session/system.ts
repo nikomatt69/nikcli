@@ -56,7 +56,8 @@ export namespace SystemPrompt {
   }
 
   export function provider(model: Provider.Model) {
-    if (model.api.id.includes("gpt-5")) return [PROMPT_CODEX]
+    // gpt-5.x and gpt-6 (Astra) both run the Codex harness.
+    if (model.api.id.includes("gpt-5") || model.api.id.includes("gpt-6")) return [PROMPT_CODEX]
     if (model.api.id.includes("gpt-") || model.api.id.includes("o1") || model.api.id.includes("o3"))
       return [PROMPT_BEAST]
     if (model.api.id.includes("gemini-")) return [PROMPT_GEMINI]

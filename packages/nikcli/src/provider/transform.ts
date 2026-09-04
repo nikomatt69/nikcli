@@ -600,6 +600,13 @@ const OPENAI_GPT5_CHAT_EFFORTS = ["medium"]
 const OPENAI_GPT5_CODEX_XHIGH_EFFORTS = [...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
 const OPENAI_GPT5_CODEX_3_PLUS_EFFORTS = ["none", ...OPENAI_GPT5_CODEX_XHIGH_EFFORTS]
 
+// GPT-6 Astra drops the `none` and `minimal` tiers GPT-5.x exposed (both 400 on
+// this family) and adds `max` at the top. `max` is Responses-API only: Chat
+// Completions rejects it, so gateways that front chat get the shorter set.
+// see: https://developers.openai.com/api/docs/models/gpt-6-astra
+const OPENAI_GPT6_CHAT_COMPLETIONS_EFFORTS = [...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
+const OPENAI_GPT6_RESPONSES_EFFORTS = [...OPENAI_GPT6_CHAT_COMPLETIONS_EFFORTS, "max"]
+
 // OpenAI rolled out the `none` reasoning_effort tier on this date (Responses API).
 // Models released before it 400 on `reasoning_effort: "none"`, so we only expose
 // it as a variant for models new enough to accept it.
@@ -615,6 +622,22 @@ const GPT5_FAMILY_RE = /(?:^|\/)gpt-5(?:[.-]|$)/
 const GPT5_VERSION_RE = /(?:^|\/)gpt-5[.-](\d+)(?:[.-]|$)/
 const GPT5_PRO_RE = /(?:^|\/)gpt-5[.-]?pro(?:[.-]|$)/
 const GPT5_VERSIONED_PRO_RE = /(?:^|\/)gpt-5[.-]\d+[.-]pro(?:[.-]|$)/
+
+// Matches the gpt-6 family the same way, so "gpt-6-astra", "openai/gpt-6-astra"
+// and any later gpt-6.x id resolve to the Astra tier set without false-matching
+// "gpt-60". GPT-6 Astra (released 2026-09-03) is the family's first member.
+const GPT6_FAMILY_RE = /(?:^|\/)gpt-6(?:[.-]|$)/
+
+export function isGpt6Family(apiId: string) {
+  return GPT6_FAMILY_RE.test(apiId.toLowerCase())
+}
+
+// Effort tiers a gpt-6 model exposes. `responses` selects the Responses-API set
+// (the only one that accepts `max`); chat-shaped gateways pass false.
+function gpt6ReasoningEfforts(apiId: string, responses: boolean) {
+  if (!GPT6_FAMILY_RE.test(apiId)) return undefined
+  return responses ? OPENAI_GPT6_RESPONSES_EFFORTS : OPENAI_GPT6_CHAT_COMPLETIONS_EFFORTS
+}
 
 function gpt5Version(apiId: string) {
   return Number(GPT5_VERSION_RE.exec(apiId)?.[1]) || undefined
@@ -647,6 +670,9 @@ function gpt5ChatReasoningEfforts(apiId: string) {
 function openaiReasoningEfforts(apiId: string, releaseDate: string) {
   const id = apiId.toLowerCase()
   if (id.includes("deep-research")) return ["medium"]
+  // Direct OpenAI (and cf-ai-gateway's openai/* routes) go through Responses.
+  const gpt6Efforts = gpt6ReasoningEfforts(id, true)
+  if (gpt6Efforts) return gpt6Efforts
   const chatEfforts = gpt5ChatReasoningEfforts(id)
   if (chatEfforts) return chatEfforts
   if (GPT5_PRO_RE.test(id)) return OPENAI_GPT5_PRO_EFFORTS
@@ -665,6 +691,10 @@ function openaiReasoningEfforts(apiId: string, releaseDate: string) {
 
 function openaiCompatibleReasoningEfforts(id: string) {
   const apiId = id.toLowerCase()
+  // OpenAI-compatible fronts (OpenRouter, generic /chat/completions) do not
+  // carry the Responses-only `max` tier.
+  const gpt6Efforts = gpt6ReasoningEfforts(apiId, false)
+  if (gpt6Efforts) return gpt6Efforts
   const chatEfforts = gpt5ChatReasoningEfforts(apiId)
   if (chatEfforts) return chatEfforts
   if (GPT5_PRO_RE.test(apiId)) return OPENAI_GPT5_PRO_EFFORTS
@@ -878,6 +908,9 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
         return Object.fromEntries(WIDELY_SUPPORTED_EFFORTS.map((effort) => [effort, { reasoningEffort: effort }]))
       }
       const copilotEfforts = iife(() => {
+        // Copilot fronts gpt-6 through its own gateway, which has not
+        // documented the Responses-only `max` tier — stay on the chat set.
+        if (GPT6_FAMILY_RE.test(id)) return OPENAI_GPT6_CHAT_COMPLETIONS_EFFORTS
         if (id.includes("5.1-codex-max") || id.includes("5.2") || id.includes("5.3"))
           return [...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
         const arr = [...WIDELY_SUPPORTED_EFFORTS]
@@ -916,9 +949,11 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
       // https://v5.ai-sdk.dev/providers/ai-sdk-providers/azure
       if (id === "o1-mini") return {}
       return Object.fromEntries(
-        (GPT5_FAMILY_RE.test(id) && gpt5Version(id) === undefined
-          ? ["minimal", ...WIDELY_SUPPORTED_EFFORTS]
-          : WIDELY_SUPPORTED_EFFORTS
+        (GPT6_FAMILY_RE.test(id)
+          ? OPENAI_GPT6_CHAT_COMPLETIONS_EFFORTS
+          : GPT5_FAMILY_RE.test(id) && gpt5Version(id) === undefined
+            ? ["minimal", ...WIDELY_SUPPORTED_EFFORTS]
+            : WIDELY_SUPPORTED_EFFORTS
         ).map((effort) => [
           effort,
           {
@@ -1262,7 +1297,12 @@ export function options(input: {
     return result
   }
 
-  if (input.model.api.id.includes("gpt-5") && !input.model.api.id.includes("gpt-5-chat")) {
+  const isGpt5 = input.model.api.id.includes("gpt-5") && !input.model.api.id.includes("gpt-5-chat")
+  // GPT-6 Astra always reasons: there is no chat/non-reasoning sibling to
+  // exclude, and `reasoning_effort: "none"` 400s, so it takes the same
+  // medium-effort default as gpt-5.x.
+  const isGpt6 = isGpt6Family(input.model.api.id)
+  if (isGpt5 || isGpt6) {
     if (!input.model.api.id.includes("gpt-5-pro")) {
       result["reasoningEffort"] = "medium"
       // Direct OpenAI accepts "detailed" (richest summary the API exposes);
@@ -1275,7 +1315,10 @@ export function options(input: {
 
     // Only set textVerbosity for non-chat gpt-5.x models
     // Chat models (e.g. gpt-5.2-chat-latest) only support "medium" verbosity
+    // gpt-6 is left out: OpenAI has not documented `text.verbosity` for Astra,
+    // and an unsupported value is a 400 rather than a silent no-op.
     if (
+      isGpt5 &&
       input.model.api.id.includes("gpt-5.") &&
       !input.model.api.id.includes("codex") &&
       !input.model.api.id.includes("-chat") &&

@@ -149,3 +149,117 @@ describe("ProviderTransform.variants — xai reasoning efforts", () => {
     expect(ProviderTransform.variants(xaiModel("grok-4.5", false))).toEqual({})
   })
 })
+
+// GPT-6 Astra (gpt-6-astra, released 2026-09-03) drops the `none` and `minimal`
+// tiers GPT-5.x exposed — both 400 on this family — and adds `max` at the top.
+// `max` is Responses-API only, so chat-shaped fronts get the shorter set.
+// see: https://developers.openai.com/api/docs/models/gpt-6-astra
+describe("ProviderTransform.variants — gpt-6 astra reasoning efforts", () => {
+  function openaiModel(apiId: string, npm = "@ai-sdk/openai", providerID = "openai"): Provider.Model {
+    return {
+      providerID,
+      id: apiId,
+      release_date: "2026-09-03",
+      api: { id: apiId, url: "https://api.openai.com/v1", npm },
+      capabilities: { reasoning: true },
+    } as unknown as Provider.Model
+  }
+
+  it("exposes low/medium/high/xhigh/max on direct OpenAI", () => {
+    expect(Object.keys(ProviderTransform.variants(openaiModel("gpt-6-astra")))).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ])
+  })
+
+  it("never offers none or minimal", () => {
+    const efforts = Object.keys(ProviderTransform.variants(openaiModel("gpt-6-astra")))
+    expect(efforts).not.toContain("none")
+    expect(efforts).not.toContain("minimal")
+  })
+
+  it("carries the encrypted-reasoning include so stateless multi-turn works", () => {
+    const result = ProviderTransform.variants(openaiModel("gpt-6-astra"))
+    expect(result.medium).toEqual({
+      reasoningEffort: "medium",
+      reasoningSummary: "detailed",
+      include: ["reasoning.encrypted_content"],
+    })
+  })
+
+  it("drops the Responses-only max tier on OpenRouter", () => {
+    expect(
+      Object.keys(
+        ProviderTransform.variants(openaiModel("openai/gpt-6-astra", "@openrouter/ai-sdk-provider", "openrouter")),
+      ),
+    ).toEqual(["low", "medium", "high", "xhigh"])
+  })
+
+  it("drops the Responses-only max tier on Copilot and Azure", () => {
+    for (const npm of ["@ai-sdk/github-copilot", "@ai-sdk/azure"]) {
+      expect(Object.keys(ProviderTransform.variants(openaiModel("gpt-6-astra", npm, "azure")))).toEqual([
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+      ])
+    }
+  })
+
+  it("leaves the gpt-5 tier sets untouched", () => {
+    expect(Object.keys(ProviderTransform.variants(openaiModel("gpt-5.2")))).toEqual([
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ])
+    expect(Object.keys(ProviderTransform.variants(openaiModel("gpt-5-pro")))).toEqual(["high"])
+  })
+
+  it("matches the family anchored, so gpt-60 is not read as gpt-6", () => {
+    expect(ProviderTransform.isGpt6Family("gpt-6-astra")).toBe(true)
+    expect(ProviderTransform.isGpt6Family("openai/gpt-6-astra")).toBe(true)
+    expect(ProviderTransform.isGpt6Family("GPT-6-Astra")).toBe(true)
+    expect(ProviderTransform.isGpt6Family("gpt-60")).toBe(false)
+    expect(ProviderTransform.isGpt6Family("gpt-5.4")).toBe(false)
+  })
+})
+
+describe("ProviderTransform.options — gpt-6 astra defaults", () => {
+  function optionsFor(apiId: string, npm = "@ai-sdk/openai", providerID = "openai") {
+    return ProviderTransform.options({
+      sessionID: "ses_test",
+      model: {
+        providerID,
+        id: apiId,
+        release_date: "2026-09-03",
+        api: { id: apiId, url: "https://api.openai.com/v1", npm },
+        capabilities: { reasoning: true },
+        limit: { context: 1_050_000, output: 128_000 },
+      },
+    } as unknown as Parameters<typeof ProviderTransform.options>[0])
+  }
+
+  it("defaults to medium effort with a detailed summary on direct OpenAI", () => {
+    const result = optionsFor("gpt-6-astra")
+    expect(result["reasoningEffort"]).toBe("medium")
+    expect(result["reasoningSummary"]).toBe("detailed")
+    expect(result["include"]).toEqual(["reasoning.encrypted_content"])
+  })
+
+  it("does not send textVerbosity, which is undocumented for the family", () => {
+    expect(optionsFor("gpt-6-astra")["textVerbosity"]).toBeUndefined()
+  })
+
+  it("falls back to an auto summary on gateways", () => {
+    expect(optionsFor("gpt-6-astra", "@ai-sdk/github-copilot", "github-copilot")["reasoningSummary"]).toBe("auto")
+  })
+
+  it("still sets textVerbosity for gpt-5.x", () => {
+    expect(optionsFor("gpt-5.2")["textVerbosity"]).toBe("low")
+  })
+})
