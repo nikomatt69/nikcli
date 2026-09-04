@@ -19,8 +19,8 @@
     {
       "kind": "screen-frame",
       "path": "screen.json",
-      "bytes": 695949,
-      "sha256": "ca698458ef5eb0487c09082adc84444cc737d0a40dd7da2e041b6da77c3407ce"
+      "bytes": 367064,
+      "sha256": "9ae33e244f392917423b75d9629ad75c15ea598f3cb1faff6e45a7bbf859f296"
     },
     {
       "kind": "screen-svg",
