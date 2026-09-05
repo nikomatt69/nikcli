@@ -4,6 +4,7 @@ import type { SessionStatus } from "@/session/status"
 import { preserveTestEnv } from "../helpers/env"
 import { removeTestDir } from "../helpers/fs"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
+import { Cause } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -29,6 +30,8 @@ const { Instance } = await import("@/project/instance")
 const { HttpApiBridge } = await import("@/server/httpapi/bridge")
 const { Server } = await import("@/server/server")
 const { MessageRepo } = await import("@/session/message-repo")
+const { SessionHttpApi } = await import("@/server/httpapi/session")
+const { runPromiseExitWithLayer, withCurrentInstance } = await import("@/effect")
 
 const projectDirs: string[] = []
 
@@ -670,6 +673,97 @@ describe("Session HttpApi bridge", () => {
     expect(response.status).toBe(404)
     const body = (await response.json()) as { name: string }
     expect(body.name).toBe("NotFoundError")
+  })
+
+  it("returns the declared 400 body when the part body disagrees with the path", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, {
+      title: "400 part mismatch",
+    })) as { id: string }
+
+    const messageID = "msg_mismatch"
+    const partID = "prt_mismatch"
+    MessageRepo.upsertMessage({
+      id: messageID,
+      sessionID: created.id,
+      role: "user",
+      time: { created: Date.now() },
+      agent: "general",
+      model: { providerID: "openai", modelID: "gpt-5" },
+    } as never)
+    MessageRepo.upsertPart({
+      id: partID,
+      sessionID: created.id,
+      messageID,
+      type: "text",
+      text: "hello",
+    } as never)
+
+    const url = new URL(`/session/${created.id}/message/${messageID}/part/${partID}`, "http://nikcli.local")
+    url.searchParams.set("directory", directory)
+    const response = await Server.fetch(
+      new Request(url, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        // A well-formed part that identifies a different part than the path.
+        body: JSON.stringify({
+          id: "prt_other",
+          sessionID: created.id,
+          messageID,
+          type: "text",
+          text: "updated",
+        }),
+      }),
+    )
+    // Before this was declared, the mismatch was a bare `throw` inside
+    // `Effect.gen` and reached the client as a 500 with no readable body.
+    expect(response.status).toBe(400)
+    const body = (await response.json()) as { name: string; data: Record<string, unknown> }
+    expect(body.name).toBe("PartMismatchError")
+    expect(body.data.sessionID).toBe(created.id)
+    expect(body.data.messageID).toBe(messageID)
+    expect(body.data.partID).toBe(partID)
+    expect(String(body.data.message)).toContain("prt_other")
+  })
+
+  /**
+   * The mismatch used to be a bare `throw new Error(...)` inside `Effect.gen`,
+   * so it left the handler as a defect and the route answered 500. It is a
+   * declared failure now; this assertion is what goes red if the `throw`
+   * comes back, because nothing recovers a die into the declared body.
+   */
+  it("handlers.partUpdate raises the mismatch on the typed channel, with no defect", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, {
+      title: "typed channel mismatch",
+    })) as { id: string }
+
+    await Instance.provide({
+      directory,
+      fn: async () => {
+        const exit = await runPromiseExitWithLayer(
+          SessionHttpApi.DependenciesLive,
+          withCurrentInstance(
+            SessionHttpApi.handlers.partUpdate({
+              params: { sessionID: created.id, messageID: "msg_typed", partID: "prt_typed" },
+              payload: {
+                id: "prt_other",
+                sessionID: created.id,
+                messageID: "msg_typed",
+                type: "text",
+                text: "updated",
+              } as never,
+            }),
+          ),
+        )
+        expect(exit._tag).toBe("Failure")
+        if (exit._tag !== "Failure") return
+        // `Cause.squash` reads through both channels; `hasDies` is what
+        // separates a declared failure from a defect.
+        expect(Cause.hasDies(exit.cause)).toBe(false)
+        expect((Cause.squash(exit.cause) as { name: string }).name).toBe("PartMismatchError")
+      },
+    })
   })
 
   it("returns the declared 404 body for a missing session on diff", async () => {

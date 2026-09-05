@@ -279,8 +279,27 @@ export namespace SessionHttpApi {
     name: Schema.Literal("SessionBusyError"),
     data: Schema.Record(Schema.String, Schema.Unknown),
   }).annotate({ identifier: "SessionBusyErrorBody", httpApiStatus: 409 })
+  /** `PATCH .../message/:messageID/part/:partID` only: the body names a
+   * different part than the path does. The request is malformed, not a
+   * server fault, so it is a declared 400 in the same `{ name, data }` shape
+   * as the other two rather than the 500 an undeclared `throw` produced. */
+  const PartMismatch = Schema.Struct({
+    name: Schema.Literal("PartMismatchError"),
+    data: Schema.Record(Schema.String, Schema.Unknown),
+  }).annotate({ identifier: "SessionPartMismatchError", httpApiStatus: 400 })
 
   type DeclaredError = typeof NotFound.Type | typeof Busy.Type
+
+  /** Raised on the typed channel where the mismatch is detected. A tagged
+   * error class rather than a bare `throw`, so dropping the mapping below is
+   * a compile error instead of a silent 500 (E8's rule at the one site E8
+   * named and deliberately left for its own item). */
+  class PartMismatchError extends Schema.TaggedError<PartMismatchError>()("SessionPartMismatch", {
+    sessionID: Schema.String,
+    messageID: Schema.String,
+    partID: Schema.String,
+    message: Schema.String,
+  }) {}
 
   /** Expected boundary failures → declared errors; everything else is a defect. */
   function asSessionError(cause: unknown): Effect.Effect<never, DeclaredError> {
@@ -309,6 +328,27 @@ export namespace SessionHttpApi {
    * `Exit` / `Cause` assertions in `test/session/session-lifecycle.test.ts`
    * pin that the missing-session and busy-session paths never die. */
   const declaredErrors = <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.catch(asSessionError))
+
+  /** `partUpdate` declares one error the rest of the group does not. It gets
+   * its own boundary so the extra 400 stays on the single endpoint whose
+   * contract carries it, instead of widening `DeclaredError` for every
+   * handler that pipes `declaredErrors`. */
+  function asPartUpdateError(cause: unknown): Effect.Effect<never, DeclaredError | typeof PartMismatch.Type> {
+    if (cause instanceof PartMismatchError) {
+      return Effect.fail({
+        name: "PartMismatchError" as const,
+        data: {
+          sessionID: cause.sessionID,
+          messageID: cause.messageID,
+          partID: cause.partID,
+          message: cause.message,
+        } as Record<string, unknown>,
+      })
+    }
+    return asSessionError(cause)
+  }
+
+  const partUpdateErrors = <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.catch(asPartUpdateError))
 
   // Drops present-`undefined` keys so an encoder declared with
   // `Schema.optional` puts an absent key on the wire instead of `null`.
@@ -531,7 +571,7 @@ export namespace SessionHttpApi {
         params: PartPath,
         payload: MessagePart,
         success: MessagePart,
-        error: [NotFound, Busy],
+        error: [NotFound, Busy, PartMismatch],
       }).annotate(OpenApi.Identifier, "part.update"),
     )
     .add(
@@ -911,8 +951,13 @@ export namespace SessionHttpApi {
         // the same shape; only the readonly modifier differs.
         const part = MessageV2.Part.parse(payload) as MessageV2.Part
         if (part.id !== params.partID || part.messageID !== params.messageID || part.sessionID !== params.sessionID) {
-          throw new Error(
-            `Part mismatch: body.id='${part.id}' vs partID='${params.partID}', body.messageID='${part.messageID}' vs messageID='${params.messageID}', body.sessionID='${part.sessionID}' vs sessionID='${params.sessionID}'`,
+          return yield* Effect.fail(
+            new PartMismatchError({
+              sessionID: params.sessionID,
+              messageID: params.messageID,
+              partID: params.partID,
+              message: `Part mismatch: body.id='${part.id}' vs partID='${params.partID}', body.messageID='${part.messageID}' vs messageID='${params.messageID}', body.sessionID='${part.sessionID}' vs sessionID='${params.sessionID}'`,
+            }),
           )
         }
         // `MessageV2.get` rejects with `SessionNotFoundError` for a missing
@@ -930,7 +975,7 @@ export namespace SessionHttpApi {
         // is the boundary between the zod-style union and an Effect-side
         // readonly input.
         return yield* session.updatePart(part as unknown as Parameters<typeof session.updatePart>[0])
-      }).pipe(declaredErrors),
+      }).pipe(partUpdateErrors),
     v2Entries: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service

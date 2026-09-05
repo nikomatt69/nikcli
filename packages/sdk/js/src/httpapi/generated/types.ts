@@ -4493,6 +4493,11 @@ export type SessionNotFoundError = { readonly name: "NotFoundError"; readonly da
 
 export type SessionBusyErrorBody = { readonly name: "SessionBusyError"; readonly data: { readonly [x: string]: any } }
 
+export type SessionPartMismatchError = {
+  readonly name: "PartMismatchError"
+  readonly data: { readonly [x: string]: any }
+}
+
 export type SessionBackgroundNotFound = { readonly error: "Session not found" }
 
 export type AccountError = { readonly error: string }
