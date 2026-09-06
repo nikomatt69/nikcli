@@ -19156,6 +19156,16 @@
               }
             }
           },
+          "400": {
+            "description": "SessionPartMismatchError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPartMismatchError"
+                }
+              }
+            }
+          },
           "404": {
             "description": "SessionNotFoundError",
             "content": {
@@ -58261,6 +58271,20 @@
         "items": {
           "$ref": "#/components/schemas/SessionPendingInput"
         }
+      },
+      "SessionPartMismatchError": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["PartMismatchError"]
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": ["name", "data"],
+        "additionalProperties": false
       },
       "SessionV2EntryList": {
         "type": "array"

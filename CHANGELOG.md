@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.328.0 (September 2026)
+
+## Core
+
+- Declare the part-id mismatch as a 400 on the typed channel (E9) (#256) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(httpapi): declare the part-id mismatch as a 400 on the typed channel (E9) (#256)
+
 ## v1.327.0 (September 2026)
 
 ## Core
