@@ -3622,7 +3622,7 @@ export function make(options: ClientOptions) {
             path: `/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}/part/${encodeURIComponent(input.partID)}`,
             body: input["payload"],
             successStatus: 200,
-            declaredStatuses: [404, 409],
+            declaredStatuses: [404, 409, 400],
             empty: false,
           },
           requestOptions,
