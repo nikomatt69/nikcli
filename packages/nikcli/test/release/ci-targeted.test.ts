@@ -89,6 +89,7 @@ describe("ci-validate.ts step order", () => {
       "Generated HTTP client drift",
       "Formatting",
       "Lint",
+      "Release guard tests",
       "Shell syntax check (install script)",
       "Shell syntax check (railway-deploy)",
       "Docker nikcli version check",
@@ -113,16 +114,57 @@ describe("ci-validate.ts step order", () => {
     expect(src).toContain("packages/nikcli/src/server/httpapi/client")
   })
 
-  it("treats formatting and lint failures as blocking", async () => {
+  it("treats formatting, lint and release-guard-test failures as blocking", async () => {
     const src = await read("script/ci-validate.ts")
     const stepsMatch = src.match(/const steps:\s*ValidationStep\[\]\s*=\s*\[([\s\S]*?)\n\]/)
     expect(stepsMatch).toBeTruthy()
-    for (const name of ["Formatting", "Lint"]) {
-      const start = stepsMatch![1].indexOf(`name: "${name}"`)
-      const end = stepsMatch![1].indexOf("\n  },", start)
-      const block = stepsMatch![1].slice(start, end)
+    // Whole step objects. Slicing forward from the `name:` line reads only the
+    // half of the object below it, so a `critical: false` written above the
+    // name — which is legal object syntax and exactly how someone would add it
+    // — landed outside the window and the assertion passed on a step it was
+    // supposed to reject.
+    const stepBlocks = stepsMatch![1]
+      .split(/\n  \{\n/)
+      .slice(1)
+      // Cut at the object's own closing brace: the text after it is the prose
+      // between steps, and that prose quotes `critical: false` to explain why
+      // the nikcli suite is not a step here.
+      .map((b) => b.split("\n  },")[0])
+    for (const name of ["Formatting", "Lint", "Release guard tests"]) {
+      const block = stepBlocks.find((b) => b.includes(`name: "${name}"`))
+      expect(block).toBeTruthy()
       expect(block).not.toContain("critical: false")
     }
+  })
+
+  it("runs the release-guard suite before the guards it covers", async () => {
+    const src = await read("script/ci-validate.ts")
+    const stepsMatch = src.match(/const steps:\s*ValidationStep\[\]\s*=\s*\[([\s\S]*?)\n\]/)
+    expect(stepsMatch).toBeTruthy()
+    const block = stepsMatch![1]
+    const start = block.indexOf('name: "Release guard tests"')
+    expect(start).toBeGreaterThan(-1)
+    const step = block.slice(start, block.indexOf("\n  },", start))
+    // The suite, not a single file and not the whole nikcli suite.
+    expect(step).toContain('"bun", "test", "test/release"')
+    expect(step).toContain('cwd: "packages/nikcli"')
+    // Order is the diagnosis: a broken guard must read as a failing guard
+    // test, not as the repository violating the guard.
+    for (const guard of ["Docker nikcli version check", "Patched dependency check", "Railway upload context check"]) {
+      expect(block.indexOf(`name: "${guard}"`)).toBeGreaterThan(start)
+    }
+  })
+
+  it("keeps the full nikcli suite out of validation", async () => {
+    const src = await read("script/ci-validate.ts")
+    const stepsMatch = src.match(/const steps:\s*ValidationStep\[\]\s*=\s*\[([\s\S]*?)\n\]/)
+    expect(stepsMatch).toBeTruthy()
+    // Commands only — the prose above and below the array explains why the
+    // suite is out, and matching on the whole file would read that as a call.
+    const commands = Array.from(stepsMatch![1].matchAll(/command:\s*\[([\s\S]*?)\n?\s*\],/g)).map((m) => m[1])
+    const testCommands = commands.filter((c) => /"test(:ci)?"|bun run test|bun test/.test(c))
+    expect(testCommands).toHaveLength(1)
+    expect(testCommands[0]).toContain("test/release")
   })
 
   it("timeouts are reasonable: tests < 5min, typecheck < 3min", async () => {
@@ -130,6 +172,43 @@ describe("ci-validate.ts step order", () => {
     const timeouts = Array.from(src.matchAll(/timeout:\s*(\d[\d_]*)/g)).map((m) => Number(m[1].replace(/_/g, "")))
     expect(timeouts.length).toBeGreaterThan(0)
     expect(Math.max(...timeouts)).toBeLessThanOrEqual(300_000)
+  })
+})
+
+// ─── 2b. Windows-compat is where the targeted suites live ───────────────────
+
+describe("windows-compat.yml test coverage", () => {
+  // These four scopes were deleted once already, when test execution was
+  // stripped from CI, and put back because they passed. Nothing pinned them,
+  // so nothing would have said they were gone. This does.
+  it("runs the four targeted scopes on real Windows", async () => {
+    const yml = await read(".github/workflows/windows-compat.yml")
+    for (const command of [
+      "bun test test/tui/util/double-esc.test.ts",
+      "bun test test/session",
+      "bun test test/config test/worktree",
+      "bun test test/util",
+    ]) {
+      expect(yml).toContain(command)
+    }
+    expect(yml).toContain("windows-latest")
+  })
+
+  it("raises the tsc heap so typecheck does not exit 134 on windows-latest", async () => {
+    const yml = await read(".github/workflows/windows-compat.yml")
+    expect(yml).toContain("--max-old-space-size=8192")
+  })
+
+  it("does not run the full nikcli suite there either", async () => {
+    const yml = await read(".github/workflows/windows-compat.yml")
+    // Comments out: the workflow explains in prose where the full suite lives,
+    // and matching the whole file would read that sentence as an invocation.
+    const commands = yml
+      .split("\n")
+      .filter((line) => !/^\s*#/.test(line))
+      .join("\n")
+    expect(commands).not.toContain("test:ci")
+    expect(commands).not.toMatch(/bun test\s*$/m)
   })
 })
 

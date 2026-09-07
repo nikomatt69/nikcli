@@ -83,6 +83,17 @@ repo more than once — check them before changing anything in that file:
   failures: Run tests)", which is worse than not running them: the cost is paid
   and the failures are ignored.
 
+- **`test/release` does run in `ci-validate.ts`, and stays.** The "Release guard
+  tests" step runs `bun test test/release` in `packages/nikcli` before the
+  guards those tests cover, and it is blocking. It is not the nikcli suite and
+  is not covered by the rule above: those 8 files import `bun:test`, `node:fs`,
+  `node:path` and `Bun.spawn` and construct no nikcli instance, so none of the
+  per-file cost applies — the step runs in about 10s. Without it the guards
+  below had no test of their own running anywhere, and a guard silently
+  neutered into a no-op leaves every signal a reviewer reads green. A case in
+  that suite that asserts the absence of a credential must pass it as `""`:
+  the autofix job re-runs `ci-validate.ts` with a real `GITHUB_TOKEN` in scope,
+  so an inherited one sends the no-token path at the live GitHub API.
 - **To run the whole suite anywhere else**, use `bun run test:ci` in
   `packages/nikcli`. It shards across short-lived bun processes via
   `script/test-ci.ts`, keeping `--parallel=1` (hence `--isolate`) inside each

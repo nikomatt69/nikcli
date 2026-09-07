@@ -25,6 +25,11 @@ function runScript(
       cmd: ["bun", scriptPath, ...args],
       stdout: "pipe",
       stderr: "pipe",
+      // A caller's override wins over the inherited environment, so a case
+      // that asserts the absence of a credential must pass it as "" rather
+      // than hope the runner exports none. This matters now that
+      // `ci-validate.ts` runs this suite: the autofix job re-runs
+      // `ci-validate.ts` with a real `GITHUB_TOKEN` in scope.
       env: {
         ...process.env,
         CI: "true",
@@ -395,6 +400,10 @@ describe("ci-report-failure.ts", () => {
         GITHUB_PR_NUMBER: "",
         NIKCLI_CI_FAILURE_MENTION: "@nikomatt69",
         AUTOFIX_ATTEMPTED: "skipped",
+        // Stated, not assumed. The assertion is about the missing credential,
+        // so the case has to remove it rather than hope the runner has none.
+        GITHUB_TOKEN: "",
+        GH_TOKEN: "",
       })
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain("GITHUB_TOKEN")

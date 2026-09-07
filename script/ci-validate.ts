@@ -79,6 +79,29 @@ const steps: ValidationStep[] = [
     cwd: "packages/nikcli",
     timeout: 120_000,
   },
+  {
+    // Every check below this line is a guard, and until now nothing tested the
+    // guards. `check-docker-versions.ts`, `check-patched-deps.ts` and
+    // `check-railway-context.ts` each have a suite in `test/release`, written
+    // with the guard and pinning the bugs it was built for — and no workflow
+    // ran any of them, so a guard could be broken into a no-op and every
+    // signal a reviewer reads would still be green. That is the same
+    // silent-drift shape C1 exists to close, one level up: the drift is in the
+    // detector rather than in what it detects.
+    //
+    // It runs BEFORE the guards it covers on purpose. A guard whose own tests
+    // are red reports as "this guard is broken" instead of as the repository
+    // violating it, which are opposite diagnoses and opposite fixes.
+    //
+    // This is not the nikcli suite and does not reopen the decision below.
+    // `test/release` is 8 files that import `bun:test`, `node:fs`, `node:path`
+    // and `Bun.spawn` — no nikcli instance, no SQLite, none of the per-file
+    // cost that makes the real suite a memory problem. It runs in ~10s.
+    name: "Release guard tests",
+    command: ["bun", "test", "test/release"],
+    cwd: "packages/nikcli",
+    timeout: 180_000,
+  },
   // The full nikcli suite is deliberately NOT run here. It is ~350 files that
   // cost this job 2.5 minutes at best, and it took the runner down outright at
   // worst: a single bun process climbed to 14.5 GB and was killed at file 175,
@@ -87,10 +110,11 @@ const steps: ValidationStep[] = [
   // the time and then reported "Validation passed (non-blocking failures: Run
   // tests)", so real failures were logged and ignored.
   //
-  // Validation runs no tests at all now: typecheck is the correctness signal
-  // here, and the rest of these steps are static checks that finish in seconds.
-  // The suite belongs to the `test` workflow; `bun run test:ci` in
-  // packages/nikcli runs it anywhere else, sharded so it does not OOM.
+  // Validation therefore runs the release-guard tests above and nothing else:
+  // typecheck is the correctness signal for `src`, and the rest of these steps
+  // are static checks that finish in seconds. `test.yml` does not run it
+  // either despite its name — `bun run test:ci` in packages/nikcli is the only
+  // way it runs anywhere, sharded so it does not OOM.
   {
     name: "Shell syntax check (install script)",
     command: ["bash", "-n", "install"],
