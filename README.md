@@ -10,7 +10,7 @@ This fork is maintained by **nikomatt69**. On top of the OpenCode base, nikcli a
 
 - **Upstream project**: OpenCode — [github.com/anomalyco/opencode](https://github.com/anomalyco/opencode)
 - **Maintainer of this fork**: nikomatt69 — [GitHub](https://github.com/nikomatt69) · [X](https://x.com/nikomatt69)
-- **Release**: see [GitHub Releases](https://github.com/nikomatt69/nikcli/releases/latest) · Package manager: `bun@1.4.0`
+- **Release**: see [GitHub Releases](https://github.com/nikomatt69/nikcli/releases/latest) · Package manager: `bun@1.4.2`
 - **License**: MIT — see `LICENSE`, which retains the upstream OpenCode copyright.
 
 ---

@@ -166,7 +166,7 @@ docker run --env-file .env -p 3000:3000 nikcli-inference
 docker compose -f deploy/docker-compose.yml up -d
 ```
 
-The Dockerfile is multi-stage (deps → build → minimal runtime), uses `oven/bun:1.3-alpine`, runs as non-root user `nikcli`, and includes a `HEALTHCHECK` against `/health`. The entrypoint `src/main.ts` validates env at boot and handles `SIGTERM` / `SIGINT` gracefully.
+The Dockerfile is multi-stage (deps → build → minimal runtime), uses `oven/bun:1.4.2-alpine`, runs as non-root user `nikcli`, and includes a `HEALTHCHECK` against `/health`. The entrypoint `src/main.ts` validates env at boot and handles `SIGTERM` / `SIGINT` gracefully.
 
 ### Where to deploy
 

@@ -6,12 +6,13 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "bun": "1.4.2"
     },
     "personal": {
       "distribution": "internal",
       "environment": "preview",
-      "bun": "1.3.12",
+      "bun": "1.4.2",
       "node": "20.19.4",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.1"
@@ -20,10 +21,12 @@
     "preview": {
       "ios": {
         "simulator": true
-      }
+      },
+      "bun": "1.4.2"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "bun": "1.4.2"
     }
   },
   "submit": {
