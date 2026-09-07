@@ -200,24 +200,38 @@ jobs:
           set -euo pipefail
           ROOT="$(pwd)"
           BUNDLE="packages/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
-          mkdir -p artifacts
+          # Stage into a directory of our own: the repo already tracks an
+          # `artifacts/` directory (artifacts/tui/**), so uploading `artifacts/*`
+          # globbed that subdirectory and `gh release upload` failed with
+          # "read artifacts/tui: is a directory" on every desktop target.
+          # Keep this workspace-relative: RUNNER_TEMP is a backslash path on the
+          # Windows runners, which Git Bash does not handle reliably.
+          STAGE="desktop-artifacts"
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
           if [ -d "$BUNDLE" ]; then
             # Bundle targets: deb, rpm, dmg, nsis (.exe), app (zipped below).
             find "$BUNDLE" -type f \( \
               -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.exe" \
-              \) -exec cp {} artifacts/ \;
+              \) -exec cp {} "$STAGE/" \;
             # macOS: also ship a zipped .app for parity with opencode's *.zip
             if [ -d "$BUNDLE/macos" ]; then
               for app in "$BUNDLE"/macos/*.app; do
                 [ -d "$app" ] || continue
                 name="$(basename "$app" .app)"
-                (cd "$BUNDLE/macos" && zip -q -r -X "$ROOT/artifacts/${name}-${{ matrix.target }}.zip" "$(basename "$app")")
+                (cd "$BUNDLE/macos" && zip -q -r -X "$ROOT/$STAGE/${name}-${{ matrix.target }}.zip" "$(basename "$app")")
               done
             fi
           fi
-          ls -la artifacts || true
-          if [ -n "$(ls -A artifacts 2>/dev/null)" ]; then
-            gh release upload "${{ inputs.tag }}" artifacts/* --clobber --repo nikomatt69/nikcli
+          ls -la "$STAGE" || true
+          # Upload regular files only — `gh` rejects a directory argument. No
+          # bash arrays here: the macOS runners still ship bash 3.2, where
+          # expanding an empty array under `set -u` aborts the step.
+          if [ "$(find "$STAGE" -maxdepth 1 -type f | wc -l | tr -d '[:space:]')" = "0" ]; then
+            echo "no installers produced for ${{ matrix.target }} — nothing to upload"
+          else
+            find "$STAGE" -maxdepth 1 -type f \
+              -exec gh release upload "${{ inputs.tag }}" --clobber --repo nikomatt69/nikcli {} +
           fi
 
       # Tauri updater: rename the (arch-agnostic) macOS bundle, publish it, and
