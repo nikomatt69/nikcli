@@ -66,7 +66,7 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 ### Release trust
 
 - **User promise** — A published CLI, desktop artifact, or hosted service corresponds to validated source and does not report success when a required stage was skipped.
-- **Current evidence** — C1 closes generated-client drift, direct-publish validation, blocking lint/format, and missing Railway credentials. `GET /global/health` reports health and version, but not a revision identity tied to the detached Railway upload.
+- **Current evidence** — C2 (implemented locally 2026-09-07; see ROADMAP) removes an obsolete Effect beta install from the Railway Docker build and extends the existing CI guard against reintroduction. This does not satisfy the health-identity or two-upload observation gate. C1 closes generated-client drift, direct-publish validation, blocking lint/format, and missing Railway credentials. `GET /global/health` reports health and version, but not a revision identity tied to the detached Railway upload.
 - **Promotion rule** — Add post-deploy work only after choosing and proving a revision-bearing health identity and a reliable way to associate it with the detached upload without flaky polling.
 
 ### First useful result

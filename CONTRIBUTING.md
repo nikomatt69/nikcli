@@ -30,7 +30,7 @@ Want to take on an issue? Leave a comment and a maintainer may assign it to you 
 
 ## Developing Nikcli
 
-- Requirements: Bun 1.3+
+- Requirements: Bun 1.4.2 (see `packageManager` in `package.json`)
 - Install dependencies and start the dev server from the repo root:
 
   ```bash

@@ -109,6 +109,7 @@ const steps: ValidationStep[] = [
   {
     // A literal NIKCLI_VERSION in a Dockerfile goes stale silently — the image
     // keeps reporting an old release and no build ever fails over it.
+    // Also reject positional Effect installs that change the validated graph.
     name: "Docker nikcli version check",
     command: ["bun", "run", "script/check-docker-versions.ts"],
     critical: true,
