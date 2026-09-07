@@ -5,7 +5,7 @@
   "private": false,
   "type": "module",
   "version": "1.328.0",
-  "packageManager": "bun@1.4.0",
+  "packageManager": "bun@1.4.2",
   "scripts": {
     "dev": "bun run --cwd packages/nikcli --conditions=browser src/index.ts",
     "build:single": "bun run --cwd packages/nikcli build:single",

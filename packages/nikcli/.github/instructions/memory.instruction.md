@@ -4,7 +4,7 @@
 
 ## Start Here
 
-nikcli is an AI coding-agent runtime and OpenCode fork maintained by `nikomatt69`. It uses Bun 1.4.0, Effect 4 HttpApi, Solid/OpenTUI, Vercel AI SDK, SQLite/Drizzle, and an ongoing Effect 4 service migration. The main package is `packages/nikcli`. **Version 1.313.0** at the time of this pass.
+nikcli is an AI coding-agent runtime and OpenCode fork maintained by `nikomatt69`. It uses Bun 1.4.2, Effect 4 HttpApi, Solid/OpenTUI, Vercel AI SDK, SQLite/Drizzle, and an ongoing Effect 4 service migration. The main package is `packages/nikcli`. **Version 1.313.0** at the time of this pass.
 
 - The default branch is **`live-main`** (both `AGENTS.md` files now agree).
 - Root workspaces: `packages/*`, `packages/console/*`, `packages/remote`, `packages/sdk/js`, `packages/slack`, `github`. 41 packages total; key ones are `nikcli`, `sdk`, `tui`, `mobile`, `desktop`, `web`, `app`, `plugin`, `remote`, `companion`, `identity`, `auth`, `llm`, `inference`, `simulation`, `chatbot` (in-nikcli), `tui-image`, `terminal-control`, `httpapi-codegen`. Top-level apps: `app` (webgui), `web`, `desktop`.
@@ -169,5 +169,5 @@ Decisions deferred to user — see Unused Workspaces thread.
 - The root `AGENTS.md` contains stale package/branch claims; verify live workspace state rather than copying them forward.
 - Session transcript text is in SQLite (`message_info`, `message_part`); `session_diff/*.json` files may only be empty `[]` stubs.
 - Verification baseline (2026-08-24): `bun run typecheck` passes (exit 0); `bun run check:routes` passes via `inventoryFailures`; `bun run generate:httpapi-clients` is drift-free; `bunx oxlint` clean; `bunx prettier --check` clean.
-- Toolchain pinned: `bun@1.4.0` (workspace), `typescript@5.8.2` (catalog, with `@typescript/native` 7.0.2 for typecheck), `zod@4.1.8`, `effect@4.x`, `remeda@2.26.0`, `marked@17.0.1`, `solid-js@1.9.10`, `hono@4.12.34` (still in catalog for downstream packages — server itself does not import it).
+- Toolchain pinned: `bun@1.4.2` (workspace), `typescript@5.8.2` (catalog, with `@typescript/native` 7.0.2 for typecheck), `zod@4.1.8`, `effect@4.x`, `remeda@2.26.0`, `marked@17.0.1`, `solid-js@1.9.10`, `hono@4.12.34` (still in catalog for downstream packages — server itself does not import it).
 - OpenTUI dashboard schemas documented in the nikcli-skill: `stat_grid` (label/value/color), `key_value` (key/value/status), `bar_chart` (label/value/color, value=number), `list` (primary/secondary/icon/status), `compare` (rows with label/left/right/winner), `gauge` (value/max/label/min/thresholds), `accordion` (sections with title/open/content/items), `diff` (before/after/mode/filetype/title), `code` (content/filetype/showLineNumbers), `markdown` (content), `sparkline_row` (rows with label/values/current), `tree` (nodes with label/status/children), `histogram` (bins with label/count), `heatmap` (rowLabels/colLabels/values 2D/colorScale), `line_chart` (series with name/values/color + labels/height/showAxis). Status fields accept "default"|"success"|"warning"|"error"|"info". Max `status_grid` items ≤48.
