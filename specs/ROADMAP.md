@@ -31,7 +31,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 
 | ID      | Horizon | Item                                                                          |
 | ------- | ------- | ----------------------------------------------------------------------------- |
-| **B1**  | Local   | Align every active runtime pin with Bun 1.4.2 (user-requested 2026-09-07)      |
+| **B1**  | Local   | Align every active runtime pin with Bun 1.4.2 (user-requested 2026-09-07)     |
 | **C2**  | Local   | Preserve the workspace Effect graph in the Railway image (2026-09-07)         |
 | **C1**  | Done    | Release integrity: generated drift, blocking static checks, release gates     |
 | **E4**  | Done    | Encode optionals as absent keys — corrected scope complete                    |

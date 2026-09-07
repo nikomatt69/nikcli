@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.330.0 (September 2026)
+
+## Core
+
+- Advance C2 and align Bun runtimes to 1.4.2 (#258) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(ci): stop desktop release upload from globbing the tracked artifacts/ dir (#257)
+  - fix(release): advance C2 and align Bun runtimes to 1.4.2 (#258)
+
 ## v1.328.0 (September 2026)
 
 ## Core
