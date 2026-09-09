@@ -18,6 +18,7 @@ import { useRoute, useRouteData } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { useProject } from "@tui/context/project"
 import { SplitBorder } from "@tui/component/border"
+import { PendingInputCard } from "@tui/component/pending-input-card"
 import { Spinner } from "@tui/component/spinner"
 import { useTheme, selectedForeground } from "@tui/context/theme"
 import { ScrollBoxRenderable, addDefaultParsers, MacOSScrollAccel, type ScrollAcceleration, RGBA } from "@opentui/core"
@@ -1531,9 +1532,14 @@ export function Session() {
   )
 }
 
+/**
+ * Session-route adapter for {@link PendingInputCard}.
+ *
+ * The card itself is presentational and lives in `component/pending-input-card.tsx` so fixtures can
+ * render it; this resolves the parts and the agent colour that only the live session knows.
+ */
 function PendingUserMessage(props: { pending: SessionPendingInput2 }) {
   const local = useLocal()
-  const { theme } = useTheme()
   const text = createMemo(() =>
     props.pending.data.parts
       .filter((part) => part.type === "text")
@@ -1543,62 +1549,15 @@ function PendingUserMessage(props: { pending: SessionPendingInput2 }) {
   )
   const files = createMemo(() => props.pending.data.parts.filter((part) => part.type === "file"))
   const color = createMemo(() => local.agent.color(props.pending.data.agent ?? ""))
-  const badgeFg = createMemo(() => selectedForeground(theme, color()))
 
   return (
-    <box
+    <PendingInputCard
       id={props.pending.messageID}
-      border={["left"]}
-      borderColor={color()}
-      customBorderChars={SplitBorder.customBorderChars}
-      marginTop={1}
-    >
-      <box paddingTop={1} paddingBottom={1} paddingLeft={2} backgroundColor={theme.surface.panel} flexShrink={0}>
-        <Show when={text()}>{(value) => <text fg={theme.foreground.default}>{value()}</text>}</Show>
-        <Show when={files().length > 0}>
-          <box flexDirection="row" paddingTop={1} gap={1} flexWrap="wrap">
-            <For each={files()}>
-              {(file) => (
-                <text fg={theme.foreground.default}>
-                  <span
-                    style={{
-                      bg: theme.accent.secondary,
-                      fg: theme.surface.base,
-                    }}
-                  >
-                    {" "}
-                    file{" "}
-                  </span>
-                  <span
-                    style={{
-                      bg: theme.surface.offset,
-                      fg: theme.foreground.muted,
-                    }}
-                  >
-                    {" "}
-                    {file.filename ?? file.mime}{" "}
-                  </span>
-                </text>
-              )}
-            </For>
-          </box>
-        </Show>
-        <text fg={theme.foreground.muted}>
-          <Show
-            when={props.pending.delivery === "queue"}
-            fallback={
-              <>
-                <span style={{ bg: color(), fg: badgeFg(), bold: true }}> STEERING </span>
-                <span> interrupts and sends now</span>
-              </>
-            }
-          >
-            <span style={{ bg: color(), fg: badgeFg(), bold: true }}> QUEUED </span>
-            <span> sends at the next safe step</span>
-          </Show>
-        </text>
-      </box>
-    </box>
+      color={color()}
+      text={text()}
+      files={files()}
+      delivery={props.pending.delivery === "queue" ? "queue" : "steer"}
+    />
   )
 }
 

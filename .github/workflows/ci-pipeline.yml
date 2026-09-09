@@ -127,6 +127,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The identity probe below is a bun script, so the runtime has to be here even though the
+      # upload itself is shell.
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
       - name: Install Railway CLI
         shell: bash
         run: |
@@ -138,20 +143,39 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE || 'nikcli-mobile' }}
+          # Declared, not defaulted in the shell: the identity line below reports which environment
+          # was targeted, and a value that silently falls back to "production" would report the one
+          # thing this line exists to prove rather than the one that was used.
+          RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT || 'production' }}
         run: |
           if [ -z "${RAILWAY_TOKEN:-}" ]; then
             echo "✗ RAILWAY_TOKEN not configured — refusing to report a skipped deploy as successful"
             exit 1
           fi
           echo "→ Deploying to Railway service: ${RAILWAY_SERVICE:-nikcli-mobile}"
+          echo "→ Expected identity: revision=${GITHUB_SHA} service=${RAILWAY_SERVICE} environment=${RAILWAY_ENVIRONMENT}"
           mkdir -p tmp
-          if ./script/railway-deploy.sh --detach >tmp/railway.log 2>&1; then
+          if NIKCLI_REVISION="$GITHUB_SHA" ./script/railway-deploy.sh --detach >tmp/railway.log 2>&1; then
             echo "✓ Railway deploy triggered (service=${RAILWAY_SERVICE:-nikcli-mobile})"
           else
             echo "✗ Railway deploy failed (last 30 lines):"
             tail -n 30 tmp/railway.log || true
             exit 1
           fi
+
+      # `--detach` above proves only that the upload was accepted. Until the instance answering
+      # traffic reports the commit that just passed validation, the release is unconfirmed — and an
+      # unconfirmed release is a failed one, not a pending one. A build that never completes and an
+      # upload that landed on the wrong service both look identical here, and both time out.
+      - name: Confirm release identity
+        shell: bash
+        env:
+          NIKCLI_HEALTH_URL: ${{ vars.RAILWAY_HEALTH_URL }}
+        run: |
+          # Default lives in bash. GitHub expressions treat `//` as a comment, so an https
+          # URL cannot be used as an expression fallback.
+          : "${NIKCLI_HEALTH_URL:=https://nikcli-mobile-production.up.railway.app}"
+          bun run script/check-release-identity.ts --expect "$GITHUB_SHA" --timeout 900
 
   autofix:
     needs: validate

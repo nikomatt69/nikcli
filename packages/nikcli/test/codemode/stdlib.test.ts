@@ -36,8 +36,12 @@ describe("Number and Math", () => {
     expect(await value(`return (42).valueOf()`)).toBe(42)
   })
 
+  // Still refused, but as a TypeError naming the callee rather than as unsupported syntax (T4):
+  // `new` is supported, and Number is a real constructor in JavaScript, so saying otherwise misleads.
   test("Number valueOf does not enable boxed numbers", async () => {
-    expect((await error(`return new Number(42)`)).kind).toBe("UnsupportedSyntax")
+    const failure = await error(`return new Number(42)`)
+    expect(failure.kind).not.toBe("UnsupportedSyntax")
+    expect(failure.message).toStartWith("new Number(...) is not supported; call Number(...) without new instead.")
   })
 })
 

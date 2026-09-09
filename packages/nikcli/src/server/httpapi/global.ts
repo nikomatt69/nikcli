@@ -23,9 +23,17 @@ export const GlobalDisposedEvent = BusEvent.schema("global.disposed", Schema.Str
  * as top-level `GET /event`.
  */
 export namespace GlobalHttpApi {
+  /**
+   * `revision` is `optionalKey`, not required, on purpose: a probe built from the current contract
+   * still has to be able to read an *older* instance that predates the field. If it were required,
+   * "the deploy never replaced the old container" — the exact case this identity is here to catch —
+   * would arrive as a decode failure instead of an absent revision the caller can report as a
+   * mismatch. A dev build reports `"local"`; the field is absent only on a pre-C3 server.
+   */
   const Health = Schema.Struct({
     healthy: Schema.Literal(true),
     version: Schema.String,
+    revision: Schema.optionalKey(Schema.String),
   }).annotate({ identifier: "GlobalHealth" })
 
   /**
@@ -48,6 +56,7 @@ export namespace GlobalHttpApi {
       Effect.succeed({
         healthy: true as const,
         version: Installation.VERSION,
+        revision: Installation.REVISION,
       }),
 
     dispose: () =>

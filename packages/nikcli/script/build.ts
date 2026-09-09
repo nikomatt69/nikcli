@@ -23,6 +23,19 @@ const singleFlag = process.argv.includes("--single")
 const skipInstall = process.argv.includes("--skip-install")
 const sourcemapsFlag = process.argv.includes("--sourcemaps")
 
+// The commit this binary is compiled from, baked in the same way as the version.
+//
+// NIKCLI_REVISION comes first because the image that builds for Railway has no .git — the deploy
+// script writes the commit into the upload context and Dockerfile.serve passes it here. A local
+// checkout falls back to git, and anything else honestly reports "local" rather than guessing.
+// `.nothrow()` covers both a missing git and a directory that is not a repository.
+const revision = await (async () => {
+  const fromEnv = process.env["NIKCLI_REVISION"]?.trim()
+  if (fromEnv) return fromEnv
+  const fromGit = await $`git rev-parse HEAD`.nothrow().quiet().text()
+  return fromGit.trim() || "local"
+})()
+
 const allTargets: {
   os: string
   arch: "arm64" | "x64"
@@ -156,6 +169,7 @@ for (const item of targets) {
       OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + treeSitterWorkerPath,
       NIKCLI_WORKER_PATH: workerPath,
       NIKCLI_CHANNEL: `'${singleFlag ? "local" : Script.channel}'`,
+      NIKCLI_REVISION: `'${revision}'`,
       NIKCLI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
     },
   })

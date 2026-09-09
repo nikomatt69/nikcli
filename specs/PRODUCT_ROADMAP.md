@@ -2,7 +2,7 @@
 
 Prioritize user outcomes through measured evidence gates.
 
-Status: **Proposed** (reconciled 2026-09-09).
+Status: **Proposed** (reconciled 2026-09-09; release-identity discovery promoted to C3 and implemented that day).
 
 This document orders user outcomes, not implementation projects. [ROADMAP.md](./ROADMAP.md) admits engineering work only after discovery identifies the smallest verifiable change.
 
@@ -30,11 +30,11 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 
 ### Verify release integrity
 
-- **Engineering** - C1 gates every publish; E5, H8, and P2 landed on 2026-08-24. On 2026-09-09, Bun 1.4.2, Effect `4.0.0-rc.112`, frozen install, typecheck, and the Docker/C2 guards are confirmed locally. Hosted release validation remains outstanding.
-- **Local evidence** - See [the evidence record](./ROADMAP.md#verify-before-proceeding). Frozen install exited 0 with no lockfile changes (2574 installs / 2929 packages).
-- **Limits** - Full CI/release validation, desktop/mobile builds, and production deployment were not run.
-- **Product** - Release-identity, first-use, continuity, automation, share, and paid-value discovery are recorded below. None of them admits implementation or production collection.
-- **Phase exit** - Hosted B1/C2 validation still required. Two consecutive approved uploads must match the expected identity, and first-use evidence must cover one release boundary; neither observation gate is closed.
+- **Engineering** - C1 gates every publish; E5, H8, and P2 landed on 2026-08-24. On 2026-09-09 the full validation runner (`script/ci-validate.ts`, the same one CI's `validate` job runs) passed 12 steps of 12, which closes B1 and C2. **C3 landed the same day**: the validated commit is baked into the binary, served on the existing public health response, and confirmed by a bounded probe after the detached upload.
+- **Local evidence** - See [the evidence record](./ROADMAP.md#verify-before-proceeding) for the step-by-step result.
+- **Limits** - Desktop/mobile builds and production deployment were not run. C3 gives the release decision something that can be wrong; it does not perform the uploads that would exercise it.
+- **Product** - Release-identity discovery is now promoted and implemented. First-use, continuity, automation, share, and paid-value discovery are recorded below and still admit no implementation or production collection.
+- **Phase exit** - Two consecutive approved uploads must match the expected identity, and first-use evidence must cover one release boundary. Neither observation gate is closed, and both now have the instrumentation they need to be run.
 
 ---
 
@@ -72,14 +72,14 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 
 ## Prioritize outcomes
 
-| Horizon   | Outcome                                                        | Measure                                                                                                           | Engineering relationship                                                                                                           |
-| --------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Now**   | Releases users can trust                                       | Successful validation-to-publish chain, generated-client drift, deploy acceptance and post-deploy health          | C1 is the first guard; follow-up must prove a revision-bearing health identity can be tied reliably to the detached Railway upload |
-| **Now**   | First useful result with less setup friction                   | Install-to-provider-ready completion, time to first successful session turn, failures grouped by actionable cause | Promote only failures observed in installer, auth, provider catalog, or first-turn paths                                           |
-| **Next**  | Continue the same session across terminal, desktop, and mobile | Cross-surface continuation success, reconnect failures, state divergence, time to resume                          | Prefer existing HttpApi, event, pending-input, workspace, and SessionV2 seams; do not create a second transport or renderer        |
-| **Next**  | Delegate repeatable work with confidence                       | Loop/mission/background-run completion, intervention rate, restart recovery, explicit failure causes              | S4r is landed; discovery now maps reliability gaps across existing Loop, Mission, background-run, and restart seams                |
-| **Later** | Share and distribute work safely                               | Share completion, recipient activation, revocation success, deployment/install channel reliability                | Discovery must define trust, ownership, and revocation before changing collaboration or hosted surfaces                            |
-| **Later** | Validate sustainable paid value                                | Retention and willingness-to-pay by outcome cohort, support cost, provider-cost envelope                          | No billing architecture enters the engineering roadmap before a priced cohort and measurable entitlement boundary exist            |
+| Horizon   | Outcome                                                        | Measure                                                                                                           | Engineering relationship                                                                                                                                                         |
+| --------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Now**   | Releases users can trust                                       | Successful validation-to-publish chain, generated-client drift, deploy acceptance and post-deploy health          | C1 guards the publish, C3 the upload: the validated commit is baked, served on health, and confirmed by a bounded probe. What remains is running two approved uploads through it |
+| **Now**   | First useful result with less setup friction                   | Install-to-provider-ready completion, time to first successful session turn, failures grouped by actionable cause | Promote only failures observed in installer, auth, provider catalog, or first-turn paths                                                                                         |
+| **Next**  | Continue the same session across terminal, desktop, and mobile | Cross-surface continuation success, reconnect failures, state divergence, time to resume                          | Prefer existing HttpApi, event, pending-input, workspace, and SessionV2 seams; do not create a second transport or renderer                                                      |
+| **Next**  | Delegate repeatable work with confidence                       | Loop/mission/background-run completion, intervention rate, restart recovery, explicit failure causes              | S4r is landed; discovery now maps reliability gaps across existing Loop, Mission, background-run, and restart seams                                                              |
+| **Later** | Share and distribute work safely                               | Share completion, recipient activation, revocation success, deployment/install channel reliability                | Discovery must define trust, ownership, and revocation before changing collaboration or hosted surfaces                                                                          |
+| **Later** | Validate sustainable paid value                                | Retention and willingness-to-pay by outcome cohort, support cost, provider-cost envelope                          | No billing architecture enters the engineering roadmap before a priced cohort and measurable entitlement boundary exist                                                          |
 
 ---
 
@@ -97,7 +97,8 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 - **Rollback** — This brief does not authorize automatic production rollback. A failed observation fails the release decision; the next upload still needs identity match. Auto-rollback is a later product choice.
 - **Contract and privacy** — Health is already public, so a revision in the JSON body is public metadata. An optional additive field would regenerate `GlobalHealth` and is a C1 drift item; a required field is a contract bump. Header-only identity would hide the value from generated clients and from the curl probe operators already use. Store only revision, service, environment, upload/deployment id if Railway exposes one, timestamps, and coarse pass/fail. No tokens, source, prompts, or credentials.
 - **Evidence gate** — Record expected vs observed identity for two consecutive separately approved uploads, plus a failed-build case and an old-healthy-instance case. Neither window has been run.
-- **Promotion rule** — Discovery is complete enough to name the gap. The smallest future engineering item would bake the validated SHA at image build, expose it on the existing public health response, and associate the detached upload with that SHA. It is not admitted here: no ROADMAP ID, no implementation, no production collection, no deploy.
+- **Promoted 2026-09-09 as [C3](./ROADMAP.md#revision-bearing-release-identity-c3--implemented-2026-09-09)** — This brief named one gap and both halves of the promotion rule held for it: the evidence was in the repository, and the gate is runnable. The smallest item it described is what was built — the validated commit baked at image build (`NIKCLI_REVISION`, beside the existing version define), exposed as an additive `revision` on the public health response, and associated with the detached upload through the deploy script and the CI job. `script/check-release-identity.ts` is the gate; a detached upload that is never confirmed is a failed release, not a pending one.
+- **Still not admitted** — Production collection and automatic rollback. The two-upload window needs deploy permission and is not run from a checkout; a failed observation fails the release decision, and the next upload still has to match.
 
 ---
 
@@ -182,14 +183,15 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 
 ## Remaining sequence
 
-None of these is a new ROADMAP ID. Order:
+Order, with what is left of each:
 
-1. Hosted CI / existing `ci-validate.ts` for B1/C2.
-2. Two approved uploads against [release identity](#prove-release-identity) (needs deploy permission).
-3. Optional operator observation of first-use, continuation, and orphan rates from existing logs/SQL — not production telemetry.
-4. Share and paid-value stay Later until those windows exist and a priced cohort / share trust model is evidenced outside this brief.
+1. ~~`ci-validate.ts` for B1/C2.~~ **Done 2026-09-09** — 12 of 12 steps green; B1 and C2 are closed.
+2. ~~Give the release decision an identity it can be wrong about.~~ **Done 2026-09-09** as C3, the one ROADMAP ID promoted out of these briefs.
+3. Two approved uploads against [release identity](#prove-release-identity), plus the failed-build and old-healthy-instance cases. **Needs deploy permission** — this is the open item, and it is an operator action, not more code.
+4. Optional operator observation of first-use, continuation, and orphan rates from existing logs/SQL — not production telemetry.
+5. Share and paid-value stay Later until those windows exist and a priced cohort / share trust model is evidenced outside this brief.
 
-Discovery for Now / Next / Later horizons is complete. Implementation waits on (1)–(2) and on an observed gap with a runnable gate.
+Discovery for Now / Next / Later horizons is complete. Everything implementable from this repository state is implemented; (3) waits on a deploy, and the remaining horizons wait on an observed gap with a runnable gate.
 
 ---
 

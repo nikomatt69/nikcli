@@ -24,7 +24,7 @@
     "@napi-rs/canvas": "1.0.2",
     "@nikcli-ai/http-recorder": "workspace:*",
     "@nikcli-ai/llm": "workspace:*",
-    "@opentui/core": "0.4.5",
+    "@opentui/core": "0.5.10",
     "effect": "4.0.0-rc.112",
     "web-tree-sitter": "0.25.10"
   },

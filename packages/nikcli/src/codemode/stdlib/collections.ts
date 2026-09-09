@@ -38,7 +38,26 @@ export const arrayMethods = new Set([
 
 export const mapMethods = new Set(["get", "set", "has", "delete", "clear", "forEach", "keys", "values", "entries"])
 
-export const setMethods = new Set(["add", "has", "delete", "clear", "forEach", "keys", "values", "entries"])
+// The ES2025 set-composition methods are here because grouping and de-duplicating tool results is
+// orchestration work, not application work: without them the model writes a filter over an array to
+// say "which paths did both greps return?".
+export const setMethods = new Set([
+  "add",
+  "has",
+  "delete",
+  "clear",
+  "forEach",
+  "keys",
+  "values",
+  "entries",
+  "union",
+  "intersection",
+  "difference",
+  "symmetricDifference",
+  "isSubsetOf",
+  "isSupersetOf",
+  "isDisjointFrom",
+])
 
 export const spreadItems = (value: unknown): Array<unknown> | undefined => {
   if (Array.isArray(value)) return value

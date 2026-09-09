@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/package.json",
   "version": "1.330.0",
   "name": "nikcli-ai",
-  "description": "AI coding agent with TUI, server, connectors and mobile companion — a fork of OpenCode (https://github.com/anomalyco/opencode)",
+  "description": "AI coding agent with TUI, server, connectors and mobile companion \u2014 a fork of OpenCode (https://github.com/anomalyco/opencode)",
   "type": "module",
   "license": "MIT",
   "private": false,
@@ -35,7 +35,8 @@
     "docs": "echo 'Generating documentation...' && find src -name '*.ts' -exec echo 'Processing: {}' \\;",
     "deploy": "echo 'Deploying application...' && bun run build && echo 'Deployment completed successfully'",
     "release": "bun run ../../script/release-github.ts",
-    "sandbox:vercel": "bun run script/vercel-sandbox-smoke.ts"
+    "sandbox:vercel": "bun run script/vercel-sandbox-smoke.ts",
+    "smoke:story": "NIKCLI_STORY=pending-input NIKCLI_SMOKE_EXPECT='pending input,QUEUED' bun run script/tui-smoke.ts"
   },
   "bin": {
     "nikcli": "./bin/nikcli"
@@ -129,8 +130,8 @@
     "@octokit/rest": "catalog:",
     "@openauthjs/openauth": "catalog:",
     "@openrouter/ai-sdk-provider": "1.5.4",
-    "@opentui/core": "0.4.5",
-    "@opentui/solid": "0.4.5",
+    "@opentui/core": "0.5.10",
+    "@opentui/solid": "0.5.10",
     "@opentui/webrenderer": "workspace:*",
     "@parcel/watcher": "2.5.1",
     "@pierre/diffs": "catalog:",

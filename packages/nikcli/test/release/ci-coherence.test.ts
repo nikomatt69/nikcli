@@ -288,32 +288,54 @@ describe("secret reference coherence", () => {
 // ─── 11. Railway deploy coherence ───────────────────────────────────────────
 
 describe("railway-deploy coherence", () => {
-  it("ci-pipeline.yml has a railway-deploy job gated on publish success", async () => {
+  /**
+   * The `railway-deploy` job, from its header to the next job.
+   *
+   * These assertions used to read a fixed number of characters after the job header — 1200, 1500,
+   * 2500 — which meant every step added to the job silently pushed something out of the window and
+   * failed a test that had nothing to do with the change. Twice in one day. The job's real end is the
+   * next top-level job key, so slice to that instead of guessing a length.
+   */
+  async function railwayDeployJob() {
     const yml = await read(PIPELINE_YML)
-    expect(yml).toContain("railway-deploy:")
-    const rdIdx = yml.indexOf("\n  railway-deploy:")
-    const after = yml.slice(rdIdx, rdIdx + 1200)
-    expect(after).toContain("needs: publish")
-    expect(after).toContain("needs.publish.result == 'success'")
-    expect(after).toContain("refs/heads/live-main")
+    const start = yml.indexOf("\n  railway-deploy:")
+    expect(start, "ci-pipeline.yml has no railway-deploy job").toBeGreaterThan(-1)
+    // Search past the job's own header line, or it matches itself at offset 0.
+    const bodyStart = yml.indexOf("\n", start + 1) + 1
+    const next = yml.slice(bodyStart).search(/^ {2}[a-z][a-z0-9-]*:$/m)
+    return next === -1 ? yml.slice(start) : yml.slice(start, bodyStart + next)
+  }
+
+  it("ci-pipeline.yml has a railway-deploy job gated on publish success", async () => {
+    const job = await railwayDeployJob()
+    expect(job).toContain("needs: publish")
+    expect(job).toContain("needs.publish.result == 'success'")
+    expect(job).toContain("refs/heads/live-main")
   })
 
   it("railway-deploy uses the existing deploy script in detach mode", async () => {
-    const yml = await read(PIPELINE_YML)
-    const rdIdx = yml.indexOf("\n  railway-deploy:")
-    const after = yml.slice(rdIdx, rdIdx + 1500)
-    expect(after).toContain("./script/railway-deploy.sh --detach")
-    expect(after).toContain("RAILWAY_TOKEN")
+    const job = await railwayDeployJob()
+    expect(job).toContain("./script/railway-deploy.sh --detach")
+    expect(job).toContain("RAILWAY_TOKEN")
   })
 
   it("railway-deploy is silent: redirects logs and only emits one-line status", async () => {
-    const yml = await read(PIPELINE_YML)
-    const rdIdx = yml.indexOf("\n  railway-deploy:")
-    const after = yml.slice(rdIdx, rdIdx + 1500)
+    const job = await railwayDeployJob()
     // Output is redirected to a log file (not /dev/null) so failures can be
     // tailed for diagnosis, while success stays a single one-line status.
-    expect(after).toContain(">tmp/railway.log")
-    expect(after).toContain("✓ Railway deploy triggered")
+    expect(job).toContain(">tmp/railway.log")
+    expect(job).toContain("✓ Railway deploy triggered")
+  })
+
+  // C3: the identity line names what was targeted, so both halves must be declared rather than
+  // defaulted in the shell — a value that falls back to "production" reports the thing it is meant
+  // to prove.
+  it("declares every variable the expected-identity line reports", async () => {
+    const job = await railwayDeployJob()
+    for (const name of ["RAILWAY_SERVICE", "RAILWAY_ENVIRONMENT"]) {
+      expect(job, `${name} is reported but never declared in env:`).toContain(`${name}: \${{ vars.${name}`)
+    }
+    expect(job).toContain("Expected identity: revision=${GITHUB_SHA}")
   })
 
   it("railway-deploy.sh script exists and is executable", async () => {

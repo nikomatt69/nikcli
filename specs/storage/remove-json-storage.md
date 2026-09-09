@@ -10,7 +10,7 @@
 
 The retirement completed on 2026-08-14: durable state lives in `nikcli.db`, and no production module imports the former JSON key-value store.
 
-This is the successor to [SQL + Drizzle adoption](./nikcli-sql-drizzle-adoption.md), which already landed the central database, the migration journal, and domain-owned schemas. Sessions, messages, parts, todos, permissions, and sync events moved in `20260611*`. What remains is the long tail.
+This is the successor to the SQL + Drizzle adoption pass (spec retired 2026-09-09, once its plan was fully landed), which put in place the central database, the migration journal, and domain-owned schemas. Sessions, messages, parts, todos, permissions, and sync events moved in `20260611*`. What remains is the long tail.
 
 This is **not** a request to delete `Storage` in one change. The target is that no production module imports it, after which the file goes. That target is met.
 

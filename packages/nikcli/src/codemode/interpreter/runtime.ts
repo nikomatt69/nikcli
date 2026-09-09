@@ -18,9 +18,11 @@ import {
   getBoolean,
   getNode,
   getOptionalNode,
+  describeCallee,
   getString,
   IntrinsicReference,
   InterpreterRuntimeError,
+  notCallableMessage,
   isRecord,
   type MemberReference,
   OptionalShortCircuit,
@@ -38,7 +40,7 @@ import {
   UriFunction,
 } from "./model"
 import { caughtErrorValue, constructErrorValue } from "./errors"
-import { type CallbackRunner, invokeGlobalMethod, invokeIntrinsic } from "./methods"
+import { type CallbackRunner, invokeGlobalMethod, invokeGroupBy, invokeIntrinsic } from "./methods"
 import {
   constructPromise,
   invokePromiseInstanceMethod,
@@ -322,7 +324,7 @@ export class Interpreter<R> {
     })
   }
 
-  private evaluateStatement(node: AstNode): Effect.Effect<StatementResult, unknown, R> {
+  private evaluateStatement(node: AstNode, label?: string): Effect.Effect<StatementResult, unknown, R> {
     switch (node.type) {
       case "ExpressionStatement":
         return Effect.as(this.evaluateExpression(getNode(node, "expression")), {
@@ -348,15 +350,15 @@ export class Interpreter<R> {
       case "SwitchStatement":
         return this.evaluateSwitchStatement(node)
       case "WhileStatement":
-        return this.evaluateWhileStatement(node)
+        return this.evaluateWhileStatement(node, label)
       case "DoWhileStatement":
-        return this.evaluateDoWhileStatement(node)
+        return this.evaluateDoWhileStatement(node, label)
       case "ForStatement":
-        return this.evaluateForStatement(node)
+        return this.evaluateForStatement(node, label)
       case "ForOfStatement":
-        return this.evaluateForOfStatement(node)
+        return this.evaluateForOfStatement(node, label)
       case "ForInStatement":
-        return this.evaluateForInStatement(node)
+        return this.evaluateForInStatement(node, label)
       case "BreakStatement":
         return Effect.succeed(this.evaluateBreakStatement(node))
       case "ContinueStatement":
@@ -365,6 +367,8 @@ export class Interpreter<R> {
         return this.evaluateThrowStatement(node)
       case "TryStatement":
         return this.evaluateTryStatement(node)
+      case "LabeledStatement":
+        return this.evaluateLabeledStatement(node)
       case "EmptyStatement":
         return Effect.succeed({ kind: "none" })
       case "FunctionDeclaration":
@@ -396,8 +400,13 @@ export class Interpreter<R> {
 
   private createFunction(node: AstNode): CodeModeFunction {
     if (node.generator === true) {
+      // Excluded deliberately, not pending. Suspending and resuming a generator needs the evaluator
+      // to be a coroutine, and this one is a tree-walker over Effect: `yield` would have to reify the
+      // whole continuation at every node. Orchestration code does not need it — the thing generators
+      // are reached for here is lazily walking tool results, and an array plus `Promise.all` covers
+      // that. Recorded in `specs/v2/codemode-interpreter-support.md`.
       throw new InterpreterRuntimeError(
-        "Generator functions are not supported in CodeMode.",
+        "Generator functions are not supported in CodeMode. Build and return an array instead, or use Promise.all(items.map(...)) to run tool calls concurrently.",
         node,
         "UnsupportedSyntax",
         [supportedSyntaxMessage],
@@ -473,15 +482,18 @@ export class Interpreter<R> {
       for (let index = start; index < cases.length; index += 1) {
         for (const statementValue of getArray(cases[index]!, "consequent")) {
           const result = yield* self.evaluateStatement(asNode(statementValue, "consequent"))
-          if (result.kind === "break") return { kind: "none" } satisfies StatementResult
-          if (result.kind === "return" || result.kind === "continue") return result
+          // Only a bare `break` belongs to the switch. `break outer` from inside a case is aimed at a
+          // labelled loop further out and has to travel through, or the switch would silently absorb
+          // it and the loop would keep going.
+          if (result.kind === "break" && result.label === undefined) return { kind: "none" } satisfies StatementResult
+          if (result.kind !== "none") return result
         }
       }
       return { kind: "none" } satisfies StatementResult
     }).pipe(Effect.ensuring(Effect.sync(() => self.scopes.pop())))
   }
 
-  private evaluateWhileStatement(node: AstNode): Effect.Effect<StatementResult, unknown, R> {
+  private evaluateWhileStatement(node: AstNode, label?: string): Effect.Effect<StatementResult, unknown, R> {
     const testNode = getNode(node, "test")
     const bodyNode = getNode(node, "body")
 
@@ -490,24 +502,17 @@ export class Interpreter<R> {
       while (yield* self.evaluateExpression(testNode)) {
         const result = yield* self.evaluateStatement(bodyNode)
 
-        if (result.kind === "continue") {
-          continue
-        }
-
-        if (result.kind === "break") {
-          return { kind: "none" } satisfies StatementResult
-        }
-
-        if (result.kind === "return") {
-          return result
-        }
+        const action = self.loopAction(result, label)
+        if (action === "continue") continue
+        if (action === "break") return { kind: "none" } satisfies StatementResult
+        if (action === "propagate") return result
       }
 
       return { kind: "none" } satisfies StatementResult
     })
   }
 
-  private evaluateDoWhileStatement(node: AstNode): Effect.Effect<StatementResult, unknown, R> {
+  private evaluateDoWhileStatement(node: AstNode, label?: string): Effect.Effect<StatementResult, unknown, R> {
     const bodyNode = getNode(node, "body")
     const testNode = getNode(node, "test")
 
@@ -516,24 +521,17 @@ export class Interpreter<R> {
       do {
         const result = yield* self.evaluateStatement(bodyNode)
 
-        if (result.kind === "continue") {
-          continue
-        }
-
-        if (result.kind === "break") {
-          return { kind: "none" } satisfies StatementResult
-        }
-
-        if (result.kind === "return") {
-          return result
-        }
+        const action = self.loopAction(result, label)
+        if (action === "continue") continue
+        if (action === "break") return { kind: "none" } satisfies StatementResult
+        if (action === "propagate") return result
       } while (yield* self.evaluateExpression(testNode))
 
       return { kind: "none" } satisfies StatementResult
     })
   }
 
-  private evaluateForStatement(node: AstNode): Effect.Effect<StatementResult, unknown, R> {
+  private evaluateForStatement(node: AstNode, label?: string): Effect.Effect<StatementResult, unknown, R> {
     this.scopes.push()
     const self = this
     return Effect.gen(function* () {
@@ -571,13 +569,9 @@ export class Interpreter<R> {
           ),
         )
 
-        if (result.kind === "return") {
-          return result
-        }
-
-        if (result.kind === "break") {
-          return { kind: "none" } satisfies StatementResult
-        }
+        const action = self.loopAction(result, label)
+        if (action === "propagate") return result
+        if (action === "break") return { kind: "none" } satisfies StatementResult
 
         if (iterationScope) {
           const loopScope = self.scopes.current()
@@ -590,18 +584,24 @@ export class Interpreter<R> {
           yield* self.evaluateExpression(updateNode)
         }
 
-        if (result.kind === "continue") {
-          continue
-        }
+        if (action === "continue") continue
       }
 
       return { kind: "none" } satisfies StatementResult
     }).pipe(Effect.ensuring(Effect.sync(() => self.scopes.pop())))
   }
 
-  private evaluateForOfStatement(node: AstNode): Effect.Effect<StatementResult, unknown, R> {
+  private evaluateForOfStatement(node: AstNode, label?: string): Effect.Effect<StatementResult, unknown, R> {
     if (getBoolean(node, "await")) {
-      throw new InterpreterRuntimeError("for await...of is not supported.", node)
+      // Excluded with generators, and for the same reason (see `createFunction`). The replacement is
+      // exact rather than approximate: awaiting inside a plain `for...of` gives sequential tool calls,
+      // and `Promise.all` gives concurrent ones — `for await` over a tool result buys neither.
+      throw new InterpreterRuntimeError(
+        "for await...of is not supported in CodeMode. Await inside a plain for...of loop for sequential calls, or use Promise.all(items.map(...)) to run them concurrently.",
+        node,
+        "UnsupportedSyntax",
+        [supportedSyntaxMessage],
+      )
     }
 
     const self = this
@@ -656,17 +656,10 @@ export class Interpreter<R> {
           ),
         )
 
-        if (result.kind === "return") {
-          return result
-        }
-
-        if (result.kind === "break") {
-          return { kind: "none" }
-        }
-
-        if (result.kind === "continue") {
-          continue
-        }
+        const action = self.loopAction(result, label)
+        if (action === "propagate") return result
+        if (action === "break") return { kind: "none" }
+        if (action === "continue") continue
       }
 
       return { kind: "none" }
@@ -686,7 +679,7 @@ export class Interpreter<R> {
     return undefined
   }
 
-  private evaluateForInStatement(node: AstNode): Effect.Effect<StatementResult, unknown, R> {
+  private evaluateForInStatement(node: AstNode, label?: string): Effect.Effect<StatementResult, unknown, R> {
     const self = this
     return Effect.gen(function* () {
       const left = getNode(node, "left")
@@ -737,17 +730,10 @@ export class Interpreter<R> {
           ),
         )
 
-        if (result.kind === "return") {
-          return result
-        }
-
-        if (result.kind === "break") {
-          return { kind: "none" }
-        }
-
-        if (result.kind === "continue") {
-          continue
-        }
+        const action = self.loopAction(result, label)
+        if (action === "propagate") return result
+        if (action === "break") return { kind: "none" }
+        if (action === "continue") continue
       }
 
       return { kind: "none" }
@@ -756,22 +742,41 @@ export class Interpreter<R> {
 
   private evaluateBreakStatement(node: AstNode): StatementResult {
     const labelNode = getOptionalNode(node, "label")
-
-    if (labelNode) {
-      throw new InterpreterRuntimeError("Labeled break is not supported in v1.", node)
-    }
-
-    return { kind: "break" }
+    return labelNode ? { kind: "break", label: getString(labelNode, "name") } : { kind: "break" }
   }
 
   private evaluateContinueStatement(node: AstNode): StatementResult {
     const labelNode = getOptionalNode(node, "label")
+    return labelNode ? { kind: "continue", label: getString(labelNode, "name") } : { kind: "continue" }
+  }
 
-    if (labelNode) {
-      throw new InterpreterRuntimeError("Labeled continue is not supported in v1.", node)
-    }
+  /**
+   * A label names the statement it prefixes.
+   *
+   * The label is handed to the statement itself so a loop can recognise its own name; for anything
+   * else (the labelled-block form) only `break label` applies, and it stops here. `continue` at a
+   * non-loop label is a syntax error in JavaScript, and the parser rejects it before this runs.
+   */
+  private evaluateLabeledStatement(node: AstNode): Effect.Effect<StatementResult, unknown, R> {
+    const label = getString(getNode(node, "label"), "name")
+    return Effect.map(this.evaluateStatement(getNode(node, "body"), label), (result) =>
+      result.kind === "break" && result.label === label ? ({ kind: "none" } satisfies StatementResult) : result,
+    )
+  }
 
-    return { kind: "continue" }
+  /**
+   * What a loop labelled `label` should do about a result its body produced.
+   *
+   * One place, because the alternative is repeating the same four-way decision at ten sites across
+   * five loop forms, and the labelled cases are exactly the ones that are easy to get wrong in the
+   * tenth copy: a signal aimed at an outer label has to travel through untouched, not be swallowed
+   * by the first loop that sees it.
+   */
+  private loopAction(result: StatementResult, label: string | undefined): "next" | "continue" | "break" | "propagate" {
+    if (result.kind === "none") return "next"
+    if (result.kind === "return") return "propagate"
+    if (result.label !== undefined && result.label !== label) return "propagate"
+    return result.kind === "continue" ? "continue" : "break"
   }
 
   private evaluateThrowStatement(node: AstNode): Effect.Effect<StatementResult, unknown, R> {
@@ -1070,12 +1075,19 @@ export class Interpreter<R> {
 
   private evaluateNewExpression(node: AstNode): Effect.Effect<unknown, unknown, R> {
     const callee = getNode(node, "callee")
-    if (callee.type !== "Identifier") {
-      throw unsupportedSyntax("NewExpression", node)
-    }
-    const name = getString(callee, "name")
     const argNodes = getArray(node, "arguments")
     const self = this
+    if (callee.type !== "Identifier") {
+      return this.rejectConstruction(callee, node)
+    }
+    const name = getString(callee, "name")
+    // A local binding wins over the builtin table, or `const Date = 5; new Date()` would quietly
+    // construct a real date from a number the program had already redefined. Builtins are themselves
+    // scope bindings here, so the test is whether the name still resolves to *its own* ambient
+    // global — merely being bound proves nothing.
+    if (!this.resolvesToAmbientGlobal(name)) {
+      return this.rejectConstruction(callee, node)
+    }
     if (name === "Promise") {
       return Effect.flatMap(this.evaluateCallArguments(argNodes), (args) =>
         constructPromise(self.runner, self.promises, args[0], node),
@@ -1103,7 +1115,45 @@ export class Interpreter<R> {
         }
       })
     }
-    throw unsupportedSyntax("NewExpression", node)
+    return this.rejectConstruction(callee, node)
+  }
+
+  /** Whether `name` still refers to the global this interpreter seeded, rather than a program binding. */
+  private resolvesToAmbientGlobal(name: string): boolean {
+    const binding = this.scopes.resolve(name)
+    if (binding === undefined) return true
+    const value = binding.value
+    if (value instanceof PromiseNamespace) return name === "Promise"
+    if (value instanceof GlobalNamespace) return value.name === name
+    if (value instanceof ErrorConstructorReference) return value.name === name
+    return false
+  }
+
+  /**
+   * `new` is supported syntax; only the callee decides whether construction succeeds.
+   *
+   * Reporting these as `unsupportedSyntax("NewExpression")` told the model that `new` itself was
+   * unavailable, right after it had read a hint saying `new Promise(...)` works. The callee is
+   * evaluated first so an undeclared name still fails as an unknown identifier rather than being
+   * relabelled a non-constructor, and so a *shadowed* builtin (`const Date = 5`) is judged on the
+   * value in scope. Each shape gets the message that names the way out.
+   */
+  private rejectConstruction(callee: AstNode, node: AstNode): Effect.Effect<never, unknown, R> {
+    const name = describeCallee(callee)
+    return Effect.flatMap(this.evaluateExpression(callee), (value) =>
+      Effect.sync(() => {
+        const subject = name ?? "The called value"
+        const message =
+          value instanceof CodeModeFunction
+            ? `${subject} cannot be constructed: user-defined constructors and classes are not supported. Call it as a function that returns a plain object instead.`
+            : typeofValue(value) === "function"
+              ? `new ${subject}(...) is not supported; call ${subject}(...) without new instead.`
+              : name === undefined
+                ? "The called value is not a constructor."
+                : `${subject} is not a constructor.`
+        throw new InterpreterRuntimeError(message, node).as("TypeError")
+      }),
+    )
   }
 
   private constructDate(args: Array<unknown>): CodeModeDate {
@@ -1514,6 +1564,11 @@ export class Interpreter<R> {
         if (callable.namespace === "Object" && args[0] instanceof ToolReference) {
           return self.invokeObjectMethodOnTools(callable.name, args[0], node)
         }
+        // Dispatched here rather than in stdlib because these two take a callback and the pure
+        // statics have no runner. See `invokeGroupBy`.
+        if ((callable.namespace === "Object" || callable.namespace === "Map") && callable.name === "groupBy") {
+          return yield* invokeGroupBy(self.runner, callable.namespace, args, node)
+        }
         if (callable.namespace === "Object" && objectMethodsPreservingIdentity.has(callable.name)) {
           return invokeGlobalMethod(callable, args, node)
         }
@@ -1538,7 +1593,11 @@ export class Interpreter<R> {
         callable.settle(args[0])
         return undefined
       }
-      throw new InterpreterRuntimeError("Only tools are callable in CodeMode.", callee)
+      // Naming the member matters more than it looks. A facade like Set resolves an unknown property
+      // to `undefined` (so `if (value.maybe)` still works), and calling that used to arrive here as
+      // "Only tools are callable" — which points the model at tools when the real answer is that this
+      // one method is not in the subset. Mirror JS: a non-callable member is a TypeError naming it.
+      throw new InterpreterRuntimeError(notCallableMessage(callee), callee).as("TypeError")
     })
   }
 

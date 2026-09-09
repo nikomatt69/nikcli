@@ -584,7 +584,7 @@ export type FileWriteResult = { success: boolean }
 
 export type File = { path: string; added: number; removed: number; status: "added" | "deleted" | "modified" }
 
-export type GlobalHealth = { healthy: true; version: string }
+export type GlobalHealth = { healthy: true; version: string; revision?: string }
 
 export type MCPStatus =
   | { status: "connected" }

@@ -343,6 +343,16 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
   const [pluginRouteKey, setPluginRouteKey] = createSignal(0)
   const bump = () => setPluginRouteKey((k) => k + 1)
   const [pluginsReady, setPluginsReady] = createSignal(false)
+  /**
+   * Launched to look at a component, not to work.
+   *
+   * `NIKCLI_STORY` renders production components from fixtures with no SDK and no server, so the two
+   * gates that exist to get a working session — first-run onboarding and the empty-provider dialog —
+   * would only put a signup in front of a fixture. Same exemption `NIKCLI_DRIVE` already has, and
+   * named once so both gates state the same reason.
+   */
+  const STORYBOOK_LAUNCH = Boolean(process.env.NIKCLI_STORY)
+
   const [onboardingActive, setOnboardingActive] = createSignal(false)
 
   setSummary(() => {
@@ -410,7 +420,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
     void (async () => {
       // Drive instances use an injected local provider and must not depend on
       // interactive account/onboarding state from the host machine.
-      if (!process.env.NIKCLI_DRIVE) {
+      if (!process.env.NIKCLI_DRIVE && !STORYBOOK_LAUNCH) {
         // Lazy: the onboarding dialog pulls the speak/provider chain, which may
         // not be evaluated during TUI module load. Account state comes from
         // `/user/*` — the transport is up by now, as the `sdk.client.tui.config`
@@ -620,6 +630,8 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         // only trigger when we transition into an empty-provider state
         if (!isEmpty || wasEmpty) return
         if (onboardingActive()) return
+        // A storybook launch has no provider by construction and does not need one.
+        if (STORYBOOK_LAUNCH) return
         dialog.replace(() => <DialogProviderList />)
       },
     ),

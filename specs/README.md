@@ -28,15 +28,13 @@ Authority follows the concern. When a document and the code disagree, the code w
 
 ## Choose a document
 
-| Document                                                           | Status      | Job                                                                                         |
-| ------------------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------- |
-| [ROADMAP](./ROADMAP.md)                                            | Live        | Closed engineering IDs plus the remaining sequence (hosted CI, identity uploads).           |
-| [Product roadmap](./PRODUCT_ROADMAP.md)                            | Proposed    | Outcome discovery briefs and [remaining sequence](./PRODUCT_ROADMAP.md#remaining-sequence). |
-| [TUI package extraction](./tui-package.md)                         | Complete    | TUI lives in `packages/tui`; host files stay in `packages/nikcli`.                          |
-| [v2 contracts](./v2/README.md)                                     | Index       | Session, tools, events, instructions, catalog, provider policy.                             |
-| [Public event filter](./v2/public-event-filter.md)                 | Implemented | Which bus events never reach a client, and why withheld means absent.                       |
-| [SQL + Drizzle adoption](./storage/nikcli-sql-drizzle-adoption.md) | Implemented | The central database runtime, migrations, and domain-owned schema.                          |
-| [Retire JSON storage](./storage/remove-json-storage.md)            | Retired     | Both storage modules are deleted; production storage imports are zero.                      |
+| Document                                           | Status      | Job                                                                                         |
+| -------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------- |
+| [ROADMAP](./ROADMAP.md)                            | Live        | Closed engineering IDs plus the remaining sequence (hosted CI, identity uploads).           |
+| [Product roadmap](./PRODUCT_ROADMAP.md)            | Proposed    | Outcome discovery briefs and [remaining sequence](./PRODUCT_ROADMAP.md#remaining-sequence). |
+| [TUI package extraction](./tui-package.md)         | Complete    | TUI lives in `packages/tui`; host files stay in `packages/nikcli`.                          |
+| [v2 contracts](./v2/README.md)                     | Index       | Session, tools, events, instructions, catalog, provider policy.                             |
+| [Public event filter](./v2/public-event-filter.md) | Implemented | Which bus events never reach a client, and why withheld means absent.                       |
 
 ---
 
@@ -46,7 +44,7 @@ Multi-project and worktree support uses flat `/project`, `/session`, and `/works
 
 Extend the existing groups unless a separate product decision changes that model. Endpoint definitions live in `packages/nikcli/src/server/httpapi/`; directory resolution lives in `packages/nikcli/src/server/server-router.ts`.
 
-Keep these storage decisions alongside the [SQL contract](./storage/nikcli-sql-drizzle-adoption.md) and [JSON retirement rationale](./storage/remove-json-storage.md):
+Keep these storage decisions in mind:
 
 - Domain repositories share `Database.syncDb()` and pass `Database.TxOrDb` into projector writes. Transactions default to `immediate`, with nested calls joining the outer transaction to protect read-then-write sequence allocation.
 - `Database.effect` queues notifications until commit, never on rollback or while holding the write lock. Outside a transaction it runs immediately; queued callback failures are logged after commit, not treated as a rolled-back write.

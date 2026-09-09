@@ -1406,9 +1406,10 @@ describe("Test262 Promise constructor", () => {
     ).toEqual(["before", "executor", "after"])
   })
 
-  test.failing("calling Promise without new throws TypeError", async () => {
+  test("calling Promise without new throws TypeError", async () => {
     // Source: test/built-ins/Promise/undefined-newtarget.js
-    // CodeMode currently reports a generic Error ("Only tools are callable in CodeMode.").
+    // Was `.failing` while a non-callable value reported a generic Error ("Only tools are callable in
+    // CodeMode."). T4 made that a TypeError naming the callee, which is what test262 expects here.
     expect(
       await value(`
         try {

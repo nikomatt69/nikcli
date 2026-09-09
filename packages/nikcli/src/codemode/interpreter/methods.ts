@@ -32,6 +32,7 @@ import { invokeRegExpMethod, matchToValue, toHostRegex } from "../stdlib/regexp"
 import { invokeStringStatic } from "../stdlib/string"
 import { invokeUriFunction, invokeURLMethod, invokeURLStatic, uriArgument } from "../stdlib/url"
 import { boundedData, coerceToNumber, coerceToString, invokeCoercion } from "../stdlib/value"
+import { spreadItems } from "../stdlib/collections"
 
 export type CallbackRunner<R> = {
   readonly invokeFunction: (fn: CodeModeFunction, args: Array<unknown>) => Effect.Effect<unknown, unknown, R>
@@ -394,6 +395,50 @@ const invokeStringReplacer = <R>(
   })
 }
 
+/**
+ * `Object.groupBy` and `Map.groupBy`, which cannot live beside the other Object statics.
+ *
+ * Those are pure functions in `stdlib/object.ts` with no access to the callback runner, and these two
+ * take a callback — so they are dispatched here instead. `Object.groupBy` returns a null-prototype
+ * data object keyed by the stringified group, `Map.groupBy` a Map facade keyed by the raw value; that
+ * difference is the whole reason both exist.
+ */
+export const invokeGroupBy = <R>(
+  runner: CallbackRunner<R>,
+  namespace: "Object" | "Map",
+  args: Array<unknown>,
+  node: AstNode,
+): Effect.Effect<unknown, unknown, R> => {
+  const items = spreadItems(args[0])
+  if (items === undefined) {
+    throw new InterpreterRuntimeError(`${namespace}.groupBy expects an array or other iterable.`, node)
+  }
+  const apply = applyCollectionCallback(runner, args[1], `${namespace}.groupBy`, node)
+  return Effect.gen(function* () {
+    if (namespace === "Map") {
+      const grouped = new CodeModeMap()
+      for (const [index, item] of items.entries()) {
+        const key = yield* apply([item, index])
+        const bucket = grouped.map.get(key)
+        if (Array.isArray(bucket)) bucket.push(item)
+        else grouped.map.set(key, [item])
+      }
+      return grouped
+    }
+    const grouped: Record<string, unknown> = Object.create(null)
+    for (const [index, item] of items.entries()) {
+      const key = coerceToString(yield* apply([item, index]))
+      if (isBlockedMember(key)) {
+        throw new InterpreterRuntimeError(`Property '${key}' is not available in CodeMode.`, node)
+      }
+      const bucket = grouped[key]
+      if (Array.isArray(bucket)) bucket.push(item)
+      else grouped[key] = [item]
+    }
+    return grouped
+  })
+}
+
 export const applyCollectionCallback = <R>(
   runner: CallbackRunner<R>,
   callback: unknown,
@@ -494,9 +539,42 @@ const invokeSetMethod = <R>(
         return undefined
       })
     }
-    default:
+    default: {
+      // ES2025 set composition. The argument must be another Set: the spec accepts any set-like, but
+      // accepting an array here would silently succeed on `s.union([1,2])`, which is not what the
+      // real method does, and a wrong answer is worse than a refusal.
+      const other = requireSetArgument(name, args[0], node)
+      switch (name) {
+        case "union":
+          return Effect.sync(() => setOf(target.set.union(other)))
+        case "intersection":
+          return Effect.sync(() => setOf(target.set.intersection(other)))
+        case "difference":
+          return Effect.sync(() => setOf(target.set.difference(other)))
+        case "symmetricDifference":
+          return Effect.sync(() => setOf(target.set.symmetricDifference(other)))
+        case "isSubsetOf":
+          return Effect.succeed(target.set.isSubsetOf(other))
+        case "isSupersetOf":
+          return Effect.succeed(target.set.isSupersetOf(other))
+        case "isDisjointFrom":
+          return Effect.succeed(target.set.isDisjointFrom(other))
+      }
       throw new InterpreterRuntimeError(`Set method '${name}' is not available in CodeMode.`, node)
+    }
   }
+}
+
+/** Wrap a plain Set result back into the facade, so callers never receive a host `Set`. */
+const setOf = (values: Set<unknown>): CodeModeSet => {
+  const out = new CodeModeSet()
+  for (const value of values) out.set.add(value)
+  return out
+}
+
+const requireSetArgument = (name: string, value: unknown, node: AstNode): Set<unknown> => {
+  if (value instanceof CodeModeSet) return value.set
+  throw new InterpreterRuntimeError(`Set.${name} expects another Set.`, node, "InvalidDataValue")
 }
 
 const invokeURLSearchParamsMethod = <R>(

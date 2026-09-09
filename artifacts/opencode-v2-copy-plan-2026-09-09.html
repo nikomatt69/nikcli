@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenCode v2 — what nikcli can copy</title>
+    <style>
+      :root {
+        --bg: #0b0d10;
+        --bg-elev: #12151a;
+        --bg-card: #161a21;
+        --bg-hover: #1c212b;
+        --line: #2a3140;
+        --text: #e8edf5;
+        --muted: #8b97ab;
+        --dim: #5c6778;
+        --accent: #7dd3c0;
+        --accent-2: #9db4ff;
+        --warn: #e8c07a;
+        --danger: #e07a7a;
+        --ok: #7dca9a;
+        --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        line-height: 1.5;
+      }
+      body {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 32px 24px 80px;
+      }
+      h1 {
+        font-size: 26px;
+        font-weight: 650;
+        letter-spacing: -0.03em;
+        margin: 0 0 8px;
+      }
+      h2 {
+        font-size: 17px;
+        font-weight: 650;
+        margin: 40px 0 10px;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+      }
+      h3 {
+        font-size: 13px;
+        font-weight: 650;
+        margin: 24px 0 8px;
+        color: var(--accent);
+      }
+      .lede {
+        color: var(--muted);
+        font-size: 15px;
+        max-width: 74ch;
+        margin: 0 0 20px;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 12px 0 28px;
+      }
+      .pill {
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 3px 8px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        background: var(--bg-elev);
+      }
+      .pill.ok {
+        color: var(--ok);
+        border-color: #2a4a38;
+      }
+      .pill.warn {
+        color: var(--warn);
+        border-color: #4a3d20;
+      }
+      .pill.skip {
+        color: var(--danger);
+        border-color: #4a2a2a;
+      }
+      .pill.copy {
+        color: var(--accent);
+        border-color: #1e3a36;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin: 10px 0 18px;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      tr:hover td {
+        background: var(--bg-hover);
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        background: var(--bg-elev);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      .note {
+        background: var(--bg-elev);
+        border-left: 3px solid var(--accent);
+        padding: 10px 14px;
+        margin: 14px 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .warnbox {
+        background: #1a1610;
+        border-left: 3px solid var(--warn);
+        padding: 10px 14px;
+        margin: 14px 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+        margin: 12px 0 20px;
+      }
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 16px;
+      }
+      .card h4 {
+        margin: 0 0 6px;
+        font-size: 13px;
+      }
+      .card p {
+        margin: 0;
+        font-size: 12.5px;
+        color: var(--muted);
+      }
+      ul.compact {
+        margin: 6px 0 12px;
+        padding-left: 18px;
+      }
+      ul.compact li {
+        margin: 3px 0;
+        font-size: 13.5px;
+      }
+      .k {
+        color: var(--dim);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .v {
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      footer {
+        margin-top: 56px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+        color: var(--dim);
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>OpenCode v2 — file-level copy plan</h1>
+    <p class="lede">
+      Corrected after reading both trees. Clone: <code>anomalyco/opencode@v2</code> <code>ba144832</code>. nikcli
+      1.330.0. Two earlier claims were wrong: thinking toggle and admit-without-wake already exist here.
+    </p>
+
+    <div class="meta">
+      <span class="pill">opencode 1.18.4</span>
+      <span class="pill ok">same Bun 1.4.2</span>
+      <span class="pill ok">same Effect rc.112</span>
+      <span class="pill warn">OpenTUI 0.4.5 vs 0.5.10</span>
+      <span class="pill skip">do not merge the branch</span>
+    </div>
+
+    <h2>Corrections</h2>
+    <div class="warnbox">
+      Do not copy “thinking disclosure” as a missing feature. nikcli already has <code>session.toggle.thinking</code>,
+      KV <code>thinking_visibility</code>, i18n in 12 locales, and <code>ReasoningPart</code> with live markdown.
+      OpenCode’s extra is config-persisted <code>session.thinking: show|hide</code> plus filmed disclosure styling — not
+      the command.
+    </div>
+    <div class="warnbox">
+      Do not copy “admit without wake” as missing. <code>SessionPrompt.admit</code> already documents “Durably admit
+      input without starting a model request.” <code>noReply: true</code> skips <code>PromptState.reserve</code>.
+      OpenCode’s extra is <code>resume: false</code> as a first-class inbox field, plus compaction/move as control items
+      that form a delivery barrier.
+    </div>
+
+    <h2>What v2 is</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="k">Default branch</div>
+        <div class="v">v2 · opencode2 binary</div>
+        <p>Always-on background service. TUI attaches. <code>bun run dev:live</code> talks to the installed daemon.</p>
+      </div>
+      <div class="card">
+        <div class="k">Package split</div>
+        <div class="v">schema → core → protocol → server → client</div>
+        <p>AGENTS.md: client never imports core/server. nikcli still has one core package plus extracted TUI.</p>
+      </div>
+      <div class="card">
+        <div class="k">Session</div>
+        <div class="v">session_inbox + write-ahead claim</div>
+        <p>Location-scoped runner. Crash recovery of claimed sessions. They admit it is not exactly-once.</p>
+      </div>
+      <div class="card">
+        <div class="k">Desktop</div>
+        <div class="v">Electron + plugin-browser CDP</div>
+        <p>nikcli is Tauri. Desktop-as-second-TUI is a non-goal here.</p>
+      </div>
+    </div>
+
+    <h2>Already here — do not re-port</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th>OpenCode v2</th>
+          <th>nikcli</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Effect HttpApi</td>
+          <td><code>packages/protocol</code> + <code>packages/server</code></td>
+          <td><code>packages/nikcli/src/server/httpapi/*</code></td>
+        </tr>
+        <tr>
+          <td>Steer vs queue</td>
+          <td>inbox <code>Delivery</code></td>
+          <td><code>SessionPending.Delivery</code> in <code>session/pending.ts</code></td>
+        </tr>
+        <tr>
+          <td>Admit without model turn</td>
+          <td><code>resume: false</code></td>
+          <td><code>noReply: true</code> on <code>SessionPrompt.admit</code></td>
+        </tr>
+        <tr>
+          <td>Thinking toggle</td>
+          <td><code>session.toggle.thinking</code> → config</td>
+          <td>same command id, KV <code>thinking_visibility</code>, default on</td>
+        </tr>
+        <tr>
+          <td>Event feed</td>
+          <td><code>packages/server/src/event-feed.ts</code> cap 4096</td>
+          <td>landed E1, one encoded feed</td>
+        </tr>
+        <tr>
+          <td>Instruction hash delta</td>
+          <td><code>session.instructions.updated</code></td>
+          <td>landed instruction-sync</td>
+        </tr>
+        <tr>
+          <td>TUI package</td>
+          <td><code>packages/tui</code></td>
+          <td><code>packages/tui</code>, second consumer = standalone attach</td>
+        </tr>
+        <tr>
+          <td>Session tabs</td>
+          <td>storybook fixture + component</td>
+          <td><code>component/session-tabs.tsx</code> already production</td>
+        </tr>
+        <tr>
+          <td>ACP</td>
+          <td><code>cli … acp</code></td>
+          <td>already in nikcli CLI</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Copy — file map</h2>
+
+    <h3>1. OpenTUI 0.5.10 — copy the upgrade script, not the TUI tree</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>OpenCode</th>
+          <th>nikcli today</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>script/upgrade-opentui.ts</code> (193 lines, catalog + lock stale-check)</td>
+          <td>no equivalent</td>
+          <td>Port the script into <code>script/upgrade-opentui.ts</code>. Run against 0.5.10.</td>
+        </tr>
+        <tr>
+          <td>catalog <code>@opentui/{core,keymap,solid}: 0.5.10</code></td>
+          <td>root + tui pin <code>0.4.5</code>; no keymap dep</td>
+          <td>
+            Bump catalog. Add <code>@opentui/keymap</code> only if a component needs it — nikcli still uses homemade
+            <code>util/keybind.ts</code>.
+          </td>
+        </tr>
+        <tr>
+          <td>no 0.4.5 patch</td>
+          <td><code>patches/@opentui%2Fcore@0.4.5.patch</code> (streaming highlight reuse)</td>
+          <td>
+            Check whether 0.5.10 already has <code>_lastHighlightContent</code>. If yes, drop the patch. If no, retarget
+            it. Do not carry a 0.4.5 patch onto 0.5.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Done when: TUI typecheck + session route still renders reasoning/markdown; patch either dropped with evidence or
+      retargeted; lockfile has no stale <code>@opentui/*@0.4.5</code>.
+    </p>
+    <p>Do not take their TUI components with the bump. Their session route is a different keymap/config model.</p>
+
+    <h3>2. TUI storybook — copy the pattern, 2 stories max</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>OpenCode file</th>
+          <th>What to steal</th>
+          <th>Where it lands</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>packages/tui/src/feature-plugins/system/storybook/index.tsx</code></td>
+          <td>Story type, palette commands, escape back to index, <code>OPENCODE_STORY=</code></td>
+          <td>
+            <code>packages/tui/src/feature-plugins/system/storybook/</code> (new). Gate behind existing devtools plugin,
+            not a new daemon.
+          </td>
+        </tr>
+        <tr>
+          <td><code>…/storybook/footer.tsx</code></td>
+          <td>List keybinds + reset</td>
+          <td>Same folder.</td>
+        </tr>
+        <tr>
+          <td><code>…/storybook/session-tabs.tsx</code></td>
+          <td>Fixture tabs + busy/permission/question statuses, no live SDK</td>
+          <td>Story wrapping <code>packages/tui/src/component/session-tabs.tsx</code> (already yours).</td>
+        </tr>
+        <tr>
+          <td><code>…/storybook/session-location-missing.tsx</code></td>
+          <td>Missing-location empty state</td>
+          <td>Skip unless warp/workspace empty states are being redesigned.</td>
+        </tr>
+        <tr>
+          <td><code>…/storybook/one-cell-spinner.tsx</code></td>
+          <td>Spinner cell fixtures</td>
+          <td>Skip. You have <code>component/spinner.tsx</code>.</td>
+        </tr>
+        <tr>
+          <td><code>…/storybook/merman-layouts.tsx</code></td>
+          <td>Mermaid layouts</td>
+          <td>Skip until merman is admitted.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Second story worth writing here, not copied: pending-input cards (steer vs queue) using fixtures. That is your
+      seam, not theirs.
+    </p>
+    <p>
+      Launch: <code>NIKCLI_STORY=session-tabs bun run --cwd packages/tui start</code> against standalone host — do not
+      copy <code>dev:live</code> / <code>opencode2 service get password</code>.
+    </p>
+
+    <h3>3. Thinking UX polish — copy styling, not the command</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>OpenCode</th>
+          <th>nikcli</th>
+          <th>Copy?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>config <code>session.thinking: show|hide</code></td>
+          <td>KV <code>thinking_visibility</code>, default true</td>
+          <td>
+            Leave KV. Optional: also persist to tui config document if users lose KV across machines. Not required.
+          </td>
+        </tr>
+        <tr>
+          <td><code>artifacts/tui-thinking-disclosure/</code> (mp4 + png)</td>
+          <td><code>ReasoningPart</code> always expanded when visible</td>
+          <td>
+            Watch the clip. If their collapsed-header-then-expand is better than show/hide whole block, restyle
+            <code>ReasoningHeader</code> only.
+          </td>
+        </tr>
+        <tr>
+          <td>mini verbosity knobs</td>
+          <td>export dialog already has thinking/tools toggles</td>
+          <td>Leave. Mini frontend is a different product.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>4. Mini TUI — inspect, do not copy yet</h3>
+    <p>
+      OpenCode: <code>packages/tui/src/mini/</code> (<code>runMiniFrontend</code>, verbosity knobs, deferred
+      interactive). nikcli <code>nikcli run</code> is yargs + headless. Useful later for ACP/bots if first-use
+      measurement says headless output is unreadable. Not this week.
+    </p>
+
+    <h3>5. Inbox semantics — ideas only, your tables</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>OpenCode idea</th>
+          <th>nikcli equivalent</th>
+          <th>Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>resume: false</code> on prompt</td>
+          <td><code>noReply: true</code></td>
+          <td>Already here. Rename is not a feature.</td>
+        </tr>
+        <tr>
+          <td>Compaction / move as inbox control items; steers do not cross the barrier</td>
+          <td>pending rows are user prompts only</td>
+          <td>
+            <strong>Only if</strong> continuity/automation discovery names “steer jumped a compaction.” New ROADMAP ID.
+            Do not import <code>inbox.ts</code>.
+          </td>
+        </tr>
+        <tr>
+          <td>Shell starts immediately; completion is synthetic <code>resume: false</code></td>
+          <td>shell waits on the turn in some paths</td>
+          <td>Measure. If users queue a shell and it sits behind the model, that is the gap.</td>
+        </tr>
+        <tr>
+          <td>Write-ahead execution claim + crash resume</td>
+          <td>S2 graceful only</td>
+          <td><strong>Non-goal.</strong> They document not-exactly-once.</td>
+        </tr>
+        <tr>
+          <td><code>sessions.log({ follow })</code> durable vs live</td>
+          <td>one EventFeed</td>
+          <td>Leave. You already withheld live-only types.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>6. <code>nikcli api</code> — small, real</h3>
+    <p>
+      OpenCode: <code>packages/cli/src/commands/commands.ts</code> <code>api</code> command takes OpenAPI operation ID
+      or <code>METHOD path</code>. You generate <code>@nikcli-ai/sdk/httpapi</code> and do not expose it as a CLI. One
+      afternoon if doctor/debug needs it. Not a rewrite of yargs.
+    </p>
+
+    <h2>Do not copy</h2>
+    <ul class="compact">
+      <li>schema/core/protocol/server split — second HttpApi rewrite, explicit non-goal.</li>
+      <li><code>packages/core/src/session/inbox.ts</code> wholesale.</li>
+      <li>Electron desktop, <code>plugin-browser</code> CDP, lighthouse-in-desktop.</li>
+      <li>Always-on <code>opencode2</code> background service + password. You have <code>serve</code> / attach.</li>
+      <li>Drizzle 1.0-rc drive-by (they are rc.5; you are 0.41).</li>
+      <li><code>effect/unstable/cli</code> replacing yargs.</li>
+      <li>VS Code extension — you have ACP.</li>
+      <li><code>packages/session-ui</code> until continuity discovery says web/desktop diverge.</li>
+      <li>
+        <code>packages/merman</code> / <code>packages/latex</code> until someone asks for mermaid/math in the TUI (you
+        already have <code>tui-math</code>).
+      </li>
+    </ul>
+
+    <h2>If the next session has one afternoon</h2>
+    <ol>
+      <li>
+        Port <code>upgrade-opentui.ts</code>. Dry-run the 0.5.10 bump. Stop at lockfile + “is the highlight patch still
+        needed?” Do not land if session markdown regresses.
+      </li>
+      <li>
+        If the bump is clean: add storybook scaffold under <code>feature-plugins/system/storybook</code> with one story
+        wrapping existing <code>SessionTabs</code>. Launch via env, no daemon.
+      </li>
+      <li>
+        Watch <code>artifacts/tui-thinking-disclosure/thinking-flat-markdown-disclosure.mp4</code>. Only restyle
+        <code>ReasoningHeader</code> if collapsed-by-default is clearly better than the current show/hide.
+      </li>
+    </ol>
+    <p>
+      Do not write a ROADMAP ID for inbox control items until a real steer-across-compaction case exists in this repo.
+    </p>
+
+    <footer>
+      Sources: local clone
+      <code>/Users/nikoemme-os/.local/share/nikcli/repos/github-anomalyco-opencode-6898b1ede3e4-v2</code> @ ba144832;
+      nikcli <code>packages/tui</code>, <code>packages/nikcli/src/session/{pending,prompt}.ts</code>,
+      <code>patches/@opentui%2Fcore@0.4.5.patch</code>. Code wins if this page drifts.
+    </footer>
+  </body>
+</html>

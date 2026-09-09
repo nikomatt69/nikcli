@@ -286,6 +286,8 @@ export namespace Installation {
   // keep working while new ones can take the constant without the upgrade subsystem.
   export const VERSION = BuildVersion.VERSION
   export const CHANNEL = BuildVersion.CHANNEL
+  export const REVISION = BuildVersion.REVISION
+  export const hasRevision = BuildVersion.hasRevision
   export const USER_AGENT = `nikcli/${CHANNEL}/${VERSION}/${Flag.NIKCLI_CLIENT}`
 
   export function getReleaseType(current: string, latest: string): "major" | "minor" | "patch" {

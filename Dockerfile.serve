@@ -119,8 +119,14 @@ RUN cd /app && bun install --os="*" --cpu="*"
 # stamping 1.216.0 long after the repo moved on). Read it off the manifest that
 # is already in the layer instead: deterministic, and no npm lookup at build
 # time, which is what the pin was there to avoid.
+# NIKCLI_REVISION is the commit that passed validation. There is no .git in this context, so
+# script/railway-deploy.sh writes it into packages/nikcli/.nikcli-revision after it syncs the
+# source; a build from any other context has no such file and honestly bakes "local". Without it
+# the served health response cannot distinguish two uploads of the same semver, which is the whole
+# reason a detached upload could report success while an older container kept serving.
 RUN cd /app/packages/nikcli && \
     NIKCLI_VERSION="$(bun -e 'console.log(require("./package.json").version)')" \
+    NIKCLI_REVISION="$(cat .nikcli-revision 2>/dev/null || true)" \
     bun run script/build.ts --single --skip-install
 
 FROM base AS runtime

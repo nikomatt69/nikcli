@@ -12,10 +12,27 @@
 declare global {
   const NIKCLI_VERSION: string
   const NIKCLI_CHANNEL: string
+  const NIKCLI_REVISION: string
 }
 
 export const VERSION = typeof NIKCLI_VERSION === "string" ? NIKCLI_VERSION : "local"
 export const CHANNEL = typeof NIKCLI_CHANNEL === "string" ? NIKCLI_CHANNEL : "local"
+
+/**
+ * The commit this binary was compiled from, or `"local"` in a dev checkout.
+ *
+ * The semver alone cannot answer "is the thing serving traffic the thing that passed validation?":
+ * two uploads of the same release report the same version, and so does a healthy older instance
+ * that never restarted. The commit can, which is why it is baked at compile time rather than read
+ * from the environment at startup — an environment variable can be set on an image that does not
+ * contain that code.
+ */
+export const REVISION = typeof NIKCLI_REVISION === "string" ? NIKCLI_REVISION : "local"
+
+/** Whether this binary carries a real commit identity (a release build) rather than a dev fallback. */
+export function hasRevision() {
+  return REVISION !== "local" && REVISION.length > 0
+}
 
 /** How nikcli was installed. Clients need the union to label an update, not the upgrade logic. */
 export type InstallMethod = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"

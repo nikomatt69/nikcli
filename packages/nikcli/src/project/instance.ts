@@ -288,7 +288,16 @@ export const Instance = {
 
     await Promise.allSettled(tasks)
     ctx.disposers.clear()
-    await Effect.runPromise(ScopedCache.invalidate(cache, ctx.directory))
+    // Guarded like the disposer walk above and the runtime dispose below, which it sits between.
+    // Unguarded, this was the one step in teardown that could reject: invalidating the cache runs the
+    // scope's finalizers, and a scope holding live fibers squashes an interrupt-only `Cause` into a
+    // thrown `Error("All fibers interrupted without error")`. That escaped `dispose`, escaped
+    // `bootstrap`'s `finally`, and reached the CLI's top-level handler — so a command that had already
+    // printed its answer exited 1 and reported "Unexpected error". Interruption is what teardown *is*;
+    // it is not a failure of the command that triggered it.
+    await Effect.runPromise(ScopedCache.invalidate(cache, ctx.directory)).catch((error) => {
+      Log.Default.warn("instance cache invalidate failed", { directory: ctx.directory, error })
+    })
     const runtime = ctx.runtime
     ctx.runtime = undefined
     if (runtime) {

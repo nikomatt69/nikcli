@@ -28,11 +28,18 @@ export type Binding = {
   initialized?: boolean
 }
 
+/**
+ * How a statement finished, and — for `break`/`continue` — which label it is looking for.
+ *
+ * An absent `label` means the nearest enclosing loop, exactly as in JavaScript. A present one travels
+ * outward untouched until the construct carrying that label sees it, which is what makes
+ * `continue outer` skip the rest of the inner loop *and* the rest of the outer iteration.
+ */
 export type StatementResult =
   | { kind: "none" }
   | { kind: "return"; value: unknown }
-  | { kind: "break" }
-  | { kind: "continue" }
+  | { kind: "break"; label?: string }
+  | { kind: "continue"; label?: string }
 
 export type MemberReference = {
   target: SafeObject | Array<unknown> | CodeModeURL
@@ -158,8 +165,17 @@ export type DiagnosticKind =
 
 export const OptionalShortCircuit: unique symbol = Symbol("codemode.optional-short-circuit")
 
+/**
+ * The one-paragraph orientation attached to every syntax refusal.
+ *
+ * It used to enumerate individual array and string methods, which made it long enough to skim past
+ * and still silent on the thing the reader actually needs — what is *not* here. Naming the exclusions
+ * is what stops a retry loop: a model that reads "generators are unavailable" writes a plain loop,
+ * while one that reads a list it is not on tries `function*` again with different spacing. The full
+ * matrix is `specs/v2/codemode-interpreter-support.md`.
+ */
 export const supportedSyntaxMessage =
-  "Supported orchestration syntax: tools.* calls (they return promises - resolve them with await), data literals, destructuring, optional chaining, template literals, conditionals, switch, loops (incl. for...of and for...in over object/array/tools keys), arrow functions, spread, try/catch, array methods (map/filter/find/findIndex/some/every/reduce/flatMap/forEach/sort/slice/concat/indexOf/lastIndexOf/at/flat/reverse/includes/join), string methods (incl. match/matchAll/replace/split with regular expressions), Date/RegExp/Map/Set/URL/URLSearchParams, URI encoding helpers, Object/Math/JSON helpers, captured console.log/warn/error/dir/table, Promise.all/allSettled/race/any/resolve/reject over arrays mixing promises and plain values for parallel tool calls, promise chaining with .then/.catch/.finally, and new Promise((resolve, reject) => ...) construction."
+  "This is a restricted JavaScript-like language for calling tools. Supported: plain and async functions, data literals, destructuring, optional chaining, template literals, standard control flow (conditionals, switch, labelled loops, for...of and for...in, try/catch), await and Promise combinators over tools.* calls, and common built-ins (Array, Object, Math, JSON, String, Number, Date, RegExp, Map, Set, URL, URLSearchParams, console). Unsupported: generator functions and yield, for await...of, classes and user-defined constructors, this, getters/setters, tagged templates, BigInt, and custom Symbols - use plain functions, data objects, and Promise.all instead."
 
 export class InterpreterRuntimeError extends Error {
   readonly node?: AstNode
@@ -225,6 +241,28 @@ export const getOptionalNode = (node: AstNode, key: string): AstNode | undefined
 }
 
 export const getNode = (node: AstNode, key: string): AstNode => asNode(node[key], key)
+
+/**
+ * How to name a callee in an error, using only the source shape.
+ *
+ * Read off the AST rather than the evaluated value on purpose: by the time a call fails, the value is
+ * `undefined` or some facade whose name says nothing, while the text the model wrote is what it needs
+ * to see quoted back. Returns `undefined` when the callee is an expression with no stable name.
+ */
+export const describeCallee = (node: AstNode): string | undefined => {
+  if (node.type === "Identifier" && typeof node["name"] === "string") return node["name"]
+  if (node.type === "MemberExpression" && node["computed"] !== true) {
+    const object = isRecord(node["object"]) ? describeCallee(node["object"] as AstNode) : undefined
+    const property = isRecord(node["property"]) ? (node["property"] as AstNode)["name"] : undefined
+    if (typeof property === "string") return object === undefined ? property : `${object}.${property}`
+  }
+  return undefined
+}
+
+export const notCallableMessage = (node: AstNode): string => {
+  const name = describeCallee(node)
+  return name === undefined ? "The called value is not a function." : `${name} is not a function.`
+}
 
 export const sourceLocation = (node: AstNode): { readonly line: number; readonly column: number } => ({
   line: Math.max(1, (node.loc?.start.line ?? 2) - 1),

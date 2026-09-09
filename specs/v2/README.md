@@ -20,17 +20,17 @@ These documents explain V2 behavior that is difficult to recover from one source
 
 ## Decisions And Proposals
 
-| Document                                                                | Status                   | Job                                                                                  |
-| ----------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
-| [Catalog/config/plugin lifecycle](./catalog-config-plugin-lifecycle.md) | Accepted and implemented | Record why visible provider state is an invalidatable per-instance cache.            |
-| [Event stream](./event-stream-architecture.md)                          | Accepted and implemented | One encoded feed, one lag budget per connection.                                     |
-| [Instruction sync](./instruction-sync-proposal.md)                      | Implemented              | Instruction state is a hash delta instead of a per-request rebuild.                  |
-| [Durable pending input](./durable-pending-input.md)                     | Implemented              | Pending row + promotion transaction; steer vs queue; compaction barrier.             |
-| [Restart continuation](./session-restart-continuation.md)               | Accepted and implemented | Continue interrupted sessions after a graceful server restart.                       |
-| [Provider policy](./provider-policy.md)                                 | Accepted and implemented | Define ordered `provider.use` decisions and legacy compatibility.                    |
-| [TUI theme migration](./tui-theme-migration.md)                         | U3 and U2 done           | Nested tokens derived from flat colors. `Theme` is nested-only; documents stay flat. |
-| [Session v2 write path](./session-v2-write-path.md)                     | Implemented              | Persist entries first; derive v1 from them; HTTP uses `SessionV2`.                   |
-| [Public event filter](./public-event-filter.md)                         | Implemented              | Which bus events are internal, and why withheld means absent rather than typed.      |
+| Document                                                                | Status                   | Job                                                                                            |
+| ----------------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
+| [Catalog/config/plugin lifecycle](./catalog-config-plugin-lifecycle.md) | Accepted and implemented | Record why visible provider state is an invalidatable per-instance cache.                      |
+| [Event stream](./event-stream-architecture.md)                          | Accepted and implemented | One encoded feed, one lag budget per connection.                                               |
+| [Instruction sync](./instruction-sync-proposal.md)                      | Implemented              | Instruction state is a hash delta instead of a per-request rebuild.                            |
+| [Durable pending input](./durable-pending-input.md)                     | Implemented              | Pending row + promotion transaction; steer vs queue; compaction barrier.                       |
+| [Restart continuation](./session-restart-continuation.md)               | Accepted and implemented | Continue interrupted sessions after a graceful server restart.                                 |
+| [Provider policy](./provider-policy.md)                                 | Accepted and implemented | Define ordered `provider.use` decisions and legacy compatibility.                              |
+| [Session v2 write path](./session-v2-write-path.md)                     | Implemented              | Persist entries first; derive v1 from them; HTTP uses `SessionV2`.                             |
+| [Public event filter](./public-event-filter.md)                         | Implemented              | Which bus events are internal, and why withheld means absent rather than typed.                |
+| [CodeMode interpreter support](./codemode-interpreter-support.md)       | Accepted and implemented | What the confined interpreter accepts, what it refuses, and why each refusal reads as it does. |
 
 ## Historical Context
 

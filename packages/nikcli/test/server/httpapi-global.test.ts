@@ -38,6 +38,9 @@ describe("Global HttpApi", () => {
     expect(await response.json()).toEqual({
       healthy: true,
       version: Installation.VERSION,
+      // Baked at compile time (C3), so a dev/test binary honestly reports "local" rather than
+      // omitting the field — absent means an instance older than the field itself.
+      revision: Installation.REVISION,
     })
   })
 

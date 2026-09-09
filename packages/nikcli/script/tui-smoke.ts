@@ -28,6 +28,17 @@ const dir = path.resolve(__dirname, "..")
 process.chdir(dir)
 
 const SETTLE_MS = Number(process.env.NIKCLI_SMOKE_TIMEOUT_MS ?? 45_000)
+/**
+ * Substrings that must appear in the painted output, comma-separated.
+ *
+ * "It painted something" is the right bar for the boot check, and too low a bar for anything that
+ * claims to render a *particular* screen — a storybook story that silently falls back to the normal
+ * TUI paints plenty of characters. Used by `smoke:story`.
+ */
+const EXPECT = (process.env.NIKCLI_SMOKE_EXPECT ?? "")
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean)
 const COLS = 100
 const ROWS = 30
 
@@ -91,6 +102,8 @@ const pty = spawnPty({
     // EOF forever, so the renderer never starts and the smoke sees no output.
     NIKCLI_TERMINAL: "1",
     TERM: "xterm-256color",
+    // Forwarded so `smoke:story` can boot straight into a storybook story.
+    ...(process.env.NIKCLI_STORY ? { NIKCLI_STORY: process.env.NIKCLI_STORY } : {}),
   },
 })
 
@@ -105,7 +118,12 @@ const deadline = Date.now() + SETTLE_MS
 // Stop early once the renderer has clearly painted; otherwise wait it out so a
 // slow-but-healthy boot still passes and a crash still gets its output captured.
 while (Date.now() < deadline && !exit) {
-  if (raw.includes("\x1b[?1049h") && plain(raw).trim().length > 200) break
+  if (raw.includes("\x1b[?1049h") && plain(raw).trim().length > 200) {
+    // Painting something is enough for the boot check, but not when a specific screen was asked for:
+    // plugins load asynchronously, so a plugin route paints "Unknown plugin route" first and only
+    // resolves once the plugin registry catches up. Keep waiting for what was actually requested.
+    if (EXPECT.length === 0 || EXPECT.every((expected) => plain(raw).includes(expected))) break
+  }
   await Bun.sleep(250)
 }
 
@@ -125,6 +143,9 @@ if (text.trim().length < 200) failures.push(`the TUI painted only ${text.trim().
 for (const marker of FAILURE_MARKERS) {
   if (text.includes(marker)) failures.push(`runtime error surfaced in the TUI output: ${JSON.stringify(marker)}`)
 }
+for (const expected of EXPECT) {
+  if (!text.includes(expected)) failures.push(`expected text never painted: ${JSON.stringify(expected)}`)
+}
 
 if (failures.length > 0) {
   console.error("[tui-smoke] FAIL")
@@ -135,4 +156,5 @@ if (failures.length > 0) {
 }
 
 console.log(`[tui-smoke] painted ${text.trim().length} printable characters, process still alive`)
+if (EXPECT.length > 0) console.log(`[tui-smoke] found all ${EXPECT.length} expected string(s)`)
 console.log("[tui-smoke] PASS — the compiled TUI booted and rendered")

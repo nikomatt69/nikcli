@@ -29,6 +29,7 @@ import { ServeCommand } from "./cli/cmd/serve"
 import { WorkspaceServeCommand } from "./cli/cmd/workspace-serve"
 import { DebugCommand } from "./cli/cmd/debug"
 import { StatsCommand } from "./cli/cmd/stats"
+import { ApiCommand } from "./cli/cmd/api"
 import { McpCommand } from "./cli/cmd/mcp"
 import { GithubCommand } from "./cli/cmd/github"
 import { ExportCommand } from "./cli/cmd/export"
@@ -170,6 +171,7 @@ export async function runCli() {
     .command(GoalCommand)
     .command(AnalyticsCommand)
     .command(GenerateCommand)
+    .command(ApiCommand)
     .command(DebugCommand)
     .command(AuthCommand)
     .command(AccountCommand)

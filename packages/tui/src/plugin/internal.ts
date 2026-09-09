@@ -7,6 +7,7 @@ import SidebarFiles from "../feature-plugins/sidebar/files"
 import SidebarFooter from "../feature-plugins/sidebar/footer"
 import PluginManager from "../feature-plugins/system/plugins"
 import Fusion from "../feature-plugins/system/fusion"
+import Storybook from "../feature-plugins/system/storybook"
 import Loops from "../feature-plugins/loops"
 import Missions from "../feature-plugins/mission"
 import Brain from "../feature-plugins/brain"
@@ -45,6 +46,7 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   SidebarFooter,
   PluginManager,
   Fusion,
+  Storybook,
   Missions,
   Loops,
   Brain,

@@ -105,6 +105,19 @@ for pkg in "${PACKAGES[@]}"; do
   rsync "${RSYNC_OPTS[@]}" "$ROOT/$pkg/" "$CTX/$pkg/"
 done
 
+# Expected release identity. The upload carries no .git, and the image build reads this file to
+# bake the commit into the binary (see Dockerfile.serve). Written after the rsync loop, because
+# `rsync --delete` would remove it. `railway up --detach` only proves the upload was accepted, so
+# this is also what a later health probe has to match before the release can be called good.
+REVISION="${NIKCLI_REVISION:-$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)}"
+if [ -z "$REVISION" ]; then
+  echo "✗ Cannot determine the commit being deployed (not a git checkout and NIKCLI_REVISION unset)"
+  echo "  A build with no revision cannot be told apart from the instance it is meant to replace."
+  exit 1
+fi
+printf '%s\n' "$REVISION" > "$CTX/packages/nikcli/.nikcli-revision"
+echo "→ Expected release identity: revision=$REVISION service=$SERVICE"
+
 # Preflight: a missing context path fails the Railway build minutes later with a
 # bare "failed to compute cache key", and the CI deploy step runs --detach so it
 # never sees that error. Catch it here instead.
