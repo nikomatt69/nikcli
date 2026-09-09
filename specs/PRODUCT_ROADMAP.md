@@ -33,7 +33,7 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 - **Engineering** - C1 gates every publish; E5, H8, and P2 landed on 2026-08-24. On 2026-09-09, Bun 1.4.2, Effect `4.0.0-rc.112`, frozen install, typecheck, and the Docker/C2 guards are confirmed locally. Hosted release validation remains outstanding.
 - **Local evidence** - See [the evidence record](./ROADMAP.md#verify-before-proceeding). Frozen install exited 0 with no lockfile changes (2574 installs / 2929 packages).
 - **Limits** - Full CI/release validation, desktop/mobile builds, and production deployment were not run.
-- **Product** - Release-identity association and failure criteria are recorded below. First-use events named in this document are not implemented in source; do not invent production collection.
+- **Product** - Release-identity, first-use, continuity, automation, share, and paid-value discovery are recorded below. None of them admits implementation or production collection.
 - **Phase exit** - Hosted B1/C2 validation still required. Two consecutive approved uploads must match the expected identity, and first-use evidence must cover one release boundary; neither observation gate is closed.
 
 ---
@@ -41,7 +41,7 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 ### Measure the landed cuts
 
 - **Engineering** - P2 closed on 2026-08-24: SQL list work reduced materialization from 2000 to 20 rows and elapsed time from 7.84 ms to 0.73 ms on the seeded request. Hot-poll logging landed; parsed-URL carry-through measured 0.03% of a request and was rejected, with benches not scheduled.
-- **Product** - Measure first-use outcomes against the landed SQL and logging behavior. Count actionable failures even when successful hot-poll requests are intentionally quiet.
+- **Product** - First-use discovery now maps the TUI path and existing `session.error` names. Measuring a cohort still needs an admitted engineering item. Count actionable failures even when successful hot-poll requests are intentionally quiet.
 - **Phase exit** — P2.1 is on a loose CI budget, the same seeded request records a lower materialization count and elapsed time than before, and first-use baseline numbers are recorded for the release boundary the slice lands in.
 
 ---
@@ -49,23 +49,23 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 ### Preserve declared authentication
 
 - **Engineering** - H8 landed on 2026-08-24; do not restart its implementation. Preserve contract-declared security, public endpoint exceptions, open-mode and Tailscale behavior, and authentication exactly once for direct bridge callers.
-- **Product** — Update the **first-use** outcome measure to record which hot-poll paths became silent under the new logging policy, so any "less visible" failure mode is counted, not hidden. No new continuity or automation work yet — the existing release-trust and first-use cohorts are still under measurement.
+- **Product** — First-use, continuity, and automation discovery briefs are recorded below. Hot-poll silence under the logging policy still belongs in any later first-use failure taxonomy. No engineering ID is admitted from those briefs.
 - **Phase exit** — `/event` and `/session/status` are duration-gated without dropping real failures (**met 2026-08-24**); OpenAPI shows security on protected operations and its absence on public ones; `bun run check:routes` and `bun run generate:httpapi-clients` are clean; first-use baseline reflects the new logging policy.
 
 ---
 
 ### Explore existing boundaries
 
-- **Engineering** - The 2026-08-26 refill, E8, and E9 are closed. Continuity and automation implementation waits for an evidenced ROADMAP item with an ID and runnable acceptance gate.
-- **Product** — Run the **cross-device continuity** discovery against the generated HttpApi clients and the existing event/session/pending-input/workspace seams defined in [v2/](./v2/README.md); reuse the current transport instead of building a second. In parallel, run the **trusted-automation** discovery against the existing Loop, Mission, background-run, and graceful-restart seams (S2 / D2a / D2b) using their already-collected completion and intervention metrics.
-- **Phase exit** — Each discovery brief records the smallest evidenced reliability gap with a proposed engineering ID (or an explicit rejection with a reason), and the existing user-promise / baseline-events / promotion-rule table for that horizon is updated.
+- **Engineering** - The 2026-08-26 refill, E8, and E9 are closed. Continuity and automation implementation still wait for an evidenced ROADMAP item.
+- **Product** - Continuity and automation discovery briefs below are complete. Each names existing seams and an explicit rejection: no engineering ID from this repository state.
+- **Phase exit** - Met for discovery. Measurement windows (continuation success, orphan rates) remain open and uninstrumented.
 
 ---
 
 ### Promote or archive
 
 - **Engineering** - Admit discoveries only with repository evidence and a runnable acceptance gate. Re-evaluate earlier items when their measurable cohort disappears.
-- **Product** — Review the now-closed baselines: confirm a movement on each `Now` measure, decide whether to promote the discovered continuity or automation item, or archive the hypothesis and remove the row from the outcome sequence.
+- **Product** — Review Now baselines after hosted validation. Continuity, automation, share, and paid-value discovery each rejected an engineering ID from this repository state. Promote only after an observed gap with a runnable gate; otherwise archive the hypothesis.
 - **Phase exit** — Each horizon in the outcome sequence either has a measured movement toward its user promise or has been archived with a written reason; engineering IDs that are not on the path are taken off the active plan.
 
 ---
@@ -104,24 +104,92 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 ### Measure first use
 
 - **User promise** — A new user can install Nikcli, connect a provider, open a project, and complete one useful turn with failures that explain the next action.
-- **Proposed events, not in source** — Installation completed, provider configured, session created, first turn started, first turn completed, and categorized failure. If later admitted, events would carry version, platform, elapsed time, and a coarse failure code only. A repo search on 2026-09-09 found these names only in this document and an old plan file, not in runtime code.
-- **Promotion rule** — Rank blockers by affected users and elapsed-time cost. Do not turn anecdotal setup preferences into architecture work. Do not collect production telemetry until an engineering ID exists.
+- **Proposed product events, not in source** — `install_completed`, `provider_configured`, `session_created`, `first_turn_started`, `first_turn_completed`, and `categorized_failure` exist only in this document and an old plan file. They are not runtime events. Do not treat the names as an implementation checklist.
+- **Actual first-use path (TUI, 2026-09-09)** — First run is `UserApi.hasUsers(sdk) === false` and `kv.onboarding_complete` is unset (`packages/tui/src/app.tsx`). Onboarding cannot skip account or AI provider (`packages/nikcli/test/tui/onboarding-auth.test.ts`). Steps in `packages/tui/src/component/dialog-onboarding.tsx`: Welcome → Account (`DialogAccountLogin`, device-code OAuth to auth.nikcli.store) → Filesystem → AI provider → optional Extras / Image / TTS / Remote → Test. After a created account, empty `sync.data.provider` opens `DialogProviderList`. A returning user with no session gets `DialogLogin`. LLM credentials are `PUT /auth/:providerID` (`packages/nikcli/src/server/extra.ts`), separate from the account JWT.
+- **Install vs upgrade** — `Installation.Event` is `installation.updated` / `installation.updateAvailable` with a version string (`packages/nikcli/src/installation/index.ts`). `UpgradeFailedError` is an upgrade failure, not first-install completion. Binary install (curl/npm/brew) has no in-app completion event.
+- **Session and turn, already on the bus** — `session.created` carries session info (`packages/nikcli/src/session/index.ts`). Turn progress is `session.status` (`idle` / `busy` / `retry`) plus deprecated `session.idle`. Failures publish `session.error` with the assistant-error union in `packages/nikcli/src/session/message-v2.ts`: `ProviderAuthError`, `APIError`, `UnknownError`, `MessageAbortedError`, `MessageOutputLengthError`, `MessageContextOverflowError`, `StructuredOutputError`. Empty catalog after model filter drops the provider (`packages/nikcli/src/provider/provider.ts`). `telemetry.record` is in-process OTLP span capture for the TUI panel, not a funnel (`packages/nikcli/src/observability/telemetry-bus.ts`).
+- **Proposed event vs existing signal**
+
+  | Proposed product event | Closest existing signal                               | Enough to measure the promise?               |
+  | ---------------------- | ----------------------------------------------------- | -------------------------------------------- |
+  | Installation completed | Binary on PATH; upgrade events only                   | No. First install is outside the process.    |
+  | Provider configured    | `sync.data.provider.length > 0` after `PUT /auth/:id` | Locally, yes. Not aggregated.                |
+  | Session created        | `session.created` bus event                           | Locally, yes. Not a first-use cohort.        |
+  | First turn started     | `session.status` → `busy`                             | Locally, yes. No first-turn flag.            |
+  | First turn completed   | `session.status` → `idle` without `session.error`     | Locally, yes. Idle is not success.           |
+  | Categorized failure    | `session.error` name + onboarding/login error strings | Locally, yes. No elapsed-time or user count. |
+
+- **What can be measured without new instrumentation** — Manual or support-log review of onboarding step, `ProviderAuthError` / `APIError` on first prompt, empty provider list, and OAuth start/poll failures in `DialogAccountLogin`. That cannot rank blockers by affected users or elapsed-time cost.
+- **What would need an admitted engineering ID** — Any outbound event, duration timer, or coarse failure code sent off-box. If later admitted, reuse the existing error names above; do not invent a parallel taxonomy. Payload limit remains version, platform, elapsed time, and a coarse code. No prompts, source, credentials, or tokens.
+- **Observation window** — One release boundary after hosted B1/C2 validation. Count only TUI first-run (`hasUsers === false`) plus the first session that reaches idle or error. Desktop and mobile login screens exist; they are not this baseline.
+- **Promotion rule** — Rank blockers by affected users and elapsed-time cost. Do not turn skippable extras (image/TTS/remote) into architecture work. Do not collect production telemetry until an engineering ID exists. This brief does not admit one.
 
 ---
 
 ### Check continuity
 
 - **User promise** — A session started on one supported surface resumes on another without transcript loss, duplicate execution, or hidden queued input.
-- **Baseline scenarios** — TUI to desktop, TUI to mobile, reconnect after server restart, and workspace switch. Measure state convergence and explicit recovery, not visual parity.
-- **Promotion rule** — Reuse generated HttpApi clients and the shared event/session models. Surface-specific presentation remains local; protocol divergence needs an explicit contract decision.
+- **Shared protocol (landed)** — One HttpApi, one SessionV2 write path ([session-v2-write-path.md](./v2/session-v2-write-path.md)), one pending table ([durable-pending-input.md](./v2/durable-pending-input.md)), one event feed ([event-stream-architecture.md](./v2/event-stream-architecture.md)). Instance selection is `directory` query or `x-nikcli-directory` (`packages/nikcli/src/server/server-router.ts`). Workspace identity is `wrk_…`; remote workspaces proxy POST via `session-proxy-middleware.ts` and never proxy GET. Do not add a second transport.
+- **Surface resume paths (2026-09-09)**
+
+  | Surface                  | How a session is identified                                                                                 | How input is admitted                                                                     | Local extra queue                                                                                    |
+  | ------------------------ | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+  | TUI                      | `sdk.client.session.create({ workspaceID })` then prompt (`packages/tui/src/component/prompt/index.tsx`)    | Generated client `session.prompt` / `delivery: queue\|steer`                              | None beyond `session_pending`                                                                        |
+  | Desktop (`packages/app`) | Same generated client; route `/{dir}/session`                                                               | Same HttpApi                                                                              | None beyond `session_pending`                                                                        |
+  | Mobile                   | `Session.Service.create` in `packages/nikcli/src/server/mobile/session.ts`; detail rebinds `info.directory` | `sessionMessage` returns `{ accepted: true }` and fires `prompt` / proxied `prompt_async` | `packages/mobile/lib/offline.ts` SecureStore `sendMessage` queue (max 50), separate from SQL pending |
+
+- **Reconnect after graceful restart** — Implemented (S2): `time_suspended` on `session_info`, consumed once at `ServeCommand` start, then `SessionPrompt.loop` from durable history ([session-restart-continuation.md](./v2/session-restart-continuation.md)). Embedded TUI workers do not adopt another process's turn. Hard crash, in-flight provider requests, and non-idempotent tool replay stay out of scope.
+- **Hidden queued input** — Server pending rows survive cancel/restart and are visible on TUI cards. Mobile also keeps an offline `sendMessage` queue in SecureStore and infers "queued" user messages from id order vs the in-flight assistant (`packages/mobile/lib/session-queue.ts`). That client queue is not `session_pending`. Duplicate send after reconnect is the failure class to watch; it is not evidenced as a production incident in this repo today.
+- **What can be measured without new instrumentation** — Manual resume of one `ses_…` on TUI then desktop then mobile against the same directory; after `nikcli serve` SIGTERM, confirm `time_suspended` consume and loop re-entry (`test/session/restart-continuation.test.ts`). Inspect `session_pending` vs mobile SecureStore after an offline send. No existing event counts continuation success, transcript divergence, or duplicate execution across surfaces.
+- **What would need an admitted engineering ID** — Any cross-surface continuation counter, a merge of the mobile offline queue into `session_pending`, or a second protocol. None of those is admitted here.
+- **Discovery result** — No repository leftover that admits an engineering ID. The protocol already exists. The only evidenced design tension is mobile's extra offline queue. Rank it only after an observed duplicate or lost send; do not pre-build a sync fabric.
+- **Promotion rule** — Reuse generated HttpApi clients and the shared event/session models. Surface-specific presentation stays local. Protocol divergence needs an explicit contract decision. This brief does not admit one.
 
 ---
 
 ### Assess automation
 
 - **User promise** — Delegated work reports durable progress, survives supported restarts, and fails with enough context for a user to recover.
-- **Baseline scenarios** — Loop, mission, background delegation, cancellation, graceful restart, and result handoff. Measure completion and intervention separately.
-- **Promotion rule** — Use the existing Loop, Mission, background-run, and graceful-restart seams to discover the smallest evidenced reliability gap and plan the next engineering item. Clustered ownership and hard-crash replay remain non-goals until placement, fencing, provider ambiguity, and tool idempotency are designed together.
+- **Landed seams (2026-09-09)** — Loop runs persist with `started_runs` nullable (derive once from history, not zero); `MAX_CONCURRENT_RUNS = 3`; lease `15_000` ms; startup `restore()` marks stale `running` as `orphaned` (`packages/nikcli/src/loop/engine.ts`, [loop-engine-contract.md](./v2/loop-engine-contract.md)). Mission exec uses the same status union including `orphaned` and has no FK to the definition so orphan recovery can find surviving work ([mission-orchestrator-contract.md](./v2/mission-orchestrator-contract.md)). Background runs share the 15s lease and `orphaned` finalize (`packages/nikcli/src/background/run.ts`). Graceful session resume is S2; hard-crash replay is an explicit non-goal.
+- **Existing signals** — Run/exec status `running | complete | error | timeout | cancelled | orphaned`. Lifetime loop counts are SQL `started_runs`, not trimmed history. Session errors on delegated turns reuse `session.error`. There is no off-box completion or intervention funnel.
+- **What can be measured without new instrumentation** — Count `orphaned` vs `complete` vs `error` in local SQL after a graceful restart and after a killed process. That is operator evidence, not a product cohort.
+- **Discovery result** — No leftover in the tree that admits an engineering ID. Lease recovery and orphan status already exist. Clustered ownership, fencing, provider-dispatch ambiguity, and tool idempotency are still designed together or not at all. Do not promote "add metrics" or "hard-crash replay" from this brief.
+- **Promotion rule** — Use these seams to rank an observed reliability gap. This brief does not admit an item.
+
+---
+
+### Share and distribute work
+
+- **User promise** — A user can share a session, command, or artifact with a defined audience, revoke access, and trust that recipients see the intended snapshot.
+- **Landed seam (2026-09-09)** — `ShareNext` (`packages/nikcli/src/share/share-next.ts`, [share-v2-contract.md](./v2/share-v2-contract.md)). Mode is `remote | local`, not a visibility lattice. Remote create POSTs `{ sessionID }` to `enterprise.url` or `https://s.nikcli.store`, stores `{ id, secret, url }`, then full-syncs. Local fallback needs `baseUrl`. `NIKCLI_DISABLE_SHARE` makes create throw. Public HTTP is GET `/s/:shareID` (308 to `/share/:id`), `/share/:shareID`, `/api/share/:shareID`, `/api/share/:shareID/data` (`packages/nikcli/src/server/httpapi/contract-extra.ts`). `publicData` reads the **local** row only and returns `Data[] | undefined`. `remove` deletes rows (remote DELETE 404 ignored); there is no `removed_at`, `owner_id`, or write-time redaction in this module.
+- **Proposed product events, not in source** — Share created, recipient opened, access revoked, share failed. Those names are not runtime events. Closest signals: SQL `session_share` / `local_share` rows, remote HTTP success/failure logs, `NIKCLI_DISABLE_SHARE`.
+- **Trust / ownership / revocation gaps (discovery, not a backlog)** — No audience class. No recipient identity. Public read does not consult mode or owner. Revocation is delete, not a tombstone recipients can observe. Payload privacy is whatever `payload()` included. Recipient activation cannot be counted from this repo.
+- **What can be measured without new instrumentation** — Manual create → open URL → remove on one session, local and remote. That cannot rank share completion, recipient activation, or revocation success.
+- **Discovery result** — The share protocol exists. Trust, ownership, and revocation are not defined enough to admit collaboration or hosted-surface work. Do not add billing, a visibility enum, or a second share service from this brief.
+- **Promotion rule** — Define trust, ownership, and revocation before changing collaboration or hosted surfaces. This brief does not admit an engineering ID. Horizon stays Later until first-use and release-identity windows exist.
+
+---
+
+### Validate paid value
+
+- **User promise** — A paying user can name the outcome they bought and keep receiving it without surprise cost or support burden.
+- **Current evidence (2026-09-09)** — `packages/nikcli` has no billing, entitlement, or subscription service. Identity rate limits (`packages/identity/src/constants.ts`) are anti-abuse windows, not paid quotas. Inference notes Stripe as declared but unused and customer billing UI as out of scope (`packages/inference/AGENTS.md`). Provider `insufficient_quota` is an upstream API error, not an nikcli entitlement.
+- **Proposed measures, not in source** — Retention by first-use cohort, willingness-to-pay, support tickets per active user, provider-cost envelope per successful turn. None of these are collected here.
+- **Discovery result** — No priced cohort and no measurable entitlement boundary exist in this repository. Billing architecture would be a wish-list refill.
+- **Promotion rule** — No billing architecture, entitlement service, or metering pipeline enters ROADMAP before a priced cohort and a measurable entitlement boundary exist. This brief does not admit an item. Horizon stays Later.
+
+---
+
+## Remaining sequence
+
+None of these is a new ROADMAP ID. Order:
+
+1. Hosted CI / existing `ci-validate.ts` for B1/C2.
+2. Two approved uploads against [release identity](#prove-release-identity) (needs deploy permission).
+3. Optional operator observation of first-use, continuation, and orphan rates from existing logs/SQL — not production telemetry.
+4. Share and paid-value stay Later until those windows exist and a priced cohort / share trust model is evidenced outside this brief.
+
+Discovery for Now / Next / Later horizons is complete. Implementation waits on (1)–(2) and on an observed gap with a runnable gate.
 
 ---
 

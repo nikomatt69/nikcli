@@ -184,7 +184,14 @@ Hosted CI, macOS/Windows/mobile builds, and production deployment were not run. 
 
 1. Local B1/C2 acceptance that can be run here is recorded above. Remaining acceptance is hosted CI and the existing full release-validation job, not a new pin.
 2. Keep generated drift, formatting, lint, patches, and deployment-context checks blocking in that validation. Do not weaken them to obtain a green release.
-3. [Release identity discovery](./PRODUCT_ROADMAP.md#prove-release-identity) now records association, observation, mismatch, timeout, and rollback criteria from source. Implementation, production uploads, and first-use telemetry remain unadmitted.
+3. [Release identity discovery](./PRODUCT_ROADMAP.md#prove-release-identity) records association, observation, mismatch, timeout, and rollback criteria from source. Implementation and production uploads remain unadmitted.
+4. [First-use discovery](./PRODUCT_ROADMAP.md#measure-first-use) maps the TUI onboarding path and existing `session.*` / assistant-error signals. Proposed funnel event names are not in source. Production telemetry remains unadmitted.
+5. [Continuity discovery](./PRODUCT_ROADMAP.md#check-continuity) maps TUI / desktop / mobile onto the existing HttpApi, `session_pending`, and S2 graceful resume. Mobile's SecureStore offline queue is a second queue, not a protocol gap. No engineering ID.
+6. [Automation discovery](./PRODUCT_ROADMAP.md#assess-automation) maps Loop / Mission / BackgroundRun lease-orphan recovery. No leftover admits clustered ownership or hard-crash replay. No engineering ID.
+7. [Share discovery](./PRODUCT_ROADMAP.md#share-and-distribute-work) maps `ShareNext` remote/local, public GET, and delete-not-tombstone. Trust, ownership, and revocation are undefined. No engineering ID. Horizon Later.
+8. [Paid-value discovery](./PRODUCT_ROADMAP.md#validate-paid-value) finds no billing or entitlement in `packages/nikcli`. No priced cohort. No engineering ID. Horizon Later.
+
+The same remaining sequence is in [PRODUCT_ROADMAP.md](./PRODUCT_ROADMAP.md#remaining-sequence): hosted CI, two approved identity uploads, optional operator observation, Then Later. Do not refill this table from those briefs.
 
 ---
 

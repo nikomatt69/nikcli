@@ -28,15 +28,15 @@ Authority follows the concern. When a document and the code disagree, the code w
 
 ## Choose a document
 
-| Document                                                           | Status      | Job                                                                    |
-| ------------------------------------------------------------------ | ----------- | ---------------------------------------------------------------------- |
-| [ROADMAP](./ROADMAP.md)                                            | Live        | The ordered plan: what is done, what is next, and what each step buys. |
-| [Product roadmap](./PRODUCT_ROADMAP.md)                            | Proposed    | Outcome priorities, evidence gates, and promotion into engineering.    |
-| [TUI package extraction](./tui-package.md)                         | Complete    | TUI lives in `packages/tui`; host files stay in `packages/nikcli`.     |
-| [v2 contracts](./v2/README.md)                                     | Index       | Session, tools, events, instructions, catalog, provider policy.        |
-| [Public event filter](./v2/public-event-filter.md)                 | Implemented | Which bus events never reach a client, and why withheld means absent.  |
-| [SQL + Drizzle adoption](./storage/nikcli-sql-drizzle-adoption.md) | Implemented | The central database runtime, migrations, and domain-owned schema.     |
-| [Retire JSON storage](./storage/remove-json-storage.md)            | Retired     | Both storage modules are deleted; production storage imports are zero. |
+| Document                                                           | Status      | Job                                                                                         |
+| ------------------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------- |
+| [ROADMAP](./ROADMAP.md)                                            | Live        | Closed engineering IDs plus the remaining sequence (hosted CI, identity uploads).           |
+| [Product roadmap](./PRODUCT_ROADMAP.md)                            | Proposed    | Outcome discovery briefs and [remaining sequence](./PRODUCT_ROADMAP.md#remaining-sequence). |
+| [TUI package extraction](./tui-package.md)                         | Complete    | TUI lives in `packages/tui`; host files stay in `packages/nikcli`.                          |
+| [v2 contracts](./v2/README.md)                                     | Index       | Session, tools, events, instructions, catalog, provider policy.                             |
+| [Public event filter](./v2/public-event-filter.md)                 | Implemented | Which bus events never reach a client, and why withheld means absent.                       |
+| [SQL + Drizzle adoption](./storage/nikcli-sql-drizzle-adoption.md) | Implemented | The central database runtime, migrations, and domain-owned schema.                          |
+| [Retire JSON storage](./storage/remove-json-storage.md)            | Retired     | Both storage modules are deleted; production storage imports are zero.                      |
 
 ---
 
