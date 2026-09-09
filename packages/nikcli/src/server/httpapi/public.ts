@@ -98,7 +98,8 @@ export namespace PublicHttpApi {
 
   const TopLevelHandlersLive = HttpApiBuilder.group(Api, "top-level", (handlers) =>
     handlers
-      .handle("dispose", () => TopLevelHttpApi.handlers.dispose())
+      // Takes the request: instance-less, so it reads the directory rather than the ambient scope (H11).
+      .handle("dispose", (input) => TopLevelHttpApi.handlers.dispose(input))
       .handle("path", () => TopLevelHttpApi.handlers.path())
       .handle("vcs", () => TopLevelHttpApi.handlers.vcs())
       .handle("vcsStatus", () => TopLevelHttpApi.handlers.vcsStatus())

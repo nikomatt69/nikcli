@@ -1,11 +1,13 @@
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
+import { HttpServerRequest } from "effect/unstable/http"
 import { Agent } from "@/agent/agent"
 import { Command } from "@/command"
 import { Format } from "@/format"
 import { Global } from "@nikcli-ai/util/global"
 import { InstanceState } from "@/effect"
 import { Instance } from "@/project/instance"
+import { requestedDirectory } from "./instance-less"
 import { LSP } from "@/lsp"
 import { Skill } from "@/skill"
 import { Vcs } from "@/project/vcs"
@@ -173,7 +175,26 @@ export namespace TopLevelHttpApi {
   export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
-    dispose: () => Effect.promise(() => Instance.dispose()).pipe(Effect.as(true)),
+    /**
+     * Dispose the instance this request names (H11).
+     *
+     * Served without an instance bound — `/instance` is an instance-less root — because a request
+     * inside an instance scope cannot await the destruction of that scope: its own fiber runs on the
+     * runtime `Instance.dispose` tears down, so disposing from within interrupted the responder and
+     * the endpoint answered 500 while claiming to have worked.
+     *
+     * Being instance-less means the directory arrives as data rather than as ambient context, so it is
+     * read with the router's own rule and handed to `Instance.provide`, which enters the ALS scope
+     * `dispose` needs without forking onto the runtime being disposed. The 200 therefore means the
+     * instance really is gone and the next request builds a fresh one — which is what the TUI's
+     * provider flow awaits this endpoint for.
+     */
+    dispose: ({ request }: { readonly request: HttpServerRequest.HttpServerRequest }) =>
+      Effect.promise(async () => {
+        const directory = requestedDirectory(request.source as Request)
+        await Instance.provide({ directory, fn: () => Instance.dispose() })
+        return true as const
+      }),
     path: () =>
       Effect.gen(function* () {
         const ctx = yield* InstanceState.context

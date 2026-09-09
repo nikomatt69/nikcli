@@ -29,4 +29,7 @@ export const rawGlobalHandlers: InstanceLessDispatch = {
   "/global": undefined,
   "/user": (request) => UsersHttp.handle(request),
   "/account": undefined,
+  // Declared on `PublicApi`'s top-level group, so the encoded router already answers it; being an
+  // instance-less root only changes *where* it is served, not what serves it (H11).
+  "/instance": undefined,
 }

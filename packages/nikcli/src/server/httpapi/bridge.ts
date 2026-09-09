@@ -8,7 +8,7 @@ import { HttpApiEvent } from "./event"
 import { HttpApiPrompt } from "./prompt"
 import { PublicApi, PublicHttpApi } from "./public"
 import { rawGlobalHandlers } from "./global-handlers"
-import { instanceLessRoot } from "./instance-less"
+import { instanceLessRoot, isInstanceLessPath } from "./instance-less"
 import { Auth } from "./auth"
 
 export namespace HttpApiBridge {
@@ -65,7 +65,14 @@ export namespace HttpApiBridge {
    * context is bound, so they belong to `globalRoutes` and must stay out of
    * the instance table.
    */
-  const INSTANCE_LESS_PATH = /^\/(global|user)\//
+  /**
+   * Which contract paths are served before an instance is bound.
+   *
+   * This was a fourth hand-written spelling of the set `instance-less.ts` exists to hold — and it had
+   * already drifted, listing `global|user` while the table also carried `/account`. It asks the table
+   * now, so a root added there cannot be missed here.
+   */
+  const isInstanceLessRoute = (path: string) => isInstanceLessPath(path)
 
   /**
    * `GET /pty/{ptyID}/connect` is a WebSocket upgrade. It is declared on
@@ -126,7 +133,7 @@ export namespace HttpApiBridge {
 
   const generatedRoutes = routesFromPublicApi(
     PublicApi,
-    (path) => !INSTANCE_LESS_PATH.test(path) && !WEBSOCKET_UPGRADE_PATH.test(path.replace(/\{[^}]+\}/g, "x")),
+    (path) => !isInstanceLessRoute(path) && !WEBSOCKET_UPGRADE_PATH.test(path.replace(/\{[^}]+\}/g, "x")),
   )
   const implementedRoutes = [...generatedRoutes, ...extraImplementedRoutes] as const
 
@@ -145,7 +152,7 @@ export namespace HttpApiBridge {
     // with `^` and carries escaped slashes (`^\/user\/status$`), so the old
     // path-shaped test never matched and this list silently collapsed to the
     // three hand-rolled account entries below.
-    ...routesFromPublicApi(PublicApi, (path) => INSTANCE_LESS_PATH.test(path)),
+    ...routesFromPublicApi(PublicApi, (path) => isInstanceLessRoute(path)),
     // `/user/*` is raw (`UsersHttp`), and the contract only describes three of
     // the nine paths it serves — `status`, `me`, `logout`, `list` and the
     // delete are undeclared. A prefix entry keeps the branch honest with

@@ -16,7 +16,12 @@
  * This is the routing decision only. Which handler answers (`UsersHttp`,
  * `AccountHttp`, the encoded router) stays at the call site.
  */
-const INSTANCE_LESS_ROOTS = ["/global", "/user", "/account"] as const
+// `/instance` holds one route — `POST /instance/dispose` — and it is here for a reason the other
+// three do not share: a request served *inside* an instance scope cannot await the destruction of
+// that scope. The handler's own fiber runs on the instance runtime `Instance.dispose` tears down, so
+// disposing from within interrupted the responder and the endpoint answered 500 (H11). Served
+// without an instance bound, the disposal can be awaited and the 200 means what it says.
+const INSTANCE_LESS_ROOTS = ["/global", "/user", "/account", "/instance"] as const
 
 export type InstanceLessRoot = (typeof INSTANCE_LESS_ROOTS)[number]
 
@@ -55,4 +60,24 @@ export type InstanceLessDispatch = Record<
 /** The roots, for tests and coverage scripts. Do not branch on this at runtime. */
 export function instanceLessRoots(): readonly InstanceLessRoot[] {
   return INSTANCE_LESS_ROOTS
+}
+
+/**
+ * The directory a request names, before any workspace or session resolution.
+ *
+ * Lives here rather than in `server-router.ts` because the instance-less `POST /instance/dispose`
+ * handler needs it, and importing the router into an httpapi group closes an initialization cycle
+ * (`top-level` → `server-router` → … → `public` → `top-level`), which surfaces as
+ * "Cannot access 'PublicApi' before initialization". This module imports nothing, so it cannot.
+ *
+ * `ServerRouter.context` uses the same function, so the rule has one definition.
+ */
+export function requestedDirectory(request: Request, parsed?: URL): string {
+  const url = parsed ?? new URL(request.url)
+  const raw = url.searchParams.get("directory") || request.headers.get("x-nikcli-directory") || process.cwd()
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
 }

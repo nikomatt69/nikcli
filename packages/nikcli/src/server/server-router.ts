@@ -7,6 +7,7 @@ import { Vcs } from "@/project/vcs"
 import { Workspace } from "@/workspace"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
+import { requestedDirectory } from "./httpapi/instance-less"
 import { Effect } from "effect"
 import { Provider } from "@/provider/provider"
 import { Auth } from "./httpapi/auth"
@@ -59,10 +60,7 @@ export namespace ServerRouter {
 
   export async function context(request: Request, parsed?: URL) {
     const url = parsed ?? new URL(request.url)
-    let directory = url.searchParams.get("directory") || request.headers.get("x-nikcli-directory") || process.cwd()
-    try {
-      directory = decodeURIComponent(directory)
-    } catch {}
+    let directory = requestedDirectory(request, url)
     const sessionID = sessionIDFromPath(url.pathname)
     // The session lookup also derives the workspace; if the caller already
     // pinned one via `?workspace=` or `x-nikcli-workspace`, skip it. Routes
