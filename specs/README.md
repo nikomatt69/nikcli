@@ -1,10 +1,16 @@
-# Nikcli Specifications
+# Specifications
+
+Understand shared behavior, decisions, and evidence gates.
+
+Status: **Current** (2026-09-09).
 
 These documents explain behavior that is hard to recover from one source file: cross-module contracts, decisions and their alternatives, and the migrations still in flight.
 
 They are **not** API reference and **not** a backlog. Generated clients follow the assembled `HttpApi`; evidenced engineering work lives in [ROADMAP.md](./ROADMAP.md), while user outcomes and product bets live in [PRODUCT_ROADMAP.md](./PRODUCT_ROADMAP.md).
 
-## Authority
+---
+
+## Find authority
 
 Authority follows the concern. When a document and the code disagree, the code wins and the document is wrong.
 
@@ -18,23 +24,44 @@ Authority follows the concern. When a document and the code disagree, the code w
 | Generated clients                               | `packages/httpapi-codegen` → `packages/sdk/js/src/httpapi`                               |
 | Contributor guardrails                          | `packages/nikcli/AGENTS.md`                                                              |
 
-## Index
+---
+
+## Choose a document
 
 | Document                                                           | Status      | Job                                                                    |
 | ------------------------------------------------------------------ | ----------- | ---------------------------------------------------------------------- |
 | [ROADMAP](./ROADMAP.md)                                            | Live        | The ordered plan: what is done, what is next, and what each step buys. |
 | [Product roadmap](./PRODUCT_ROADMAP.md)                            | Proposed    | Outcome priorities, evidence gates, and promotion into engineering.    |
-| [Effect 4 release candidate](./research-effect-4-rc.md)            | Landed      | Historical measurement of the `beta.83` → `rc.112` break surface (E6). |
-| [Project / multi-directory](./project.md)                          | Historical  | Why the HTTP surface is flat instead of nested under `/project/:id`.   |
 | [TUI package extraction](./tui-package.md)                         | Complete    | TUI lives in `packages/tui`; host files stay in `packages/nikcli`.     |
 | [v2 contracts](./v2/README.md)                                     | Index       | Session, tools, events, instructions, catalog, provider policy.        |
 | [Public event filter](./v2/public-event-filter.md)                 | Implemented | Which bus events never reach a client, and why withheld means absent.  |
 | [SQL + Drizzle adoption](./storage/nikcli-sql-drizzle-adoption.md) | Implemented | The central database runtime, migrations, and domain-owned schema.     |
 | [Retire JSON storage](./storage/remove-json-storage.md)            | Retired     | Both storage modules are deleted; production storage imports are zero. |
 
-## Open payloads
+---
 
-`Schema.Unknown` on an endpoint `success` or a domain object compiles to `any` in the SDK. Keep it only for payloads that are genuinely open, and name the reason here rather than in a side document:
+## Preserve boundaries
+
+Multi-project and worktree support uses flat `/project`, `/session`, and `/workspace` groups, not nested `/project/:projectID/session/...` URLs. Directory selection uses the `directory` query or `x-nikcli-directory` header; instance binding and storage keys provide scope rather than URL nesting.
+
+Extend the existing groups unless a separate product decision changes that model. Endpoint definitions live in `packages/nikcli/src/server/httpapi/`; directory resolution lives in `packages/nikcli/src/server/server-router.ts`.
+
+Keep these storage decisions alongside the [SQL contract](./storage/nikcli-sql-drizzle-adoption.md) and [JSON retirement rationale](./storage/remove-json-storage.md):
+
+- Domain repositories share `Database.syncDb()` and pass `Database.TxOrDb` into projector writes. Transactions default to `immediate`, with nested calls joining the outer transaction to protect read-then-write sequence allocation.
+- `Database.effect` queues notifications until commit, never on rollback or while holding the write lock. Outside a transaction it runs immediately; queued callback failures are logged after commit, not treated as a rolled-back write.
+- Whole-record JSON columns retain domain data; separate columns support queries and ordering. Domain-owned sanitizers retain their read-side validation rather than relying on a copied table inventory.
+- `project.directories = null` means bootstrap from sandboxes; `[]` means a deliberately empty list. Identity upserts must not overwrite this independent column.
+- `loop.started_runs = null` means derive once from history, not zero. Keep the counter outside definition upserts and trimmed history so lifetime limits still work.
+- `loop_run` and `mission_exec` intentionally lack definition foreign keys so orphan recovery can find surviving work. Explicit repository removal owns cascading cleanup.
+
+Session diffs remain durable because imported shares and collected snapshot objects prevent reliable reconstruction. Pending-input admission, instruction folding, event visibility, and graceful-restart limits remain in the [live contracts](./v2/README.md), not research snapshots.
+
+---
+
+## Justify open payloads
+
+`Schema.Unknown` on an endpoint `success` or a domain object emits `unknown` in the SDK. Keep it only for payloads that are genuinely open, and name the reason here rather than in a side document:
 
 - **Upstream passthrough** — a third-party body the server does not interpret.
 - **Polymorphic event-sourced entries** — `session_entry` / sync frames whose variant set grows without a contract bump. Re-checked 2026-08-30 (H10): `Schema.TaggedUnion.matchOrElse` does not change this. A half-open union of known variants plus a catch-all was measured and rejected — a malformed known member decodes as the fallback.
@@ -60,7 +87,9 @@ grep -nE '(\[x: string\]: any|Array<unknown>|: unknown\b)' packages/sdk/js/src/h
 - **`properties: unknown` on `TuiPublishInput`; `body: unknown` on `TuiControlResponseInput` / `TuiControlRequest`** — the publish route is the write side of the SSE `{ type, properties }` envelope: the runtime check on `type` finds the entry in the `TuiEvent` registry (`bus/tui-event.ts`) and the matching per-event schema parses `properties`. The control channel is a verbatim relay queue (`server/tui-control.ts`); the server never interprets the body. Justified — a contract-time union would freeze HTTP to the bus registry or the control protocol.
 - **`payload: unknown` on a write input** — **none left** (H1, 2026-08-17). The six TUI payloads reuse `TuiEventPayload`, `ConnectorsAuthSetInput.payload` is `ConnectorAuth.EntrySchema`, and `MobileLoopCreateInput` / `MissionUpdateInput` are structs. `grep -c 'payload: unknown'` on the generated types is 0; it staying 0 is the check.
 
-## Rules
+---
+
+## Maintain contracts
 
 - A document states its **Status** in the first lines: `Current`, `Proposed`, `Accepted and implemented`, or `Historical`.
 - Current documents describe contracts without copying exact types; the type is in the code.
