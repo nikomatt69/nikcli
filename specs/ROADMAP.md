@@ -165,25 +165,26 @@ These are evidenced leftovers, not product ideas. `Now` items are independent an
 
 ### Verify before proceeding
 
-Current-session evidence, **2026-09-09**, is deliberately narrower than release acceptance:
+Current-session evidence, **2026-09-09**, is deliberately narrower than hosted release acceptance:
 
-| Check                    | Result                                               |
-| ------------------------ | ---------------------------------------------------- |
-| `bun --version`          | 1.4.2 confirmed after user installation              |
-| Effect declared/resolved | `4.0.0-rc.112` confirmed                             |
-| Docker version guard     | Exit 0; 15 files                                     |
-| Patched-dependency guard | Exit 0; 9 patches                                    |
-| Railway context guard    | Exit 0; 2329/5905 files                              |
-| Targeted release tests   | Exit 0; 92 pass, 0 fail, 148 assertions              |
-| `bun run typecheck`      | Exit 0; 35 successful, 35 total, 2 cached; 1m49.491s |
+| Check                           | Result                                                  |
+| ------------------------------- | ------------------------------------------------------- |
+| `bun --version`                 | 1.4.2                                                   |
+| Effect declared/resolved        | `4.0.0-rc.112`                                          |
+| `bun install --frozen-lockfile` | Exit 0; 2574 installs across 2929 packages (no changes) |
+| Docker version guard            | Exit 0; 15 files                                        |
+| Patched-dependency guard        | Exit 0; 9 patches                                       |
+| Railway context guard           | Exit 0; 2329/5905 files                                 |
+| Targeted release tests          | Exit 0; 92 pass, 0 fail, 148 assertions                 |
+| `bun run typecheck`             | Exit 0; 35 successful, 35 total, 2 cached; 1m49.491s    |
 
-The guards and release tests passed on Bun 1.4.2; the test command was `bun test ./packages/nikcli/test/release/docker-versions.test.ts ./packages/nikcli/test/release/ci-targeted.test.ts`. Initial typecheck exited 2 with installed Effect `4.0.0-beta.83`; after the user corrected installation this session, typecheck passed as recorded above.
+The guards and release tests passed on Bun 1.4.2; the test command was `bun test ./packages/nikcli/test/release/docker-versions.test.ts ./packages/nikcli/test/release/ci-targeted.test.ts`. Initial typecheck exited 2 with installed Effect `4.0.0-beta.83`; after the user corrected installation, typecheck and frozen install passed as recorded above.
 
-Frozen installation without lockfile drift was not verified this session, and full CI/release validation was not run. These checks do not establish full B1/C2 acceptance or deployment health.
+Hosted CI, macOS/Windows/mobile builds, and production deployment were not run. Local B1 pins, frozen install, typecheck, and the existing Docker/C2 guards are confirmed; they do not close post-deploy health.
 
-1. Complete B1's remaining acceptance checks, including frozen installation without lockfile drift. Bun 1.4.2, declared/resolved Effect `4.0.0-rc.112`, targeted release tests, and workspace typecheck are now confirmed.
-2. Run the existing release validation for B1/C2 on the intended runtime before any release decision. Keep generated drift, formatting, lint, patches, and deployment-context checks blocking.
-3. Complete the proposed [release identity discovery](./PRODUCT_ROADMAP.md#prove-release-identity), including association and failure criteria, before admitting implementation. Production changes and uploads require separate approval; two-upload and first-use observation windows remain open.
+1. Local B1/C2 acceptance that can be run here is recorded above. Remaining acceptance is hosted CI and the existing full release-validation job, not a new pin.
+2. Keep generated drift, formatting, lint, patches, and deployment-context checks blocking in that validation. Do not weaken them to obtain a green release.
+3. [Release identity discovery](./PRODUCT_ROADMAP.md#prove-release-identity) now records association, observation, mismatch, timeout, and rollback criteria from source. Implementation, production uploads, and first-use telemetry remain unadmitted.
 
 ---
 

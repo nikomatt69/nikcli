@@ -30,11 +30,11 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 
 ### Verify release integrity
 
-- **Engineering** - C1 gates every publish; E5, H8, and P2 landed on 2026-08-24. After user-corrected installation on 2026-09-09, Bun 1.4.2 and declared/resolved Effect `4.0.0-rc.112` are confirmed; B1/C2 remain locally implemented with release acceptance outstanding.
-- **Local evidence** - On Bun 1.4.2, Docker, patched-dependency, and Railway context guards pass; release tests exit 0 with 92 pass, 0 fail, and 148 assertions. Initial typecheck exited 2 with installed Effect `4.0.0-beta.83`; after the user installation, `bun run typecheck` exited 0 (35 successful, 35 total, 2 cached; 1m49.491s).
-- **Limits** - Frozen installation without lockfile drift was not verified this session; full CI/release validation was not run. See [the evidence record](./ROADMAP.md#verify-before-proceeding).
-- **Product** - Define release-identity association and a post-deploy observation window before proposing instrumentation. Use existing first-use evidence where available; new production collection requires a separately admitted engineering item.
-- **Phase exit** - Complete remaining B1/C2 acceptance checks and pass existing release validation. Two consecutive approved uploads must match the expected identity, and first-use evidence must cover one release boundary; neither observation gate is closed.
+- **Engineering** - C1 gates every publish; E5, H8, and P2 landed on 2026-08-24. On 2026-09-09, Bun 1.4.2, Effect `4.0.0-rc.112`, frozen install, typecheck, and the Docker/C2 guards are confirmed locally. Hosted release validation remains outstanding.
+- **Local evidence** - See [the evidence record](./ROADMAP.md#verify-before-proceeding). Frozen install exited 0 with no lockfile changes (2574 installs / 2929 packages).
+- **Limits** - Full CI/release validation, desktop/mobile builds, and production deployment were not run.
+- **Product** - Release-identity association and failure criteria are recorded below. First-use events named in this document are not implemented in source; do not invent production collection.
+- **Phase exit** - Hosted B1/C2 validation still required. Two consecutive approved uploads must match the expected identity, and first-use evidence must cover one release boundary; neither observation gate is closed.
 
 ---
 
@@ -90,19 +90,22 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 ### Prove release identity
 
 - **User promise** — A published CLI, desktop artifact, or hosted service corresponds to validated source and does not report success when a required stage was skipped.
-- **Current evidence** - C1 protects validation and required deployment gates; C2 locally removes the obsolete Effect install from the image. `GET /global/health` still returns only `{ healthy, version }`, so a healthy old deployment cannot prove the new upload is serving.
-- **Proposal only** - Compare a build-injected source revision in the health body with a declared response header; neither exists yet. Version alone is insufficient, and the choice must account for generated-client compatibility and public metadata exposure.
-- **Association gate** - Define how validated revision, immutable build artifact, Railway service/environment, and detached upload ID remain linked. Specify bounded observation, stale or mismatched identity rejection, timeout failure, and rollback thresholds before proposing code.
-- **Evidence gate** - Record expected and observed identities for two consecutive separately approved uploads, including failed-build and old-healthy-instance cases. Store only revision, deployment identifiers, timestamps, and coarse outcomes; no prompts, source contents, credentials, or tokens.
-- **Promotion rule** - A discovery brief may propose the smallest engineering item with a runnable acceptance gate. This document authorizes neither implementation, telemetry collection, nor production deployment.
+- **Current evidence (source, 2026-09-09)** — C1 protects validation and required deployment gates; C2 locally removes the obsolete Effect install from the image. `GET /global/health` is public (`Auth.isPublicPath`) and returns only `{ healthy: true, version }` from `Installation.VERSION` (`packages/nikcli/src/server/httpapi/global.ts`). That version is the compile-time `NIKCLI_VERSION` define (`packages/util/src/version.ts`, `packages/nikcli/script/build.ts`), falling back to `"local"`. No git SHA, image digest, or build time is baked or served. Generated `GlobalHealth` is `{ healthy: true; version: string }` (`packages/sdk/js/src/httpapi/generated/types.ts`). `script/railway-deploy.sh --detach` exits 0 when `railway up` accepts the upload; `.github/workflows/ci-pipeline.yml` records the service name and does not capture a deployment id. Package version therefore cannot distinguish two uploads of the same release from a healthy older instance.
+- **Association model** — Expected identity is the git SHA of the commit that passed validate+publish. Build identity is that same SHA baked into the image at compile, not the semver. Observed identity is whatever a later health probe returns after the upload. The link that must exist before code is admitted: SHA → immutable image → Railway service and environment → the detached upload. Today the last three hops are missing from CI output, and the first hop is missing from the binary.
+- **Observation window** — One bounded wait for observed identity to equal expected identity. Do not poll forever and do not treat `--detach` success as health. Timeout without a matching probe is a failed release decision, the same class of lie as a detached upload that never built.
+- **Mismatch and timeout** — Reject a healthy probe whose revision (once it exists) or version disagrees with the expected SHA/release. Reject an unhealthy probe. Reject timeout. A version match alone is not enough: two uploads of `1.330.0` would both look healthy.
+- **Rollback** — This brief does not authorize automatic production rollback. A failed observation fails the release decision; the next upload still needs identity match. Auto-rollback is a later product choice.
+- **Contract and privacy** — Health is already public, so a revision in the JSON body is public metadata. An optional additive field would regenerate `GlobalHealth` and is a C1 drift item; a required field is a contract bump. Header-only identity would hide the value from generated clients and from the curl probe operators already use. Store only revision, service, environment, upload/deployment id if Railway exposes one, timestamps, and coarse pass/fail. No tokens, source, prompts, or credentials.
+- **Evidence gate** — Record expected vs observed identity for two consecutive separately approved uploads, plus a failed-build case and an old-healthy-instance case. Neither window has been run.
+- **Promotion rule** — Discovery is complete enough to name the gap. The smallest future engineering item would bake the validated SHA at image build, expose it on the existing public health response, and associate the detached upload with that SHA. It is not admitted here: no ROADMAP ID, no implementation, no production collection, no deploy.
 
 ---
 
 ### Measure first use
 
 - **User promise** — A new user can install Nikcli, connect a provider, open a project, and complete one useful turn with failures that explain the next action.
-- **Baseline events** — Installation completed, provider configured, session created, first turn started, first turn completed, and categorized failure. Events carry version, platform, elapsed time, and coarse failure code only.
-- **Promotion rule** — Rank blockers by affected users and elapsed-time cost. Do not turn anecdotal setup preferences into architecture work.
+- **Proposed events, not in source** — Installation completed, provider configured, session created, first turn started, first turn completed, and categorized failure. If later admitted, events would carry version, platform, elapsed time, and a coarse failure code only. A repo search on 2026-09-09 found these names only in this document and an old plan file, not in runtime code.
+- **Promotion rule** — Rank blockers by affected users and elapsed-time cost. Do not turn anecdotal setup preferences into architecture work. Do not collect production telemetry until an engineering ID exists.
 
 ---
 
