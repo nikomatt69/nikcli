@@ -34242,6 +34242,9 @@
           },
           "version": {
             "type": "string"
+          },
+          "revision": {
+            "type": "string"
           }
         },
         "required": ["healthy", "version"],

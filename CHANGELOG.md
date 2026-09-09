@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.334.0 (September 2026)
+
+## Core
+
+- Upgrade @opentui/core and @opentui/solid to version 0.5.10 across all relevant files; enhance Dockerfile.serve to include NIKCLI_REVISION for improved deployment identity tracking (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - update: upgrade @opentui/core and @opentui/solid to version 0.5.10 across all relevant files; enhance Dockerfile.serve to include NIKCLI_REVISION for improved deployment identity tracking
+
 ## v1.330.0 (September 2026)
 
 ## Core
