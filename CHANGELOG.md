@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.335.0 (September 2026)
+
+## Core
+
+- Streamline instance-less routing and directory handling; introduce requestedDirectory function for consistent directory resolution across handlers (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor: streamline instance-less routing and directory handling; introduce requestedDirectory function for consistent directory resolution across handlers
+
 ## v1.334.0 (September 2026)
 
 ## Core
