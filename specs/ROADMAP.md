@@ -1202,6 +1202,20 @@ The last of the three `Effect.gen` `throw`s E8's sweep found, and the only one E
 
 **Two assumptions died on the way, both worth keeping.** `Schema.Number` advertises `"NaN"` and the infinities in its **JSON Schema** but its decoder rejects them at this boundary — so those strings were never a divergence candidate, and what D3 removed from CodeMode signatures was advertising values the decoder would refuse. And the first version of the coverage assertion compared the samples against a list written beside them: it passed while `tool`, the largest variant, had no sample at all. It reads the union's AST now, and removing any one sample turns it red — checked by doing exactly that.
 
+### 2026-09-10 (cleanup) — the finished plans deleted
+
+**The rule from 2026-09-09 applied again: delete finished plans, keep contracts, check for source citations before either.** Six files went, none of them a contract and none of them linked from anywhere:
+
+- `packages/nikcli/specs/research-{session-goals,tool-agent-permission}.md` — 950 lines of undated research notes whose own header warns that its line numbers "refer to the state of the tree at the time of writing". Spot-checked before deleting: some references still land, others do not. Every claim in them that still mattered is now a contract in `specs/v2/` with a test behind it. The directory went with them.
+- `artifacts/roadmap-continuation-2026-09-09.html` — the continuation plan this sequence was executed from. Its Phase C is D1/D2, its ranked tier 1 is C3 and the hosted run, and everything it deferred is still deferred for the reasons it gave. A plan that has been carried out is a record of a decision already recorded better in this file.
+- `artifacts/opencode-v2-copy-plan-2026-09-09.html` — the fork survey's copy plan. T4 / U4 / U5 / X3 landed; the five things it rejected are in the non-goals above.
+- `.nikcli/artifacts/nikcli-roadmap.html` — a rendered roadmap board reconciled 2026-08-24 at v1.313.0, "15 engineering items done". The repository is at v1.335.0 and the board has moved twice since.
+- `.nikcli/artifacts/opencode-v2-latest-20-pr-analysis.md` — a PR survey verified 2026-07-28 against a `live-main` baseline six weeks old, superseded by the 2026-09-09 survey at `c7dd0c827`, which is itself closed.
+
+**Kept, and why.** `specs/tui-package.md` (12 source files cite its sections) and `specs/storage/remove-json-storage.md` (5 cite it) are both complete and both stay: a document that code points at is not documentation debt, whatever its status field says. Every `specs/v2/` document stays — they are contracts, and as of D2 each names the tests that pin it.
+
+**What was checked before each deletion.** Inbound links from anywhere in the repository (none), and source citations (none). The two kept files failed exactly that check, which is the point of running it rather than trusting the status line.
+
 ## Follow working rules
 
 - Commit at phase boundaries, not per file. H4 and H5 land together.

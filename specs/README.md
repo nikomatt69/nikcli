@@ -53,7 +53,7 @@ Keep these storage decisions in mind:
 - `loop.started_runs = null` means derive once from history, not zero. Keep the counter outside definition upserts and trimmed history so lifetime limits still work.
 - `loop_run` and `mission_exec` intentionally lack definition foreign keys so orphan recovery can find surviving work. Explicit repository removal owns cascading cleanup.
 
-Session diffs remain durable because imported shares and collected snapshot objects prevent reliable reconstruction. Pending-input admission, instruction folding, event visibility, and graceful-restart limits remain in the [live contracts](./v2/README.md), not research snapshots.
+Session diffs remain durable because imported shares and collected snapshot objects prevent reliable reconstruction. Pending-input admission, instruction folding, event visibility, and graceful-restart limits live in the [contracts](./v2/README.md). The two research snapshots under `packages/nikcli/specs/` were deleted on 2026-09-10: nothing linked them, their line references had already drifted, and every claim in them that still mattered had become a contract with a test.
 
 ---
 
