@@ -8,6 +8,7 @@ import { useToast } from "@tui/ui/toast"
 import { useSDK } from "@tui/context/sdk"
 import { Clipboard } from "@tui/util/clipboard"
 import { UserApi } from "@tui/util/user-api"
+import { useAttempts } from "@tui/util/lifecycle"
 import { UserSession } from "@nikcli-ai/util/user-session"
 import type { UserSchema } from "@nikcli-ai/util/user-schema"
 
@@ -34,8 +35,9 @@ export function DialogAccountLogin(props: {
   const [error, setError] = createSignal<string>()
   const [browserOpened, setBrowserOpened] = createSignal(true)
   const [now, setNow] = createSignal(Date.now())
-  let controller = new AbortController()
-  let disposed = false
+  // A retry supersedes the running attempt: `stale()` covers both the dialog
+  // being closed and an older `begin()` resuming after `r` started a new one.
+  const attempts = useAttempts()
 
   /** Minutes:seconds left before the code stops working, or undefined. */
   const remaining = () => {
@@ -55,23 +57,15 @@ export function DialogAccountLogin(props: {
     void begin()
   })
 
-  onCleanup(() => {
-    disposed = true
-    controller.abort()
-  })
-
   async function begin() {
-    // A retry after a failed attempt needs its own signal — the previous one
-    // may already be aborted, which would kill the new poll instantly.
-    controller.abort()
-    controller = new AbortController()
+    const { signal, stale } = attempts.start()
     setError(undefined)
     setStart(undefined)
     setBrowserOpened(true)
     setStatus("Contacting auth.nikcli.store…")
     try {
-      const started = await UserApi.accountLogin(sdk)
-      if (disposed) return
+      const started = await UserApi.accountLogin(sdk, signal)
+      if (stale()) return
       if (!started.ok) throw new Error(started.error)
       const result = started.data
       setStart(result)
@@ -79,7 +73,7 @@ export function DialogAccountLogin(props: {
       // The complete URL carries the code, so the browser page arrives with
       // the field already filled — no retyping, no transcription mistakes.
       const opened = await openVerification(result)
-      if (disposed) return
+      if (stale()) return
       setBrowserOpened(opened)
       if (!opened) setStatus("Could not open a browser — open the link below to approve.")
       // `onPending` had no wire form and needed none: it only rewrote this
@@ -96,21 +90,21 @@ export function DialogAccountLogin(props: {
       const session = await UserApi.accountComplete(
         sdk,
         { deviceCode: result.deviceCode, expiresIn: result.expiresIn },
-        controller.signal,
+        signal,
       )
-      if (disposed) return
+      if (stale()) return
       if (!session.ok) throw new Error(session.error)
 
       // The issuer JWT is what `Auth.resolveBearer` already accepts. Saving it
       // and asking `/user/me` is what provisions the local user — the TUI must
       // not write `UserDB` itself.
       await UserSession.save(session.data.accessToken)
-      if (disposed) return
+      if (stale()) return
       // `/user/me` is what provisions the local user; a null answer means the
       // issuer token is good but this install has no user behind it. Reporting
       // that as a success is how a half-provisioned account looked signed in.
       const localUser = await UserApi.me(sdk)
-      if (disposed) return
+      if (stale()) return
       if (!localUser) throw new Error("Signed in, but this install could not be provisioned — try again")
       toast.show({
         message: session.data.email ? `Signed in as ${session.data.email}` : "Signed in to your nikcli account",
@@ -119,7 +113,7 @@ export function DialogAccountLogin(props: {
       props.onComplete?.(localUser)
       if (props.clearOnComplete !== false) dialog.clear()
     } catch (cause) {
-      if (disposed) return
+      if (stale()) return
       setError(cause instanceof Error ? cause.message : String(cause))
       setStatus("Sign-in did not complete")
     }
@@ -170,7 +164,8 @@ export function DialogAccountLogin(props: {
       const result = start()
       if (!result) return
       void openVerification(result).then((opened) => {
-        if (disposed) return
+        // Reopening belongs to no attempt: only disposal invalidates it.
+        if (attempts.disposed) return
         setBrowserOpened(opened)
         if (!opened) toast.show({ message: "Could not open a browser — copy the link with u", variant: "error" })
       })

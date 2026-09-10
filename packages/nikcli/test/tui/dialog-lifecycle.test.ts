@@ -91,10 +91,19 @@ describe("dialogs that await", () => {
 
   test("account sign-in re-guards after save and rejects a null local user", async () => {
     const src = stripComments(await tuiSource("component/dialog-account-login.tsx"))
+    // `stale()` is the stronger form of the old `disposed` flag: it is true
+    // once the dialog is gone *and* once `r` has started a newer attempt, so
+    // an older run cannot write its session over the newer one's.
     const afterSave = src.split("await UserSession.save(session.data.accessToken)")[1]
-    expect(afterSave.trimStart().startsWith("if (disposed) return")).toBe(true)
+    expect(afterSave.trimStart().startsWith("if (stale()) return")).toBe(true)
     const afterMe = src.split("await UserApi.me(sdk)")[1]
-    expect(afterMe.trimStart().startsWith("if (disposed) return")).toBe(true)
+    expect(afterMe.trimStart().startsWith("if (stale()) return")).toBe(true)
+    // Every await in the flow is guarded, and the guard belongs to an attempt.
+    expect(src).toMatch(/const \{ signal, stale \} = attempts\.start\(\)/)
+    expect(src).not.toMatch(/if \(disposed\) return/)
+    // The start request carries the attempt's signal, so a superseded attempt
+    // stops talking to the issuer instead of running to its own timeout.
+    expect(src).toMatch(/UserApi\.accountLogin\(sdk, signal\)/)
     // A good issuer token with no local user is a failed sign-in, not a success toast.
     expect(src).toMatch(/if \(!localUser\) throw new Error\(/)
     expect(src.indexOf("if (!localUser) throw")).toBeLessThan(src.indexOf("toast.show({"))

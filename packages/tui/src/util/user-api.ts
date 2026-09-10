@@ -165,8 +165,8 @@ export namespace UserApi {
     return authed<AccountInfo | null>(sdk, "/account").then((value) => value ?? null)
   }
 
-  export function accountLogin(sdk: Sdk) {
-    return send<LoginStart>(sdk, "POST", "/account/login")
+  export function accountLogin(sdk: Sdk, signal?: AbortSignal) {
+    return send<LoginStart>(sdk, "POST", "/account/login", undefined, signal)
   }
 
   export type AccountSession = {

@@ -37,3 +37,51 @@ export function useAbortOnCleanup() {
 }
 
 export type AbortOnCleanup = ReturnType<typeof useAbortOnCleanup>
+
+/**
+ * The same guard for an operation the user can restart.
+ *
+ * `useAbortOnCleanup` answers "is the owner gone". A retryable flow needs a
+ * second question — "has a newer attempt replaced mine" — because disposal is
+ * not what makes the first attempt's result wrong. Press `r` while a device
+ * code is still being polled and two runs are live at once: the older one
+ * resolves into a component that is very much still mounted, and writes its
+ * stale start code, status line and session over the newer one's.
+ *
+ * Each `start()` aborts the previous attempt and takes its own signal and
+ * generation. Check `stale()` after every await, exactly as with `disposed()`,
+ * and pass the returned `signal` — not a field read off a shared controller,
+ * which by then belongs to the attempt that superseded you.
+ */
+export function useAttempts() {
+  let generation = 0
+  let current: AbortController | undefined
+  let disposed = false
+  onCleanup(() => {
+    disposed = true
+    current?.abort()
+  })
+
+  return {
+    /** Supersede any running attempt and begin a new one. */
+    start() {
+      current?.abort()
+      const own = new AbortController()
+      current = own
+      const generationAtStart = ++generation
+      return {
+        /** Aborted when the owner is cleaned up, or when a newer attempt starts. */
+        signal: own.signal,
+        /** True once the owner is gone or a newer attempt has superseded this one. */
+        stale: () => disposed || generationAtStart !== generation,
+      }
+    },
+    /** True once the owner is gone, regardless of attempts. */
+    get disposed() {
+      return disposed
+    },
+  }
+}
+
+export type Attempts = ReturnType<typeof useAttempts>
+export type Attempt = ReturnType<Attempts["start"]>
