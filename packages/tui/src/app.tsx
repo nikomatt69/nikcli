@@ -122,6 +122,10 @@ function rendererConfig(tuiCfg: TuiConfig): CliRendererConfig {
 }
 
 import type { EventSource } from "./context/sdk"
+import { Log } from "@nikcli-ai/util/log"
+import { classifyConfigFailure } from "@tui/util/config-failure"
+
+const log = Log.create({ service: "tui.app" })
 
 export function tui(input: {
   url: string
@@ -458,10 +462,18 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         }
       }
 
-      const tuiConfig = await sdk.client.tui
-        .config()
-        .then((result) => (result.data ?? {}) as TuiConfig)
-        .catch(() => ({}) as TuiConfig)
+      // The renderer already owns the terminal here, so a config failure must
+      // not take the TUI down the way it does in the standalone host. It must
+      // still not pass for an empty config: say which of the three it was.
+      const configResult = await sdk.client.tui.config().catch((error: unknown) => ({ data: undefined, error }))
+      if (configResult.error !== undefined) {
+        const status = (configResult as { response?: { status: number } }).response?.status
+        log.error("tui config unavailable; starting on defaults", {
+          reason: classifyConfigFailure(configResult.error, status),
+          status,
+        })
+      }
+      const tuiConfig = (configResult.data ?? {}) as TuiConfig
       const api = createTuiApi({
         command,
         tuiConfig,

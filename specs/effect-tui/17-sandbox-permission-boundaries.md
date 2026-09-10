@@ -26,9 +26,12 @@ permission evaluation in plugins, or change the default permission posture (inte
    (`{tool, pattern, action, scope}`), and `Permission.Ruleset` (the named bundle per workspace/session/tool family).
    The evaluation engine composes them through `PermissionRuleset.TOOL_PERMISSION` so a rule on a parent tool covers its
    coupled children, never the other way around.
-2. The ruleset is a finite, ordered list and **the last matching rule wins**. `merge` concatenates rulesets in
-   increasing priority (global, project, session, workspace), so a later ruleset overrides an earlier one, and the
-   default when nothing matches is `ask`. Do **not** adopt an action-precedence order in which `allow` beats `deny`:
+2. The ruleset is a finite, ordered list and **the last matching rule wins**, as shipped and documented in
+   [`specs/v2/permission-ruleset-and-coupling.md`](../v2/permission-ruleset-and-coupling.md). `merge` is plain
+   concatenation and `evaluate` walks it with `findLast`; the default when nothing matches is `ask`. There is no
+   ruleset-precedence operator — whatever ordering a workspace, session, project or global bundle has is decided by
+   how the caller builds the array, not by the evaluator, and this spec does not add one. Do **not** adopt an
+   action-precedence order in which `allow` beats `deny`:
    `PermissionRuleset.autoApprove` (the `--yolo` / `--dangerously-skip-permissions` path) is built as a blanket
    `allow` followed by the surviving `deny` rules, and it is last-match ordering alone that keeps those denials in
    force. Under `allow > deny` every rail the user deliberately set would silently stop applying. Specificity-based

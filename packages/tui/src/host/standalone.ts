@@ -1,7 +1,11 @@
-import { ClientError, createNikcliClient } from "@nikcli-ai/sdk/httpapi"
+import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
 import type { NikcliClient, TuiConfig } from "@nikcli-ai/sdk/httpapi"
 import { Log } from "@nikcli-ai/util/log"
 import type { PluginConfigInfo, TuiPluginHost } from "@tui/plugin/host"
+import { TuiConfigError, classifyConfigFailure, type TuiConfigFailure } from "@tui/util/config-failure"
+
+export { TuiConfigError as StandaloneConfigError, classifyConfigFailure }
+export type StandaloneConfigFailure = TuiConfigFailure
 
 const log = Log.create({ service: "tui.standalone" })
 
@@ -52,45 +56,6 @@ export function remotePluginHost(read: () => Promise<PluginConfigInfo>): TuiPlug
   }
 }
 
-/** Why the server could not supply a usable TUI config. */
-export type StandaloneConfigFailure = "unauthorized" | "unavailable" | "malformed"
-
-/**
- * A remote TUI config that could not be read.
- *
- * A 401, an unreachable server and a body this client cannot decode are three
- * different problems, and none of them means "the user has an empty config".
- * Returning `{}` for all three started the renderer on defaults that silently
- * disagreed with the server.
- */
-export class StandaloneConfigError extends Error {
-  override readonly name = "StandaloneConfigError"
-  constructor(
-    readonly reason: StandaloneConfigFailure,
-    readonly url: string,
-    readonly status?: number,
-    options?: ErrorOptions,
-  ) {
-    super(describe(reason, url, status), options)
-  }
-}
-
-function describe(reason: StandaloneConfigFailure, url: string, status?: number): string {
-  const code = status === undefined ? "" : ` (HTTP ${status})`
-  if (reason === "unauthorized") return `the nikcli server at ${url} rejected this client${code}`
-  if (reason === "unavailable") return `could not reach a nikcli server at ${url}`
-  return `the nikcli server at ${url} returned a TUI config this client cannot read${code}`
-}
-
-export function classifyConfigFailure(error: unknown, status?: number): StandaloneConfigFailure {
-  if (status === 401 || status === 403) return "unauthorized"
-  if (error instanceof ClientError) {
-    if (error.reason === "Transport") return "unavailable"
-    return "malformed"
-  }
-  return status === undefined ? "unavailable" : "malformed"
-}
-
 type ConfigResult = Awaited<ReturnType<NikcliClient["tui"]["config"]>>
 type ConfigClient = { readonly tui: { readonly config: () => Promise<ConfigResult> } }
 
@@ -104,11 +69,11 @@ export async function readRemoteTuiConfig(client: ConfigClient, url: string): Pr
   try {
     result = await client.tui.config()
   } catch (error) {
-    throw new StandaloneConfigError(classifyConfigFailure(error), url, undefined, { cause: error })
+    throw new TuiConfigError(classifyConfigFailure(error), url, undefined, { cause: error })
   }
   if (result.error !== undefined) {
     const status = result.response?.status
-    throw new StandaloneConfigError(classifyConfigFailure(result.error, status), url, status, { cause: result.error })
+    throw new TuiConfigError(classifyConfigFailure(result.error, status), url, status, { cause: result.error })
   }
   return (result.data ?? {}) as PluginConfigInfo
 }
@@ -131,7 +96,7 @@ export async function startStandaloneTui(options: StandaloneOptions): Promise<vo
     } catch (error) {
       log.error("tui config reload failed; keeping the last config the server supplied", {
         url: options.url,
-        reason: error instanceof StandaloneConfigError ? error.reason : "unknown",
+        reason: error instanceof TuiConfigError ? error.reason : "unknown",
       })
     }
     return lastGood
