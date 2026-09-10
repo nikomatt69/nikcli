@@ -3,6 +3,22 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.339.0 (September 2026)
+
+## Core
+
+- Restore the 28 specification documents deleted in af5546f8c9 (@nikomatt69)
+- Implement the first slices of EOT-02/04/09/10/13/17/20 (@nikomatt69)
+- Integrate EOT-11..20 and restore the CLI command surface gate (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - docs(specs): integrate EOT-11..20 and restore the CLI command surface gate
+  - feat(specs): implement the first slices of EOT-02/04/09/10/13/17/20
+  - docs(specs): restore the 28 specification documents deleted in af5546f8c9
+  - fix(tui): stop the CLI host swallowing a TUI config failure
+
 ## v1.338.0 (September 2026)
 
 ## Core
