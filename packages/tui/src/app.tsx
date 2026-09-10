@@ -123,6 +123,7 @@ function rendererConfig(tuiCfg: TuiConfig): CliRendererConfig {
 import type { EventSource } from "./context/sdk"
 import { Log } from "@nikcli-ai/util/log"
 import { classifyConfigFailure } from "@tui/util/config-failure"
+import { ensureOnboarded } from "@tui/util/onboarding"
 
 const log = Log.create({ service: "tui.app" })
 
@@ -440,19 +441,30 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         if (isFirstRun && !kv.get("onboarding_complete", false)) {
           // First-time user: unified onboarding handles account creation + provider setup
           setOnboardingActive(true)
-          let postUser = null
-          do {
-            await DialogOnboarding.run(dialog)
-            postUser = await UserApi.me(sdk)
-          } while (!postUser)
+          const outcome = await ensureOnboarded({
+            runOnboarding: () => DialogOnboarding.run(dialog),
+            currentUser: () => UserApi.me(sdk),
+            onAttemptFailed: (attempt) =>
+              log.warn("onboarding closed without an account", { attempt, service: "tui.onboarding" }),
+          })
           setOnboardingActive(false)
-          // Mark complete only if an account was actually created
-          if (postUser) {
+          if (outcome.status === "complete") {
             kv.set("onboarding_complete", true)
             const needsProvider = untrack(() => sync.status === "complete" && sync.data.provider.length === 0)
             if (needsProvider && dialog.stack.length === 0) {
               dialog.replace(() => <DialogProviderList />)
             }
+          } else {
+            // Not signed in, and startup must not pretend otherwise: the flag
+            // stays unset so the next launch asks again. It also must not park
+            // here — the config load and renderer wiring below never ran while
+            // this loop spun, which left the user with a frozen screen and no
+            // reason for it. Say what happened and let startup finish.
+            log.error("onboarding did not produce an account", { attempts: outcome.attempts })
+            toast.show({
+              message: "Account setup didn't complete — run /signin to finish signing in.",
+              variant: "error",
+            })
           }
         } else if (!validUser) {
           // Returning user with no active session: standard login
