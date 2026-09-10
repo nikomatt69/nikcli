@@ -30,7 +30,8 @@ plugin loading, change autoload permission defaults, or introduce a second plugi
    usable prompt, preserving Solid owner context and error boundaries. Do not defer critical config/auth validation or
    introduce a waterfall that moves startup delay into the first keystroke.
 5. Give each plugin generation a revocable registration scope: keybindings, slots, routes, subscriptions, timers, owned
-   async operations, and host mutations. During unload, revoke access before awaiting plugin cleanup. A late disposer or
+   async operations, and host mutations. EOT-14 turns this scope into the v2 plugin contract; the host capability
+   surface named here is the one it gates against. During unload, revoke access before awaiting plugin cleanup. A late disposer or
    install continuation cannot register into a newer generation.
 6. Serialize reload per plugin. Validate the next module/compatibility without activating side effects, quiesce and revoke
    the old generation, dispose it, then activate the new one. If activation fails, show the failure and either restore the

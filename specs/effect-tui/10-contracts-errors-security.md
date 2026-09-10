@@ -40,10 +40,12 @@ without a separately scoped contract review.
    auth denial, validation errors, or unknown outcomes after a disconnect. Surface ambiguous mutation outcomes and refresh
    authoritative state before deciding whether retry is safe.
 8. Preserve PKCE S256/device-code expiry/denial/slow-down semantics, account creation/onboarding requirements, callback
-   redirect validation, and token refresh boundaries in affected flows. Keep authorization enforced server-side; hiding a
+   redirect validation, and token refresh boundaries in affected flows. EOT-12 owns the state machine behind these
+   transitions; this spec owns their wire contract. Keep authorization enforced server-side; hiding a
    TUI action is not an authorization boundary. Do not expand plugin autoload or cross-workspace visibility.
 9. Log through the redacted sink. Error bodies, tokens, authorization headers, OAuth codes, prompts, and sensitive URL
-   parameters cannot appear in TUI errors, stack traces, spans, or metric dimensions. `NIKCLI_DEBUG` remains the existing
+   parameters cannot appear in TUI errors, stack traces, spans, or metric dimensions. EOT-13 owns the span/metric/log
+   schema and the forbidden-dimension list this rule enforces. `NIKCLI_DEBUG` remains the existing
    stack-display control; no new telemetry export or credential exposure defaults.
 
 ## Outcome Matrix

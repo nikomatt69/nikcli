@@ -14,6 +14,7 @@ is not an optimization.
 ## Scope and Non-Goals
 
 Extend existing scripts and tests with reproducible measurements, resource counters, and fail-sensitive comparisons.
+EOT-20 owns the harness layers these measurements run in; this spec owns the budgets and the comparison format.
 No renderer rewrite, new benchmark dependency, remote telemetry requirement, or full-suite CI addition. Documentation
 completion does not imply that this baseline has been collected; the implementation phase must collect it.
 
@@ -67,7 +68,7 @@ silent edit after a failed check. Correctness/resource bounds below are non-nego
 | Retained resources            | Zero residual owner-scoped listeners/timers/fibers after deterministic teardown completion                                                  |
 | Repeated lifecycle RSS        | Last 20-cycle median no more than 10% above post-warmup median; report absolute bytes and native allocations                                |
 | Queue/cache bounds            | Configured count and byte ceilings never exceeded; overload and recovery counters must change in the overload test                          |
-| Instrumentation overhead      | Median hot-path duration within 5% of instrumentation-off run; otherwise keep detailed probes test-only                                     |
+| Instrumentation overhead      | Median hot-path duration within 5% of instrumentation-off run; otherwise keep detailed probes test-only. EOT-13 is held to this budget      |
 
 ## Failure and Cancellation
 

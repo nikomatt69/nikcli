@@ -55,7 +55,8 @@ acknowledgement, add a second event journal, or change all existing best-effort 
    Sequence gaps or compacted cursors require a fresh snapshot, not a guessed offset.
 3. Do not manufacture a global ordering from unrelated aggregate sequence numbers. For unsequenced feeds, ordinary fetch
    plus buffer replay can overwrite newer state. Before promoting recovery, either add a validated snapshot/watermark
-   seam through EOT-10 or demonstrate an existing idempotent versioned reducer protocol. Until then remain visibly stale
+   seam through EOT-15, which produces the readiness gate this spec consumes (contract changes still land through
+   EOT-10), or demonstrate an existing idempotent versioned reducer protocol. Until then remain visibly stale
    and use a full restart/bootstrap recovery, not an assertion of lossless live catch-up.
    A restart is not itself a consistency proof. The recovery readiness gate requires a snapshot watermark tied atomically
    to the replay stream, a server snapshot/subscription barrier, or producer-versioned replacement semantics proven by

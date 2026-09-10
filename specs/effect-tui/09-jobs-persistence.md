@@ -1,6 +1,6 @@
 # EOT-09: Jobs, Persistence, and Resource Budgets
 
-Status: proposed. Tier: 3. Phase: P3. Dependencies: EOT-02, EOT-04, EOT-10.
+Status: proposed. Tier: 1. Phase: P2. Dependencies: EOT-02, EOT-04, EOT-10.
 Owner: nikcli execution/domain repository maintainers. [Roadmap](../ROADMAP.md).
 
 ## Problem and Evidence
@@ -41,7 +41,8 @@ without characterization and review.
    pagination, projections, or indexes only for demonstrated hot paths; derive cache keys from instance/config revision.
    Keep transactions short and perform heavy transforms outside them. Schema/index migrations need explicit approval,
    additive rollout, and existing isolated-database tests; no destructive data cleanup in an optimization PR.
-8. Reuse existing sync journal and snapshot machinery for recoverable state where appropriate. Event coalescing may reduce
+8. Reuse existing sync journal and snapshot machinery for recoverable state where appropriate; EOT-15 owns the
+   snapshot/watermark contract and EOT-16 owns the workspace scope that bounds a job's resources. Event coalescing may reduce
    intermediate progress persistence but must never omit a terminal transition or required user decision. A process crash
    between commit and notification must still recover the final record without rerunning its external side effects.
 
@@ -59,7 +60,8 @@ without characterization and review.
 ## Failure and Cancellation
 
 Use domain `Schema.TaggedError` for admission, process launch, persistence, and timeout failures where introduced; preserve
-full Cause internally. Tool permission denial must occur before launch/admission side effects that need permission. A
+full Cause internally. Tool permission denial must occur before launch/admission side effects that need permission;
+EOT-17 owns that evaluation boundary and the coupling map it enforces. A
 cancelled Promise is not evidence of a killed process: verify process-tree termination, pipe closure, and log finalization
 using supported platform helpers. Do not alter permission coupling (`monitor` to `bash`) during refactoring.
 

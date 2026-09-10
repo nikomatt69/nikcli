@@ -1,34 +1,44 @@
 # Effect and TUI Architecture Roadmap
 
 Status: proposed implementation program. Baseline date: 2026-09-10.
-Scope: `packages/tui` and `packages/nikcli`. [Catalog and evidence](README.md).
+Scope: `packages/tui`, `packages/nikcli`, and the SDK/identity seams they cross. [Catalog and evidence](README.md).
 
 ## Objective
 
-Improve responsiveness, predictable resource usage, failure propagation, and maintainability while preserving the
-standalone TUI, CLI/worker/HTTP modes, existing user workflows, and the current Effect/OpenTUI pins. Deliver vertical
-slices with measured outcomes; do not rewrite every Promise into Effect or every Solid signal into a service.
+Improve responsiveness, predictable resource usage, failure propagation, observability, and maintainability while
+preserving the standalone TUI, CLI/worker/HTTP/mobile modes, existing user workflows, and the current Effect/OpenTUI
+pins. Deliver vertical slices with measured outcomes; do not rewrite every Promise into Effect or every Solid signal
+into a service.
+
+Twenty specifications organize the work across three horizons that match the phase column below: a correctness,
+contract, and evidence baseline (EOT-01..03, EOT-10, EOT-12, EOT-13, EOT-20), a bounded data/state/isolation layer
+(EOT-04, EOT-05, EOT-08, EOT-09, EOT-11, EOT-14..17), and the user-visible experience and bridge surface (EOT-06,
+EOT-07, EOT-18, EOT-19). Each spec is **proposed** — implementation lands in dependency order, one slice at a time.
 
 ## Target Architecture
 
 ```text
-CLI / embedded worker / standalone host
+CLI / embedded worker / standalone host / mobile companion
   -> host capabilities + startup config + shutdown ownership
-  -> generated SDK transport (HTTP or existing worker adapter)
-  -> bounded event admission + recovery + query coordination
+  -> generated SDK transport (HTTP, websocket, worker RPC)
+  -> bridge protocol (typed contracts, JWT-verified)
+  -> bounded event admission + recovery + watermark/snapshot barrier
   -> normalized Solid stores + pure incremental selectors
   -> OpenTUI components, focus routing, measured row window
+  -> observability: spans, metrics, logs, redaction, live panel
 
 Bun.serve / tools / command boundaries
   -> validation + typed Effect services
-  -> existing runtime bridge + InstanceRef / WorkspaceRef
+  -> runtime bridge + InstanceRef / WorkspaceRef / PluginRef
   -> scoped execution, bounded work, domain repositories
   -> committed state + events + redacted observability
+  -> permission/sandbox/policy enforcement at every cross-boundary call
 ```
 
 Pure transforms stay pure. Solid owns reactive state and renderable lifetimes. Effect owns backend dependency graphs,
 typed failures, cancellation, and service resources. The transport adapter is the seam, not a second domain model.
-No TUI import may reach backend runtime, database, account storage, or server implementation code.
+No TUI import may reach backend runtime, database, account storage, or server implementation code. No CLI/mobile code
+may bypass the typed contract.
 
 ## Non-Negotiable Decisions
 
@@ -38,34 +48,60 @@ No TUI import may reach backend runtime, database, account storage, or server im
 2. Use `Schema.TaggedError` for new expected domain failures, retain `Cause`/`Exit` at internal boundaries, and distinguish
    interruption, defect, timeout, transport failure, and an empty successful result.
 3. HttpApi remains the contract authority. `nikcli.json` stays Zod-derived through `fromZod`; generated clients are not
-   handwritten. Do not introduce Hono, hey-api, a parallel config schema, or an alternate database layer.
+   handwritten. Do not introduce Hono, hey-api, a parallel config schema, an alternate database layer, or a parallel
+   plugin runtime.
 4. Bounded queues require a stated overflow/recovery policy. A faster view that drops text, permission prompts, or final
    outcomes is a correctness regression. Safety and tenant isolation outrank performance.
 5. Keep existing tests and CI signals. Do not add the full nikcli suite back to CI; run whole-suite checks locally through
    `bun run test:ci`. Preserve targeted Windows suites, client-drift, formatting/lint, and Railway/Docker guards.
+6. The bridge protocol (CLI / TUI / SDK / mobile / companion / remote) is one typed contract per direction; clients are
+   generated, not handwritten. Capability gating is part of the contract; absent capabilities are surfaced, not silently
+   stubbed.
+7. Workspace is a typed Effect scope; cross-workspace reads of mutable state are typed failures, not silent merges.
+   Identity-based reuse is the canonical way to dedupe; switching is a deterministic, cancellable operation.
+8. Permission/sandbox/policy evaluation is mandatory at every cross-boundary call. A deny is terminal; a prompt is the
+   default for undeclared operations. Headless mode fails closed unless every required decision is pre-resolved.
+9. Observability is a first-class architectural seam: spans, metrics, and logs flow through `Observability.layer` with
+   fixed-cardinality labels and redaction enforced everywhere. OTLP export is opt-in; the in-process live panel is
+   default-on. Redaction is not a configurable option.
+10. Testing follows the three-layer architecture (unit, integration, e2e) with deterministic fixtures, isolated
+    databases, PTY harnesses, and barriers — never `sleep` races. CI does not run the full nikcli suite; whole-suite
+    checks happen locally through `bun run test:ci`.
 
 ## Prioritized Work and Dependencies
 
-Tier 1 = correctness and evidence first; Tier 2 = user-visible performance; Tier 3 = deeper efficiency after evidence.
-Owner names below are responsibility roles, not assignments to unconsulted people. Effort is relative: S is a narrow
-change, M spans a few seams, L requires several separately verified PRs. No calendar dates are promised.
+Tier 1 = correctness and evidence first; Tier 2 = user-visible performance and protocol surface; Tier 3 = deeper
+efficiency after evidence. Owner names below are responsibility roles, not assignments to unconsulted people. Effort is
+relative: S is a narrow change, M spans a few seams, L requires several separately verified PRs. No calendar dates are
+promised.
 
-| ID                                                   | Tier | Phase | Dependencies           | Effort | Risk   | Primary owner     | Release gate                                                |
-| ---------------------------------------------------- | ---- | ----- | ---------------------- | ------ | ------ | ----------------- | ----------------------------------------------------------- |
-| [EOT-01](effect-tui/01-performance-baseline.md)      | 1    | P0    | none                   | M      | Low    | Performance/test  | Reproducible measurements and failure-sensitive assertions  |
-| [EOT-02](effect-tui/02-effect-boundaries.md)         | 1    | P1    | EOT-01                 | L      | High   | Effect/domain     | Typed boundary and multi-instance teardown tests            |
-| [EOT-10](effect-tui/10-contracts-errors-security.md) | 1    | P1    | EOT-01                 | L      | High   | HttpApi/security  | Error/encoding/auth parity and clean generated output       |
-| [EOT-03](effect-tui/03-tui-lifecycle.md)             | 1    | P1    | EOT-02                 | M      | High   | TUI lifecycle     | No stale commits or surviving owner work                    |
-| [EOT-04](effect-tui/04-event-delivery.md)            | 1    | P2    | EOT-02, EOT-10         | L      | High   | Transport/bus     | Bounded lag and verified recovery without silent loss       |
-| [EOT-05](effect-tui/05-reactive-state.md)            | 2    | P2    | EOT-03, EOT-04         | L      | High   | TUI state         | Scoped query/state correctness and stable row identity      |
-| [EOT-08](effect-tui/08-host-plugins-startup.md)      | 2    | P2    | EOT-02, EOT-03         | M      | Medium | Host/plugins      | Standalone and compiled parity; reload resource plateau     |
-| [EOT-06](effect-tui/06-terminal-rendering.md)        | 2    | P3    | EOT-05                 | L      | High   | TUI rendering     | Streaming virtualization, anchor fidelity, measured latency |
-| [EOT-07](effect-tui/07-input-interaction.md)         | 2    | P3    | EOT-03, EOT-05         | M      | High   | TUI interaction   | Keyboard/focus/permission matrix on real terminals          |
-| [EOT-09](effect-tui/09-jobs-persistence.md)          | 3    | P3    | EOT-02, EOT-04, EOT-10 | L      | High   | Execution/storage | Durable terminal states, concurrency bounds, recovery       |
+| ID                                                        | Tier | Phase | Dependencies                   | Effort | Risk   | Primary owner               | Release gate                                                      |
+| --------------------------------------------------------- | ---- | ----- | ------------------------------ | ------ | ------ | --------------------------- | ----------------------------------------------------------------- |
+| [EOT-01](effect-tui/01-performance-baseline.md)           | 1    | P0    | none                           | M      | Low    | Performance/test            | Reproducible measurements and failure-sensitive assertions        |
+| [EOT-02](effect-tui/02-effect-boundaries.md)              | 1    | P1    | EOT-01                         | L      | High   | Effect/domain               | Typed boundary and multi-instance teardown tests                  |
+| [EOT-03](effect-tui/03-tui-lifecycle.md)                  | 1    | P1    | EOT-02                         | M      | High   | TUI lifecycle               | No stale commits or surviving owner work                          |
+| [EOT-10](effect-tui/10-contracts-errors-security.md)      | 1    | P1    | EOT-01                         | L      | High   | HttpApi/security            | Error/encoding/auth parity and clean generated output             |
+| [EOT-12](effect-tui/12-identity-onboarding-auth.md)       | 1    | P1    | EOT-02, EOT-03, EOT-10         | L      | High   | Identity/auth/account       | Typed state machine, no PKCE downgrade, no skipped onboarding     |
+| [EOT-13](effect-tui/13-observability-pipeline.md)         | 1    | P1    | EOT-01, EOT-02                 | M      | Medium | Observability/brain/profile | Fixed schema, redaction, live panel bounded                       |
+| [EOT-20](effect-tui/20-testing-architecture-harnesses.md) | 1    | P1    | EOT-01, EOT-02                 | M      | Low    | Test infra                  | Three-layer harness, deterministic fixtures, no flake wins        |
+| [EOT-04](effect-tui/04-event-delivery.md)                 | 1    | P2    | EOT-02, EOT-10                 | L      | High   | Transport/bus               | Bounded lag and verified recovery without silent loss             |
+| [EOT-09](effect-tui/09-jobs-persistence.md)               | 1    | P2    | EOT-02, EOT-04, EOT-10         | L      | High   | Execution/storage           | Durable terminal states, concurrency bounds, recovery             |
+| [EOT-11](effect-tui/11-provider-inference-streaming.md)   | 1    | P2    | EOT-01, EOT-02, EOT-10         | L      | High   | Provider/llm core           | Adapter unification, cancellation, cache, retry, token accounting |
+| [EOT-14](effect-tui/14-plugin-v2-architecture.md)         | 1    | P2    | EOT-02, EOT-03, EOT-08, EOT-10 | L      | High   | Plugin SDK/runtime          | v2 contract, hot reload, capability gating, scoped generation     |
+| [EOT-15](effect-tui/15-sync-snapshots-watermarks.md)      | 1    | P2    | EOT-04, EOT-05, EOT-09         | L      | High   | Sync/mobile bridge          | Snapshot barrier, watermark, gap handling, multi-device ordering  |
+| [EOT-16](effect-tui/16-workspace-isolation.md)            | 1    | P2    | EOT-02, EOT-03, EOT-09         | M      | High   | Workspace/instance          | Workspace as typed Effect scope, hot switch, isolation tests      |
+| [EOT-17](effect-tui/17-sandbox-permission-boundaries.md)  | 1    | P2    | EOT-02, EOT-09, EOT-10, EOT-11 | L      | High   | Permission/sandbox/policy   | Typed ruleset, coupling respected, sandbox containment            |
+| [EOT-05](effect-tui/05-reactive-state.md)                 | 2    | P2    | EOT-03, EOT-04                 | L      | High   | TUI state                   | Scoped query/state correctness and stable row identity            |
+| [EOT-08](effect-tui/08-host-plugins-startup.md)           | 2    | P2    | EOT-02, EOT-03                 | M      | Medium | Host/plugins                | Standalone and compiled parity; reload resource plateau           |
+| [EOT-19](effect-tui/19-mobile-companion-bridge.md)        | 2    | P3    | EOT-04, EOT-08, EOT-12, EOT-15 | L      | High   | Mobile/companion/remote     | Typed bridge, JWT, websocket, multi-device, capability gating     |
+| [EOT-18](effect-tui/18-cli-command-architecture.md)       | 2    | P3    | EOT-02, EOT-08                 | M      | Medium | CLI dispatch                | Consistent command shape, daemon lifecycle, headless posture      |
+| [EOT-06](effect-tui/06-terminal-rendering.md)             | 2    | P3    | EOT-05                         | L      | High   | TUI rendering               | Streaming virtualization, anchor fidelity, measured latency       |
+| [EOT-07](effect-tui/07-input-interaction.md)              | 2    | P3    | EOT-03, EOT-05                 | M      | High   | TUI interaction             | Keyboard/focus/permission matrix on real terminals                |
 
-Dependencies are exit gates, not permission to stall unrelated characterization tests. EOT-02 and EOT-10 can progress
-independently after P0; EOT-08 need not wait for EOT-04/05. EOT-06, EOT-07, and EOT-09 are independent after their listed
-prerequisites. Run memory-heavy verification serially even when implementation work is independent.
+Dependencies are exit gates, not permission to stall unrelated characterization tests. EOT-02, EOT-10, EOT-12, EOT-13,
+and EOT-20 can progress independently after P0. EOT-08 and EOT-18 need not wait for EOT-04/05/15. EOT-06, EOT-07,
+EOT-19 are independent after their listed prerequisites. Run memory-heavy verification serially even when implementation
+work is independent.
 
 ## Phase Exits
 
@@ -74,30 +110,39 @@ prerequisites. Run memory-heavy verification serially even when implementation w
 - Record versions, host modes, workload fixtures, raw metrics, queue/resource counters, and a baseline comparison format.
 - Add missing behavioral probes before modifying hot paths; characterize existing best-effort and fallback semantics.
 - Ratify EOT-01 candidate budgets in a reviewed baseline artifact. A noisy or missing baseline is not a pass.
+- Define the three-layer testing harness (EOT-20) and run it against the existing suites to confirm no regressions
+  before the first slice lands.
 
-### P1: Make Lifetimes and Failures Explicit
+### P1: Make Lifetimes, Failures, Identity, and Observability Explicit
 
 - Tighten the runtime bridge incrementally; keep compatibility adapters until callers have migrated and tests prove parity.
 - Pilot boundary validation with account and TUI-config flows; prove request cancellation reaches actual I/O.
 - Migrate high-risk dialogs and bootstrap teardown first. Verify late success, late failure, and late resource acquisition.
+- Land the typed identity state machine (EOT-12) and the observability pipeline (EOT-13). One span schema, one
+  metric schema, one log schema, one redaction policy — applied to every cross-boundary call.
+- Wire EOT-20's harness layers so every spec from this phase lands with matching tests, not retroactive scaffolding.
 
-### P2: Bound the Data Path
+### P2: Bound the Data Path and the Bridge Surface
 
 - Apply capacity and recovery policies to HTTP and worker event delivery before consolidating client batches.
-- Separate queries, event reducers, and projections without duplicating authoritative state. Preserve v2 entry rendering.
-- Enforce the host import boundary and scoped plugin reload. Move startup work only when the critical path improves.
+- Introduce snapshot/watermark barriers (EOT-15) for the sync subsystem and the mobile companion.
+- Make workspace a typed Effect scope (EOT-16) and permission/sandbox a typed boundary (EOT-17).
+- Land the plugin v2 contract (EOT-14), the provider-streaming adapter (EOT-11), and the jobs/persistence durability
+  guards (EOT-09) — in this order, because each depends on the prior slice's typed contract.
 
-### P3: Improve the Experience and Execution Core
+### P3: Improve the Experience and the Bridge Orchestration
 
-- Replace estimated row windowing with measured, anchor-preserving rendering; keep selection and pending input reachable.
-- Unify focus/input ownership and extract prompt/session controllers by responsibility.
-- Bound job admission and repository work; prove terminal-state persistence and process cleanup under races and failures.
+- Replace estimated row windowing with measured, anchor-preserving rendering (EOT-06); keep selection and pending input
+  reachable.
+- Unify focus/input ownership (EOT-07) and extract prompt/session controllers by responsibility.
+- Land the mobile companion bridge (EOT-19) and the CLI command architecture (EOT-18) so that the user-facing surfaces
+  share the typed contracts introduced in P1/P2.
 
 ### P4: Consolidate and Release
 
 No new feature scope. Remove only migration adapters proven unused, update this catalog with completion evidence,
-exercise both host modes and supported terminal platforms, and compare final results to P0. Leave any unpassed spec
-proposed/in-progress rather than claiming the architecture program is complete.
+exercise every host mode (CLI, embedded worker, HTTP, standalone, mobile, companion, remote), and compare final results
+to P0. Leave any unpassed spec proposed/in-progress rather than claiming the architecture program is complete.
 
 ## First Implementable Slices
 
@@ -107,11 +152,29 @@ proposed/in-progress rather than claiming the architecture program is complete.
    and ratify candidate budgets before optimization. No production behavior changes.
 2. EOT-02: type one `runService` caller chain without widening requirements; exercise finalizers and concurrent instances.
 3. EOT-10: characterize standalone TUI-config 401, malformed response, and offline failure; forbid empty-config success.
-4. EOT-03: carry abort plus generation checks through one complete dialog request/resource/close flow.
-5. EOT-04: classify event types and test overload before introducing admission caps; retain server encode-once behavior.
+4. EOT-12: lock the identity state machine; pilot one transition (token refresh) through the existing TUI flow;
+   prove that account creation cannot be skipped on first sign-in.
+5. EOT-13: lock the span/metric/log schema; instrument one route group (start with `session`) end-to-end and verify
+   redaction. Keep the live panel rate-limited.
+6. EOT-20: land the three-layer harness and migrate one existing flaky integration test to the barrier pattern.
+7. EOT-03: carry abort plus generation checks through one complete dialog request/resource/close flow.
+8. EOT-04: classify event types and test overload before introducing admission caps; retain server encode-once behavior.
+9. EOT-09: extend monitor or one background job family with capacity/queue/terminal-state guards.
+10. EOT-11: unify the AI SDK → LLMEvent adapter on one provider and one session path; verify byte-identical output.
+11. EOT-14: migrate one internal plugin (`background`) to v2; verify hot reload with late disposer and incompatible manifest.
+12. EOT-15: land the snapshot barrier on `session` first, then extend to `project` and `workspace`.
+13. EOT-16: tighten workspace scope semantics on one operation; verify concurrent isolation.
+14. EOT-17: migrate one permission group (start with file system) to the typed evaluator.
+15. EOT-05: extract one resource family's pure reducer and coordinator; verify replay equivalence.
+16. EOT-08: characterize eager imports and lazy-import one optional feature module off the critical path.
+17. EOT-19: phase in mobile capabilities (start with session lifecycle, then events, then PTY).
+18. EOT-18: migrate command groups (lifecycle first, then identity, then plugin, then the rest).
+19. EOT-06: integrate measured row heights and anchor-preserving scroll behind the existing message-virtualization flag.
+20. EOT-07: extract one prompt controller and one route/plugin input ownership path.
 
 Each slice contains its matching test, source change, measured result when relevant, and rollback note. Do not combine
-an Effect upgrade, transport protocol migration, and virtualization default flip in one PR.
+an Effect upgrade, transport protocol migration, virtualization default flip, observability schema change, and CLI
+migration in one PR.
 
 ## Domain Adoption Map
 
@@ -119,16 +182,18 @@ The inspected hotspots establish the architecture, not an exhaustive defect audi
 specs to adjacent domains in measured slices; first read each domain's current implementation and tests. Existing correct
 Effect services remain unchanged unless a concrete ownership, error, or performance gap is demonstrated.
 
-| Domain family                                        | Applicable specs               | First question before implementation                                                      |
-| ---------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
-| Account/auth/config/permission/question              | EOT-02, EOT-03, EOT-10         | Do validation, abort, and typed failure survive producer-to-UI transport?                 |
-| Session/provider/tool orchestration                  | EOT-02, EOT-04, EOT-09, EOT-10 | Are service crossings, streaming order, concurrency, and terminal outcomes explicit?      |
-| Background/delegation/monitor/loop/mission/scheduler | EOT-02, EOT-04, EOT-09         | Who owns accepted work after disconnect, and how is completion committed?                 |
-| Project/workspace/worktree/sync/database             | EOT-02, EOT-04, EOT-05, EOT-09 | Are contexts isolated, replay consistent, and transaction/cache lifetimes bounded?        |
-| File/LSP/MCP/plugin/connectors                       | EOT-02, EOT-03, EOT-08, EOT-09 | Do watchers, subprocesses, client pools, and config reloads release at the correct scope? |
-| Browser/computer/PTY/image/voice                     | EOT-03, EOT-06, EOT-08, EOT-09 | Can cancellation release native resources and stop late frame/result delivery?            |
-| Analytics/observability/brain/profile                | EOT-01, EOT-05, EOT-09, EOT-10 | Is collection bounded, privacy-preserving, and off the interaction-critical path?         |
-| Share/artifact/mobile/remote integration             | EOT-04, EOT-08, EOT-10         | Do transport capabilities, payload limits, redaction, and generated contracts agree?      |
+| Domain family                                        | Applicable specs                               | First question before implementation                                                      |
+| ---------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Account/auth/config/permission/question              | EOT-02, EOT-03, EOT-10, EOT-12, EOT-17         | Do validation, abort, identity state, and typed failure survive producer-to-UI transport? |
+| Session/provider/tool orchestration                  | EOT-02, EOT-04, EOT-09, EOT-10, EOT-11, EOT-15 | Are service crossings, streaming order, token accounting, and terminal outcomes explicit? |
+| Background/delegation/monitor/loop/mission/scheduler | EOT-02, EOT-04, EOT-09, EOT-13                 | Who owns accepted work after disconnect, and how is completion committed?                 |
+| Project/workspace/worktree/sync/database             | EOT-02, EOT-04, EOT-05, EOT-09, EOT-15, EOT-16 | Are contexts isolated, replay consistent, and transaction/cache lifetimes bounded?        |
+| File/LSP/MCP/plugin/connectors                       | EOT-02, EOT-03, EOT-08, EOT-09, EOT-14, EOT-17 | Do watchers, subprocesses, client pools, and config reloads release at the correct scope? |
+| Browser/computer/PTY/image/voice                     | EOT-03, EOT-06, EOT-08, EOT-09, EOT-19         | Can cancellation release native resources and stop late frame/result delivery?            |
+| Analytics/observability/brain/profile                | EOT-01, EOT-05, EOT-09, EOT-10, EOT-13         | Is collection bounded, privacy-preserving, and off the interaction-critical path?         |
+| Share/artifact/mobile/remote/companion integration   | EOT-04, EOT-08, EOT-10, EOT-12, EOT-15, EOT-19 | Do transport capabilities, payload limits, redaction, and generated contracts agree?      |
+| CLI command dispatch / daemon lifecycle              | EOT-02, EOT-08, EOT-18                         | Is the command shape consistent, the bootstrap shared, and headless posture fail-closed?  |
+| Test infrastructure / harnesses                      | EOT-01, EOT-20                                 | Are layers separated, fixtures deterministic, and races resolved with barriers?           |
 
 Unsupported or unmeasured domains are not scheduled for speculative rewrites. Prioritize a failing correctness invariant
 over the tier order, then return to the dependency gates; record the evidence and revised slice scope in the relevant spec.
@@ -143,27 +208,38 @@ Run commands from the stated package through Bun; use `monitor` for tests, typec
 | Runtime/service            | Narrow `packages/nikcli/test/effect` and changed domain tests; interruption and finalizer assertions                        |
 | TUI lifecycle/state/render | Matching `packages/nikcli/test/tui` tests, real OpenTUI frame assertions, PTY interaction when behavior changes             |
 | HTTP contract              | `bun run generate:httpapi-clients`, `bun run check:routes`, affected server/client tests, tracked generated output reviewed |
-| Host/startup               | `bun run smoke:standalone` in `packages/tui`; `bun run smoke:tui` and compiled startup probe in `packages/nikcli`           |
+| Bridge protocol            | Bridge contract round-trip + capability gating + watermark/snapshot barrier; client and server integration tests            |
+| Identity / auth            | State-machine matrix + controlled local issuer; redaction tests; no skipped onboarding                                      |
+| Observability              | Schema-validated spans/metrics/logs; redaction fuzz; live panel bounded; OTLP smoke against local collector                 |
+| Plugin v2                  | Manifest validation; capability denial; reload concurrency; storage scoping; v1 coexistence                                 |
+| Workspace / sync           | Concurrent isolation; hot switch determinism; barrier end-to-end; multi-device ordering                                     |
+| CLI host/startup           | `bun run smoke:standalone` in `packages/tui`; `bun run smoke:tui` and compiled startup probe in `packages/nikcli`           |
+| Mobile/companion           | JWT round-trip; websocket reconnect; PTY bounded; teleport chunked resume; multi-device ordering                            |
+| Sandbox/permission         | Coupling respected; sandbox containment; headless posture fail-closed; redaction tests                                      |
 | Any implementation slice   | One final root `bun run typecheck` after edits, serialized via the existing root script; affected formatting/lint checks    |
 | Release-sized integration  | Local `bun run test:ci` in `packages/nikcli`, relevant compiled build/smokes, existing CI remains blocking                  |
 
 Do not run root `bun test`: the root script intentionally fails. Do not run repeated typechecks during editing on a
-low-memory machine. A passing typecheck is not proof of cancellation, replay, focus restoration, or rendering correctness.
-Keep raw exit codes, pass/fail counts, fixture parameters, and performance samples with the implementing PR.
+low-memory machine. A passing typecheck is not proof of cancellation, replay, focus restoration, rendering correctness,
+identity state, observability, or bridge correctness. Keep raw exit codes, pass/fail counts, fixture parameters, and
+performance samples with the implementing PR.
 
 ## Migration and Rollback Policy
 
 - Ship one authoritative path per domain. Temporary comparison may duplicate pure projection, never tool execution,
-  network mutation, or database writes.
-- Reuse an existing feature flag where appropriate, especially message virtualization. New flags need a schema-backed
-  default, tests in both states, a removal criterion, and EOT-10 review; do not invent undocumented environment switches.
+  network mutation, database writes, or permission evaluation.
+- Reuse an existing feature flag where appropriate, especially message virtualization, plugin v1→v2 selection, and
+  observability per-route group. New flags need a schema-backed default, tests in both states, a removal criterion,
+  and EOT-10 review; do not invent undocumented environment switches.
 - Rollback swaps an adapter or disables an optimization, not the safety checks. Capacity overflow must remain visible.
-- Storage changes are additive and separately approved; no deletion of user data or old compatibility fields as part of
-  performance work. Preserve downgrade considerations and stop before production/database operations.
+- Storage changes are additive and separately approved; no deletion of user data, accounts, audit history, snapshots,
+  workspace state, plugin storage, or old compatibility fields as part of performance, identity, observability, or
+  bridge work. Preserve downgrade considerations and stop before production/database operations.
 
 ## Deferred Choices
 
 Do not adopt a new global state framework, a browser virtualizer, Effect SQL, Effect AI/CLI, distributed actors, or an
 OpenTUI fork merely because the APIs exist. Reconsider only with a measured bottleneck, a compatibility case, and a
-separate decision. Renderer worker/thread defaults, authentication policy, plugin trust, and telemetry export defaults
-are not changed by this roadmap. No new mandatory external infrastructure or paid service is required.
+separate decision. Renderer worker/thread defaults, authentication policy, plugin trust, telemetry export defaults,
+and CLI headless posture are not changed by this roadmap. No new mandatory external infrastructure or paid service
+is required.
