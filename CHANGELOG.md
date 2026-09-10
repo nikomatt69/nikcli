@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.338.0 (September 2026)
+
+## Core
+
+- Update architecture and specs references in documentation (@nikomatt69)
+- Improve dialog lifecycle tests and add web preview functionality (@nikomatt69)
+- Enhance tests for cellSize and streaming churn (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - test(tui): enhance tests for cellSize and streaming churn
+  - test(tui): improve dialog lifecycle tests and add web preview functionality
+  - docs: update architecture and specs references in documentation
+
 ## v1.337.0 (September 2026)
 
 ## Core

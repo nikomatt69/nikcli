@@ -93,12 +93,7 @@ export function overlayFullyVisible(
  * Drop the image texture and turn the cells back into characters.
  * ECH without spaces is what leaves xterm.js's checkerboard behind.
  */
-export function eraseOverlayRect(
-  rect: OverlayRect,
-  terminalWidth: number,
-  terminalHeight: number,
-  chromeBottom = 0,
-) {
+export function eraseOverlayRect(rect: OverlayRect, terminalWidth: number, terminalHeight: number, chromeBottom = 0) {
   const x = Math.max(0, Math.floor(rect.x))
   const y = Math.max(0, Math.floor(rect.y))
   const right = Math.min(terminalWidth, Math.ceil(rect.x + rect.columns))
@@ -117,7 +112,12 @@ export function eraseOverlayRect(
 
 /** Wipe every cell. A Sixel often overflows its box; Esc must clear that too. */
 export function eraseTerminal(terminalWidth: number, terminalHeight: number) {
-  return eraseOverlayRect({ x: 0, y: 0, columns: terminalWidth, rows: terminalHeight }, terminalWidth, terminalHeight, 0)
+  return eraseOverlayRect(
+    { x: 0, y: 0, columns: terminalWidth, rows: terminalHeight },
+    terminalWidth,
+    terminalHeight,
+    0,
+  )
 }
 
 export function paintOverlay(rect: OverlayRect, bytes: Uint8Array | string) {
@@ -146,7 +146,8 @@ export function fitOverlayCells(
   const rows = Math.max(1, Math.min(bounds.rows, Math.max(1, Math.round(fittedHeight / cell.height))))
   const pixelWidth = Math.max(1, Math.round(columns * cell.width))
   const banded = Math.max(6, Math.ceil((rows * cell.height) / 6) * 6)
-  const pixelHeight = Math.ceil(banded / cell.height) > rows ? Math.max(6, Math.floor((rows * cell.height) / 6) * 6) : banded
+  const pixelHeight =
+    Math.ceil(banded / cell.height) > rows ? Math.max(6, Math.floor((rows * cell.height) / 6) * 6) : banded
   return { columns, rows, pixelWidth, pixelHeight }
 }
 
