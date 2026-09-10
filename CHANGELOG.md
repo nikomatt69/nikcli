@@ -3,6 +3,20 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.340.0 (September 2026)
+
+## Core
+
+- Bound first-run onboarding and report an incomplete session (EOT-12) (@nikomatt69)
+- Guard restartable dialog flows against superseded attempts (EOT-03) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(tui): guard restartable dialog flows against superseded attempts (EOT-03)
+  - perf(tui): characterise the eager import cost and move one dialog off it (EOT-08)
+  - fix(tui): bound first-run onboarding and report an incomplete session (EOT-12)
+
 ## v1.339.0 (September 2026)
 
 ## Core
