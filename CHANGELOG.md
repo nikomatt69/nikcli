@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.336.0 (September 2026)
+
+## Core
+
+- Resolve every Proposed v2 contract (D1/D2), and fix what the audit found (D3) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - docs(specs): resolve every Proposed v2 contract (D1/D2), and fix what the audit found (D3)
+  - deps: move solid-js to the version @opentui/solid declares (U6)
+
 ## v1.335.0 (September 2026)
 
 ## Core
