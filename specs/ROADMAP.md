@@ -8,6 +8,8 @@ Last reconciled against the source: **2026-09-05**. The 2026-08-26 refill is clo
 
 **2026-09-10 — D1:** the thirteen `specs/v2/*` documents that still read **Proposed** were resolved rather than left as a standing backlog. Six are promoted to **Accepted and implemented** on tests that pin their invariants; seven stay Proposed and each now carries a **Missing** row naming the one test that would promote it. The audit was not free of findings: `Log` was writing flat scalar extras without redacting them, so an OAuth `state` and an authorization URL reached the log buffer verbatim while the identical pair nested one level deep was masked. That is fixed, and the fix is pinned. See [Resolve the Proposed v2 contracts (D1)](#resolve-the-proposed-v2-contracts-d1--landed-2026-09-10).
 
+**2026-09-10 — E10:** the last open sentence in this document is measured. The Effect→zod bridge that `partUpdate` depends on has no divergence across all twelve `Part` members, and `test/session/part-schema-bridge.test.ts` pins the absence instead of asserting it.
+
 **2026-09-10 — U6:** the one thing U4 left open is closed — solid-js is on `1.9.12`, the version `@opentui/solid@0.5.10` declares, and `packages/bench-tui`'s literal pin moved onto the catalog before it could become a second resolved copy.
 
 **2026-09-10 — D3:** the two failures the suite had been carrying were both real bugs, not environment: a CodeMode signature regression from the E6 pin bump, and an OpenAPI component rename. `bun run test:ci` is **16 of 16 batches, 392 files, 4157 pass, 0 fail** — there is no known-red test left.
@@ -46,6 +48,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | **D2**  | Done    | The seven named tests written; every v2 contract is Accepted (2026-09-10)                       |
 | **D3**  | Done    | The two standing suite failures diagnosed and fixed; the suite is green end to end (2026-09-10) |
 | **U6**  | Done    | solid-js moved to the version `@opentui/solid` declares (2026-09-10)                            |
+| **E10** | Done    | The Effect→zod bridge on `partUpdate` measured and pinned (2026-09-10)                          |
 | **T4**  | Done    | CodeMode syntax subset re-decided and widened (landed 2026-09-09)                               |
 | **U4**  | Done    | OpenTUI 0.5.10; patch retargeted, not dropped (landed 2026-09-09)                               |
 | **U5**  | Done    | Storybook harness + pending-input story (landed 2026-09-09)                                     |
@@ -329,6 +332,15 @@ The engineering order was empty after C3, and the repository's own leftovers had
 - **What did not become a test, and why the contract still promoted** — Nothing. Every Missing row was closed, including the workspace forwarding leg D1 had judged not worth faking: a `container` workspace resolves its target from config alone, so a stub `Bun.serve` observes a real forward without a runtime.
 - **Not in scope** — Widening any contract. Where a test could only be written by changing behaviour, the behaviour stayed and the document was corrected instead.
 
+### Measure the Effect→zod bridge on `partUpdate` (E10) — closed 2026-09-10
+
+- **Buys** — Closing the last recorded uncertainty in this document, one way or the other. E9 landed the declared 400 and left a sentence behind: `MessageV2.Part.parse(payload)` sits one line above it and throws for a body the Effect payload schema accepted, which is a 500 and "means the two schema systems disagree, which is a bug in this repository rather than a mistake by the caller — and there is no divergence in the tree today to pin a test on. No item opened."
+- **Evidence** — `PATCH /session/:id/message/:id/part/:id` runs a body through both schemas: `HttpApiEndpoint.patch(..., { payload: MessagePart })` decodes with `MessageV2.PartSchema`, then `httpapi/session.ts:952` calls `MessageV2.Part.parse` on the decoded value. `MessageV2.Part` is `zod(PartSchema)` — derived by the Effect→zod AST walker in `packages/util/src/effect-zod.ts`, not hand-written — so a divergence is a translation gap, and its symptom is a 500 on a request that already passed the contract.
+- **Done when** — Either a body is found that the Effect schema accepts and the derived zod rejects (which admits an item with a wire consequence), or the absence is turned into a check someone else can run. Not a third state, and not another sentence.
+- **Outcome — no divergence, and it is pinned rather than asserted.** All twelve members of `PartSchema` were sampled, plus the shapes most likely to fall through a translation gap: an optional key present, `Schema.Record` with mixed value types, a record holding `undefined`, a `Schema.Number.check(isInt())` source, an extra key the `strip` annotation drops, all four `ToolState` variants, and a completed tool state carrying a nested `FilePart` attachment. Every one that the Effect schema accepts, the derived zod accepts. `test/session/part-schema-bridge.test.ts` is the check.
+- **What the measurement corrected on the way** — Two things the earlier reasoning had assumed. First, `Schema.Number`'s JSON Schema advertises `"NaN"` / `"Infinity"` / `"-Infinity"` as string alternatives, but `decodeUnknownSync` at this boundary **rejects** them — so the sentinel strings were never a divergence candidate, and D3's removal of them from CodeMode signatures was removing something the decoder would refuse anyway. Second, the coverage assertion was written against a hand-listed set of member names and passed while `tool` — the largest variant, with a four-member nested union — had no sample at all. It reads the member list out of the union's AST now, and dropping any single sample turns it red.
+- **Not in scope** — Making the handler tolerant. If a divergence is ever found, the fix is the walker or the schema, not a `try`/`catch` that turns a translation bug into a 400.
+
 ### Align solid-js with what OpenTUI declares (U6) — landed 2026-09-10
 
 - **Buys** — Running the Solid runtime the renderer was compiled against. U4 left this open deliberately rather than folding it in silently, and named it as the one thing that bump did not settle.
@@ -360,7 +372,11 @@ The engineering order was empty after C3, and the repository's own leftovers had
 - **Observation, mismatch, timeout** — `script/check-release-identity.ts` probes `/global/health` on a bounded schedule (default 600s, 900s in CI). A different revision mid-rollout is tolerated _within_ the window, because the old container legitimately serves until it is replaced, and rejected _at_ the deadline. Unhealthy, absent revision, and timeout are all rejections. A detached upload that is never confirmed is a failed release, not a pending one.
 - **Not in scope** — Automatic production rollback. A failed observation fails the release decision; the next upload still has to match. Railway exposes no deployment id through `railway up --detach`, so the recorded association is revision + service + environment, not an upload id.
 - **Acceptance** — `bun test test/release/release-identity.test.ts` (from `packages/nikcli`) covers the probe against a served health body: match accepted; same version with a different revision rejected; an instance with no `revision` rejected; unhealthy rejected; nothing serving rejected; missing URL or expectation refused with exit 2. It also pins the wiring — the build define, the baked-not-environment read, the `optionalKey` contract, the regenerated `GlobalHealth`, the Dockerfile hand-off, the write-after-rsync ordering, and the CI step ordering. `bun run script/ci-validate.ts` stays green, including generated-client drift.
-- **Still open** — The two-upload production window. It needs deploy permission and cannot be run from a checkout. C3 supplies the identity that window compares; it does not close it.
+- **Exercised against a real server (2026-09-10), which the unit tests could not do** — The compiled binary at `dist/nikcli-ai-darwin-arm64/bin/nikcli` was built from `a30188cfc7` and then `serve`d on a scratch home; `GET /global/health` answered `{"healthy":true,"version":"0.0.0-live-main-202609101252","revision":"a30188cfc7…"}`. Three probes against it, no mocks:
+  - expected `a30188cfc7…` → `✓ observed … after 0s (1 probes)`, exit **0**;
+  - expected `2ff46c310a…` (the newer commit the checkout was on) → two probes reporting `still serving a30188cfc7…`, then rejected at the deadline, exit **1**. That is the **old-healthy-instance case** the product brief asks for, staged honestly rather than faked: the process really was compiled from an earlier commit and really was reporting itself correctly;
+  - nothing listening → `unreachable`, rejected at the deadline, exit **1**.
+- **Still open** — The two-upload **production** window. It needs deploy permission and cannot be run from a checkout. The probe itself is now proven end to end, so what remains is an operator action against Railway, not a question about whether the gate works.
 
 ### Align active Bun runtimes (B1) — validated 2026-09-09, implemented locally 2026-09-07
 
@@ -1056,7 +1072,7 @@ The last of the three `Effect.gen` `throw`s E8's sweep found, and the only one E
 
 **Nothing in CI would have caught either the bug or the fix.** `test/server` runs in no workflow — see the correction above — so the route test added here is met by local runs only.
 
-**Left alone, deliberately.** `MessageV2.Part.parse(payload)` sits one line above the check and throws for a body the Effect payload schema accepted and zod rejects. That is still a defect and still a 500. It is not the same failure — it means the two schema systems disagree, which is a bug in this repository rather than a mistake by the caller — and there is no divergence in the tree today to pin a test on. No item opened.
+**Left alone, deliberately — measured and closed as [E10](#measure-the-effectzod-bridge-on-partupdate-e10--closed-2026-09-10) on 2026-09-10.** `MessageV2.Part.parse(payload)` sits one line above the check and throws for a body the Effect payload schema accepted and zod rejects. That is still a defect and still a 500. It is not the same failure — it means the two schema systems disagree, which is a bug in this repository rather than a mistake by the caller — and there was no divergence in the tree to pin a test on. E10 sampled all twelve union members and found none, and pins the absence.
 
 ### 2026-09-09 — B1 / C2 closed on the full runner, and C3 (revision-bearing release identity)
 
@@ -1166,6 +1182,22 @@ The last of the three `Effect.gen` `throw`s E8's sweep found, and the only one E
 
 **Verified.** One resolved `solid-js`; `bun install --frozen-lockfile` clean; typecheck 35 of 35; `test/tui/` 478/0; `test/release/` 243/0; `ci-validate.ts` 12 of 12.
 
+### 2026-09-10 (last) — C3's gate run against a real server
+
+**The probe had five unit tests and had never judged a running instance.** It does now, and the case that mattered most was free: the compiled binary in `dist/` was built from `a30188cfc7`, while the checkout had moved on to `2ff46c310a`. Serving that binary produces a genuine older instance reporting itself correctly — the exact shape a failed Railway build leaves behind, with no fixture in sight.
+
+**Three probes, all against `GET /global/health` on a real `nikcli serve`.** Expecting the revision that is serving: `✓ observed … after 0s (1 probes)`, exit 0. Expecting the newer commit: two rounds of `still serving a30188cfc7…`, then rejected at the deadline with "A detached upload that is never confirmed is a failed release, not a pending one", exit 1. Nothing listening: `unreachable`, rejected, exit 1.
+
+**What that closes and what it does not.** The product brief's evidence gate asked for two approved uploads plus a failed-build case and an old-healthy-instance case. The old-healthy-instance case is closed here, and so is unreachable. The two uploads and a real failed build still need Railway, which a checkout cannot do. The difference now is narrow but real: what is left is an operator action, not an open question about whether the gate works.
+
+### 2026-09-10 (final) — E10: the last open sentence, measured
+
+**E9 left one line of doubt and it is now a test.** The `partUpdate` handler decodes a body with the Effect payload schema and then re-parses it with `MessageV2.Part`, which the Effect→zod walker derives from the same schema. If the two ever disagree the caller gets a 500 for a body the contract accepted. The roadmap recorded that, said there was no divergence to pin, and opened nothing.
+
+**There is no divergence, across all twelve union members.** Sampled with the shapes most likely to fall through a walker gap — an optional key present, a mixed-value `Schema.Record`, a record holding `undefined`, a checked-integer field, an extra key the `strip` annotation drops, every `ToolState` variant, and a completed tool state with a nested `FilePart` attachment. Whatever the Effect schema accepts, the derived zod accepts.
+
+**Two assumptions died on the way, both worth keeping.** `Schema.Number` advertises `"NaN"` and the infinities in its **JSON Schema** but its decoder rejects them at this boundary — so those strings were never a divergence candidate, and what D3 removed from CodeMode signatures was advertising values the decoder would refuse. And the first version of the coverage assertion compared the samples against a list written beside them: it passed while `tool`, the largest variant, had no sample at all. It reads the union's AST now, and removing any one sample turns it red — checked by doing exactly that.
+
 ## Follow working rules
 
 - Commit at phase boundaries, not per file. H4 and H5 land together.
@@ -1175,5 +1207,5 @@ The last of the three `Effect.gen` `throw`s E8's sweep found, and the only one E
 - After an HttpApi contract change, run `bun run generate:httpapi-clients` from `packages/nikcli` and commit the generated output.
 - `bun run check:routes` is the inventory gate today. `--strict` is honored as of H4 (same rules as default; future strict-only checks land in `script/check-route-coverage.ts`).
 - The TUI packaging check is `bun run smoke:tui` and `bun run smoke:story` in `packages/nikcli`, not `--version` or `--help`. (There is no `smoke:standalone` script; earlier entries name one that does not exist.) Both auto-detect the binary in `dist/`, so **rebuild first** — otherwise they smoke whatever was last built.
-- **The unit-suite baseline is green.** `bun run test:ci` in `packages/nikcli` was 16 of 16 batches, 392 files, 4157 pass, 0 fail on 2026-09-10 (D3). There is no known-red test: a failure is a regression or a load flake, and the way to tell them apart is to re-run the file alone. Do not add an exemption to this list — the two that used to live here were both real bugs.
+- **The unit-suite baseline is green.** `bun run test:ci` in `packages/nikcli` was 16 of 16 batches, 393 files, 4181 pass, 0 fail on 2026-09-10 (D3, then E10). There is no known-red test: a failure is a regression or a load flake, and the way to tell them apart is to re-run the file alone. Do not add an exemption to this list — the two that used to live here were both real bugs.
 - Prefer Effect v4 APIs already in the tree (`Schema.optionalKey`, `Schema.TaggedError`, `Effect.fn`, `HttpApiMiddleware`) over new wrappers. Verify against `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src`, which ship with the pin. Repo-specific `layer` / `defaultLayer` naming, `runPromiseWithLayer`, and `fromZod` for `nikcli.json` are in `.nikcli/skill/effect-v4/SKILL.md`.
