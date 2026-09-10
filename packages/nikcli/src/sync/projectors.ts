@@ -14,7 +14,8 @@ let installed = false
  * thing that discovers the system was not wired up.
  *
  * The import is dynamic so this module carries no dependency on the session
- * import graph (which reaches the AI SDKs); see specs/startup-performance.md.
+ * import graph (which reaches the AI SDKs); see
+ * `specs/effect-tui/08-host-plugins-startup.md`.
  */
 export async function installProjectors(): Promise<void> {
   if (installed) return

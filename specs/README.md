@@ -107,32 +107,37 @@ Do not assume an `onScroll` JSX prop or browser DOM virtualization library exist
 
 At inspection, `specs/` and `docs/architecture/` were empty and no on-disk roadmap was found in `specs`, `docs`, or `.goals`.
 Live source comments for TUI extraction, event delivery, cache eviction, request throttling, message virtualization,
-plugin v2 selection, and the new llm package now point at this catalog. Historical `specs/v2/` and `specs/storage/` paths
-that described other landed subsystems were not reconstructed. This catalog does not mark those historical documents
-complete. Existing [sync architecture documentation](../docs/sync-architecture.md) remains a reference; recheck
-implementation details before changing replay semantics.
+plugin v2 selection, and the new llm package now point at this catalog.
 
-| Historical topic                                 | Continuation in this roadmap                                   |
-| ------------------------------------------------ | -------------------------------------------------------------- |
-| Runtime/instance R2 and Effect service migration | EOT-02                                                         |
-| Dialog lifecycle and cancellation                | EOT-03                                                         |
-| Event stream architecture                        | EOT-04                                                         |
-| Cache eviction and request throttling            | EOT-05                                                         |
-| Message virtualization and streaming churn       | EOT-06                                                         |
-| TUI package extraction and startup               | EOT-08                                                         |
-| SQL storage consolidation                        | EOT-09                                                         |
-| HttpApi encoding, schema reuse, and clients      | EOT-10                                                         |
-| CLI command surface (gated inventory)            | [specs/cli-command-surface.md](cli-command-surface.md), EOT-18 |
-| Provider streaming and AI SDK adapter            | EOT-11                                                         |
-| Identity / auth / onboarding                     | EOT-12                                                         |
-| Observability pipeline and tracing               | EOT-13                                                         |
-| Plugin v2 contract and hot reload                | EOT-14                                                         |
-| Sync snapshots and watermarks                    | EOT-15                                                         |
-| Workspace as Effect scope                        | EOT-16                                                         |
-| Sandbox and permission architecture              | EOT-17                                                         |
-| CLI command architecture and dispatch            | EOT-18                                                         |
-| Mobile companion bridge                          | EOT-19                                                         |
-| Testing architecture and harnesses               | EOT-20                                                         |
+`specs/v2/`, `specs/storage/`, `specs/tui-package.md` and `specs/PRODUCT_ROADMAP.md` were deleted in af5546f8c9, a commit
+whose message covers only TUI tests. They are restored: 38 source comments cite them, and
+`test/cli/command-surface.test.ts` reads `specs/v2/cli-command-surface.md` as a gate, so its loss made that test fail on
+HEAD. Those documents record subsystems that **shipped**; the specs in this catalog are **proposed**. They are not
+alternatives to each other, and this catalog does not mark the historical documents complete or superseded. Existing
+[sync architecture documentation](../docs/sync-architecture.md) remains a reference; recheck implementation details
+before changing replay semantics.
+
+| Historical topic                                 | Continuation in this roadmap                                         |
+| ------------------------------------------------ | -------------------------------------------------------------------- |
+| Runtime/instance R2 and Effect service migration | EOT-02                                                               |
+| Dialog lifecycle and cancellation                | EOT-03                                                               |
+| Event stream architecture                        | EOT-04                                                               |
+| Cache eviction and request throttling            | EOT-05                                                               |
+| Message virtualization and streaming churn       | EOT-06                                                               |
+| TUI package extraction and startup               | EOT-08                                                               |
+| SQL storage consolidation                        | EOT-09                                                               |
+| HttpApi encoding, schema reuse, and clients      | EOT-10                                                               |
+| CLI command surface (gated inventory)            | [specs/v2/cli-command-surface.md](v2/cli-command-surface.md), EOT-18 |
+| Provider streaming and AI SDK adapter            | EOT-11                                                               |
+| Identity / auth / onboarding                     | EOT-12                                                               |
+| Observability pipeline and tracing               | EOT-13                                                               |
+| Plugin v2 contract and hot reload                | EOT-14                                                               |
+| Sync snapshots and watermarks                    | EOT-15                                                               |
+| Workspace as Effect scope                        | EOT-16                                                               |
+| Sandbox and permission architecture              | EOT-17                                                               |
+| CLI command architecture and dispatch            | EOT-18                                                               |
+| Mobile companion bridge                          | EOT-19                                                               |
+| Testing architecture and harnesses               | EOT-20                                                               |
 
 ## Open Payloads
 

@@ -11,7 +11,7 @@ export, generate, github, goal, heap, image-model, import, locale, mcp, mission,
 remote, routine, run, serve, session, speak-model, stats, sync, teleport, tui, uninstall, upgrade, usage, web,
 workspace-serve). Each command is a `yargs` `CommandModule`; subcommands are nested under `cmd/debug/` and `cmd/tui/`.
 `cli/effect/prompt.ts` wraps `@clack/prompts` in Effect. The registered set is
-already gated: [`specs/cli-command-surface.md`](../cli-command-surface.md) is the inventory and
+already gated: [`specs/v2/cli-command-surface.md`](../v2/cli-command-surface.md) is the inventory and
 `test/cli/command-surface.test.ts` fails if a command is added or removed without updating it. The opportunity is a single architectural spec covering
 command routing, plugin command registration, daemon/attach coordination, and the dispatch lifecycle (parse → bootstrap
 → service → teardown). Right now each command is an independent module with no shared command lifecycle spec.

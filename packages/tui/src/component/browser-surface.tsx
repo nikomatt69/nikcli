@@ -10,7 +10,7 @@
  * removes it on unmount, so closing the dialog never leaves a headless
  * WebView running. Everything it needs from the daemon is imported lazily —
  * a TUI that never opens a browser must not pay for WebView startup in
- * the module graph (`specs/startup-performance.md`).
+ * the module graph (`specs/effect-tui/08-host-plugins-startup.md`).
  */
 import { RGBA } from "@opentui/core"
 import type { BoxRenderable, MouseEvent } from "@opentui/core"

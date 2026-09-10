@@ -15,7 +15,7 @@ import path from "path"
 
 const packageRoot = path.join(import.meta.dir, "../..")
 const mainPath = path.join(packageRoot, "src/cli-main.ts")
-const docPath = path.join(packageRoot, "../../specs/cli-command-surface.md")
+const docPath = path.join(packageRoot, "../../specs/v2/cli-command-surface.md")
 
 /** `command: "mission <id>"` → `mission`; `$0 [project]` keeps its `$0`. */
 function nameOf(spec: string): string {
