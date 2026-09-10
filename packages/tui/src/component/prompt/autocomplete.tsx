@@ -300,7 +300,7 @@ export function Autocomplete(props: {
     const { filename, part } = createFilePart(item, lineRange)
     const index = store.visible === "@" ? store.index : props.input().cursorOffset
 
-    command.keybinds(true)
+    releaseKeybinds()
     setStore("visible", false)
     setStore("index", index)
     insertPart(filename, part)
@@ -585,8 +585,29 @@ export function Autocomplete(props: {
     setStore("selected", 0)
   }
 
-  function show(mode: "@" | "/") {
+  /**
+   * `command.keybinds` is a suspend *counter*, not a boolean: every release has
+   * to answer an acquire this component actually made. Insert and hide both
+   * released unconditionally, so an insert followed by a hide — or a hide with
+   * the list already closed — decremented the count past zero and re-armed the
+   * global keybinds while another owner still wanted them suspended. One flag
+   * owns the pairing, and unmount releases whatever is still held.
+   */
+  let suspending = false
+  function acquireKeybinds() {
+    if (suspending) return
+    suspending = true
     command.keybinds(false)
+  }
+  function releaseKeybinds() {
+    if (!suspending) return
+    suspending = false
+    command.keybinds(true)
+  }
+  onCleanup(releaseKeybinds)
+
+  function show(mode: "@" | "/") {
+    acquireKeybinds()
     setStore({
       visible: mode,
       index: props.input().cursorOffset,
@@ -603,7 +624,7 @@ export function Autocomplete(props: {
         draft.input = props.input().plainText
       })
     }
-    command.keybinds(true)
+    releaseKeybinds()
     setStore("visible", false)
   }
 

@@ -1,5 +1,5 @@
 import { TextAttributes } from "@opentui/core"
-import { For, type JSX } from "solid-js"
+import { For, Show, type JSX } from "solid-js"
 import { useTheme } from "@tui/context/theme"
 import { useKeybind } from "@tui/context/keybind"
 
@@ -10,17 +10,20 @@ export function FooterHintAction(props: { action: string; label?: string }) {
   const key = () => keybind.print(props.action)
   const label = () => props.label ?? props.action.replace(/_/g, " ")
 
-  if (!key()) return null
-
+  // Keybinds arrive with the config, so the first render can legitimately have
+  // no key for an action that gets one a tick later. An early `return null` ran
+  // once, outside any reactive scope, and the hint never came back.
   return (
-    <box flexDirection="row" gap={1} alignItems="baseline">
-      <text fg={t.theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
-        {key()}
-      </text>
-      <text fg={t.theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
-        {` ${label()}`}
-      </text>
-    </box>
+    <Show when={key()}>
+      <box flexDirection="row" gap={1} alignItems="baseline">
+        <text fg={t.theme.foreground.default} attributes={TextAttributes.BOLD} wrapMode="none">
+          {key()}
+        </text>
+        <text fg={t.theme.foreground.muted} attributes={TextAttributes.DIM} wrapMode="none">
+          {` ${label()}`}
+        </text>
+      </box>
+    </Show>
   )
 }
 

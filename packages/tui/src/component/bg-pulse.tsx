@@ -1,6 +1,7 @@
 import { BoxRenderable, RGBA } from "@opentui/core"
-import { createMemo, createSignal, For, onCleanup, onMount } from "solid-js"
+import { createMemo, createSignal, Index, onCleanup, onMount } from "solid-js"
 import { tint, useTheme } from "@tui/context/theme"
+import { useKV } from "@tui/context/kv"
 
 const PERIOD = 4600
 const RINGS = 3
@@ -24,13 +25,15 @@ export type BgPulseMask = {
 
 export function BgPulse(props: { centerX?: number; centerY?: number; masks?: BgPulseMask[] }) {
   const { theme } = useTheme()
+  const kv = useKV()
+  const animations = () => kv.get("animations_enabled", true)
   const [now, setNow] = createSignal(performance.now())
   const [size, setSize] = createSignal<{ width: number; height: number }>({ width: 0, height: 0 })
   let box: BoxRenderable | undefined
 
   // Adaptive frame-rate: start at ~20fps, back off to ~10fps when frames cost more than the budget.
   let interval = 50
-  let timer: ReturnType<typeof setTimeout>
+  let timer: ReturnType<typeof setTimeout> | undefined
   let lastFrameStart = performance.now()
   const tick = () => {
     const start = performance.now()
@@ -39,10 +42,15 @@ export function BgPulse(props: { centerX?: number; centerY?: number; masks?: BgP
     else if (cost < 5 && interval > 50) interval = 50
     lastFrameStart = start
     setNow(start)
+    if (!animations()) return
     timer = setTimeout(tick, interval)
   }
-  timer = setTimeout(tick, interval)
-  onCleanup(() => clearTimeout(timer))
+  // With animations off the grid is still painted once — the gradient is part
+  // of the backdrop, the motion is the part someone turned off.
+  if (animations()) timer = setTimeout(tick, interval)
+  onCleanup(() => {
+    if (timer) clearTimeout(timer)
+  })
 
   const sync = () => {
     if (!box) return
@@ -123,21 +131,26 @@ export function BgPulse(props: { centerX?: number; centerY?: number; masks?: BgP
     return rows
   })
 
+  // `Index`, not `For`: every tick builds a fresh `RGBA[][]`, and `For` keys by
+  // reference — so it destroyed and re-created one `<text>` renderable per cell
+  // per frame (~1900 on an 80x24 terminal, twenty times a second). `Index` keys
+  // by position and hands the value down as a signal, so the cells are built
+  // once and a tick only writes new colors onto them.
   return (
     <box ref={(item: BoxRenderable) => (box = item)} width="100%" height="100%">
-      <For each={grid()}>
+      <Index each={grid()}>
         {(row) => (
           <box flexDirection="row">
-            <For each={row}>
+            <Index each={row()}>
               {(color) => (
-                <text bg={color} fg={color} selectable={false}>
+                <text bg={color()} fg={color()} selectable={false}>
                   {" "}
                 </text>
               )}
-            </For>
+            </Index>
           </box>
         )}
-      </For>
+      </Index>
     </box>
   )
 }

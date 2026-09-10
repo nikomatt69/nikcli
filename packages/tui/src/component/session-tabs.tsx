@@ -88,6 +88,10 @@ export function SessionTabs() {
   const layout = createMemo(() => layoutSessionTabs(tabs.ids(), activeID(), dimensions().width))
 
   useKeyboard((event) => {
+    // A modal owns the keyboard while it is up. Without this the tab shortcuts
+    // still fired underneath it, so ctrl+tab inside a dialog switched the
+    // session behind the dialog and left it open over the wrong one.
+    if (dialog.stack.length > 0) return
     if (event.ctrl && event.name === "tab") {
       event.preventDefault()
       tabs.cycle(event.shift ? -1 : 1)

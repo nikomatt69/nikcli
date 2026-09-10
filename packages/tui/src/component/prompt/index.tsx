@@ -186,6 +186,24 @@ export function Prompt(props: PromptProps) {
   let autocomplete: AutocompleteRef
   let interruptResetTimer: ReturnType<typeof setTimeout> | undefined
 
+  function liveComposer() {
+    if (!input || input.isDestroyed) return undefined
+    return input
+  }
+
+  function clearComposer() {
+    const current = liveComposer()
+    if (!current) return
+    try {
+      current.extmarks.clear()
+    } catch {
+      // EditBuffer already gone (route change, CSI overlay, unmount).
+    }
+    try {
+      current.clear()
+    } catch {}
+  }
+
   const keybind = useKeybind()
   const local = useLocal()
   const sdk = useSDK()
@@ -893,8 +911,7 @@ export function Prompt(props: PromptProps) {
         category: "Prompt",
         hidden: true,
         onSelect: (dialog) => {
-          input.extmarks.clear()
-          input.clear()
+          clearComposer()
           dialog.clear()
         },
       },
@@ -1082,8 +1099,7 @@ export function Prompt(props: PromptProps) {
       input.gotoBufferEnd()
     },
     reset() {
-      input.clear()
-      input.extmarks.clear()
+      clearComposer()
       setStore("prompt", {
         input: "",
         parts: [],
@@ -1115,7 +1131,9 @@ export function Prompt(props: PromptProps) {
   })
 
   function restoreExtmarksFromParts(parts: PromptInfo["parts"]) {
-    input.extmarks.clear()
+    const current = liveComposer()
+    if (!current) return
+    current.extmarks.clear()
     setStore("extmarkToPartIndex", new Map())
 
     parts.forEach((part, partIndex) => {
@@ -1142,7 +1160,7 @@ export function Prompt(props: PromptProps) {
       }
 
       if (virtualText) {
-        const extmarkId = input.extmarks.create({
+        const extmarkId = current.extmarks.create({
           start,
           end,
           virtual: true,
@@ -1159,7 +1177,9 @@ export function Prompt(props: PromptProps) {
   }
 
   function syncExtmarksWithPromptParts() {
-    const allExtmarks = input.extmarks.getAllForTypeId(promptPartTypeId)
+    const current = liveComposer()
+    if (!current) return
+    const allExtmarks = current.extmarks.getAllForTypeId(promptPartTypeId)
     setStore(
       produce((draft) => {
         const newMap = new Map<number, number>()
@@ -1204,8 +1224,7 @@ export function Prompt(props: PromptProps) {
           input: store.prompt.input,
           parts: store.prompt.parts,
         })
-        input.extmarks.clear()
-        input.clear()
+        clearComposer()
         setStore("prompt", { input: "", parts: [] })
         setStore("extmarkToPartIndex", new Map())
         dialog.clear()
@@ -1297,6 +1316,38 @@ export function Prompt(props: PromptProps) {
     },
   ])
 
+  /**
+   * Put a rejected submission back in the composer.
+   *
+   * The composer clears optimistically — the answer arrives over the sync
+   * stream, not from the call — so a failed shell or slash command used to
+   * delete what the user typed and say nothing. Restoring is skipped once the
+   * composer holds anything again: whatever the user is typing now outranks a
+   * request that already failed.
+   */
+  function restoreSubmission(text: string, mode: "normal" | "shell") {
+    try {
+      if (input.plainText.length > 0) return
+      input.setText(text)
+      input.gotoBufferEnd()
+      setStore("prompt", "input", text)
+      setStore("mode", mode)
+    } catch {
+      // The composer this submission came from is gone — the home prompt
+      // navigates to the session route right after submitting. The toast has
+      // already told the user; there is nothing left to restore into.
+    }
+  }
+
+  function reportSubmitFailure(error: unknown, text: string, mode: "normal" | "shell") {
+    toast.show({
+      message: friendlyErrorMessage(error, "Failed to send — check your connection or provider"),
+      variant: "error",
+      duration: 5000,
+    })
+    restoreSubmission(text, mode)
+  }
+
   async function submit(delivery: "queue" | "steer" = "queue") {
     if (props.disabled) return
     if (autocomplete?.visible) return
@@ -1379,15 +1430,20 @@ export function Prompt(props: PromptProps) {
       : []
 
     if (store.mode === "shell") {
-      sdk.client.session.shell({
-        sessionID,
-        agent: local.agent.current().name,
-        model: {
-          providerID: selectedModel.providerID,
-          modelID: selectedModel.modelID,
-        },
-        command: inputText,
-      })
+      void sdk.client.session
+        .shell({
+          sessionID,
+          agent: local.agent.current().name,
+          model: {
+            providerID: selectedModel.providerID,
+            modelID: selectedModel.modelID,
+          },
+          command: inputText,
+        })
+        .then(({ error }) => {
+          if (error) reportSubmitFailure(error, inputText, "shell")
+        })
+        .catch((error: unknown) => reportSubmitFailure(error, inputText, "shell"))
       setStore("mode", "normal")
     } else if (
       inputText.startsWith("/") &&
@@ -1425,7 +1481,15 @@ export function Prompt(props: PromptProps) {
       for (const delay of [100, 500, 1500]) {
         setTimeout(() => void sync.session.refreshPending(sessionID).catch(() => undefined), delay)
       }
-      void request.then(() => sync.session.refreshPending(sessionID).catch(() => undefined))
+      void request
+        .then(({ error }) => {
+          if (error) {
+            reportSubmitFailure(error, inputText, "normal")
+            return
+          }
+          return sync.session.refreshPending(sessionID).catch(() => undefined)
+        })
+        .catch((error: unknown) => reportSubmitFailure(error, inputText, "normal"))
     } else {
       sdk.client.session
         .promptAsync(
@@ -1478,7 +1542,7 @@ export function Prompt(props: PromptProps) {
       ...store.prompt,
       mode: currentMode,
     })
-    input.extmarks.clear()
+    clearComposer()
     setStore("prompt", {
       input: "",
       parts: [],
@@ -1495,7 +1559,6 @@ export function Prompt(props: PromptProps) {
           workspaceID: props.workspaceID ?? sync.session.get(sessionID)?.workspaceID,
         })
       }, 50)
-    input.clear()
   }
   const { exit } = useExit()
 
@@ -1821,8 +1884,7 @@ export function Prompt(props: PromptProps) {
                 }
 
                 if (keybind.match("input_clear", e) && store.prompt.input !== "") {
-                  input.clear()
-                  input.extmarks.clear()
+                  clearComposer()
                   setStore("prompt", {
                     input: "",
                     parts: [],

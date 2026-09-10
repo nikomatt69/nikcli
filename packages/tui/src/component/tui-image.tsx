@@ -1,40 +1,34 @@
 import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js"
-import { BoxRenderable, type CliRenderer, RGBA } from "@opentui/core"
+import { RGBA } from "@opentui/core"
 import { useRenderer } from "@opentui/solid"
 import {
   applyLiveCapabilities,
-  bestOverlayProtocol,
+  chooseInlineImageRenderer,
   detectCapabilities,
-  encodeIterm2Bytes,
   encodeKittyVirtual,
-  encodeSixel,
   kittyIdColor,
   kittyPlaceholderGrid,
   pickDecoder,
-  Protocol,
   renderImage,
   resize,
-  supportsKittyUnicodePlaceholders,
   type LiveCapabilities,
   type RendererKind,
 } from "@nikcli-ai/tui-image"
+import { cellSize } from "@tui/util/browser-frames"
+import { fitOverlayCells, type CellMetrics } from "@tui/util/native-overlay"
 import { useTheme } from "@tui/context/theme"
 
 /**
- * Image preview component built on top of `@nikcli-ai/tui-image`.
+ * Image preview in the scrolling message list.
  *
- * Real pixel images, like pi: on terminals that composite Kitty Unicode
- * placeholders (kitty, Ghostty) the image is transmitted once as a virtual
- * placement (`a=T,U=1` — draws nothing at the cursor, safe inside the
- * alternate screen) and the component renders ordinary placeholder cells
- * (U+10EEEE + row/column diacritics, image id in the foreground color)
- * inside OpenTUI's grid. The terminal overlays the image wherever those
- * cells land, so scrolling and repaints just work.
- *
- * Terminals with iTerm2 or Sixel support receive a cursor-positioned overlay
- * during OpenTUI's native render pass. Every other terminal renders through
- * the grid with the truecolor ANSI half-block fallback.
+ * Kitty / Ghostty: drawless virtual placement + placeholder cells that
+ * scroll with the grid. Cursor / VS Code / everything else: truecolor
+ * half-blocks through the grid. Sixel overlays stay on the WebView dialog
+ * — they cannot live in this list without painting CSI over the composer.
  */
+export { registerNativeOverlay } from "@tui/util/native-overlay"
+export type { NativeOverlay } from "@tui/util/native-overlay"
+
 const MAX_PREVIEW_BYTES = 10 * 1024 * 1024
 const MAX_PREVIEW_COLUMNS = 120
 const MAX_PREVIEW_FALLBACK_ROWS = 36
@@ -170,8 +164,6 @@ type TuiImageData = {
   transmitted?: boolean
   /** Placeholder cell rows the terminal composites the image over. */
   placeholder?: { rows: string[]; fg: RGBA }
-  /** Cursor-positioned native image drawn after OpenTUI flushes its frame. */
-  overlay?: { bytes: Uint8Array | string; columns: number; rows: number }
   renderer: RendererKind
 }
 
@@ -215,100 +207,11 @@ type TuiImageState =
 
 const previewCache = new Map<string, Promise<TuiImageData>>()
 
-export type NativeOverlay = {
-  box: BoxRenderable
-  bytes: Uint8Array | string
-  columns: number
-  rows: number
-}
-
-/**
- * Subset of {@link CliRenderer} the overlay hook needs. `renderNative`,
- * `writeOut`, and `renderOffset` are declared `private` on the upstream
- * class, so we model them structurally here and cast at the boundary
- * instead of intersecting with `CliRenderer` (which TypeScript would
- * reduce to `never`).
- */
-type OverlayRenderer = {
-  requestRender: () => void
-  terminalWidth: number
-  terminalHeight: number
-  renderNative: () => void
-  writeOut: (chunk: string) => void
-  renderOffset: number
-}
-
-const nativeOverlayManagers = new WeakMap<
-  CliRenderer,
-  {
-    overlays: Set<NativeOverlay>
-    originalRenderNative: () => void
-  }
->()
-
-function nativePayload(bytes: Uint8Array | string) {
-  return typeof bytes === "string" ? bytes : Buffer.from(bytes).toString("ascii")
-}
-
-/**
- * Draw a cursor-positioned native image (Sixel / iTerm2) after OpenTUI has
- * flushed its own frame, at the position of `overlay.box`.
- *
- * Exported because the browser surface needs the same trick for a *stream*:
- * mutate `overlay.bytes` and call `renderer.requestRender()` and the next
- * frame lands in the same place.
- */
-export function registerNativeOverlay(renderer: CliRenderer, overlay: NativeOverlay) {
-  const target = renderer as unknown as OverlayRenderer
-  let manager = nativeOverlayManagers.get(renderer)
-  if (!manager) {
-    const originalRenderNative = target.renderNative.bind(renderer)
-    manager = { overlays: new Set(), originalRenderNative }
-    nativeOverlayManagers.set(renderer, manager)
-    target.renderNative = () => {
-      originalRenderNative()
-      for (const item of manager!.overlays) {
-        const x = item.box.x
-        const y = item.box.y + (target.renderOffset ?? 0)
-        const right = x + item.columns
-        const bottom = y + item.rows
-        if (x < 0 || y < 0 || right > renderer.terminalWidth || bottom > renderer.terminalHeight) continue
-        target.writeOut(`\x1b7\x1b[${y + 1};${x + 1}H${nativePayload(item.bytes)}\x1b8`)
-      }
-    }
-  }
-  manager.overlays.add(overlay)
-  renderer.requestRender()
-  return () => {
-    const current = nativeOverlayManagers.get(renderer)
-    if (!current) return
-    current.overlays.delete(overlay)
-    if (current.overlays.size > 0) {
-      renderer.requestRender()
-      return
-    }
-    target.renderNative = current.originalRenderNative
-    nativeOverlayManagers.delete(renderer)
-    renderer.requestRender()
-  }
-}
-
 function previewBounds(maxColumns: number, maxRows: number) {
   return {
     columns: Math.max(1, Math.min(MAX_PREVIEW_COLUMNS, maxColumns)),
     rows: Math.max(1, Math.min(MAX_PREVIEW_FALLBACK_ROWS, maxRows)),
   }
-}
-
-function fitNativeCells(width: number, height: number, bounds: { columns: number; rows: number }) {
-  const aspect = width / height
-  let columns = bounds.columns
-  let rows = Math.max(1, Math.round(columns / (aspect * 2)))
-  if (rows > bounds.rows) {
-    rows = bounds.rows
-    columns = Math.max(1, Math.min(bounds.columns, Math.round(rows * aspect * 2)))
-  }
-  return { columns, rows }
 }
 
 function applySgr(sequence: string, current: { fg: RGBA; bg: RGBA }) {
@@ -332,7 +235,38 @@ function applySgr(sequence: string, current: { fg: RGBA; bg: RGBA }) {
   return { fg, bg }
 }
 
-function toCellGrid(text: string, columns: number): Cell[][] {
+/**
+ * Skip one escape sequence starting at `i` (which points at ESC).
+ * Returns the index of the last consumed character.
+ */
+function skipEscape(line: string, i: number): { end: number; sgr?: string } {
+  const next = line[i + 1]
+  if (next === "[") {
+    for (let j = i + 2; j < line.length; j++) {
+      const code = line.charCodeAt(j)
+      if (code >= 0x40 && code <= 0x7e) {
+        return { end: j, sgr: line[j] === "m" ? line.slice(i + 2, j) : undefined }
+      }
+    }
+    return { end: line.length - 1 }
+  }
+  if (next === "]" || next === "_" || next === "P" || next === "^") {
+    const st = line.indexOf("\x1b\\", i + 2)
+    const bel = line.indexOf("\x07", i + 2)
+    let end = line.length - 1
+    if (st !== -1) end = st + 1
+    if (bel !== -1 && bel < end) end = bel
+    return { end }
+  }
+  return { end: Math.min(i + 1, line.length - 1) }
+}
+
+/**
+ * Turn half-block ANSI into OpenTUI cells. Escape sequences are consumed,
+ * never stored as characters — leftover CSI in a cell is what paints the
+ * TUI with raw `\x1b[` junk.
+ */
+export function toCellGrid(text: string, columns: number): Cell[][] {
   const rows = text.split("\n")
   const out: Cell[][] = []
   for (const line of rows) {
@@ -342,15 +276,16 @@ function toCellGrid(text: string, columns: number): Cell[][] {
     for (let i = 0; i < line.length; i++) {
       const ch = line[i]!
       if (ch === "\x1b") {
-        const start = line[i + 1] === "[" ? i + 2 : i + 1
-        const end = line.indexOf("m", start)
-        if (end === -1) break
-        const next = applySgr(line.slice(start, end), { fg, bg })
-        fg = next.fg
-        bg = next.bg
-        i = end
+        const skipped = skipEscape(line, i)
+        if (skipped.sgr !== undefined) {
+          const next = applySgr(skipped.sgr, { fg, bg })
+          fg = next.fg
+          bg = next.bg
+        }
+        i = skipped.end
         continue
       }
+      if (ch.charCodeAt(0) < 0x20) continue
       cells.push({ char: ch, fg, bg })
     }
     while (cells.length < columns) cells.push({ char: " ", fg: TRANSPARENT, bg: TRANSPARENT })
@@ -360,40 +295,29 @@ function toCellGrid(text: string, columns: number): Cell[][] {
   return out
 }
 
-/** Approximate pixels per cell used to bound the transmitted image size. */
-const CELL_PIXEL_WIDTH = 10
-const CELL_PIXEL_HEIGHT = 20
-
 async function loadTuiImage(
   url: string,
   maxColumns: number,
   maxRows: number,
   live: LiveCapabilities | null,
+  cell: CellMetrics,
   signal: AbortSignal,
 ): Promise<TuiImageData> {
   const bytes = await readImageBytes(url, signal)
   if (signal.aborted) throw new Error("aborted")
-  // Env detection over-reports native protocols (TERM=xterm-256color implies
-  // sixel almost everywhere); the renderer's negotiated DA1 answer decides.
   const capabilities = applyLiveCapabilities(detectCapabilities(), live)
   const bounds = previewBounds(maxColumns, maxRows)
+  const kind = chooseInlineImageRenderer(capabilities)
 
-  if (supportsKittyUnicodePlaceholders(capabilities)) {
+  if (kind === "kitty") {
     const decoder = await pickDecoder()
     const image = await decoder(bytes)
     if (image.width <= 0 || image.height <= 0) throw new Error("decoder produced a zero-sized image")
-    // A terminal cell is roughly twice as tall as it is wide; pick the cell
-    // rectangle that matches the image aspect within the preview bounds.
-    const { columns, rows } = fitNativeCells(image.width, image.height, bounds)
-    // The terminal scales the image into the placeholder rectangle, so the
-    // transmission only needs preview-grade pixels.
-    const maxWidth = columns * CELL_PIXEL_WIDTH
-    const maxHeight = rows * CELL_PIXEL_HEIGHT
-    const scale = Math.min(maxWidth / image.width, maxHeight / image.height, 1)
+    const fitted = fitOverlayCells(image.width, image.height, bounds, cell)
     const target =
-      scale < 1
-        ? resize(image, Math.max(1, Math.round(image.width * scale)), Math.max(1, Math.round(image.height * scale)))
-        : image
+      image.width === fitted.pixelWidth && image.height === fitted.pixelHeight
+        ? image
+        : resize(image, fitted.pixelWidth, fitted.pixelHeight)
     const id = nextPlaceholderId()
     const color = kittyIdColor(id)
     return {
@@ -401,47 +325,17 @@ async function loadTuiImage(
       host: hostForUrl(url),
       width: image.width,
       height: image.height,
-      columns,
+      columns: fitted.columns,
       rows: [],
-      nativeBytes: encodeKittyVirtual(target, { id, columns, rows }),
+      nativeBytes: encodeKittyVirtual(target, { id, columns: fitted.columns, rows: fitted.rows }),
       placeholder: {
-        rows: kittyPlaceholderGrid(columns, rows),
+        rows: kittyPlaceholderGrid(fitted.columns, fitted.rows),
         fg: RGBA.fromInts(color.r, color.g, color.b, 255),
       },
       renderer: "kitty",
     }
   }
 
-  const overlayProtocol = bestOverlayProtocol(capabilities)
-  if (overlayProtocol) {
-    const decoder = await pickDecoder()
-    const image = await decoder(bytes)
-    if (image.width <= 0 || image.height <= 0) throw new Error("decoder produced a zero-sized image")
-    const { columns, rows } = fitNativeCells(image.width, image.height, bounds)
-    const output =
-      overlayProtocol === Protocol.ITERM2
-        ? encodeIterm2Bytes(bytes, {
-            width: columns,
-            height: rows,
-            preserveAspectRatio: true,
-          })
-        : encodeSixel(resize(image, columns * CELL_PIXEL_WIDTH, rows * CELL_PIXEL_HEIGHT))
-    return {
-      url,
-      host: hostForUrl(url),
-      width: image.width,
-      height: image.height,
-      columns,
-      rows: [],
-      overlay: { bytes: output, columns, rows },
-      renderer: overlayProtocol === Protocol.ITERM2 ? "iterm2" : "sixel",
-    }
-  }
-
-  // Every other terminal renders through OpenTUI's grid. Cursor-addressed
-  // protocols (classic kitty, iTerm2, Sixel) are deliberately not used here:
-  // inside the alternate screen their output lands at the wrong position and
-  // is clobbered by the next frame.
   const result = await renderImage({
     input: bytes,
     columns: bounds.columns,
@@ -466,15 +360,14 @@ function cachedTuiImage(
   maxColumns: number,
   maxRows: number,
   live: LiveCapabilities | null,
+  cell: CellMetrics,
   signal: AbortSignal,
 ) {
   const bounds = previewBounds(maxColumns, maxRows)
-  // Negotiated capabilities arrive shortly after renderer startup; keying on
-  // them keeps an early env-only result from pinning the protocol choice.
-  const key = `${bounds.columns}x${bounds.rows}\n${live ? "live" : "env"}\n${url}`
+  const key = `${bounds.columns}x${bounds.rows}\n${Math.round(cell.width)}x${Math.round(cell.height)}\n${live ? "live" : "env"}\n${url}`
   const cached = previewCache.get(key)
   if (cached) return cached
-  const promise = loadTuiImage(url, bounds.columns, bounds.rows, live, signal).catch((error) => {
+  const promise = loadTuiImage(url, bounds.columns, bounds.rows, live, cell, signal).catch((error) => {
     previewCache.delete(key)
     throw error
   })
@@ -486,18 +379,16 @@ function TuiImage(props: { url: string; maxColumns: number; maxRows: number; wri
   const { theme } = useTheme()
   const renderer = useRenderer()
   const [state, setState] = createSignal<TuiImageState>({ status: "loading" })
-  const [overlayBox, setOverlayBox] = createSignal<BoxRenderable>()
 
   createEffect(() => {
     const controller = new AbortController()
     const url = props.url
     setState({ status: "loading" })
     const live = (renderer.capabilities ?? null) as LiveCapabilities | null
-    void cachedTuiImage(url, props.maxColumns, props.maxRows, live, controller.signal)
+    const cell = cellSize(renderer.resolution, renderer.terminalWidth, renderer.terminalHeight)
+    void cachedTuiImage(url, props.maxColumns, props.maxRows, live, cell, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) {
-          // The kitty transmission is drawless (a=T,U=1) — written once per
-          // cache entry, no matter how many times the component remounts.
           if (data.nativeBytes !== undefined && !data.transmitted) {
             data.transmitted = true
             const writer = props.writer ?? defaultWriter
@@ -514,19 +405,6 @@ function TuiImage(props: { url: string; maxColumns: number; maxRows: number; wri
         })
       })
     onCleanup(() => controller.abort())
-  })
-
-  createEffect(() => {
-    const current = state()
-    const box = overlayBox()
-    if (current.status !== "ready" || !current.data.overlay || !box) return
-    const unregister = registerNativeOverlay(renderer, {
-      box,
-      bytes: current.data.overlay.bytes,
-      columns: current.data.overlay.columns,
-      rows: current.data.overlay.rows,
-    })
-    onCleanup(unregister)
   })
 
   return (
@@ -560,15 +438,6 @@ function TuiImage(props: { url: string; maxColumns: number; maxRows: number; wri
                     <For each={placeholder().rows}>{(row) => <text fg={placeholder().fg}>{row}</text>}</For>
                   </box>
                 )}
-              </Show>
-              <Show when={data().overlay}>
-                <box
-                  ref={(box: BoxRenderable) => setOverlayBox(box)}
-                  marginTop={1}
-                  width={data().overlay!.columns}
-                  height={data().overlay!.rows}
-                  flexShrink={0}
-                />
               </Show>
               <Show when={data().rows.length > 0}>
                 <box marginTop={1} flexDirection="column" flexShrink={0}>

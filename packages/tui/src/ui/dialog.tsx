@@ -60,9 +60,21 @@ export function Dialog(
     return Math.min(60, Math.max(1, dims.width - 4))
   }
 
+  // Backdrop click-to-dismiss must not fire for a press that started on the
+  // panel (the WebView button, the page, …). A live `full` dialog also paints
+  // Sixel past the panel edge — those clicks look like backdrop hits.
+  let pressOnBackdrop = false
+
   return (
     <box
+      onMouseDown={() => {
+        pressOnBackdrop = true
+      }}
       onMouseUp={async () => {
+        const dismiss = pressOnBackdrop
+        pressOnBackdrop = false
+        if (props.size === "full") return
+        if (!dismiss) return
         if (renderer.getSelection()) return
         props.onClose?.()
       }}
@@ -76,12 +88,21 @@ export function Dialog(
       backgroundColor={RGBA.fromInts(0, 0, 0, Math.round(150 * opacity()))}
     >
       <box
+        onMouseDown={() => {
+          pressOnBackdrop = false
+        }}
         onMouseUp={async (e) => {
+          pressOnBackdrop = false
           if (renderer.getSelection()) return
           e.stopPropagation()
         }}
         width={width()}
         maxWidth={Math.max(1, dimensions().width - 4)}
+        // A dialog taller than the terminal does not scroll: it draws past the
+        // last row, and the rows that fall off are the ones with the buttons.
+        // Two rows of breathing room top and bottom keeps the frame visible on
+        // an 80x24 terminal, which is the floor we support.
+        maxHeight={Math.max(1, dimensions().height - 4)}
         backgroundColor={theme.surface.overlay}
         paddingTop={1}
         paddingBottom={1}
@@ -161,14 +182,37 @@ function init() {
   const renderer = useRenderer()
   let focus: Renderable | null
   let refocusTimer: ReturnType<typeof setTimeout> | undefined
+  let reclaimTimer: ReturnType<typeof setTimeout> | undefined
+  /** Bumped by every stack change, so an in-flight restore knows it is stale. */
+  let refocusGeneration = 0
 
-  onCleanup(() => {
+  /**
+   * Both halves of the restore are cancellable.
+   *
+   * The 30ms reclaim used to run untracked: opening a new dialog inside that
+   * window (a `replace` from an OAuth callback, a command that chains dialogs)
+   * left a pending timer that then focused the composer *underneath* the dialog
+   * that had just opened — the keystrokes went to the prompt, not the modal.
+   */
+  function cancelRefocus() {
+    refocusGeneration++
     if (refocusTimer) clearTimeout(refocusTimer)
-  })
+    if (reclaimTimer) clearTimeout(reclaimTimer)
+    refocusTimer = undefined
+    reclaimTimer = undefined
+  }
+
+  onCleanup(cancelRefocus)
 
   function refocus() {
-    if (refocusTimer) clearTimeout(refocusTimer)
+    cancelRefocus()
+    const generation = refocusGeneration
+    // A restore is only correct while the stack stayed empty: anything still on
+    // it owns the keyboard.
+    const stale = () => generation !== refocusGeneration || store.stack.length > 0
     refocusTimer = setTimeout(() => {
+      refocusTimer = undefined
+      if (stale()) return
       if (!focus) return
       if (focus.isDestroyed) return
       function find(item: Renderable) {
@@ -182,7 +226,9 @@ function init() {
       if (!found) return
       focus.focus()
       // Second pass: some dialogs unmount asynchronously; reclaim once more.
-      setTimeout(() => {
+      reclaimTimer = setTimeout(() => {
+        reclaimTimer = undefined
+        if (stale()) return
         if (!focus || focus.isDestroyed) return
         if (!focus.focused) focus.focus()
       }, 30)
@@ -204,6 +250,8 @@ function init() {
     replace(input: DialogElement, onClose?: () => void) {
       // Collect onClose callbacks BEFORE updating store to avoid recursion
       const callbacks = closeCallbacks()
+      // A restore queued by the dialog this one replaces must not land later.
+      cancelRefocus()
       if (store.stack.length === 0) {
         focus = renderer.currentFocusedRenderable
         focus?.blur()

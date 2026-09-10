@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nikcli architecture</title>
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --panel: #121820;
+        --line: #243041;
+        --text: #e8eef6;
+        --muted: #8b9bb0;
+        --cyan: #3ee0c6;
+        --blue: #5aa8ff;
+        --teal: #4fd1c5;
+        --amber: #f5b942;
+        --gold: #d4a017;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+      body {
+        min-height: 100vh;
+        padding: 36px 28px 48px;
+        background-image:
+          radial-gradient(ellipse at 20% 0%, rgba(62, 224, 198, 0.08), transparent 50%),
+          radial-gradient(ellipse at 80% 100%, rgba(90, 168, 255, 0.08), transparent 45%),
+          linear-gradient(#0b0f14, #0b0f14);
+      }
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 16px;
+        margin-bottom: 28px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 34px;
+        letter-spacing: -0.04em;
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .runtime {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--cyan);
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+      .layer {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 18px;
+        padding: 16px;
+        position: relative;
+      }
+      .layer::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 4px;
+        border-radius: 18px 0 0 18px;
+        background: var(--accent);
+      }
+      .kicker {
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 10px;
+        font-weight: 700;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .cards.two {
+        grid-template-columns: 1fr 1fr;
+      }
+      .cards.five {
+        grid-template-columns: repeat(5, 1fr);
+      }
+      .cards.one {
+        grid-template-columns: 1fr;
+      }
+      .card {
+        background: #0e141c;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px 14px;
+      }
+      .card h3 {
+        margin: 0 0 6px;
+        font-size: 15px;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .chip {
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--text);
+        background: #101722;
+      }
+      .arrow {
+        text-align: center;
+        color: var(--cyan);
+        font-size: 18px;
+        letter-spacing: 8px;
+        opacity: 0.7;
+      }
+      footer {
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      @media (max-width: 860px) {
+        .cards,
+        .cards.two,
+        .cards.five {
+          grid-template-columns: 1fr;
+        }
+        header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div>
+          <h1>nikcli architecture</h1>
+          <div class="sub">TUI / SDK → HttpApi → domain runtime → SQLite</div>
+        </div>
+        <div class="runtime">Runtime: Bun + TypeScript ESM</div>
+      </header>
+
+      <div class="stack">
+        <section class="layer" style="--accent: var(--cyan)">
+          <div class="kicker">1 · Clients</div>
+          <div class="cards">
+            <div class="card">
+              <h3>TUI</h3>
+              <p>SolidJS + OpenTUI terminal UI. Talks to the local/remote server over HTTP.</p>
+            </div>
+            <div class="card">
+              <h3>Studio</h3>
+              <p>Desktop UI in <code>packages/studio</code>. Same contract, different shell.</p>
+            </div>
+            <div class="card">
+              <h3>SDK consumers</h3>
+              <p><code>@nikcli-ai/sdk/httpapi</code> — generated Promise client + namespaced compat view.</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="arrow">↓</div>
+
+        <section class="layer" style="--accent: var(--blue)">
+          <div class="kicker">2 · HTTP edge</div>
+          <div class="cards one">
+            <div class="card">
+              <h3>Bun.serve → Server.fetch → ServerRouter</h3>
+              <p>
+                No Hono app. Router owns body limit, CORS, auth, and instance selection, then dispatches to Effect
+                HttpApi groups or raw handlers.
+              </p>
+              <div class="chips">
+                <span class="chip">body limit</span>
+                <span class="chip">CORS</span>
+                <span class="chip">auth</span>
+                <span class="chip">instance selection</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="arrow">↓</div>
+
+        <section class="layer" style="--accent: var(--teal)">
+          <div class="kicker">3 · API contract</div>
+          <div class="cards two">
+            <div class="card">
+              <h3>Effect HttpApi — PublicHttpApi.Api</h3>
+              <p>Served subset: every group has handlers. Source of OpenAPI and generated clients.</p>
+              <div class="chips">
+                <span class="chip">Session</span>
+                <span class="chip">Project</span>
+                <span class="chip">Config</span>
+                <span class="chip">Account</span>
+                <span class="chip">Mission</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Raw handlers + PublicApi</h3>
+              <p>Contract-only groups for streaming and upgrades. Codegen still compiles them.</p>
+              <div class="chips">
+                <span class="chip">SSE feeds</span>
+                <span class="chip">WebSocket</span>
+                <span class="chip">share</span>
+                <span class="chip">sync stats</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="arrow">↓</div>
+
+        <section class="layer" style="--accent: var(--amber)">
+          <div class="kicker">4 · Domain runtime</div>
+          <div class="cards five">
+            <div class="card">
+              <h3>Agents</h3>
+              <p>ralph, build, plan + subagents (explore, debugger, test-runner…)</p>
+            </div>
+            <div class="card">
+              <h3>Tools</h3>
+              <p>bash, edit, task, monitor — Zod in, Result-style out</p>
+            </div>
+            <div class="card">
+              <h3>Loop engine</h3>
+              <p>Session turns, tool execution, permission coupling</p>
+            </div>
+            <div class="card">
+              <h3>Messages</h3>
+              <p>Session IDs + parts, Identifier schemas</p>
+            </div>
+            <div class="card">
+              <h3>Plugins</h3>
+              <p>Opt-in autoload; pin/allow in nikcli.json</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="arrow">↓</div>
+
+        <section class="layer" style="--accent: var(--gold)">
+          <div class="kicker">5 · Storage</div>
+          <div class="cards one">
+            <div class="card">
+              <h3>nikcli.db — SQLite domain repos</h3>
+              <p>
+                Durable state is SQL-backed. Domain functions are synchronous over Database.syncDb(). Leftover JSON
+                trees are downgrade-only.
+              </p>
+              <div class="chips">
+                <span class="chip">SessionRepo</span>
+                <span class="chip">ProjectRepo</span>
+                <span class="chip">LoopRepo</span>
+                <span class="chip">MissionRepo</span>
+                <span class="chip">GoalRepo</span>
+                <span class="chip">ArtifactRepo</span>
+                <span class="chip">ShareRepo</span>
+                <span class="chip">MonitorRepo</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer>PublicApi is the generation contract. Edit HttpApi groups, then regenerate clients.</footer>
+    </div>
+  </body>
+</html>

@@ -211,9 +211,17 @@ export function cellSize(
   terminalHeight: number,
 ): { width: number; height: number; measured: boolean } {
   if (resolution && resolution.width > 0 && resolution.height > 0 && terminalWidth > 0 && terminalHeight > 0) {
-    const width = resolution.width / terminalWidth
-    const height = resolution.height / terminalHeight
-    if (width >= 1 && height >= 1) return { width, height, measured: true }
+    let width = resolution.width / terminalWidth
+    let height = resolution.height / terminalHeight
+    // CSI 14/16 t on a retina display reports device pixels; xterm.js sixel
+    // is sized in CSS pixels. A cell taller than ~28px is almost always 2×.
+    if (height >= 28) {
+      width /= 2
+      height /= 2
+    }
+    if (width >= 4 && width <= 30 && height >= 8 && height <= 48) {
+      return { width, height, measured: true }
+    }
   }
   return { width: 10, height: 20, measured: false }
 }

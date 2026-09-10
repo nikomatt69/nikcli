@@ -11,6 +11,7 @@ import {
   kittyPlaceholderGrid,
   kittyPlaceholderRow,
   supportsKittyUnicodePlaceholders,
+  chooseInlineImageRenderer,
 } from "../src/kitty-placeholder"
 import type { Capabilities } from "../src/capabilities"
 import { Protocol } from "../src/capabilities"
@@ -186,5 +187,35 @@ describe("supportsKittyUnicodePlaceholders", () => {
   it("honours the explicit override", () => {
     expect(supportsKittyUnicodePlaceholders(kittyCaps("kitty"), { NIKCLI_KITTY_PLACEHOLDERS: "0" })).toBe(false)
     expect(supportsKittyUnicodePlaceholders(kittyCaps("WezTerm"), { NIKCLI_KITTY_PLACEHOLDERS: "1" })).toBe(true)
+  })
+})
+
+describe("chooseInlineImageRenderer", () => {
+  it("uses placeholders only when the terminal composites them", () => {
+    expect(chooseInlineImageRenderer(kittyCaps("xterm-kitty"), {})).toBe("kitty")
+    expect(chooseInlineImageRenderer(kittyCaps("ghostty"), {})).toBe("kitty")
+    expect(chooseInlineImageRenderer(kittyCaps("herdr"), { HERDR_PANE_ID: "w1Y:p6" })).toBe("kitty")
+  })
+
+  it("falls back to half-blocks when Sixel or iTerm2 is the live answer", () => {
+    const vscodeSixel: Capabilities = {
+      best: Protocol.SIXEL,
+      available: [Protocol.SIXEL],
+      kitty: false,
+      sixel: true,
+      iterm2: false,
+      terminal: "vscode",
+    }
+    expect(chooseInlineImageRenderer(vscodeSixel, { TERM_PROGRAM: "vscode" })).toBe("halfblock")
+
+    const wezterm: Capabilities = {
+      best: Protocol.KITTY,
+      available: [Protocol.KITTY, Protocol.ITERM2],
+      kitty: true,
+      sixel: false,
+      iterm2: true,
+      terminal: "WezTerm",
+    }
+    expect(chooseInlineImageRenderer(wezterm, { TERM_PROGRAM: "WezTerm" })).toBe("halfblock")
   })
 })

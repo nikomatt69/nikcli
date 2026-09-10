@@ -21,6 +21,7 @@ export function Home() {
   const { theme } = useTheme()
   const route = useRouteData("home")
   const promptRef = usePromptRef()
+  const keybind = useKeybind()
   const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
   const mcpError = createMemo(() => {
     return Object.values(sync.data.mcp).some((x) => x.status === "failed")
@@ -37,7 +38,7 @@ export function Home() {
           <Switch>
             <Match when={mcpError()}>
               <span style={{ fg: theme.status.error.fg }}>•</span> mcp errors{" "}
-              <span style={{ fg: theme.foreground.muted }}>ctrl+x s</span>
+              <span style={{ fg: theme.foreground.muted }}>{keybind.print("status_view")}</span>
             </Match>
             <Match when={true}>
               <span style={{ fg: theme.status.success.fg }}>•</span>{" "}
@@ -60,8 +61,6 @@ export function Home() {
     }
   })
   const directory = useDirectory()
-
-  const keybind = useKeybind()
 
   const pulseEnabled = createMemo(() => {
     const tuiCfg = sync.data.config?.tui as { bg_pulse?: boolean } | undefined

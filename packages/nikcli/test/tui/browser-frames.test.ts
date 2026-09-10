@@ -152,6 +152,10 @@ describe("cellSize", () => {
     expect(cellSize({ width: 1600, height: 960 }, 160, 48)).toEqual({ width: 10, height: 20, measured: true })
   })
 
+  it("halves retina device-pixel reports so sixel matches xterm.js CSS cells", () => {
+    expect(cellSize({ width: 1920, height: 1280 }, 120, 40)).toEqual({ width: 8, height: 16, measured: true })
+  })
+
   it("reports the fallback rather than hiding it", () => {
     for (const bad of [null, undefined, { width: 0, height: 0 }, { width: 10, height: 10 }]) {
       const result = cellSize(bad, 160, 48)

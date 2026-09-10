@@ -19,7 +19,7 @@ import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from 
 import { encodeSixel, pickDecoder, resize } from "@nikcli-ai/tui-image"
 import { BrowserFramePump, cellSize, type FrameTransmission, type PumpStats } from "@tui/util/browser-frames"
 import { InputScheduler } from "@tui/util/browser-input"
-import { registerNativeOverlay, type NativeOverlay } from "./tui-image"
+import { fitOverlayCells, registerNativeOverlay, type NativeOverlay } from "@tui/util/native-overlay"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
 
@@ -103,6 +103,13 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
   let call: (<T>(method: string, params?: Record<string, unknown>) => Promise<T>) | undefined
   let streamAbort: AbortController | undefined
   let started = false
+  /**
+   * Whether a daemon session was ever *asked* for, as opposed to confirmed.
+   * `start` can be in flight when the surface unmounts; keying the cleanup on
+   * `started` skipped `remove` in exactly that window and left an orphan
+   * browser session — and its Chrome — running for the rest of the process.
+   */
+  let startRequested = false
   let disposed = false
   let restartTimer: ReturnType<typeof setTimeout> | undefined
   let rateTimer: ReturnType<typeof setTimeout> | undefined
@@ -113,6 +120,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
   let decoder: Awaited<ReturnType<typeof pickDecoder>> | undefined
   let decoding = false
   let nativeOverlay: NativeOverlay | undefined
+  let unregisterOverlay: (() => void) | undefined
 
   const emit = () =>
     props.onState?.({
@@ -225,18 +233,17 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
       const image = await decoder(Uint8Array.fromBase64(pngBase64))
       if (disposed || image.width <= 0 || image.height <= 0) return
       const cell = cellSize(renderer.resolution, renderer.terminalWidth, renderer.terminalHeight)
-      const target = {
-        width: Math.max(1, Math.round(props.columns * cell.width)),
-        height: Math.max(1, Math.round(props.rows * cell.height)),
-      }
+      const fitted = fitOverlayCells(image.width, image.height, { columns: props.columns, rows: props.rows }, cell)
       const scaled =
-        image.width === target.width && image.height === target.height
+        image.width === fitted.pixelWidth && image.height === fitted.pixelHeight
           ? image
-          : resize(image, target.width, target.height)
+          : resize(image, fitted.pixelWidth, fitted.pixelHeight)
       const bytes = encodeSixel(scaled)
       if (disposed) return
       if (nativeOverlay) {
         nativeOverlay.bytes = bytes
+        nativeOverlay.columns = fitted.columns
+        nativeOverlay.rows = fitted.rows
         renderer.requestRender()
       } else {
         setOverlayBytes(bytes)
@@ -250,6 +257,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
 
   /** Start (or replace) this surface's session and attach the frame stream. */
   async function startSession(url: string) {
+    startRequested = true
     if (!call) await connect()
     if (disposed) return
     await call!("start", { name, url, viewport: geometry().viewport })
@@ -383,33 +391,39 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
 
   createEffect(() => {
     if (props.renderer !== "overlay") return
-    const box = overlayBox()
+    const hostBox = overlayBox()
     const bytes = overlayBytes()
-    if (!box || !bytes || nativeOverlay) return
-    const overlay: NativeOverlay = { box, bytes, columns: props.columns, rows: props.rows }
-    nativeOverlay = overlay
-    const unregister = registerNativeOverlay(renderer, overlay)
-    onCleanup(() => {
+    if (disposed || status() === "error") {
+      unregisterOverlay?.()
+      unregisterOverlay = undefined
       nativeOverlay = undefined
-      unregister()
-    })
-  })
-
-  // Keep the registered overlay's cell extent in step with the placement, or
-  // the bounds check would clip it against the wrong rectangle after a resize.
-  createEffect(() => {
-    if (!nativeOverlay) return
+      return
+    }
+    // Wait for layout + first frame. Do not unregister here: a ref flicker
+    // would erase the page and look like the WebView closed itself.
+    if (!hostBox || !bytes) return
+    if (!nativeOverlay) {
+      const overlay: NativeOverlay = { box: hostBox, bytes, columns: props.columns, rows: props.rows }
+      nativeOverlay = overlay
+      unregisterOverlay = registerNativeOverlay(renderer, overlay)
+      return
+    }
+    nativeOverlay.box = hostBox
+    nativeOverlay.bytes = bytes
     nativeOverlay.columns = props.columns
     nativeOverlay.rows = props.rows
   })
 
   onCleanup(() => {
     disposed = true
+    streamAbort?.abort()
+    unregisterOverlay?.()
+    unregisterOverlay = undefined
+    nativeOverlay = undefined
     clearTimeout(restartTimer)
     clearTimeout(rateTimer)
-    streamAbort?.abort()
     pump.destroy()
-    if (started && socketPath) {
+    if (startRequested && socketPath) {
       void import("@nikcli-ai/browser-control/daemon-client")
         .then(({ rpc }) => rpc(socketPath!, "remove", { name }))
         .catch(() => {})
@@ -422,16 +436,19 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
     <box
       ref={(value: BoxRenderable) => {
         box = value
+        setOverlayBox(value)
       }}
       flexDirection="column"
       width={props.columns}
       height={props.rows}
       flexShrink={0}
       onMouseDown={(event: MouseEvent) => {
+        event.stopPropagation()
         const at = toPage(event)
         pointer({ type: "down", ...at, button: event.button === 2 ? "right" : "left", modifiers: modifiers(event) })
       }}
       onMouseUp={(event: MouseEvent) => {
+        event.stopPropagation()
         const at = toPage(event)
         pointer({ type: "up", ...at, button: event.button === 2 ? "right" : "left", modifiers: modifiers(event) })
       }}
@@ -481,12 +498,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
           <Match when={props.renderer === "overlay"}>
             {/* Empty: the picture is drawn over these cells by the terminal,
                 after OpenTUI flushes. The box exists to pin the position. */}
-            <box
-              ref={(value: BoxRenderable) => setOverlayBox(value)}
-              width={props.columns}
-              height={props.rows}
-              flexShrink={0}
-            />
+            <box width={props.columns} height={props.rows} flexShrink={0} />
           </Match>
         </Switch>
       </Show>

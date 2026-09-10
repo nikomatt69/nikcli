@@ -14,6 +14,7 @@ import { useKeyboard } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "../ui/toast"
 import { Keybind } from "@tui/util/keybind"
+import { useAbortOnCleanup } from "@tui/util/lifecycle"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
   nikcli: 0,
@@ -337,18 +338,28 @@ function AutoMethod(props: AutoMethodProps) {
     }
   })
 
+  const life = useAbortOnCleanup()
+
   onMount(async () => {
-    const result = await sdk.client.provider.oauth.callback({
-      providerID: props.providerID,
-      method: props.index,
-    })
+    // The callback blocks until the browser approves. `esc` in the meantime
+    // unmounts this dialog, so every step past the first await re-checks —
+    // disposing the SDK instance or replacing the stack after the user left is
+    // how a provider dialog reappears over an unrelated screen.
+    const result = await sdk.client.provider.oauth.callback(
+      { providerID: props.providerID, method: props.index },
+      { signal: life.signal },
+    )
+    if (life.disposed()) return
     if (result.error) {
       dialog.clear()
       return
     }
     await sdk.client.instance.dispose()
+    if (life.disposed()) return
     await sync.bootstrap()
+    if (life.disposed()) return
     await sync.refreshProviders()
+    if (life.disposed()) return
     dialog.replace(() => <DialogModel providerID={props.providerID} />)
   })
 
@@ -384,20 +395,27 @@ function CodeMethod(props: CodeMethodProps) {
   const sync = useSync()
   const dialog = useDialog()
   const [error, setError] = createSignal(false)
+  const life = useAbortOnCleanup()
 
   return (
     <DialogPrompt
       title={props.title}
       placeholder="Authorization code"
       onConfirm={async (value) => {
-        const { error } = await sdk.client.provider.oauth.callback({
-          providerID: props.providerID,
-          method: props.index,
-          code: value,
-        })
+        const { error } = await sdk.client.provider.oauth.callback(
+          {
+            providerID: props.providerID,
+            method: props.index,
+            code: value,
+          },
+          { signal: life.signal },
+        )
+        if (life.disposed()) return
         if (!error) {
           await sdk.client.instance.dispose()
+          if (life.disposed()) return
           await sync.bootstrap()
+          if (life.disposed()) return
           dialog.replace(() => <DialogModel providerID={props.providerID} />)
           return
         }
@@ -423,21 +441,26 @@ function AutoCodeMethod(props: CodeMethodProps) {
   const dialog = useDialog()
   const [error, setError] = createSignal(false)
   const [complete, setComplete] = createSignal(false)
+  const life = useAbortOnCleanup()
 
   async function finish() {
-    if (complete()) return
+    if (complete() || life.disposed()) return
     setComplete(true)
     await sdk.client.instance.dispose()
+    if (life.disposed()) return
     await sync.bootstrap()
+    if (life.disposed()) return
     await sync.refreshProviders()
+    if (life.disposed()) return
     dialog.replace(() => <DialogModel providerID={props.providerID} />)
   }
 
   onMount(async () => {
-    const { error } = await sdk.client.provider.oauth.callback({
-      providerID: props.providerID,
-      method: props.index,
-    })
+    const { error } = await sdk.client.provider.oauth.callback(
+      { providerID: props.providerID, method: props.index },
+      { signal: life.signal },
+    )
+    if (life.disposed()) return
     if (!error) await finish()
   })
 
@@ -447,11 +470,15 @@ function AutoCodeMethod(props: CodeMethodProps) {
       placeholder="Authorization code"
       onConfirm={async (value) => {
         if (!value) return
-        const { error } = await sdk.client.provider.oauth.callback({
-          providerID: props.providerID,
-          method: props.index,
-          code: value,
-        })
+        const { error } = await sdk.client.provider.oauth.callback(
+          {
+            providerID: props.providerID,
+            method: props.index,
+            code: value,
+          },
+          { signal: life.signal },
+        )
+        if (life.disposed()) return
         if (!error) {
           await finish()
           return
@@ -489,6 +516,7 @@ function OpenRouterFreeMethod(props: { title: string }) {
   const sync = useSync()
   const { theme } = useTheme()
   const toast = useToast()
+  const life = useAbortOnCleanup()
 
   return (
     <DialogPrompt
@@ -508,13 +536,20 @@ function OpenRouterFreeMethod(props: { title: string }) {
       )}
       onConfirm={async (value) => {
         if (!value) return
-        await sdk.client.auth.set({
-          providerID: "openrouter",
-          payload: { type: "api", key: value },
-        })
+        await sdk.client.auth.set(
+          {
+            providerID: "openrouter",
+            payload: { type: "api", key: value },
+          },
+          { signal: life.signal },
+        )
+        if (life.disposed()) return
         await sdk.client.instance.dispose()
+        if (life.disposed()) return
         await sync.bootstrap()
+        if (life.disposed()) return
         await sync.refreshProviders()
+        if (life.disposed()) return
         const isConnected = sync.data.provider_next.connected.includes("openrouter")
         if (!isConnected) {
           toast.show({
@@ -539,6 +574,7 @@ function ApiMethod(props: ApiMethodProps) {
   const sync = useSync()
   const { theme } = useTheme()
   const toast = useToast()
+  const life = useAbortOnCleanup()
 
   return (
     <DialogPrompt
@@ -561,13 +597,20 @@ function ApiMethod(props: ApiMethodProps) {
       }
       onConfirm={async (value) => {
         if (!value) return
-        await sdk.client.auth.set({
-          providerID: props.providerID,
-          payload: { type: "api", key: value },
-        })
+        await sdk.client.auth.set(
+          {
+            providerID: props.providerID,
+            payload: { type: "api", key: value },
+          },
+          { signal: life.signal },
+        )
+        if (life.disposed()) return
         await sdk.client.instance.dispose()
+        if (life.disposed()) return
         await sync.bootstrap()
+        if (life.disposed()) return
         await sync.refreshProviders()
+        if (life.disposed()) return
         // C8: verify the provider actually shows as connected after the
         // round-trip. If not, the key is bad — fail fast with a clear
         // message and stay on the prompt so the user can re-enter.

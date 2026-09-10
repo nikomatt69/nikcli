@@ -50,6 +50,17 @@ const TOKENS = [
   "That is all.",
 ]
 
+/**
+ * Upper bound on `Renderable.destroy` calls across the whole token stream.
+ *
+ * `>= 0` asserted nothing: the regression these two tests exist for is a
+ * markdown view that tears its subtree down and rebuilds it on every token,
+ * which costs destroys in the dozens per token. Both paths measure 0 today, so
+ * one destroy per token is a ceiling with real headroom that a rebuild-per-token
+ * still cannot fit under.
+ */
+const CHURN_BUDGET = TOKENS.length
+
 function paint(captureSpans: () => CapturedFrame): string {
   return captureSpans()
     .lines.map((line) =>
@@ -107,7 +118,7 @@ describe("streaming churn", () => {
     }
     const destroyed = p.stop()
     console.log(`plain markdown: ${destroyed} destroys over ${TOKENS.length} tokens`)
-    expect(destroyed).toBeGreaterThanOrEqual(0)
+    expect(destroyed).toBeLessThanOrEqual(CHURN_BUDGET)
   })
 
   test("MessageMarkdown (math off) per token", async () => {
@@ -146,7 +157,7 @@ describe("streaming churn", () => {
     }
     const destroyed = p.stop()
     console.log(`MessageMarkdown: ${destroyed} destroys over ${TOKENS.length} tokens`)
-    expect(destroyed).toBeGreaterThanOrEqual(0)
+    expect(destroyed).toBeLessThanOrEqual(CHURN_BUDGET)
   })
 
   /**

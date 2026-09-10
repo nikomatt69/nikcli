@@ -95,6 +95,23 @@ export function supportsKittyUnicodePlaceholders(
   return termEnv.includes("kitty") || termEnv.includes("ghostty")
 }
 
+export type InlineImageRenderer = "kitty" | "halfblock"
+
+/**
+ * How an image preview should reach a scrolling OpenTUI grid.
+ *
+ * Only grid-native paths are allowed here. Sixel / iTerm2 overlays paint
+ * after the frame at a cursor position: they do not scroll with the message
+ * list, they CSI-erase the composer, and they leave xterm.js checkerboard
+ * behind. Those protocols stay on the WebView dialog, which does not scroll.
+ */
+export function chooseInlineImageRenderer(
+  capabilities: Capabilities,
+  env: Record<string, string | undefined> = typeof process !== "undefined" ? process.env : {},
+): InlineImageRenderer {
+  return supportsKittyUnicodePlaceholders(capabilities, env) ? "kitty" : "halfblock"
+}
+
 export interface KittyVirtualOptions {
   /** Image id, 1..{@link MAX_PLACEHOLDER_ID} (encoded in the fg color). */
   readonly id: number

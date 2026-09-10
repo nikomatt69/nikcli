@@ -376,7 +376,13 @@ function loadInternalPlugin(item: InternalTuiPlugin): PluginLoad {
   }
 }
 
-function createPluginScope(load: PluginLoad, id: string) {
+/**
+ * Exported for `test/tui/plugin-dispose.test.ts`: dispose ordering is only
+ * observable from inside the scope, and the regression it guards (one hung
+ * callback stranding the host deregistrations behind it) cannot be reached
+ * through `TuiPluginRuntime.init`.
+ */
+export function createPluginScope(load: PluginLoad, id: string, timeoutMs = DISPOSE_TIMEOUT_MS) {
   const ctrl = new AbortController()
   let list: { key: symbol; fn: TuiDispose }[] = []
   let done = false
@@ -418,27 +424,27 @@ function createPluginScope(load: PluginLoad, id: string) {
     ctrl.abort()
     const queue = [...list].reverse()
     list = []
-    const until = Date.now() + DISPOSE_TIMEOUT_MS
+    const until = Date.now() + timeoutMs
+    // The queue holds the host's own deregistrations (commands, routes, event
+    // listeners, the plugin host entry) alongside the plugin's callbacks, and
+    // it is walked newest-first — so stopping at the first hung or throwing
+    // callback left the plugin registered in the TUI after it was disposed.
+    // Every entry runs; the budget only decides whether we still wait for one.
+    let reported = false
     for (const item of queue) {
       const left = until - Date.now()
-      if (left <= 0) {
-        fail("timed out cleaning up tui plugin", {
-          path: load.spec,
-          id,
-          timeout: DISPOSE_TIMEOUT_MS,
-        })
-        break
-      }
-
-      const out = await runCleanup(item.fn, left)
+      const out = await runCleanup(item.fn, Math.max(0, left))
       if (out.type === "ok") continue
       if (out.type === "timeout") {
-        fail("timed out cleaning up tui plugin", {
-          path: load.spec,
-          id,
-          timeout: DISPOSE_TIMEOUT_MS,
-        })
-        break
+        if (!reported) {
+          reported = true
+          fail("timed out cleaning up tui plugin", {
+            path: load.spec,
+            id,
+            timeout: timeoutMs,
+          })
+        }
+        continue
       }
 
       if (out.type === "error") {

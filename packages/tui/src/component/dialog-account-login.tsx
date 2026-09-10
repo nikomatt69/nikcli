@@ -105,7 +105,13 @@ export function DialogAccountLogin(props: {
       // and asking `/user/me` is what provisions the local user — the TUI must
       // not write `UserDB` itself.
       await UserSession.save(session.data.accessToken)
+      if (disposed) return
+      // `/user/me` is what provisions the local user; a null answer means the
+      // issuer token is good but this install has no user behind it. Reporting
+      // that as a success is how a half-provisioned account looked signed in.
       const localUser = await UserApi.me(sdk)
+      if (disposed) return
+      if (!localUser) throw new Error("Signed in, but this install could not be provisioned — try again")
       toast.show({
         message: session.data.email ? `Signed in as ${session.data.email}` : "Signed in to your nikcli account",
         variant: "success",
