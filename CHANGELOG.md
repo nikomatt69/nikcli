@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.337.0 (September 2026)
+
+## Core
+
+- Delete the finished plans (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - chore(specs): delete the finished plans
+
 ## v1.336.0 (September 2026)
 
 ## Core
