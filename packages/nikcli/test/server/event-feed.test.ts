@@ -13,6 +13,7 @@ function fakeConnection(budget = EventFeed.LAG_BUDGET) {
   const frames: string[] = []
   const decoder = new TextDecoder()
   let queued = 0
+  let peak = 0
   let closed = false
 
   const controller = {
@@ -22,6 +23,7 @@ function fakeConnection(budget = EventFeed.LAG_BUDGET) {
     enqueue(chunk: Uint8Array) {
       if (closed) throw new Error("stream is closed")
       queued++
+      if (queued > peak) peak = queued
       frames.push(decoder.decode(chunk))
     },
     close() {
@@ -37,6 +39,9 @@ function fakeConnection(budget = EventFeed.LAG_BUDGET) {
     frames,
     drain() {
       queued = 0
+    },
+    get peak() {
+      return peak
     },
     get closed() {
       return closed
@@ -123,6 +128,23 @@ describe("EventFeed", () => {
     })
     // ...and it did not receive the frame that overflowed it.
     expect(slow.data.map((event) => event.type)).toEqual(["a", "b", "server.error"])
+    expect(slow.peak).toBeLessThanOrEqual(3)
+  })
+
+  it("a healthy reader never exceeds its lag budget", () => {
+    const budget = 8
+    const connection = fakeConnection(budget)
+    const feed = new EventFeed.Feed(identity)
+    feed.attach(connection.controller)
+
+    for (let i = 0; i < 20; i++) {
+      feed.broadcast({ type: `e${i}`, properties: {} })
+      connection.drain()
+    }
+
+    expect(connection.closed).toBe(false)
+    expect(connection.peak).toBeLessThanOrEqual(budget)
+    expect(connection.peak).toBeGreaterThan(0)
   })
 
   it("keeps delivering to survivors after another connection overflows", () => {

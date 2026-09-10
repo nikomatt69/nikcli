@@ -118,6 +118,44 @@ export function brailleGraph(values: readonly number[], width: number): string {
   }).join("")
 }
 
+export type SampleSummary = {
+  count: number
+  min: number
+  median: number
+  p95: number
+  max: number
+}
+
+/**
+ * Nearest-rank percentile. Empty input is a failed measurement, not a zero-cost
+ * success: a missing sample must not look like a 0 ms result.
+ */
+export function nearestRank(values: readonly number[], percentile: number): number {
+  if (values.length === 0) throw new Error("nearestRank requires at least one sample")
+  if (!(percentile > 0) || percentile > 100) throw new Error("percentile must be in (0, 100]")
+  const sorted = [...values].sort((left, right) => left - right)
+  const rank = Math.ceil((percentile / 100) * sorted.length)
+  return sorted[Math.max(0, rank - 1)]!
+}
+
+/** min / nearest-rank median / nearest-rank p95 / max. */
+export function summarizeSamples(values: readonly number[]): SampleSummary {
+  const sorted = [...values].sort((left, right) => left - right)
+  return {
+    count: sorted.length,
+    min: sorted[0] ?? nearestRank(sorted, 100),
+    median: nearestRank(sorted, 50),
+    p95: nearestRank(sorted, 95),
+    max: nearestRank(sorted, 100),
+  }
+}
+
+/** `(candidate - baseline) / baseline`. Zero baseline is invalid, not infinity. */
+export function relativeDelta(baseline: number, candidate: number): number {
+  if (baseline === 0) throw new Error("relativeDelta requires a non-zero baseline")
+  return (candidate - baseline) / baseline
+}
+
 /** `1.4 GB`, `312 MB`, `48 kB` — two significant digits is all a bar needs. */
 export function formatBytes(bytes: number): string {
   if (bytes < 1_024) return `${Math.round(bytes)} B`

@@ -85,4 +85,22 @@ describe("plugin scope dispose", () => {
     await s.dispose()
     expect(abortedDuringCleanup).toBe(true)
   })
+
+  test("repeated dispose cycles leave no residual owner callbacks", async () => {
+    for (let cycle = 0; cycle < 20; cycle++) {
+      const ran: string[] = []
+      const s = scope(50)
+      s.lifecycle.onDispose(() => {
+        ran.push("cleanup")
+      })
+      await s.dispose()
+      expect(ran).toEqual(["cleanup"])
+      expect(s.lifecycle.signal.aborted).toBe(true)
+      s.lifecycle.onDispose(() => {
+        ran.push("late")
+      })
+      await s.dispose()
+      expect(ran).toEqual(["cleanup"])
+    }
+  })
 })

@@ -144,7 +144,7 @@ export function Autocomplete(props: {
 
   // Debounce the query that drives the file-search resource so fast typing collapses into
   // at most one request per quiet window instead of one per keystroke.
-  // See specs/opencode-parity/03-request-throttling.md.
+  // See specs/effect-tui/05-reactive-state.md.
   const [debouncedFilter, setDebouncedFilter] = createDebouncedSignal<string | undefined>(undefined, 180)
   createEffect(
     on(

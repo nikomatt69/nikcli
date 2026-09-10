@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { wrapDiagramsInFences } from "@tui/routes/session/diagram"
 import { extractTuiImageUrls } from "@tui/component/tui-image"
+import { summarizeSamples } from "@tui/util/runtime-samples"
 
 /**
  * What a text part costs per token, and why the scans moved off the live path.
@@ -54,13 +55,29 @@ describe("the scans a live text part no longer pays", () => {
 
     const rows = [2_000, 4_000, 8_000, 16_000].map((size) => {
       const body = message(size)
-      return (
-        `${String(size).padStart(6)} chars  ` +
-        `per token: ${perToken(body, 200).toFixed(1).padStart(6)} ms   ` +
-        `una volta: ${once(body).toFixed(2)} ms`
-      )
+      return {
+        size,
+        streamed: perToken(body, 200),
+        settled: once(body),
+      }
     })
-    console.log("\nscansioni sull'intero messaggio, 200 token:\n" + rows.join("\n"))
+    const oncePath = summarizeSamples(rows.map((row) => row.settled))
+    expect(oncePath.count).toBe(4)
+    expect(oncePath.min).toBeLessThanOrEqual(oncePath.median)
+    expect(oncePath.median).toBeLessThanOrEqual(oncePath.p95)
+    expect(oncePath.p95).toBeLessThanOrEqual(oncePath.max)
+    console.log(
+      "\nscansioni sull'intero messaggio, 200 token:\n" +
+        rows
+          .map(
+            (row) =>
+              `${String(row.size).padStart(6)} chars  ` +
+              `per token: ${row.streamed.toFixed(1).padStart(6)} ms   ` +
+              `una volta: ${row.settled.toFixed(2)} ms`,
+          )
+          .join("\n") +
+        `\nonce-path n=${oncePath.count} min=${oncePath.min.toFixed(2)}ms median=${oncePath.median.toFixed(2)}ms p95=${oncePath.p95.toFixed(2)}ms max=${oncePath.max.toFixed(2)}ms`,
+    )
   })
 
   /**

@@ -2,7 +2,7 @@
 /**
  * Boots the standalone terminal against a running server and asserts it paints.
  *
- * This is section 6 of `specs/tui-package.md` as an executable check: the host
+ * This is an executable check for `specs/effect-tui/08-host-plugins-startup.md`: the host
  * under test imports `@nikcli-ai/tui` and nothing from `packages/nikcli`, so if
  * a backend chain creeps back into the terminal's graph, this fails while the
  * CLI's own entry points keep working — they carry the backend regardless.

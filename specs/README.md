@@ -26,27 +26,27 @@ baseline during this documentation change.
 Paths are relative to the repository root. Line references describe this inspection, not permanent API anchors.
 An observed implementation surface is not automatically a proven runtime bug.
 
-| Evidence | Inspected source                                                                                        | Observed foundation or next-step opportunity                                                                                          |
-| -------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| B01      | `packages/tui/package.json:33`, `packages/nikcli/package.json:111`, `package.json:72`                   | Effect/platform-bun `4.0.0-rc.112`, OpenTUI core/solid `0.5.10`, Solid `1.9.12`; preserve the pins                                    |
-| B02      | `packages/nikcli/src/effect/runtime.ts:7`, `packages/nikcli/src/effect/run-service.ts:9`                | Shared memo map and cached runtimes exist; bridge signatures erase requirements with `any`                                            |
-| B03      | `packages/nikcli/src/effect/instance-scope.ts:19`, `packages/nikcli/src/effect/instance-state.ts:44`    | Structured interruption already exists; instance state has effectively unlimited capacity and lifetime by design                      |
-| B04      | `packages/tui/src/util/lifecycle.ts:21`                                                                 | Abort-on-cleanup helper explicitly requires both abort and post-await checks; extend, do not duplicate                                |
-| B05      | `packages/tui/src/context/sdk.tsx:117`                                                                  | Client batches envelopes at 16 ms; its array has no explicit capacity; reconnect uses manual backoff and `Bun.sleep`                  |
-| B06      | `packages/nikcli/src/server/httpapi/event-feed.ts:33`                                                   | Server already encodes once and bounds lag at 4096 frames; this is not a byte bound                                                   |
-| B07      | `packages/tui/src/context/sync.tsx:728`, `packages/tui/src/context/sync.tsx:867`                        | Bootstrap has a generation guard; session LRU already has 25 entries and 30-minute TTL; optional request failures need explicit state |
-| B08      | `packages/tui/src/routes/session/index.tsx:167`                                                         | Live renderer already consumes `fromEntries` and stabilizes turns; nearby v1 migration prose is stale                                 |
-| B09      | `packages/tui/src/routes/session/index.tsx:180`, `packages/tui/src/routes/session/message-window.ts:54` | Virtualization exists, uses six-row estimates and 50 ms polling, and falls back to the full list during streaming                     |
-| B10      | `packages/tui/src/app.tsx:102`, `packages/tui/src/host/standalone.ts:52`                                | Renderer cap is 45 FPS; standalone host has no backend imports; remote config failure currently becomes an empty config               |
-| B11      | `packages/tui/src/ui/dialog.tsx:146`                                                                    | Escape handling exists; Ctrl+C interaction detection inspects component text and a DOM-style active element                           |
-| B12      | `packages/tui/src/plugin/runtime.ts:140`                                                                | Plugin cleanup distinguishes success/error/timeout, but a Promise timeout alone cannot stop underlying work                           |
-| B13      | `packages/nikcli/src/bus/index.ts:173`                                                                  | Promise publish is deliberately best-effort; changing it globally would change compatibility semantics                                |
-| B14      | `packages/nikcli/src/monitor/manager.ts:24`, `packages/nikcli/src/background/run.ts:19`                 | Monitor output/tail and persistence are already throttled; background runs already have ownership and leases                          |
-| B15      | `packages/nikcli/src/account/index.ts:31`, `packages/nikcli/AGENTS.md:67`                               | Tagged account failures and schema-first HttpApi workflow already exist                                                               |
-| B16      | `packages/nikcli/script/tui-startup.ts:71`                                                              | Startup benchmark discards warmup and reports best-of; it does not establish percentile latency                                       |
-| B17      | `packages/nikcli/test/tui/streaming-churn.test.tsx:25`                                                  | Real renderable destruction is measured; preserve these non-vacuous regression assertions                                             |
-| B18      | `packages/nikcli/src/session/prompt.ts`, `packages/tui/src/component/prompt/index.tsx`                  | Large coordination modules deserve responsibility-based extraction, not arbitrary file-size targets                                   |
-| B19      | `docs/sync-architecture.md:6`, `packages/nikcli/src/sync/index.ts`                                      | Durable per-aggregate sequence/snapshot machinery exists; global SSE is not automatically a replay protocol                           |
+| Evidence | Inspected source                                                                                        | Observed foundation or next-step opportunity                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| B01      | `packages/tui/package.json:33`, `packages/nikcli/package.json:111`, `package.json:72`                   | Effect/platform-bun `4.0.0-rc.112`, OpenTUI core/solid `0.5.10`, Solid `1.9.12`; preserve the pins                                            |
+| B02      | `packages/nikcli/src/effect/runtime.ts:7`, `packages/nikcli/src/effect/run-service.ts:9`                | Shared memo map and cached runtimes exist; bridge signatures erase requirements with `any`                                                    |
+| B03      | `packages/nikcli/src/effect/instance-scope.ts:19`, `packages/nikcli/src/effect/instance-state.ts:44`    | Structured interruption already exists; instance state has effectively unlimited capacity and lifetime by design                              |
+| B04      | `packages/tui/src/util/lifecycle.ts:21`                                                                 | Abort-on-cleanup helper explicitly requires both abort and post-await checks; extend, do not duplicate                                        |
+| B05      | `packages/tui/src/context/sdk.tsx:117`                                                                  | Client batches envelopes at 16 ms; its array has no explicit capacity; reconnect uses manual backoff and `Bun.sleep`                          |
+| B06      | `packages/nikcli/src/server/httpapi/event-feed.ts:33`                                                   | Server already encodes once and bounds lag at 4096 frames; this is not a byte bound                                                           |
+| B07      | `packages/tui/src/context/sync.tsx:728`, `packages/tui/src/context/sync.tsx:867`                        | Bootstrap has a generation guard; session LRU already has 25 entries and 30-minute TTL; optional request failures need explicit state         |
+| B08      | `packages/tui/src/routes/session/index.tsx:167`                                                         | Live renderer already consumes `fromEntries` and stabilizes turns; nearby v1 migration prose is stale                                         |
+| B09      | `packages/tui/src/routes/session/index.tsx:180`, `packages/tui/src/routes/session/message-window.ts:54` | Virtualization exists, uses six-row estimates and 50 ms polling, and falls back to the full list during streaming                             |
+| B10      | `packages/tui/src/app.tsx:102`, `packages/tui/src/host/standalone.ts:52`                                | Renderer cap is 45 FPS; standalone host has no backend imports; remote config failure currently becomes an empty config                       |
+| B11      | `packages/tui/src/ui/dialog.tsx:146`                                                                    | Escape handling exists; Ctrl+C interaction detection inspects component text and a DOM-style active element                                   |
+| B12      | `packages/tui/src/plugin/runtime.ts:140`                                                                | Plugin cleanup distinguishes success/error/timeout, but a Promise timeout alone cannot stop underlying work                                   |
+| B13      | `packages/nikcli/src/bus/index.ts:173`                                                                  | Promise publish is deliberately best-effort; changing it globally would change compatibility semantics                                        |
+| B14      | `packages/nikcli/src/monitor/manager.ts:24`, `packages/nikcli/src/background/run.ts:19`                 | Monitor output/tail and persistence are already throttled; background runs already have ownership and leases                                  |
+| B15      | `packages/nikcli/src/account/index.ts:31`, `packages/nikcli/AGENTS.md:67`                               | Tagged account failures and schema-first HttpApi workflow already exist                                                                       |
+| B16      | `packages/nikcli/script/tui-startup.ts:198`                                                             | Startup probe reports nearest-rank min/median/p95/max plus raw samples and optional child RSS; bootstrap is labeled separately from warm runs |
+| B17      | `packages/nikcli/test/tui/streaming-churn.test.tsx:25`                                                  | Real renderable destruction is measured; preserve these non-vacuous regression assertions                                                     |
+| B18      | `packages/nikcli/src/session/prompt.ts`, `packages/tui/src/component/prompt/index.tsx`                  | Large coordination modules deserve responsibility-based extraction, not arbitrary file-size targets                                           |
+| B19      | `docs/sync-architecture.md:6`, `packages/nikcli/src/sync/index.ts`                                      | Durable per-aggregate sequence/snapshot machinery exists; global SSE is not automatically a replay protocol                                   |
 
 ## Pinned Technique References
 
@@ -73,10 +73,11 @@ Do not assume an `onScroll` JSX prop or browser DOM virtualization library exist
 ## Existing Plans and Compatibility
 
 At inspection, `specs/` and `docs/architecture/` were empty and no on-disk roadmap was found in `specs`, `docs`, or `.goals`.
-Source comments still cite absent plans such as `specs/opencode-parity/`, `specs/v2/event-stream-architecture.md`, and
-`specs/tui-package.md`. This catalog supplies a new planning baseline; it does not reconstruct or mark those historical
-documents complete. Existing [sync architecture documentation](../docs/sync-architecture.md) remains a reference; recheck
-implementation details before changing replay semantics.
+Live source comments for TUI extraction, event delivery, cache eviction, request throttling, and message virtualization
+now point at this catalog. Historical `specs/v2/` and `specs/storage/` paths that described other landed subsystems were
+not reconstructed. This catalog does not mark those historical documents complete. Existing
+[sync architecture documentation](../docs/sync-architecture.md) remains a reference; recheck implementation details before
+changing replay semantics.
 
 | Historical topic                                 | Continuation in this roadmap |
 | ------------------------------------------------ | ---------------------------- |

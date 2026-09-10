@@ -8,7 +8,7 @@ import { Global } from "./global"
  *
  * A four-function file store that sat inside `UserDB` and touched none of its
  * tables. Reaching it from the terminal pulled in drizzle and the whole user
- * schema to read one line of text — the pattern `specs/tui-package.md` §3 names:
+ * schema to read one line of text — the pattern `specs/effect-tui/08-host-plugins-startup.md` names:
  * when the TUI wants one small pure thing out of a backend namespace, extract
  * the thing, not the namespace.
  *

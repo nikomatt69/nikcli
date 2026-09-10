@@ -7,7 +7,7 @@ import { stripComments, tuiSource } from "./tui-source"
  *
  * It used to import 17 backend tool modules to type `input` and `metadata`. Those imports were
  * `import type`, so they cost nothing at runtime and nothing failed — they simply pinned the
- * terminal app to the server's module graph, which is what `specs/tui-package.md` §2 removes.
+ * terminal app to the server's module graph, which is what `specs/effect-tui/08-host-plugins-startup.md` removes.
  * The shapes now live in `@tui/util/tool-shapes`, declared from what the renderers read.
  *
  * Mounting the view would drag in the whole TUI, so read the source instead (same trade as

@@ -14,7 +14,7 @@ import { EventFeed } from "./event-feed"
  *
  * Both routes fan out through an `EventFeed`: one subscription and one
  * encode per event regardless of how many clients are attached, and one lag
- * budget per client. See `specs/v2/event-stream-architecture.md`.
+ * budget per client. See `specs/effect-tui/04-event-delivery.md`.
  */
 export namespace HttpApiEvent {
   const log = Log.create({ service: "httpapi.event" })

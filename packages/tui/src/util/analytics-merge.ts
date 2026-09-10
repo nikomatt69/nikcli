@@ -8,7 +8,7 @@
  *
  * These lived in `@/analytics/analytics` and were pulled in with `await import()`, which kept a
  * backend module in the panel's runtime graph for what is pure arithmetic over wire shapes. No
- * server code ever called them. Types come from the contract; see specs/tui-package.md §3.
+ * server code ever called them. Types come from the contract; see specs/effect-tui/08-host-plugins-startup.md.
  */
 import type {
   AnalyticsDaily as DailyAnalytics,

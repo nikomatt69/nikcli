@@ -181,7 +181,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       sdk.client.lsp.status(),
     )
     // Debounce rapid lsp.updated bursts (typing / file switches) so only the latest applies.
-    // See specs/opencode-parity/03-request-throttling.md.
+    // See specs/effect-tui/05-reactive-state.md.
     const applyLspRefresh = () =>
       refreshLspLatest()
         .then((x) => {
@@ -861,7 +861,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const syncedSessions = new Map<string, "partial" | "full">()
 
     // Bound the heavy per-session maps the store accumulates during long session-hopping.
-    // See specs/opencode-parity/02-tui-cache-eviction.md. The session being opened is touched
+    // See specs/effect-tui/05-reactive-state.md. The session being opened is touched
     // first (MRU) so it can never be a victim; sessions with active work, background jobs, or
     // that parent the active one are pinned. Re-opening an evicted session just re-runs sync().
     const sessionLru = createLru({ maxEntries: 25, ttlMs: 30 * 60_000 })

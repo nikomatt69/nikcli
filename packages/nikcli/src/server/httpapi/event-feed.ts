@@ -15,7 +15,7 @@ import { Log } from "@nikcli-ai/util/log"
  * connection carries its own lag budget, so a stalled reader is evicted with
  * a stated reason while publication and healthy readers continue in order.
  *
- * See `specs/v2/event-stream-architecture.md`.
+ * See `specs/effect-tui/04-event-delivery.md`.
  */
 export namespace EventFeed {
   const log = Log.create({ service: "event.feed" })

@@ -76,7 +76,6 @@ Local development runs the CLI entrypoint at `packages/nikcli/src/index.ts`.
 
 In-repo design and roadmap documents live at the repo root (`specs/`, not this package):
 
-- [`specs/ROADMAP.md`](../../specs/ROADMAP.md) — the ordered plan: what is done, what is next.
-- [`specs/tui-package.md`](../../specs/tui-package.md) — live work: move the TUI into `packages/tui`.
-- [`specs/v2/`](../../specs/v2/) — session, tools, events, instructions, catalog, provider policy.
-- [`specs/storage/`](../../specs/storage/) — `nikcli.db` runtime and the retired JSON store.
+- [`specs/README.md`](../../specs/README.md) — catalog, evidence register, and open-payload policy.
+- [`specs/ROADMAP.md`](../../specs/ROADMAP.md) — ordered Effect/TUI architecture program (EOT-01 to EOT-10).
+- [`docs/sync-architecture.md`](../../docs/sync-architecture.md) — durable per-aggregate sync reference.

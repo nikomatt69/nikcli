@@ -5,7 +5,7 @@
  * This is the contract between the `opentui` tool, which produces specs, and the terminal, which
  * draws them — so it belongs to neither. It used to live inside the tool module, which meant the
  * renderer imported a server tool implementation to decode a payload it had already received.
- * Nothing here touches the tool runtime; see specs/tui-package.md §2.
+ * Nothing here touches the tool runtime; see specs/effect-tui/08-host-plugins-startup.md.
  */
 import { Schema } from "effect"
 import { z } from "zod"

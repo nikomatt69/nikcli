@@ -7,7 +7,7 @@
  * field is optional and every renderer already treats the values as best effort.
  *
  * Importing `@/tool/*` bought exact types at the price of pinning the terminal app to the
- * server's module graph, which is the coupling `specs/tui-package.md` §2 exists to remove. The
+ * server's module graph, which is the coupling `specs/effect-tui/08-host-plugins-startup.md` exists to remove. The
  * types were erased at build anyway: they described the wire, not the implementation.
  *
  * Keep a field here only while a renderer reads it. If one drifts from the server, the renderer

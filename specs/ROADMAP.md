@@ -101,8 +101,10 @@ proposed/in-progress rather than claiming the architecture program is complete.
 
 ## First Implementable Slices
 
-1. EOT-01: extend startup measurement to raw samples and percentiles; add queue-depth and lifecycle baselines to existing
-   harnesses. No production behavior changes.
+1. EOT-01: the startup probe now records raw samples, nearest-rank percentiles, and child RSS when
+   readable; event-feed / plugin-dispose / streaming-cost harnesses record queue-depth, lifecycle
+   residuals, and once-path summaries. Collect the 30-warm / 10-cold baseline on a compiled binary
+   and ratify candidate budgets before optimization. No production behavior changes.
 2. EOT-02: type one `runService` caller chain without widening requirements; exercise finalizers and concurrent instances.
 3. EOT-10: characterize standalone TUI-config 401, malformed response, and offline failure; forbid empty-config success.
 4. EOT-03: carry abort plus generation checks through one complete dialog request/resource/close flow.

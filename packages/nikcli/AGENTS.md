@@ -101,7 +101,9 @@ Adding or changing an endpoint:
   ```
   Only genuinely open payloads may stay `Unknown` (upstream passthrough,
   polymorphic event-sourced entries, SSE frames, bodyless redirects). Each
-  one is justified in `specs/README.md` §Open payloads.
+  one is justified in `specs/README.md` §Open payloads. Effect/TUI architecture
+  work follows `specs/ROADMAP.md`; do not skip EOT-01 evidence or later
+  dependency gates.
 - **Reuse, do not redefine.** Reference the Effect Schema the service already
   owns (`Session.InfoSchema`, `Project.InfoSchema`, `Pty.InfoSchema`,
   `Workspace.InfoSchema`, `ManagedWorktree.InfoSchema`, `MessageV2.PartSchema`
@@ -127,7 +129,8 @@ Adding or changing an endpoint:
   `null` on the wire. So a service that assigns `field: cond ? x : undefined`
   needs either `Schema.optional`, or a producer that omits the key. Handlers
   that still push bodies through `jsonSafe` get absent keys for free — that
-  helper is load-bearing, not decoration (see ROADMAP §E4). Two shipped 400s
+  helper is load-bearing, not decoration
+  (see `specs/effect-tui/10-contracts-errors-security.md`). Two shipped 400s
   came from exactly this: `mission.ts` `featureMutate` and `config/tui.ts`
   `plugin_meta`.
 - `handleRaw` endpoints and contract-only groups are **not** encoded at
@@ -248,7 +251,7 @@ log.info("operation completed", { count: 42, status: "ok" })
 
 ### Storage Patterns
 
-Durable domain state lives in `nikcli.db` behind domain repos (`SessionRepo`, `ProjectRepo`, `LoopRepo`, `MissionRepo`, `MonitorRepo`, `ShareRepo`, `ArtifactRepo`, `GoalRepo`, `BackgroundRunRepo`, `RoutineRepo`, `SessionDiffRepo`, …). Functions are synchronous over `Database.syncDb()`; `data` holds the whole record. Do not add JSON file stores for a domain that already has a repo. Leftover `storage/*.json` trees stay on disk for downgrade only; runtime does not read them. See `specs/storage/remove-json-storage.md`.
+Durable domain state lives in `nikcli.db` behind domain repos (`SessionRepo`, `ProjectRepo`, `LoopRepo`, `MissionRepo`, `MonitorRepo`, `ShareRepo`, `ArtifactRepo`, `GoalRepo`, `BackgroundRunRepo`, `RoutineRepo`, `SessionDiffRepo`, …). Functions are synchronous over `Database.syncDb()`; `data` holds the whole record. Do not add JSON file stores for a domain that already has a repo. Leftover `storage/*.json` trees stay on disk for downgrade only; runtime does not read them. Bounded persistence and job ownership continue in `specs/effect-tui/09-jobs-persistence.md`.
 
 ```typescript
 SessionRepo.upsert(session)

@@ -5,9 +5,11 @@ Owner: performance/test maintainers across both packages. [Roadmap](../ROADMAP.m
 
 ## Problem and Evidence
 
-Evidence B10, B16, B17 in the [register](../README.md): real startup and render-churn harnesses already exist, but
-`packages/nikcli/script/tui-startup.ts` reports best-of warm startup. That cannot establish p95 responsiveness or detect
-long-tail regressions. Raising FPS or lowering a debounce without a workload-specific baseline is not an optimization.
+Evidence B10, B16, B17 in the [register](../README.md): real startup and render-churn harnesses already exist.
+`packages/nikcli/script/tui-startup.ts` now records bootstrap separately from warm/cold samples and prints nearest-rank
+min/median/p95/max plus the raw series, including child RSS when the host can read it. Candidate budgets below are still
+unratified: a printed percentile is not an approved gate. Raising FPS or lowering a debounce without a collected baseline
+is not an optimization.
 
 ## Scope and Non-Goals
 
@@ -84,8 +86,10 @@ processes running. Do not interpret swallowed errors, empty arrays, or absent me
 - Extend `packages/nikcli/test/tui/runtime-samples.test.ts`, `packages/nikcli/test/tui/streaming-churn.test.tsx`,
   `packages/nikcli/test/tui/streaming-cost.test.ts`, and the existing startup/smoke scripts rather than adding a second harness.
 - Existing entry commands, from `packages/nikcli`: `bun test test/tui/runtime-samples.test.ts`,
-  `bun test test/tui/streaming-churn.test.tsx`, and `bun run bench:startup <compiled-binary-path>`.
-  The binary argument is required and must refer to a real build. These commands alone do not yet implement all new gates.
+  `bun test test/tui/streaming-churn.test.tsx`, `bun test test/tui/plugin-dispose.test.ts`,
+  `bun test test/server/event-feed.test.ts`, and `bun run bench:startup <compiled-binary-path>`.
+  The binary argument is required and must refer to a real build. `WARM_RUNS` (alias `RUNS`) defaults to 30;
+  `COLD_RUNS` defaults to 10. These commands still do not implement every matrix workload or ratify budgets.
 
 ## Migration and Rollback
 

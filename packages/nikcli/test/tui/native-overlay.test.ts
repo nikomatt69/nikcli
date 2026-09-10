@@ -13,12 +13,13 @@ import {
 function fakeRenderer(width = 80, height = 24) {
   const writes: string[] = []
   let gridPaints = 0
-  const renderer = {
+  const host = {
     terminalWidth: width,
     terminalHeight: height,
     renderOffset: 0,
+    forceFullRepaintRequested: undefined as boolean | undefined,
     requestRender() {
-      renderer.renderNative()
+      host.renderNative()
     },
     renderNative() {
       gridPaints++
@@ -27,7 +28,7 @@ function fakeRenderer(width = 80, height = 24) {
       writes.push(chunk)
     },
   }
-  return { renderer: renderer as unknown as CliRenderer, writes, grid: () => gridPaints }
+  return { renderer: host as unknown as CliRenderer, host, writes, grid: () => gridPaints }
 }
 
 describe("fitOverlayCells", () => {
@@ -106,7 +107,7 @@ describe("overlayRectsEqual", () => {
 
 describe("registerNativeOverlay", () => {
   test("paints after the grid and erases on unregister", () => {
-    const { renderer, writes, grid } = fakeRenderer()
+    const { renderer, host, writes, grid } = fakeRenderer()
     const overlay = { box: { x: 2, y: 3 }, bytes: "SIXEL", columns: 10, rows: 5 }
     const unregister = registerNativeOverlay(renderer, overlay)
 
@@ -117,7 +118,7 @@ describe("registerNativeOverlay", () => {
     unregister()
     expect(writes[0]).toBe(eraseTerminal(80, 24))
     expect(writes[0]).toContain(" ".repeat(80))
-    expect((renderer as { forceFullRepaintRequested?: boolean }).forceFullRepaintRequested).toBe(true)
+    expect(host.forceFullRepaintRequested).toBe(true)
   })
 
   test("does not erase on a same-place redraw", () => {
@@ -161,7 +162,7 @@ describe("registerNativeOverlay", () => {
   })
 
   test("erases the box on unregister even if it never painted", () => {
-    const { renderer, writes } = fakeRenderer(80, 24)
+    const { renderer, host, writes } = fakeRenderer(80, 24)
     const overlay = { box: { x: 2, y: 24 }, bytes: "SIXEL", columns: 10, rows: 5 }
     const unregister = registerNativeOverlay(renderer, overlay)
     expect(writes.some((chunk) => chunk.includes("SIXEL"))).toBe(false)
@@ -169,6 +170,6 @@ describe("registerNativeOverlay", () => {
     writes.length = 0
     unregister()
     expect(writes[0]).toBe(eraseTerminal(80, 24))
-    expect((renderer as { forceFullRepaintRequested?: boolean }).forceFullRepaintRequested).toBe(true)
+    expect(host.forceFullRepaintRequested).toBe(true)
   })
 })

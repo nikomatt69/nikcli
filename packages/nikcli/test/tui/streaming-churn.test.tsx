@@ -110,6 +110,7 @@ describe("streaming churn", () => {
     await renderOnce()
 
     const p = probe()
+    const started = performance.now()
     let acc = ""
     for (const token of TOKENS) {
       acc += token
@@ -117,7 +118,9 @@ describe("streaming churn", () => {
       await renderOnce()
     }
     const destroyed = p.stop()
-    console.log(`plain markdown: ${destroyed} destroys over ${TOKENS.length} tokens`)
+    console.log(
+      `plain markdown: ${destroyed} destroys over ${TOKENS.length} tokens in ${(performance.now() - started).toFixed(1)}ms`,
+    )
     expect(destroyed).toBeLessThanOrEqual(CHURN_BUDGET)
   })
 
@@ -149,6 +152,7 @@ describe("streaming churn", () => {
     await renderOnce()
 
     const p = probe()
+    const started = performance.now()
     let acc = ""
     for (const token of TOKENS) {
       acc += token
@@ -156,7 +160,9 @@ describe("streaming churn", () => {
       await renderOnce()
     }
     const destroyed = p.stop()
-    console.log(`MessageMarkdown: ${destroyed} destroys over ${TOKENS.length} tokens`)
+    console.log(
+      `MessageMarkdown: ${destroyed} destroys over ${TOKENS.length} tokens in ${(performance.now() - started).toFixed(1)}ms`,
+    )
     expect(destroyed).toBeLessThanOrEqual(CHURN_BUDGET)
   })
 

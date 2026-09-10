@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url"
  * Seven tests in this directory assert against the source *text* rather than by
  * mounting components — mounting drags in the whole TUI, which is the trade each
  * of them documents. Every one of them spelled `../../src/cli/cmd/tui/…` itself,
- * which would have made the tree move (`specs/tui-package.md` §4) a seven-file
+ * which would have made the tree move (`specs/effect-tui/08-host-plugins-startup.md`) a seven-file
  * edit with one silent failure mode: `Bun.Glob.scan` over a cwd that no longer
  * exists yields nothing, so an asserted-absence test passes *vacuously*. A
  * missing file read fails loudly; a missing directory scan does not.

@@ -12,7 +12,7 @@ import type { TuiEventBus } from "@nikcli-ai/plugin/tui"
 // Shapes come from the contract, not from the server module that happens to declare them.
 import type { LoopDefinition, LoopTemplate, LoopRun } from "@nikcli-ai/sdk/httpapi"
 // Validation still does: these produce the messages shown before a definition is posted, and the
-// SDK carries no behavior. See specs/tui-package.md §3.
+// SDK carries no behavior. See specs/effect-tui/08-host-plugins-startup.md.
 import {
   DEFAULT_LOOP_AGENT,
   isValidModel,

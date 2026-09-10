@@ -3,9 +3,12 @@ import {
   brailleGraph,
   cpuPercent,
   formatBytes,
+  nearestRank,
+  relativeDelta,
   retain,
   runtimeStatus,
   statusIcon,
+  summarizeSamples,
   STATUS_WINDOW_MS,
 } from "@tui/util/runtime-samples"
 
@@ -114,5 +117,44 @@ describe("formatBytes", () => {
     expect(formatBytes(2_048)).toBe("2.0 kB")
     expect(formatBytes(50 * 1_024 * 1_024)).toBe("50 MB")
     expect(formatBytes(1_536 * 1_024 * 1_024)).toBe("1.5 GB")
+  })
+})
+
+describe("nearestRank", () => {
+  it("uses 1-indexed nearest rank, so 30 samples put p95 at the 29th value", () => {
+    const values = Array.from({ length: 30 }, (_, index) => index + 1)
+    expect(nearestRank(values, 95)).toBe(29)
+    expect(nearestRank(values, 50)).toBe(15)
+    expect(nearestRank(values, 100)).toBe(30)
+  })
+
+  it("labels a 10-sample p95 as the maximum, which is why cold starts stay descriptive", () => {
+    expect(nearestRank([10, 20, 30, 40, 50, 60, 70, 80, 90, 100], 95)).toBe(100)
+  })
+
+  it("refuses an empty series instead of reporting 0", () => {
+    expect(() => nearestRank([], 95)).toThrow(/at least one sample/)
+  })
+})
+
+describe("summarizeSamples", () => {
+  it("keeps min, median, p95, and max together with the raw count", () => {
+    const summary = summarizeSamples([40, 10, 20, 30])
+    expect(summary).toEqual({ count: 4, min: 10, median: 20, p95: 40, max: 40 })
+  })
+
+  it("refuses an empty series instead of reporting 0", () => {
+    expect(() => summarizeSamples([])).toThrow(/at least one sample/)
+  })
+})
+
+describe("relativeDelta", () => {
+  it("is the signed fraction of the baseline", () => {
+    expect(relativeDelta(100, 110)).toBeCloseTo(0.1)
+    expect(relativeDelta(100, 85)).toBeCloseTo(-0.15)
+  })
+
+  it("does not turn a missing baseline into Infinity", () => {
+    expect(() => relativeDelta(0, 10)).toThrow(/non-zero baseline/)
   })
 })

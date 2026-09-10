@@ -288,6 +288,16 @@ describe("workflow failure regressions", () => {
     }
   })
 
+  it("the startup probe reports percentiles instead of best-of warm runs", async () => {
+    const src = await read("packages/nikcli/script/tui-startup.ts")
+    expect(src).toContain("WARM_RUNS")
+    expect(src).toContain("COLD_RUNS")
+    expect(src).toContain("p95")
+    expect(src).toContain("summarizeSamples")
+    expect(src).toContain("rssBytes")
+    expect(src).not.toContain("best of")
+  })
+
   it("the site deployment only unlocks SST after detecting a persisted lock", async () => {
     const yml = await read(".github/workflows/deploy.yml")
     const detection = yml.indexOf("A concurrent update was detected")

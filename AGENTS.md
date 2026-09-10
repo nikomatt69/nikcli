@@ -21,6 +21,13 @@ This is a Bun monorepo. Key packages:
 - `packages/remote` - Remote execution
 - `packages/companion` - Companion services
 
+## Architecture program
+
+Changes to Effect boundaries, TUI lifecycle, event delivery, rendering, or
+startup follow `specs/README.md` and `specs/ROADMAP.md`. Start with EOT-01
+measurement; later specs are dependency-gated. Specs stay proposed until their
+acceptance tests land.
+
 ## Development Guidelines
 
 - **Package manager**: Bun (use `bun install`, `bun update`)

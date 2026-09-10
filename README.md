@@ -685,7 +685,7 @@ Recognized env flags (see `flag/flag.ts`): `NIKCLI_SERVER_PASSWORD`, `NIKCLI_SER
 - **Upstream project (OpenCode)**: [https://github.com/anomalyco/opencode](https://github.com/anomalyco/opencode)
 - **This fork**: [https://github.com/nikomatt69/nikcli](https://github.com/nikomatt69/nikcli)
 - **Issue tracker & discussions**: GitHub repository.
-- **Internal specs** (in `specs/`): performance, modularization, i18n, loops, OpenAPI cleanup.
+- **Internal specs** (in `specs/`): start at `specs/README.md` and `specs/ROADMAP.md` for the Effect/TUI architecture program.
 - **Changelog**: `CHANGELOG.md` (v1.5.0 — Effect Schema migration, Feb 2026 milestone).
 
 Useful repository files:
