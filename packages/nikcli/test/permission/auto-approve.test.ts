@@ -33,6 +33,23 @@ describe("PermissionRuleset.autoApprove", () => {
     expect(evaluate(auto, "bash", "rm -rf build")).toBe("deny")
   })
 
+  it("depends on last-match ordering, not on an action precedence", () => {
+    // EOT-17 originally specified "explicit allow > explicit deny". Under that
+    // rule this construction inverts: the blanket allow is emitted first and
+    // would beat every deny, so --yolo would silently discard the rails the
+    // user set. The ordering below is the safety property, not an accident.
+    const base: PermissionRuleset.Ruleset = [
+      { permission: "*", pattern: "*", action: "ask" },
+      { permission: "bash", pattern: "rm *", action: "deny" },
+    ]
+
+    const auto = PermissionRuleset.autoApprove(base)
+
+    expect(auto[0]).toEqual({ permission: "*", pattern: "*", action: "allow" })
+    expect(auto.at(-1)?.action).toBe("deny")
+    expect(evaluate(auto, "bash", "rm -rf /")).toBe("deny")
+  })
+
   it("does not resurrect a denial that a later rule already overrode", () => {
     const base: PermissionRuleset.Ruleset = [
       { permission: "question", pattern: "*", action: "deny" },

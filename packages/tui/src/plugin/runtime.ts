@@ -283,6 +283,9 @@ async function loadExternalPlugin(
   const mod = await import(version)
     .then((raw) => {
       const value = raw as Record<string, unknown>
+      // v1 wins the detection race; a module that is not v1-shaped falls
+      // through to the v2 reader. `specs/effect-tui/14-plugin-v2-architecture.md`
+      // replaces this ordering with an explicit manifest check.
       return (readV1Plugin(value, spec, "tui", "detect") as TuiPluginModule | undefined) ?? readV2TuiPlugin(value, spec)
     })
     .catch((error) => {

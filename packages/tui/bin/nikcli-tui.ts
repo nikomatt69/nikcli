@@ -7,7 +7,7 @@
  * that `@nikcli-ai/tui` stands on its own, run as a program rather than argued
  * about in a document.
  */
-import { startStandaloneTui } from "../src/host/standalone"
+import { StandaloneConfigError, startStandaloneTui } from "../src/host/standalone"
 
 const url = process.argv[2]
 if (!url) {
@@ -15,4 +15,19 @@ if (!url) {
   process.exit(2)
 }
 
-await startStandaloneTui({ url, sessionID: process.argv[3], directory: process.cwd() })
+const ACTION: Record<string, string> = {
+  unauthorized: "sign in on that server, or start it without auth",
+  unavailable: "start a nikcli server there, or check the URL",
+  malformed: "check that the server version matches this client",
+}
+
+try {
+  await startStandaloneTui({ url, sessionID: process.argv[3], directory: process.cwd() })
+} catch (error) {
+  // Starting the renderer on default config would hide a server that is down,
+  // rejecting us, or speaking a shape we cannot read.
+  if (!(error instanceof StandaloneConfigError)) throw error
+  console.error(`nikcli-tui: ${error.message}`)
+  console.error(`  ${ACTION[error.reason]}`)
+  process.exit(1)
+}

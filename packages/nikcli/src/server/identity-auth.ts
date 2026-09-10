@@ -4,6 +4,13 @@ import { UserDB } from "@/user/users"
 
 const DEFAULT_ISSUER = "https://auth.nikcli.store"
 
+/**
+ * The server is the single trust boundary in
+ * `specs/effect-tui/12-identity-onboarding-auth.md`: it verifies the issuer JWT
+ * and the TUI/SDK/CLI consume its typed answers rather than re-validating the
+ * signature themselves. That spec turns login/refresh/expiry/revocation into
+ * one state machine on top of this verifier; it does not replace it.
+ */
 export function identityVerifierOptions(): VerifyAccessTokenOptions | undefined {
   // Default-on: every nikcli server accepts issuer JWTs. Verification is
   // lazy — the JWKS is only fetched when a JWT-shaped bearer arrives, so

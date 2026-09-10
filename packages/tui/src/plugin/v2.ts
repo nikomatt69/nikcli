@@ -1,3 +1,13 @@
+/**
+ * Adapts a v2 TUI plugin definition onto the legacy `TuiPluginModule` shape the
+ * runtime already knows how to register, so v1 and v2 plugins coexist in one
+ * process without a second plugin system.
+ *
+ * This adapter is the seam `specs/effect-tui/14-plugin-v2-architecture.md`
+ * grows into the v2 contract: manifest validation, capability gating, and a
+ * revocable per-generation scope. Until then the v2 shape is detected, not
+ * enforced.
+ */
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 import type { Context, Destination, Route } from "@nikcli-ai/plugin/v2/tui/context"
 import type { Definition } from "@nikcli-ai/plugin/v2/tui/plugin"

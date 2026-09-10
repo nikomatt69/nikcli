@@ -218,6 +218,15 @@ function model<Input>(
   return modelWithDefaults(route, defaults, options)
 }
 
+/**
+ * `prepare`/`stream`/`generate` are the canonical inference seam in
+ * `specs/effect-tui/11-provider-inference-streaming.md`: the production path
+ * still runs through `nikcli/src/provider/provider.ts` and `session/llm/*` on
+ * AI SDK streams and Promises, and that spec converges the two by making the
+ * AI SDK route an adapter into `LLMEvent` rather than a second model. New
+ * producer code targets these three methods; the bus/SSE wire shape does not
+ * change.
+ */
 export interface Interface {
   /**
    * Compile a request through protocol body construction, validation, and HTTP

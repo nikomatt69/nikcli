@@ -16,6 +16,12 @@ export interface WithInput {
   readonly init?: (instance: InstanceContext) => Promise<void>
 }
 
+/**
+ * `specs/effect-tui/16-workspace-isolation.md` starts here: `workspaceID` is
+ * currently a value carried alongside the instance, so two workspaces on the
+ * same directory share this scope's resources. That spec promotes the
+ * workspace itself to the owning `Scope`, which changes what disposal releases.
+ */
 export const InstanceScope = {
   /**
    * Bridge an Effect into the instance scope of `input.directory`.

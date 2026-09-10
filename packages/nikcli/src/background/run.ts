@@ -23,6 +23,35 @@ export namespace BackgroundRun {
   export const Status = zod(StatusSchema)
   export type Status = Schema.Schema.Type<typeof StatusSchema>
 
+  /**
+   * Statuses after which a run is settled. A terminal record is the durable
+   * outcome of the job: nothing may reopen it, overwrite it with a second
+   * outcome, or restart its lease.
+   *
+   * This is a named invariant rather than an inline `status !== "running"`
+   * because the two only coincide while `running` is the sole non-terminal
+   * state. Adding a `queued`/`starting` state to the schema would silently
+   * make the inline check refuse to finalize a job that was never running,
+   * while this one keeps meaning what it says.
+   */
+  export const TERMINAL_STATUSES: ReadonlySet<Status> = new Set<Status>([
+    "complete",
+    "error",
+    "timeout",
+    "cancelled",
+    "orphaned",
+  ])
+
+  export function isTerminal(status: Status): boolean {
+    return TERMINAL_STATUSES.has(status)
+  }
+
+  /** A run may move to a new status only while it is not already settled. */
+  export function canTransition(from: Status, to: Status): boolean {
+    if (isTerminal(from)) return false
+    return from !== to
+  }
+
   const SourceSchema = Schema.Literals([
     "task",
     "model-subtask",
@@ -369,7 +398,7 @@ ${result}
 
   export async function updateProgress(id: string, progressSummary?: string) {
     const updated = mutate(id, (draft) => {
-      if (draft.status !== "running") return
+      if (isTerminal(draft.status)) return
       draft.progressSummary = progressSummary || undefined
       draft.lastActivityAt = Date.now()
       draft.updatedAt = Date.now()
@@ -479,7 +508,7 @@ ${result}
   export async function finalize(id: string, status: Status, result: string, error?: string, metadata?: Metadata) {
     let finalized = false
     const record = mutate(id, (draft) => {
-      if (draft.status !== "running") return
+      if (!canTransition(draft.status, status)) return
       draft.status = status
       draft.updatedAt = Date.now()
       draft.completedAt = Date.now()

@@ -3,6 +3,18 @@ import { createSimpleContext } from "./helper"
 import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { batch, createSignal, onCleanup, onMount } from "solid-js"
 import { createWakeDedup, type WakeDedup } from "../util/wake-dedup"
+import { createQueueMeter } from "../util/event-queue-meter"
+import { Log } from "@nikcli-ai/util/log"
+
+const log = Log.create({ service: "tui.sdk" })
+
+/**
+ * Depth at which the client's event batch is reported as overloaded. Chosen to
+ * sit far above a normal streaming burst (a fast turn flushes tens of
+ * envelopes per 16 ms window) so that crossing it means the consumer is not
+ * keeping up, not that the model is answering quickly.
+ */
+const EVENT_QUEUE_OVERLOAD = 2048
 
 /**
  * GlobalBus envelope as forwarded by `/global/event` (HTTP mode) and the
@@ -118,6 +130,18 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
     let timer: Timer | undefined
     let last = 0
 
+    // The batch has no cap. Before one can be added, overload has to be
+    // observable: a cap that silently drops a permission prompt or a final
+    // outcome would trade correctness for a faster view.
+    const queueMeter = createQueueMeter(EVENT_QUEUE_OVERLOAD, (snapshot) => {
+      log.warn("event batch depth crossed the overload threshold", {
+        depth: snapshot.depth,
+        highWater: snapshot.highWater,
+        threshold: EVENT_QUEUE_OVERLOAD,
+        overloads: snapshot.overloads,
+      })
+    })
+
     // Consumer-side dedup for wake-shaped envelopes. The "parent ↔
     // child wake ordering race" can cause the same event to be
     // delivered twice through the bus; without this filter every
@@ -155,6 +179,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       if (queue.length === 0) return
       const envelopes = queue
       queue = []
+      queueMeter.flush(envelopes.length)
       timer = undefined
       last = Date.now()
       // Filter wake-shaped envelopes that have already been seen in
@@ -182,6 +207,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       if (!type) return
       if (type === "server.heartbeat" || type === "server.connected") return
       queue.push(envelope)
+      queueMeter.admit()
       const elapsed = Date.now() - last
 
       if (timer) return

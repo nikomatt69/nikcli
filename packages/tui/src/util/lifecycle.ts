@@ -3,6 +3,9 @@ import { onCleanup } from "solid-js"
 /**
  * The disposed flag every awaiting dialog was re-inventing.
  *
+ * This is the primitive `specs/effect-tui/03-tui-lifecycle.md` builds on:
+ * extend it rather than adding a second cancellation helper.
+ *
  * A terminal dialog can be dismissed with `esc` while it is parked on an await
  * — an OAuth callback that blocks until the browser approves, a device-code
  * poll, a browser session that is still starting. Solid tears the owner down

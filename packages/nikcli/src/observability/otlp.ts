@@ -3,6 +3,7 @@ import { FetchHttpClient } from "effect/unstable/http"
 import { OtlpExporter, OtlpLogger, OtlpSerialization, OtlpTracer } from "effect/unstable/observability"
 import { Flag } from "@nikcli-ai/util/flag"
 import { TelemetryRecord } from "./telemetry-bus"
+import { sanitizeSpanAttributes } from "./span-schema"
 
 // Build version/channel from the globals injected at compile time, mirroring
 // Installation.VERSION/CHANNEL. Read directly (rather than importing
@@ -85,15 +86,9 @@ async function getPublish(): Promise<(record: TelemetryRecord) => void> {
 }
 
 function stringifyAttributes(input: Iterable<readonly [string, unknown]>): Record<string, string> | undefined {
-  const out: Record<string, string> = {}
-  let count = 0
-  for (const [key, value] of input) {
-    if (count++ >= 32) break
-    if (value === undefined || value === null) continue
-    const str = typeof value === "string" ? value : JSON.stringify(value)
-    out[key] = str.length > 200 ? str.slice(0, 200) + "…" : str
-  }
-  return Object.keys(out).length ? out : undefined
+  // Every span reaches the live panel and the exporter through here, so the
+  // attribute contract is enforced once, at the choke point.
+  return sanitizeSpanAttributes(input).attributes
 }
 
 function buildRecord(args: {
@@ -249,6 +244,11 @@ function tracerLayer(runID: string): Layer.Layer<never, never, never> {
 // Combined observability layer. Captures spans for the live TUI panel (default
 // on) and exports traces/logs over OTLP when an endpoint is configured. No-op
 // when nothing is active, so it can be merged into any runtime base unchanged.
+//
+// `specs/effect-tui/13-observability-pipeline.md` makes this the one merge
+// point and fixes the span/metric/log schema and forbidden-dimension list on
+// top of it. Redaction there is not a flag: there is no switch that turns it
+// off, only the opt-in OTLP endpoint and the live-panel opt-out.
 export const layer: Layer.Layer<never, never, never> = active
   ? Layer.unwrap(
       Effect.sync(() => {
