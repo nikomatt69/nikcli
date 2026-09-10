@@ -464,6 +464,13 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
     surfaceControls?.key(input);
   }
 
+  function submitPageText() {
+    const v = pageTextarea?.plainText ?? "";
+    if (v.length > 0) sendToPage({ text: v });
+    sendToPage({ key: "enter" });
+    pageTextarea?.clear();
+  }
+
   async function navigate(rawUrl: string) {
     const url = normalizeUrl(rawUrl);
     if (!url) return;
@@ -1010,6 +1017,62 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
         </Show>
       </box>
 
+      <Show when={live()}>
+        <box
+          flexDirection="row"
+          gap={1}
+          alignItems="center"
+          flexShrink={0}
+          border
+          borderColor={
+            focusArea() === "page" ? theme.accent.fg : theme.border.default
+          }
+          paddingLeft={1}
+          paddingRight={1}
+          onMouseUp={() => focusPageBar()}
+        >
+          <text fg={theme.foreground.muted} flexShrink={0}>
+            ⌨
+          </text>
+          <textarea
+            ref={(v: TextareaRenderable) => {
+              pageTextarea = v;
+            }}
+            height={1}
+            flexGrow={1}
+            keyBindings={[{ name: "return", action: "submit" }]}
+            onSubmit={() => submitPageText()}
+            onKeyPress={(evt) => {
+              if (evt.name === "escape") {
+                pageTextarea?.blur();
+                focusContent();
+                evt.preventDefault();
+                evt.stopPropagation();
+                return;
+              }
+              if (evt.name === "tab" && !evt.ctrl && !evt.meta) {
+                sendToPage({ key: evt.shift ? "shift+tab" : "tab" });
+                evt.preventDefault();
+                evt.stopPropagation();
+              }
+            }}
+            placeholder="type into the page…"
+            textColor={theme.foreground.default}
+            focusedTextColor={theme.foreground.default}
+            cursorColor={theme.accent.fg}
+          />
+          <box
+            backgroundColor={theme.accent.fg}
+            paddingLeft={1}
+            paddingRight={1}
+            flexShrink={0}
+            onMouseUp={() => submitPageText()}
+          >
+            <text fg={theme.surface.base}>↵</text>
+          </box>
+        </box>
+      </Show>
+
       <box
         flexDirection={tight() ? "column" : "row"}
         justifyContent="space-between"
@@ -1035,6 +1098,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
         >
           <box flexDirection="row" gap={2}>
             <text fg={theme.foreground.muted}>^L url</text>
+            <text fg={theme.foreground.muted}>^K page</text>
             <text fg={theme.foreground.muted}>⌥← back</text>
             <text fg={theme.foreground.muted}>⌥→ fwd</text>
             <Show when={liveRenderer === "kitty"}>
