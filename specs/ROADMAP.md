@@ -8,6 +8,10 @@ Last reconciled against the source: **2026-09-05**. The 2026-08-26 refill is clo
 
 **2026-09-10 — D1:** the thirteen `specs/v2/*` documents that still read **Proposed** were resolved rather than left as a standing backlog. Six are promoted to **Accepted and implemented** on tests that pin their invariants; seven stay Proposed and each now carries a **Missing** row naming the one test that would promote it. The audit was not free of findings: `Log` was writing flat scalar extras without redacting them, so an OAuth `state` and an authorization URL reached the log buffer verbatim while the identical pair nested one level deep was masked. That is fixed, and the fix is pinned. See [Resolve the Proposed v2 contracts (D1)](#resolve-the-proposed-v2-contracts-d1--landed-2026-09-10).
 
+**2026-09-10 — U6:** the one thing U4 left open is closed — solid-js is on `1.9.12`, the version `@opentui/solid@0.5.10` declares, and `packages/bench-tui`'s literal pin moved onto the catalog before it could become a second resolved copy.
+
+**2026-09-10 — D3:** the two failures the suite had been carrying were both real bugs, not environment: a CodeMode signature regression from the E6 pin bump, and an OpenAPI component rename. `bun run test:ci` is **16 of 16 batches, 392 files, 4157 pass, 0 fail** — there is no known-red test left.
+
 **2026-09-10 — D2:** the seven tests D1 named were written, and every document in `specs/v2/` is now **Accepted and implemented**. Two source seams were added to make security-relevant branches reachable (`Brain._internalSetExecutor`, `Brain.SESSION_PERMISSION`), matching the ones `loop` and `mission` already export for the same reason. `test/cli/command-surface.test.ts` found real drift on its first run: `api` (X3) had been registered for a day without appearing in the CLI surface table. See [Write the seven named tests (D2)](#write-the-seven-named-tests-d2--landed-2026-09-10).
 
 **2026-09-07 follow-up — C2 implemented locally:** the release-trust audit found that `Dockerfile.serve` still added `@effect/platform-bun@4.0.0-beta.83` after installing the workspace graph validated by E6. C2 removes that positional install and extends the existing blocking Docker version guard. This does not reopen E6 or complete the product-side deployment observation window.
@@ -41,6 +45,7 @@ The **E4 service-side slices landed** (2026-08-19): `Session.Info` and every `Me
 | **D1**  | Done    | Proposed v2 contracts resolved: six promoted, seven given a named missing test (2026-09-10)     |
 | **D2**  | Done    | The seven named tests written; every v2 contract is Accepted (2026-09-10)                       |
 | **D3**  | Done    | The two standing suite failures diagnosed and fixed; the suite is green end to end (2026-09-10) |
+| **U6**  | Done    | solid-js moved to the version `@opentui/solid` declares (2026-09-10)                            |
 | **T4**  | Done    | CodeMode syntax subset re-decided and widened (landed 2026-09-09)                               |
 | **U4**  | Done    | OpenTUI 0.5.10; patch retargeted, not dropped (landed 2026-09-09)                               |
 | **U5**  | Done    | Storybook harness + pending-input story (landed 2026-09-09)                                     |
@@ -247,7 +252,7 @@ The engineering order was empty after C3, and the repository's own leftovers had
 - **Outcome, and the part the item guessed wrong** — The hypothesis above was that upstream's patch-free `patches/` meant our patch was redundant. It is not. `@opentui/core@0.5.10` was downloaded and read directly: it stores `_lastHighlights` while streaming and still never reuses them when a later highlight pass returns nothing, which is the exact gap the patch closes. So the patch was **retargeted**, not dropped — regenerated against 0.5.10's two `CodeRenderable` chunks (`chunk-bun-bb3k0yt8.js`, `chunk-node-6bg8r2m7.js`) via `bun patch`, with the 0.4.5 file deleted. Absence of an upstream patch was evidence about upstream, not about the behaviour.
 - **The port needed one real adaptation** — Upstream's script rewrites every `@opentui/*` override to `catalog:`, because upstream keeps those in a root catalog. nikcli has no opentui catalog; its overrides carry literal versions. Ported verbatim, the first run wrote `catalog:` into overrides pointing at a catalog entry that does not exist, and `bun install` failed with `@opentui/core@0.5.10 failed to resolve` twelve times and wrote no lockfile. `script/upgrade-opentui.ts` now asks the manifest whether a catalog entry exists instead of assuming the convention, and additionally re-keys `patchedDependencies` and renames the patch file — which upstream has no reason to do, and which is precisely the silent-dead-patch failure `check-patched-deps.ts` was written for.
 - **Verified** — Eight manifests moved (three more than this item predicted: `bench-tui`, `webrenderer`, `simulation`, `plugin`, `nikcli`, `tui`, `tui-math`, root). `bun.lock` resolves exactly one `@opentui/core@0.5.10` and one `@opentui/solid@0.5.10`. `bun install --frozen-lockfile` is clean. The binary compiles, `smoke:tui` painted 2932 characters and stayed alive, and `smoke:standalone` painted 534 against a live server started from that binary. `test/tui/` is 467/0; the patched-dependency guard passes on 9 patches. `test/release/opentui-pins.test.ts` is new and asserts the lockfile invariant rather than the version string.
-- **Left open, deliberately** — `@opentui/solid@0.5.10` declares `solid-js@1.9.12`; this repo resolves `1.9.10`, so `bun install` warns. Upstream is on `1.9.15`. Nothing observed misbehaves — the TUI boots, paints, and its suite is green — and moving solid-js is a different blast radius from moving OpenTUI, so it is recorded here rather than folded in silently. `0.5.11` also exists; 0.5.10 was chosen to match the tree being used as the reference, so any regression is attributable.
+- **Left open, deliberately — closed by [U6](#align-solid-js-with-what-opentui-declares-u6--landed-2026-09-10) on 2026-09-10.** `@opentui/solid@0.5.10` declares `solid-js@1.9.12`; this repo resolved `1.9.10`, so `bun install` warned. Upstream is on `1.9.15`. Nothing observed misbehaved — the TUI booted, painted, and its suite was green — and moving solid-js is a different blast radius from moving OpenTUI, so it was recorded here rather than folded in silently. `0.5.11` also exists; 0.5.10 was chosen to match the tree being used as the reference, so any regression is attributable.
 - **Not in scope** — Taking upstream TUI components along with the bump. Their session route is a different keymap and config model, and `@opentui/keymap` has no place here while `util/keybind.ts` is ours.
 
 #### A story harness for fixture-less components (U5) — landed 2026-09-09
@@ -323,6 +328,15 @@ The engineering order was empty after C3, and the repository's own leftovers had
 - **One documented invariant turned out to be two** — The brain contract said "the agent may edit only the two named files under the listed tools". The tool half is enforced by the ruleset; the _two files_ half is carried by the prompt, since `edit` is allowed on `*`. Both are true, they hold at different levels, and the document now says which is which rather than implying one mechanism.
 - **What did not become a test, and why the contract still promoted** — Nothing. Every Missing row was closed, including the workspace forwarding leg D1 had judged not worth faking: a `container` workspace resolves its target from config alone, so a stub `Bun.serve` observes a real forward without a runtime.
 - **Not in scope** — Widening any contract. Where a test could only be written by changing behaviour, the behaviour stayed and the document was corrected instead.
+
+### Align solid-js with what OpenTUI declares (U6) — landed 2026-09-10
+
+- **Buys** — Running the Solid runtime the renderer was compiled against. U4 left this open deliberately rather than folding it in silently, and named it as the one thing that bump did not settle.
+- **Evidence** — `@opentui/solid@0.5.10` declares `peerDependencies: { "solid-js": "1.9.12" }` and depends on `babel-preset-solid@1.9.12`, which generates code for that runtime. The root catalog pinned `1.9.10`, so `bun install` warned on a fresh install and the TUI ran on a runtime two patches behind its own JSX output. Upstream opencode is on `1.9.15`.
+- **Done when** — The catalog is on the declared version, `bun.lock` resolves exactly one `solid-js`, `bun install --frozen-lockfile` is clean, both TUI smoke checks pass **on a rebuilt binary**, and `test/tui/` is green.
+- **Outcome** — Catalog `1.9.10` → `1.9.12`. `packages/bench-tui` carried a literal `1.9.10` rather than `catalog:` and would have become the second resolved copy the moment the catalog moved — exactly the failure mode U4 recorded (two resolved copies defeat Solid's `instanceof` renderer reuse) — so it moved onto the catalog in the same change. `packages/webrenderer`'s `^1.9.10` range resolves onto the same single copy.
+- **Verified** — `bun.lock` holds exactly one `solid-js@1.9.12`; `bun install --frozen-lockfile` reports no changes; typecheck 35 of 35; `test/tui/` 478/0; `test/release/` 243/0. The binary was **rebuilt** before smoking, because `tui-smoke.ts` auto-detects whatever sits in `dist/` and would otherwise have passed on yesterday's binary: `smoke:tui` painted 3075 characters and `smoke:story` found both expected strings. `ci-validate.ts` 12 of 12.
+- **Not in scope** — `1.9.15`. The declared peer is the target; matching upstream is a different question with no evidence behind it here.
 
 ### The two standing failures were both real (D3) — landed 2026-09-10
 
@@ -1142,6 +1156,16 @@ The last of the three `Effect.gen` `throw`s E8's sweep found, and the only one E
 
 **The suite is green end to end for the first time in this sequence.** `bun run test:ci` — 16 of 16 batches, 392 files, **4157 pass, 0 fail**.
 
+### 2026-09-10 (final) — U6: the peer version U4 wrote down
+
+**U4 named one thing it had not settled, and that is the whole item.** `@opentui/solid@0.5.10` declares `solid-js@1.9.12` and ships `babel-preset-solid@1.9.12`, which is what compiles the TUI's JSX; the catalog pinned `1.9.10`, so the renderer's output and the runtime executing it were two patches apart and `bun install` said so on every fresh install.
+
+**The bump found the trap U4 had documented, one package over.** `packages/bench-tui` carried a literal `"solid-js": "1.9.10"` instead of `catalog:`. Moving the catalog alone would have left it behind as a **second resolved copy** — the precise failure that cost days before, because two copies defeat Solid's `instanceof` renderer reuse. It is on the catalog now, and the lockfile holds exactly one `solid-js@1.9.12`.
+
+**The smoke check nearly passed on the wrong binary.** `tui-smoke.ts` auto-detects whatever sits in `dist/`, and the first run picked up yesterday's binary — compiled against 1.9.10 — and passed. Rebuilt, then smoked: `smoke:tui` painted 3075 characters and `smoke:story` found both expected strings. The working rules now say to rebuild first, and they no longer name `smoke:standalone`, which does not exist in this repository.
+
+**Verified.** One resolved `solid-js`; `bun install --frozen-lockfile` clean; typecheck 35 of 35; `test/tui/` 478/0; `test/release/` 243/0; `ci-validate.ts` 12 of 12.
+
 ## Follow working rules
 
 - Commit at phase boundaries, not per file. H4 and H5 land together.
@@ -1150,6 +1174,6 @@ The last of the three `Effect.gen` `throw`s E8's sweep found, and the only one E
 - Adding a migration breaks `test/database/database.test.ts`'s journal assertion. That is expected; update it in the same commit.
 - After an HttpApi contract change, run `bun run generate:httpapi-clients` from `packages/nikcli` and commit the generated output.
 - `bun run check:routes` is the inventory gate today. `--strict` is honored as of H4 (same rules as default; future strict-only checks land in `script/check-route-coverage.ts`).
-- The TUI packaging check is `bun run smoke:tui` / `bun run smoke:standalone`, not `--version` or `--help`.
+- The TUI packaging check is `bun run smoke:tui` and `bun run smoke:story` in `packages/nikcli`, not `--version` or `--help`. (There is no `smoke:standalone` script; earlier entries name one that does not exist.) Both auto-detect the binary in `dist/`, so **rebuild first** — otherwise they smoke whatever was last built.
 - **The unit-suite baseline is green.** `bun run test:ci` in `packages/nikcli` was 16 of 16 batches, 392 files, 4157 pass, 0 fail on 2026-09-10 (D3). There is no known-red test: a failure is a regression or a load flake, and the way to tell them apart is to re-run the file alone. Do not add an exemption to this list — the two that used to live here were both real bugs.
 - Prefer Effect v4 APIs already in the tree (`Schema.optionalKey`, `Schema.TaggedError`, `Effect.fn`, `HttpApiMiddleware`) over new wrappers. Verify against `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src`, which ship with the pin. Repo-specific `layer` / `defaultLayer` naming, `runPromiseWithLayer`, and `fromZod` for `nikcli.json` are in `.nikcli/skill/effect-v4/SKILL.md`.
