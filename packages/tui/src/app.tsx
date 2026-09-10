@@ -89,7 +89,6 @@ import { StartupLoading } from "./component/startup-loading"
 import { SessionTabs } from "./component/session-tabs"
 import { BRAIN_SESSION_TITLE } from "@nikcli-ai/util/brain-constants"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
-import { DialogMobileConnect } from "@tui/component/dialog-mobile-connect"
 import { SupportSessionProvider } from "@tui/context/support-session"
 import type { CreateMobileTokenOptions, CreatedMobileToken, StartServerOptions } from "@tui/context/server"
 import {
@@ -1158,7 +1157,13 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         aliases: ["link"],
       },
       onSelect: () => {
-        dialog.replace(() => <DialogMobileConnect sessionID={sessionIDFromRoute(route.data)} />)
+        // Lazy: pairing a phone is not on the path to the first frame, and this
+        // dialog's chain is the most expensive of the eager component imports.
+        // See `script/import-cost.ts` for the measurement.
+        const sessionID = sessionIDFromRoute(route.data)
+        void import("@tui/component/dialog-mobile-connect").then(({ DialogMobileConnect }) => {
+          dialog.replace(() => <DialogMobileConnect sessionID={sessionID} />)
+        })
       },
     },
     {
