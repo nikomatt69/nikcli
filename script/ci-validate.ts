@@ -89,8 +89,9 @@ const steps: ValidationStep[] = [
   //
   // Validation runs no tests at all now: typecheck is the correctness signal
   // here, and the rest of these steps are static checks that finish in seconds.
-  // The suite belongs to the `test` workflow; `bun run test:ci` in
-  // packages/nikcli runs it anywhere else, sharded so it does not OOM.
+  // No workflow runs the suite — `test.yml` was reduced to typecheck for the
+  // same reason. `bun run test:ci` in packages/nikcli runs it anywhere else,
+  // sharded so it does not OOM. See specs/v2/ci-pipeline-runtime-budgets.md.
   {
     name: "Shell syntax check (install script)",
     command: ["bash", "-n", "install"],

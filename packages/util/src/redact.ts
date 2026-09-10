@@ -15,7 +15,8 @@
  * single log line never balloons.
  */
 
-const REDACTED = "[REDACTED]"
+/** The single token every redaction path writes. */
+export const REDACTED = "[REDACTED]"
 
 const REDACT_KEYS = new Set([
   "token",
@@ -64,6 +65,19 @@ const MAX_DEPTH = 4
 const MAX_LEAF = 4096
 
 /**
+ * Whether a key names a credential. Matches the original key and its
+ * lowercase form, so `clientSecret`, `ClientSecret`, and `client_secret`
+ * are all caught by the single `client_secret` entry.
+ *
+ * Exported because callers that format one entry at a time — `Log`'s
+ * scalar branch — have to apply the same rule the object walk below
+ * applies, or a flat `{ token: "…" }` escapes redaction entirely.
+ */
+export function isRedactedKey(key: string): boolean {
+  return REDACT_KEYS.has(key) || REDACT_KEYS.has(key.toLowerCase())
+}
+
+/**
  * Redact a value recursively. Walks objects and arrays, replacing values
  * whose key matches `REDACT_KEYS` with `[REDACTED]`. Strings are scanned
  * for token-shaped substrings and URL query credentials.
@@ -94,10 +108,7 @@ export function redactValue(value: unknown, depth = 0, seen: WeakSet<object> = n
     }
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      // Match both the original key and the lowercase form so we
-      // catch `clientSecret`, `ClientSecret`, and `client_secret` with
-      // a single entry in REDACT_KEYS.
-      if (REDACT_KEYS.has(k) || REDACT_KEYS.has(k.toLowerCase())) {
+      if (isRedactedKey(k)) {
         out[k] = REDACTED
       } else {
         out[k] = redactValue(v, depth + 1, seen)
@@ -169,7 +180,7 @@ export function discover(value: unknown): string[] {
       if (seen.has(v as object)) return
       seen.add(v as object)
       for (const [k, child] of Object.entries(v as Record<string, unknown>)) {
-        if (REDACT_KEYS.has(k) || REDACT_KEYS.has(k.toLowerCase())) {
+        if (isRedactedKey(k)) {
           findings.push(`${k}=${REDACTED}`)
         } else {
           walk(child, depth + 1)

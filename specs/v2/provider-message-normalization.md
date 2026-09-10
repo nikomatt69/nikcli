@@ -1,9 +1,10 @@
 # Provider Message Normalization
 
-| Field  | Value                                                             |
-| ------ | ----------------------------------------------------------------- |
-| Status | **Proposed** (tracked by ROADMAP P3)                              |
-| Scope  | `src/provider/transform.ts` (`normalizeMessages`, `applyCaching`) |
+| Field  | Value                                                                          |
+| ------ | ------------------------------------------------------------------------------ |
+| Status | **Accepted and implemented** (promoted 2026-09-10; P3 closed 2026-08-24)       |
+| Scope  | `src/provider/transform.ts` (`normalizeMessages`, `applyCaching`)              |
+| Tests  | `test/provider/transform-normalize.test.ts`, `test/provider/transform.test.ts` |
 
 The question this records: what transformations are applied to outgoing messages before sending them to AI providers, and what invariants must be preserved when P3 refactors the function.
 
@@ -27,10 +28,13 @@ The answer is **a multi-pass message sanitization and provider-specific normaliz
 
 `applyCaching` in `src/provider/transform.ts` uses `CachePolicy.plan` to place cache breakpoints within budget constraints (maximum 4 breakpoints for Anthropic/Bedrock).
 
-## Invariants to Preserve in P3
+## Invariants
 
-- Surrogate sanitization must run on all message content.
-- Anthropic/Bedrock must never receive empty content parts.
-- Claude and Mistral toolCallId constraints must be preserved.
-- Provider-specific reasoning handling (DeepSeek requirement vs KV-cache prefix preservation for optional reasoning) must stay identical.
-- P3 should consolidate these passes into a single allocation / single traversal pass.
+Each is pinned by a case in `test/provider/transform-normalize.test.ts`:
+
+- Surrogate sanitization runs on all message content, including structured tool results, and leaves valid surrogate pairs alone. It mutates the caller's messages in place, parts included.
+- Anthropic and Bedrock never receive empty content parts; empty reasoning survives only when it carries a signature or redacted data.
+- Claude and Mistral tool-call id constraints hold on both sides of the call, and an assistant turn whose tool calls are followed by other content is split.
+- Provider-specific reasoning handling stays as it is: every DeepSeek assistant turn gets a reasoning part, and the Mistral branch returns before DeepSeek's injector also runs.
+
+**P3 is closed (2026-08-24) and did not consolidate the passes.** The function was characterized and deliberately left alone on the measurement — see the ROADMAP entry. The `// TODO: fix this stupid inefficient dogshit function` comment above it is therefore a description of its shape, not an outstanding item. Anyone who reopens the rewrite inherits the list above as the acceptance gate.

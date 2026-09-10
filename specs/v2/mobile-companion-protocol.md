@@ -1,9 +1,10 @@
 # Mobile Companion Protocol
 
-| Field  | Value                                                                 |
-| ------ | --------------------------------------------------------------------- |
-| Status | **Proposed** (reflects landed H7 contract)                            |
-| Scope  | `src/server/mobile/*`, `src/server/httpapi/mobile.ts`, `src/mobile/*` |
+| Field  | Value                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status | **Accepted and implemented** (promoted 2026-09-10)                                                                                                                                                                                                                                                                                                                                                              |
+| Scope  | `src/server/mobile/*`, `src/server/httpapi/mobile.ts`, `src/mobile/*`                                                                                                                                                                                                                                                                                                                                           |
+| Tests  | `test/server/mobile-permission-auth.test.ts` (reply union, persisted approval, bearer acceptance and refusal), `test/server/mobile-session-route.test.ts`, `test/server/mobile-loop-route.test.ts`, `test/server/mobile-mission-route.test.ts`, `test/server/mobile-github-route.test.ts`, `test/server/mobile-dispatcher.test.ts`, `test/server/mobile-events-host.test.ts`, `test/cli/mobile-pairing.test.ts` |
 
 The question this records: the wire contract between nikcli's server and the mobile companion app.
 

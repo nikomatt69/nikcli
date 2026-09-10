@@ -46,4 +46,27 @@ describe("ToolRegistry custom tool autoload security", () => {
     expect(ToolRegistry.isCustomToolAllowed(file, [file])).toBe(true)
     expect(ToolRegistry.isCustomToolAllowed(file, ["other.ts"])).toBe(false)
   })
+
+  it("customToolPin resolves by absolute path, then basename, then namespace", () => {
+    const file = "/tmp/config/tool/escape.ts"
+    expect(ToolRegistry.customToolPin({ [file]: "by-path" }, file)).toBe("by-path")
+    expect(ToolRegistry.customToolPin({ "escape.ts": "by-base" }, file)).toBe("by-base")
+    expect(ToolRegistry.customToolPin({ escape: "by-namespace" }, file)).toBe("by-namespace")
+    expect(
+      ToolRegistry.customToolPin({ [file]: "by-path", "escape.ts": "by-base", escape: "by-namespace" }, file),
+    ).toBe("by-path")
+    expect(ToolRegistry.customToolPin({ "other.ts": "unrelated" }, file)).toBeUndefined()
+  })
+
+  it("an unpinned file is loadable; the autoload gate is what keeps it out", () => {
+    expect(ToolRegistry.isCustomToolPinSatisfied(undefined, "a".repeat(64))).toBe(true)
+  })
+
+  it("a declared pin that does not match the file on disk is fail-closed", () => {
+    const actual = new Bun.CryptoHasher("sha256").update("nikcli-tool-pin").digest("hex")
+    expect(ToolRegistry.isCustomToolPinSatisfied(actual, actual)).toBe(true)
+    expect(ToolRegistry.isCustomToolPinSatisfied(actual.toUpperCase(), actual)).toBe(true)
+    expect(ToolRegistry.isCustomToolPinSatisfied(actual.replace(/.$/, "0"), actual)).toBe(false)
+    expect(ToolRegistry.isCustomToolPinSatisfied("", actual)).toBe(true)
+  })
 })

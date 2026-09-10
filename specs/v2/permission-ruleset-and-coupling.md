@@ -1,10 +1,10 @@
 # Permission Ruleset & Coupling
 
-| Field  | Value                                                                                     |
-| ------ | ----------------------------------------------------------------------------------------- |
-| Status | **Proposed**                                                                              |
-| Scope  | `src/permission/next.ts`, `src/permission/ruleset.ts`, `src/server/httpapi/permission.ts` |
-| Tests  | `test/tool/permission-surface.test.ts`                                                    |
+| Field  | Value                                                                                                                                                                                                                                       |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status | **Accepted and implemented** (promoted 2026-09-10)                                                                                                                                                                                          |
+| Scope  | `src/permission/next.ts`, `src/permission/ruleset.ts`, `src/server/httpapi/permission.ts`                                                                                                                                                   |
+| Tests  | `test/permission/ruleset.test.ts`, `test/permission/coupling.test.ts`, `test/permission/dangerously-skip.test.ts`, `test/permission/auto-approve.test.ts`, `test/tool/permission-surface.test.ts`, `test/server/httpapi-permission.test.ts` |
 
 The question this records: when a tool asks for permission, what string the ruleset is evaluated against, how rulesets combine, and what a reply actually persists.
 

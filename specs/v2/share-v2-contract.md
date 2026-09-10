@@ -1,9 +1,10 @@
 # Share v2 Contract
 
-| Field  | Value                                                                                                            |
-| ------ | ---------------------------------------------------------------------------------------------------------------- |
-| Status | **Proposed**                                                                                                     |
-| Scope  | `src/share/share-next.ts`, `src/share/share.sql.ts`, `src/share/repo.ts`, `src/server/httpapi/contract-extra.ts` |
+| Field  | Value                                                                                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Status | **Accepted and implemented** (promoted 2026-09-10)                                                                                                                             |
+| Scope  | `src/share/share-next.ts`, `src/share/share.sql.ts`, `src/share/repo.ts`, `src/server/httpapi/contract-extra.ts`                                                               |
+| Tests  | `test/share/share-next-contract.test.ts` (remote and local modes, envelope list, local-only `publicData`, delete-not-tombstone, disabled), `test/share/effect-service.test.ts` |
 
 The question this records: what a share is on the wire and on disk after v1 was deleted.
 

@@ -9,11 +9,26 @@ export const identifierSegment = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 
 const renderKey = (name: string): string => (identifierSegment.test(name) ? name : JSON.stringify(name))
 
+const NUMBER_SENTINELS = new Set(["NaN", "Infinity", "-Infinity"])
+
+/**
+ * `Schema.Number` cannot round-trip NaN or the infinities through JSON, so its
+ * JSON Schema carries them as string alternatives beside `{ type: "number" }`.
+ * They are an encoding detail: a tool signature that showed
+ * `number | "Infinity" | "-Infinity" | "NaN"` on every numeric field would
+ * spend tokens teaching the model a value no tool wants.
+ *
+ * Effect emitted one alternative per sentinel up to `4.0.0-beta.83` and one
+ * alternative carrying all three from `4.0.0-rc.112` (E6). Both shapes are
+ * recognised — matching only the first is what left `signature.test.ts` red
+ * after the pin moved.
+ */
 const effectNumberSentinel = (schema: JsonSchema) =>
   schema.type === "string" &&
   Array.isArray(schema.enum) &&
-  schema.enum.length === 1 &&
-  (schema.enum[0] === "NaN" || schema.enum[0] === "Infinity" || schema.enum[0] === "-Infinity")
+  schema.enum.length > 0 &&
+  schema.enum.length <= NUMBER_SENTINELS.size &&
+  schema.enum.every((value) => typeof value === "string" && NUMBER_SENTINELS.has(value))
 
 const intersection = (members: ReadonlyArray<string>): string => {
   const concrete = members.filter((member) => member !== "unknown")

@@ -96,8 +96,15 @@ describe("Effect PublicApi OpenAPI components", () => {
         components?: { schemas?: Record<string, unknown> }
       }
       const schemas = spec.components?.schemas ?? {}
+      // Effect names a component after the schema's identifier, and appends
+      // `Encoded` when the encoded side differs from the type side. The bus
+      // event union is annotated `Event` (`src/bus/bus-event.ts`) and lands as
+      // `EventEncoded`; the generated SDK still exports it as `Event`. Accept
+      // either spelling so this asserts "the component exists and is named",
+      // which is what the SDK needs, rather than a naming detail of the
+      // Effect release in use.
       const required = [
-        "Event",
+        ["Event", "EventEncoded"],
         "Session",
         "Message",
         "UserMessage",
@@ -108,11 +115,13 @@ describe("Effect PublicApi OpenAPI components", () => {
         "SessionStatus",
       ] as const
 
-      for (const name of required) {
-        expect(schemas[name], `missing OpenAPI component: ${name}`).toBeDefined()
-        const schema = schemas[name] as Record<string, unknown> | undefined
+      for (const entry of required) {
+        const accepted = typeof entry === "string" ? [entry] : entry
+        const found = accepted.find((name) => schemas[name] !== undefined)
+        expect(found, `missing OpenAPI component: ${accepted.join(" or ")}`).toBeDefined()
+        const schema = schemas[found!] as Record<string, unknown> | undefined
         // Must not be a bare empty/unknown placeholder.
-        expect(schema && Object.keys(schema).length > 0, `${name} is empty`).toBe(true)
+        expect(schema && Object.keys(schema).length > 0, `${found} is empty`).toBe(true)
       }
     },
     { timeout: 60_000 },

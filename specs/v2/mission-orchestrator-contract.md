@@ -1,9 +1,10 @@
 # Mission Orchestrator Contract
 
-| Field  | Value                                                                                                             |
-| ------ | ----------------------------------------------------------------------------------------------------------------- |
-| Status | **Proposed**                                                                                                      |
-| Scope  | `src/mission/orchestrator.ts`, `src/mission/manager.ts`, `src/mission/schema.ts`, `src/server/httpapi/mission.ts` |
+| Field  | Value                                                                                                                                                                                                                                                                                    |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status | **Accepted and implemented** (promoted 2026-09-10)                                                                                                                                                                                                                                       |
+| Scope  | `src/mission/orchestrator.ts`, `src/mission/manager.ts`, `src/mission/schema.ts`, `src/server/httpapi/mission.ts`                                                                                                                                                                        |
+| Tests  | `test/mission/orchestrator.test.ts` (dependency ordering, blocked milestone, lease recovery, restore), `test/mission/orchestrator-sandbox.test.ts` (worktree isolation, re-attach on resume, opt-out), `test/server/httpapi-mission.test.ts`, `test/server/mobile-mission-route.test.ts` |
 
 The question this records: how long-running multi-feature missions are structured, transitioned across states, and executed in isolated environments.
 

@@ -1,9 +1,10 @@
 # Loop Engine Contract
 
-| Field  | Value                                                                                                          |
-| ------ | -------------------------------------------------------------------------------------------------------------- |
-| Status | **Proposed**                                                                                                   |
-| Scope  | `src/loop/engine.ts`, `src/loop/schema.ts`, `src/loop/manager.ts`, `src/loop/pr.ts`, `src/worktree/sandbox.ts` |
+| Field  | Value                                                                                                                   |
+| ------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Status | **Accepted and implemented** (promoted 2026-09-10)                                                                      |
+| Scope  | `src/loop/engine.ts`, `src/loop/schema.ts`, `src/loop/manager.ts`, `src/loop/pr.ts`, `src/worktree/sandbox.ts`          |
+| Tests  | `test/loop/engine.test.ts`, `test/loop/engine-sandbox.test.ts`, `test/loop/manager.test.ts`, `test/loop/schema.test.ts` |
 
 The question this records: how the headless loop engine schedules runs, enforces single-flight and capacity, and handles failures.
 

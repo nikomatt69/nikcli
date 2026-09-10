@@ -2,7 +2,7 @@
 
 Understand shared behavior, decisions, and evidence gates.
 
-Status: **Current** (2026-09-09).
+Status: **Current** (2026-09-09; v2 contract statuses resolved 2026-09-10).
 
 These documents explain behavior that is hard to recover from one source file: cross-module contracts, decisions and their alternatives, and the migrations still in flight.
 
@@ -90,6 +90,7 @@ grep -nE '(\[x: string\]: any|Array<unknown>|: unknown\b)' packages/sdk/js/src/h
 ## Maintain contracts
 
 - A document states its **Status** in the first lines: `Current`, `Proposed`, `Accepted and implemented`, or `Historical`.
+- `Proposed` means the behavior is live but its invariants are not wired into tests — never that the code is missing. A `Proposed` header table must carry a **Missing** row naming the test that would promote it; without one it is a status nobody can act on. See [v2/README.md](./v2/README.md#proposed-contracts).
 - Current documents describe contracts without copying exact types; the type is in the code.
 - Proposals record the alternatives that were rejected and why, so the comparison is not re-litigated.
 - Historical documents keep the names that were accurate when written.

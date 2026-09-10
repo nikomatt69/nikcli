@@ -1,9 +1,10 @@
 # CLI Command Surface
 
-| Field  | Value                                                                   |
-| ------ | ----------------------------------------------------------------------- |
-| Status | **Proposed**                                                            |
-| Scope  | `src/cli-main.ts`, `src/cli/cmd/*.ts`, `packages/util/src/cli-error.ts` |
+| Field  | Value                                                                                                                                                                                          |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status | **Accepted and implemented** (promoted 2026-09-10)                                                                                                                                             |
+| Scope  | `src/cli-main.ts`, `src/cli/cmd/*.ts`, `packages/util/src/cli-error.ts`                                                                                                                        |
+| Tests  | `test/cli/command-surface.test.ts` (the table below is the gate), `test/cli/bootstrap-exit.test.ts` (exit codes, both directions), `test/cli/index-help.e2e.test.ts`, `test/cli/error.test.ts` |
 
 The question this records: which `nikcli …` commands are actually registered, and what is shared across them.
 
@@ -19,7 +20,7 @@ The default command is the TUI: `TuiThreadCommand` is registered as `$0 [project
 
 ## Registered Commands
 
-Source: the `.command(...)` list in `src/cli-main.ts` plus `yargs.completion("completion", …)`. Subcommands are the nested `command:` strings in each file. This table is not a CI gate.
+Source: the `.command(...)` list in `src/cli-main.ts` plus `yargs.completion("completion", …)`. Subcommands are the nested `command:` strings in each file. **The command column is a gate**: `test/cli/command-surface.test.ts` reads the registrations out of `cli-main.ts` and fails if this table gains or loses a name. Subcommand cells and notes are not gated — they are read by people, not by the test.
 
 | Command           | Subcommands (as registered)                                                                        | Notes                                     |
 | ----------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------- |
@@ -63,6 +64,7 @@ Source: the `.command(...)` list in `src/cli-main.ts` plus `yargs.completion("co
 | `mission`         | `list`, `new`, `get <id>`, `start <id>`, `pause <id>`, `resume <id>`, `cancel <id>`, `delete <id>` |                                           |
 | `goal`            | `[condition..]`                                                                                    |                                           |
 | `analytics`       | `<subcommand>`                                                                                     |                                           |
+| `api`             | `[request..]`, `--list`, `--param`, `--header`, `--data`                                           | Resolves against `publicRoutes()` (X3)    |
 | `artifact`        | `login`, `logout`, `list [session-id]`                                                             |                                           |
 | `ads`             | `create`, `list`, `remove [id]`, `toggle [id]`, `enable`, `disable`                                |                                           |
 | `bot`             | `list`, `add`, `start [name]`, `stop [name]`, `webhook [name]`                                     | Chatbot                                   |

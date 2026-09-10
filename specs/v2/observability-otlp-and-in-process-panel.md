@@ -1,9 +1,10 @@
 # Observability: In-Process Panel & OTLP Export
 
-| Field  | Value                                                                                           |
-| ------ | ----------------------------------------------------------------------------------------------- |
-| Status | **Proposed**                                                                                    |
-| Scope  | `src/observability/index.ts`, `src/observability/otlp.ts`, `src/observability/telemetry-bus.ts` |
+| Field  | Value                                                                                                                   |
+| ------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Status | **Accepted and implemented** (promoted 2026-09-10)                                                                      |
+| Scope  | `src/observability/index.ts`, `src/observability/otlp.ts`, `src/observability/telemetry-bus.ts`                         |
+| Tests  | `test/observability/otlp.test.ts` (the three layer states, each in a fresh process, plus resource-attribute precedence) |
 
 The question this records: how spans and telemetry are captured in-process for the TUI and exported externally.
 

@@ -2,8 +2,9 @@
 
 | Field  | Value                                                                       |
 | ------ | --------------------------------------------------------------------------- |
-| Status | **Proposed**                                                                |
+| Status | **Accepted and implemented** (promoted 2026-09-10)                          |
 | Scope  | `src/tool/registry.ts`, `src/config/config.ts`, `packages/nikcli/AGENTS.md` |
+| Tests  | `test/plugin/loader.test.ts`                                                |
 
 The question this records: how filesystem-based custom tools in config directories are gated, integrity-checked, and safely loaded.
 
@@ -19,6 +20,15 @@ The answer is **a fail-closed security policy**: config directory `{tool,tools}/
 
 ## Invariants
 
-- Unconfigured environments never execute unpinned filesystem tool scripts automatically.
-- Integrity verification precedes script execution.
+- Unconfigured environments never execute filesystem tool scripts automatically: with `NIKCLI_ALLOW_PLUGIN_AUTOLOAD` unset and `tool.allow` empty, the config directories are never scanned (`ToolRegistry.shouldScanCustomTools`).
+- When an allowlist is set, only a matching absolute path, basename, or stem is evaluated (`ToolRegistry.isCustomToolAllowed`).
+- A pin is resolved by absolute path, then basename, then namespace, in that order (`ToolRegistry.customToolPin`).
+- Integrity verification precedes script execution, and it is fail-closed: a declared pin that does not match the file on disk skips the import instead of loading it (`ToolRegistry.isCustomToolPinSatisfied`). The comparison is case-insensitive, because a pin is copied out of `shasum` output as often as out of this codebase.
 - Plugin-contributed tools (`plugin.json` / `Plugin.Service`) load through their own established registry pipeline.
+
+The four decision helpers named above are exported as seams precisely so this is testable: a full `ToolRegistry` init is too heavy for the default unit timeout, and a security rule nobody can run a test against is a comment.
+
+## What Is Explicitly Not Covered
+
+- An absent pin. Pinning is opt-in integrity on top of the autoload gate, not a second gate: an unpinned file inside an enabled config directory loads. An **empty-string** pin reads the same way as an absent one.
+- Anything the imported module does once it is loaded. This contract covers whether it is imported.

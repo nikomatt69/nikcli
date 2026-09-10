@@ -233,6 +233,29 @@ export namespace ToolRegistry {
     return isToolPathAllowed(filePath, [...allowlist])
   }
 
+  /**
+   * Test/docs seam: the pin `config.tool.pin` declares for a candidate file,
+   * looked up by absolute path, then basename, then namespace. `undefined`
+   * means unpinned, which is loadable — the autoload gate, not the pin, is
+   * what keeps an unconfigured environment from running these at all.
+   */
+  export function customToolPin(pins: Record<string, string>, filePath: string): string | undefined {
+    const base = path.basename(filePath)
+    const namespace = path.basename(filePath, path.extname(filePath))
+    return pins[filePath] ?? pins[base] ?? pins[namespace]
+  }
+
+  /**
+   * Test/docs seam: whether a pinned file may be imported. Fail-closed — a
+   * declared pin that does not match the file on disk refuses the load. The
+   * expected hash is compared case-insensitively because a pin is copied by
+   * hand out of `shasum` output as often as out of this codebase.
+   */
+  export function isCustomToolPinSatisfied(expected: string | undefined, actual: string): boolean {
+    if (!expected) return true
+    return actual.toLowerCase() === expected.toLowerCase()
+  }
+
   function fromPlugin(id: string, def: ToolDefinition): Tool.Info {
     return Tool.define(id, async () => ({
       parameters: z.object(def.args),
@@ -296,7 +319,6 @@ export namespace ToolRegistry {
                 ),
               )
               for (const match of matches) {
-                const base = path.basename(match)
                 const namespace = path.basename(match, path.extname(match))
                 if (allowlist.length > 0 && !isToolPathAllowed(match, allowlist)) {
                   log.warn("skipping custom tool (not in tool.allow)", {
@@ -304,10 +326,10 @@ export namespace ToolRegistry {
                   })
                   continue
                 }
-                const expectedHash = pins[match] ?? pins[base] ?? pins[namespace]
+                const expectedHash = customToolPin(pins, match)
                 if (expectedHash) {
                   const actual = yield* Effect.promise(() => sha256File(match))
-                  if (actual !== expectedHash.toLowerCase()) {
+                  if (!isCustomToolPinSatisfied(expectedHash, actual)) {
                     log.error("custom tool hash mismatch; refusing to load", {
                       path: match,
                       expected: expectedHash,

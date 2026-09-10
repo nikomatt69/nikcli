@@ -1,10 +1,10 @@
 # Logging Redaction Contract
 
-| Field  | Value                                                                                       |
-| ------ | ------------------------------------------------------------------------------------------- |
-| Status | **Proposed**                                                                                |
-| Scope  | `packages/util/src/redact.ts`, `packages/util/src/log.ts`, `packages/util/src/cli-error.ts` |
-| Tests  | `packages/nikcli/test/util/redact.test.ts`                                                  |
+| Field  | Value                                                                                         |
+| ------ | --------------------------------------------------------------------------------------------- |
+| Status | **Accepted and implemented** (promoted 2026-09-10)                                            |
+| Scope  | `packages/util/src/redact.ts`, `packages/util/src/log.ts`, `packages/util/src/cli-error.ts`   |
+| Tests  | `packages/nikcli/test/util/redact.test.ts`, `packages/nikcli/test/util/log-redaction.test.ts` |
 
 The question this records: what nikcli guarantees about secrets in logs, and the one escape hatch.
 
@@ -26,9 +26,21 @@ Three classes, from the module header:
 
 There is no separate `redactUrl` export in this module (HTTP recorder has its own).
 
+## How a written line is built
+
+`Log`'s formatter walks `{...tags, ...extra}` one entry at a time and treats three kinds of value differently:
+
+- **Errors** go through `formatError`, which runs `safeStringify` on the message and follows `cause` up to ten links. This is **not** gated by the escape hatch: an error chain carrying an OAuth callback URL is the case the hatch was least meant for.
+- **Objects** go through `safeStringify` (or `JSON.stringify` when the hatch is on).
+- **Scalars** are appended without JSON quoting, and therefore have to apply the object walk's rule themselves: a key naming a credential becomes `[REDACTED]`, and any other string is run through `redactString`.
+
+That last branch was missing until 2026-09-10, so a flat `{ state: "…" }` or `{ url: "https://…?code=…" }` reached the buffer verbatim while the identical pair nested one level deep was masked — `mcp/oauth-callback.ts` and `mcp/index.ts` both logged that shape. `isRedactedKey` is exported from `redact.ts` so the two paths cannot drift again.
+
+Numbers and booleans under a credential key are still masked, matching `redactValue`. `{ code: 2 }` from a process exit reads as `code=[REDACTED]`; that is the cost of keeping one key list rather than two.
+
 ## Escape hatch
 
-`NIKCLI_LOG_REDACT=0` makes `Log` use `JSON.stringify` instead of `safeStringify`. Consulted per write, so it does not require a restart. The operator then owns the line: do not ship it to a public sink.
+`NIKCLI_LOG_REDACT=0` makes `Log` use `JSON.stringify` and skip the scalar rules. Consulted per write, so it does not require a restart, and flipping it between two writes on the same logger changes only the second one. The operator then owns the line: do not ship it to a public sink. Error messages stay redacted regardless.
 
 ## What is not redacted
 
@@ -52,8 +64,11 @@ A string that is not a named key and not pattern-shaped stays.
 ## Invariants
 
 - Production `Log` writes go through `safeStringify` unless the env flag is `0`.
+- A credential-named key is masked whether its value is nested or flat.
+- The flag is read per write, not per process.
+- Error messages are redacted even with the flag off.
 - Replacement token is `[REDACTED]`.
-- Adding a key or pattern is a contract change; pin it in `test/util/redact.test.ts`.
+- Adding a key or pattern is a contract change; pin it in `test/util/redact.test.ts`. The write path itself is pinned in `test/util/log-redaction.test.ts`.
 
 ## What Is Explicitly Not Covered
 

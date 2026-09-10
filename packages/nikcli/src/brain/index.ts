@@ -10,6 +10,7 @@ import { SessionRepo } from "@/session/repo"
 import { SessionPrompt } from "@/session/prompt"
 import { sessionModelOwn } from "@/session/model"
 import { Provider } from "@/provider/provider"
+import type { PermissionNext } from "@/permission/next"
 import { Flock } from "@nikcli-ai/util/flock"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -324,6 +325,31 @@ export namespace Brain {
 
   let pending: Promise<BrainResult> | null = null
 
+  /**
+   * The pass runs deny-by-default: read and edit are open because it rewrites
+   * two files, and the planning tools are denied so a consolidation pass
+   * cannot turn itself into an agent. Exported so the restriction is checkable
+   * without running a model.
+   */
+  export const SESSION_PERMISSION: PermissionNext.Ruleset = [
+    { permission: "*", pattern: "*", action: "deny" },
+    { permission: "read", pattern: "*", action: "allow" },
+    { permission: "edit", pattern: "*", action: "allow" },
+    { permission: "glob", pattern: "*", action: "allow" },
+    { permission: "grep", pattern: "*", action: "allow" },
+    { permission: "list", pattern: "*", action: "allow" },
+    { permission: "tree", pattern: "*", action: "allow" },
+    { permission: "todowrite", pattern: "*", action: "deny" },
+    { permission: "todoread", pattern: "*", action: "deny" },
+    { permission: "task", pattern: "*", action: "deny" },
+  ]
+
+  /** Test-only seam: run the pass without a session or a model. */
+  let executorOverride: typeof executeBrain | undefined
+  export function _internalSetExecutor(fn?: typeof executeBrain): void {
+    executorOverride = fn
+  }
+
   export async function trigger(
     instance: InstanceContext,
     input?: { force?: boolean; sessionID?: string },
@@ -400,7 +426,7 @@ export namespace Brain {
 
       const before = await getBrainMemoryContent(instance)
       const habitsBefore = await getHabitsContent(instance)
-      const sessionID = await executeBrain(instance, sessionIds, input?.sessionID)
+      const sessionID = await (executorOverride ?? executeBrain)(instance, sessionIds, input?.sessionID)
       const after = await getBrainMemoryContent(instance)
       const habitsAfter = await getHabitsContent(instance)
 
@@ -479,18 +505,7 @@ export namespace Brain {
             const sessionService = yield* Session.Service
             return yield* sessionService.create({
               title: BRAIN_SESSION_TITLE,
-              permission: [
-                { permission: "*", pattern: "*", action: "deny" },
-                { permission: "read", pattern: "*", action: "allow" },
-                { permission: "edit", pattern: "*", action: "allow" },
-                { permission: "glob", pattern: "*", action: "allow" },
-                { permission: "grep", pattern: "*", action: "allow" },
-                { permission: "list", pattern: "*", action: "allow" },
-                { permission: "tree", pattern: "*", action: "allow" },
-                { permission: "todowrite", pattern: "*", action: "deny" },
-                { permission: "todoread", pattern: "*", action: "deny" },
-                { permission: "task", pattern: "*", action: "deny" },
-              ],
+              permission: SESSION_PERMISSION,
             })
           }),
         )

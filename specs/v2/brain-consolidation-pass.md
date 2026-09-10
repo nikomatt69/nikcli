@@ -1,9 +1,10 @@
 # Brain Consolidation Pass
 
-| Field  | Value                                                                         |
-| ------ | ----------------------------------------------------------------------------- |
-| Status | **Proposed**                                                                  |
-| Scope  | `src/brain/index.ts`, `src/brain/scheduler.ts`, `src/server/httpapi/brain.ts` |
+| Field  | Value                                                                                                                                                                           |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status | **Accepted and implemented** (promoted 2026-09-10)                                                                                                                              |
+| Scope  | `src/brain/index.ts`, `src/brain/scheduler.ts`, `src/server/httpapi/brain.ts`                                                                                                   |
+| Tests  | `test/brain/brain-pass.test.ts` (the lock-stamp rule and the session ruleset), `test/brain/brain-model.test.ts` (model chain), `test/brain/brain-habits.test.ts` (prompt shape) |
 
 The question this records: what the scheduled Brain pass reads, writes, and when it counts as done.
 
@@ -71,7 +72,8 @@ A crash mid-session leaves files as the agent left them and does not update the 
 - Both `experimental.brain` and `experimental.memory` must be on (default on).
 - Last-run is the lock-file mtime, stamped only when a file changed.
 - Reviews include message text, capped.
-- The agent may edit only the two named files under the listed tools.
+- The session runs deny-by-default with `read` / `edit` / `glob` / `grep` / `list` / `tree` allowed and `task` / `todowrite` / `todoread` denied (`Brain.SESSION_PERMISSION`). That is what stops a consolidation pass turning into an agent, and it is enforced.
+- _Which two files_ it may edit is carried by the prompt, not by the ruleset: `edit` is allowed on `*`. The pass is bounded by the prompt naming both paths and by the result check below, not by a path rule. Recorded here because the enforcement level differs from the sentence above it.
 - Model: `brainModel` → triggering session → default.
 
 ## What Is Explicitly Not Covered

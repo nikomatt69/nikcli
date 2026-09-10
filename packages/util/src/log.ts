@@ -2,7 +2,7 @@ import path from "path"
 import fs from "fs/promises"
 import { Global } from "./global"
 import { zod } from "./effect-zod"
-import { safeStringify } from "./redact"
+import { isRedactedKey, REDACTED, redactString, safeStringify } from "./redact"
 import { Schema } from "effect"
 
 export namespace Log {
@@ -140,7 +140,13 @@ export namespace Log {
           const prefix = `${key}=`
           if (value instanceof Error) return prefix + formatError(value)
           if (typeof value === "object") return prefix + stringify(value)
-          return prefix + value
+          // Scalars are written without JSON quoting, which used to mean they
+          // skipped redaction entirely: a flat `{ token: "…" }` or an OAuth
+          // `state` reached the buffer verbatim while the same pair nested one
+          // level deep was masked. Apply the object walk's own rule here.
+          if (!redact) return prefix + value
+          if (isRedactedKey(key)) return prefix + REDACTED
+          return prefix + (typeof value === "string" ? redactString(value) : value)
         })
         .join(" ")
       const next = new Date()
