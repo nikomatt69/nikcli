@@ -3,7 +3,11 @@ import { createTestRenderer } from "@opentui/core/testing"
 import { MarkdownRenderable, SyntaxStyle, getTreeSitterClient } from "@opentui/core"
 
 /**
- * Guards the `@opentui/core` patch in `patches/@opentui%2Fcore@0.4.5.patch`.
+ * Guards the `@opentui/core` patch registered in the root `package.json`
+ * under `patchedDependencies` (currently `patches/@opentui%2Fcore@0.5.11.patch`).
+ * Regenerate it with `bun patch` on every `@opentui/core` bump: the patch targets
+ * bundled chunk files whose names carry a content hash, so a version bump silently
+ * unregisters it and this test is what catches that.
  *
  * A markdown block is a `CodeRenderable` that tree-sitter highlights
  * asynchronously, and `###` only disappears because the highlight carries the

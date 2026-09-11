@@ -112,8 +112,11 @@ export type TuiKeybindSet = {
   print: (name: string) => string
 }
 
+/** Mirrors the host's `DialogSize` in `@nikcli-ai/tui/ui/dialog`. */
+export type TuiDialogSize = "small" | "medium" | "large" | "xlarge" | "full"
+
 export type TuiDialogProps = {
-  size?: "medium" | "large" | "xlarge" | "full"
+  size?: TuiDialogSize
   onClose: () => void
   children?: JSX.Element
 }
@@ -153,8 +156,8 @@ export type TuiTabsApi = {
 export type TuiDialogStack = {
   replace: (render: () => JSX.Element, onClose?: () => void) => void
   clear: () => void
-  setSize: (size: "medium" | "large" | "xlarge" | "full") => void
-  readonly size: "medium" | "large" | "xlarge" | "full"
+  setSize: (size: TuiDialogSize) => void
+  readonly size: TuiDialogSize
   readonly depth: number
   readonly open: boolean
 }

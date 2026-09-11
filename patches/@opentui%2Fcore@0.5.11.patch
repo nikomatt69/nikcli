@@ -1,8 +1,8 @@
-diff --git a/chunk-bun-bb3k0yt8.js b/chunk-bun-bb3k0yt8.js
-index 24a80812099c87952ae8ef910845c88617c9edbd..175ca7348a9b73db7eb68f606000649714e646e6 100644
---- a/chunk-bun-bb3k0yt8.js
-+++ b/chunk-bun-bb3k0yt8.js
-@@ -3165,6 +3165,7 @@ class CodeRenderable extends TextBufferRenderable {
+diff --git a/chunk-bun-bwjmgnxw.js b/chunk-bun-bwjmgnxw.js
+index 0fd2ffe27300a8fecbf8f5fb55c5327b4aeb4fae..ac72956fba98a626bc884109055835cdc7085a7d 100644
+--- a/chunk-bun-bwjmgnxw.js
++++ b/chunk-bun-bwjmgnxw.js
+@@ -3187,6 +3187,7 @@ class CodeRenderable2 extends TextBufferRenderable2 {
    _initialStyledText;
    _hadInitialContent = false;
    _lastHighlights = [];
@@ -10,7 +10,7 @@ index 24a80812099c87952ae8ef910845c88617c9edbd..175ca7348a9b73db7eb68f6060006497
    _baseHighlight;
    _onHighlight;
    _onChunks;
-@@ -3420,7 +3421,10 @@ class CodeRenderable extends TextBufferRenderable {
+@@ -3462,7 +3463,10 @@ class CodeRenderable2 extends TextBufferRenderable2 {
        if (highlights.length > 0) {
          if (this._streaming) {
            this._lastHighlights = highlights;
@@ -20,12 +20,12 @@ index 24a80812099c87952ae8ef910845c88617c9edbd..175ca7348a9b73db7eb68f6060006497
 +        highlights = this._lastHighlights;
        }
        if (highlights.length > 0 || this._onChunks || this._baseHighlight) {
-         const context = {
-diff --git a/chunk-node-6bg8r2m7.js b/chunk-node-6bg8r2m7.js
-index db548a77a33608f7d57dc3d3d96443855bb61e95..a55de62287a1173384acaede05430c3749b638d4 100644
---- a/chunk-node-6bg8r2m7.js
-+++ b/chunk-node-6bg8r2m7.js
-@@ -3164,6 +3164,7 @@ class CodeRenderable extends TextBufferRenderable {
+         const sourceRanges = this._onChunks ? [] : undefined;
+diff --git a/chunk-node-54dhb2fr.js b/chunk-node-54dhb2fr.js
+index 5c879aa6cfd737cfb9d56b433144b356324e4545..f9eb1cc36f957520b791dbb71b822e259d0fabc6 100644
+--- a/chunk-node-54dhb2fr.js
++++ b/chunk-node-54dhb2fr.js
+@@ -3186,6 +3186,7 @@ class CodeRenderable2 extends TextBufferRenderable2 {
    _initialStyledText;
    _hadInitialContent = false;
    _lastHighlights = [];
@@ -33,7 +33,7 @@ index db548a77a33608f7d57dc3d3d96443855bb61e95..a55de62287a1173384acaede05430c37
    _baseHighlight;
    _onHighlight;
    _onChunks;
-@@ -3419,7 +3420,10 @@ class CodeRenderable extends TextBufferRenderable {
+@@ -3461,7 +3462,10 @@ class CodeRenderable2 extends TextBufferRenderable2 {
        if (highlights.length > 0) {
          if (this._streaming) {
            this._lastHighlights = highlights;
@@ -43,4 +43,4 @@ index db548a77a33608f7d57dc3d3d96443855bb61e95..a55de62287a1173384acaede05430c37
 +        highlights = this._lastHighlights;
        }
        if (highlights.length > 0 || this._onChunks || this._baseHighlight) {
-         const context = {
+         const sourceRanges = this._onChunks ? [] : undefined;
