@@ -4,6 +4,7 @@ import { OtlpExporter, OtlpLogger, OtlpSerialization, OtlpTracer } from "effect/
 import { Flag } from "@nikcli-ai/util/flag"
 import { TelemetryRecord } from "./telemetry-bus"
 import { sanitizeSpanAttributes } from "./span-schema"
+import { redactString } from "@nikcli-ai/util/redact"
 
 // Build version/channel from the globals injected at compile time, mirroring
 // Installation.VERSION/CHANNEL. Read directly (rather than importing
@@ -91,6 +92,23 @@ function stringifyAttributes(input: Iterable<readonly [string, unknown]>): Recor
   return sanitizeSpanAttributes(input).attributes
 }
 
+/**
+ * A failure cause, redacted, then truncated.
+ *
+ * `Cause.pretty` renders whatever the error carried — and error messages are
+ * where absolute paths, request URLs and the occasional bearer token end up.
+ * Span *attributes* were already sanitized at the choke point above; this field
+ * went to the live panel and the OTLP exporter raw, which made the redaction
+ * policy true of one field on the record and not the other.
+ *
+ * Redact before truncating: slicing first can cut a credential in half and
+ * leave the prefix, which no longer matches the pattern that would have removed
+ * it. The same order `Log` uses. `specs/effect-tui/13-observability-pipeline.md`.
+ */
+function statusMessageOf(cause: Cause.Cause<unknown>): string {
+  return redactString(Cause.pretty(cause)).slice(0, 200)
+}
+
 function buildRecord(args: {
   id: string
   traceId: string
@@ -111,7 +129,7 @@ function buildRecord(args: {
     startTime: Number(args.startTime / 1_000_000n),
     durationMs: Number(args.endTime - args.startTime) / 1e6,
     statusCode: Exit.isFailure(args.exit) ? 2 : 1,
-    statusMessage: Exit.isFailure(args.exit) ? Cause.pretty(args.exit.cause).slice(0, 200) : undefined,
+    statusMessage: Exit.isFailure(args.exit) ? statusMessageOf(args.exit.cause) : undefined,
     attributes: stringifyAttributes(args.attributes),
   }
 }
