@@ -161,13 +161,23 @@ function init() {
         // Is a text editor focused inside the dialog? Ask the renderer.
         //
         // This used to stringify the stack entry and look for "textarea" in the
-        // result, then check `document.activeElement`. Neither works: the entry
-        // is the wrapper arrow (`() => <DialogFoo />`), whose source never
-        // mentions what the component renders, and there is no DOM in a
-        // terminal — `document` is undefined, so that clause would have thrown
-        // had the first one ever matched. The net effect was that
-        // `isInteractive` was always false and Ctrl+C cleared the whole stack,
-        // including the dialogs this branch exists to protect.
+        // result, then check `document.activeElement`. Neither clause worked.
+        //
+        // The entry is the wrapper arrow (`() => <DialogFoo />`), whose source
+        // never mentions what the component renders, so the `includes` test was
+        // false for every dialog in the tree — and it is the clause that
+        // decided the outcome.
+        //
+        // The DOM probe was inert rather than fatal. Under the CLI host
+        // `nikcli/src/util/document-shim` defines a `document` carrying only
+        // `createElement`, so `document.activeElement?.tagName` is `undefined`
+        // and the comparison is always true; in the standalone host, where no
+        // shim is loaded, it would have thrown — but only if the first clause
+        // had ever matched, which it could not.
+        //
+        // Net effect either way: `isInteractive` was always false and Ctrl+C
+        // cleared the whole stack, including the dialogs this branch exists to
+        // protect.
         //
         // `currentFocusedEditor` is non-null exactly when an EditBuffer has
         // focus, and `TextareaRenderable` extends it.
