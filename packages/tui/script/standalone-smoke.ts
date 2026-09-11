@@ -24,8 +24,37 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const entry = path.resolve(here, "../bin/nikcli-tui.ts")
 const home = mkdtempSync(path.join(os.tmpdir(), "nikcli-tui-standalone-"))
 
-/** Substrings that only ever appear when the terminal failed to boot. */
+/**
+ * Substrings that only ever appear when the terminal failed to boot.
+ *
+ * The first four catch a module that would not resolve. The last two catch the
+ * case they miss: the host resolved everything, started, threw, and painted the
+ * error console. A rendered stack trace is well over the character floor below,
+ * so without these the check reports PASS against a terminal showing nothing
+ * but an exception.
+ *
+ * The last two are matched against the *painted* screen rather than the raw
+ * stream: a renderer writes a cell at a time with escape sequences between
+ * them, so a phrase it painted is generally not contiguous in `raw`. They also
+ * avoid the message line itself, which at 30 rows is scrolled out of the
+ * viewport — what stays on screen is the console panel and the stack.
+ */
 const FAILURES = ["Cannot find module", "ResolveMessage", "is not a function", "is not an object"]
+// A healthy terminal never paints a framework stack frame. The console panel
+// title is deliberately not used: it may be legitimately focusable in normal
+// operation, and a gate should not rest on a marker whose healthy case cannot
+// currently be observed.
+const PAINTED_FAILURES = ["solid-js/dist/solid.js", "node_modules/solid-js"]
+
+/** Everything the check can match against: the raw stream and the painted screen. */
+function haystack(stream: string) {
+  return `${stream}\n${plain(stream)}`
+}
+
+function firstFailure(stream: string) {
+  const text = haystack(stream)
+  return [...FAILURES, ...PAINTED_FAILURES].find((marker) => text.includes(marker))
+}
 
 function plain(raw: string) {
   return raw
@@ -62,10 +91,29 @@ while (Date.now() < deadline) {
   if (painted > 400) break
   await Bun.sleep(100)
 }
+
+/**
+ * Keep watching after the first paint.
+ *
+ * Breaking out at the character floor and killing the pty means this check can
+ * only ever see the first second or two of the terminal's life. Anything that
+ * throws after the initial render — a context that resolves to a second module
+ * instance, a provider that is not there by the time a later component asks for
+ * it — happens off-camera, and the run is reported as a pass.
+ *
+ * The window is short because the failure it is looking for is a startup
+ * failure, not a soak test.
+ */
+const WATCH_AFTER_PAINT_MS = Number(process.env.WATCH_AFTER_PAINT_MS ?? 8000)
+const watchUntil = Date.now() + WATCH_AFTER_PAINT_MS
+while (Date.now() < watchUntil && !firstFailure(raw)) {
+  await Bun.sleep(100)
+}
+painted = plain(raw).replace(/\s/g, "").length
 pty.kill()
 await rm(home, { recursive: true, force: true }).catch(() => {})
 
-const failure = FAILURES.find((marker) => raw.includes(marker))
+const failure = firstFailure(raw)
 if (failure) {
   console.error(plain(raw).slice(0, 3000))
   throw new Error(`standalone terminal reported: ${failure}`)
