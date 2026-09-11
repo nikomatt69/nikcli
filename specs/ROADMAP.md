@@ -98,10 +98,12 @@ promised.
 | [EOT-06](effect-tui/06-terminal-rendering.md)             | 2    | P3    | EOT-05                         | L      | High   | TUI rendering               | Streaming virtualization, anchor fidelity, measured latency       |
 | [EOT-07](effect-tui/07-input-interaction.md)              | 2    | P3    | EOT-03, EOT-05                 | M      | High   | TUI interaction             | Keyboard/focus/permission matrix on real terminals                |
 
-Dependencies are exit gates, not permission to stall unrelated characterization tests. EOT-02, EOT-10, EOT-12, EOT-13,
-and EOT-20 can progress independently after P0. EOT-08 and EOT-18 need not wait for EOT-04/05/15. EOT-06, EOT-07,
-EOT-19 are independent after their listed prerequisites. Run memory-heavy verification serially even when implementation
-work is independent.
+Dependencies are exit gates, not permission to stall unrelated characterization tests. After P0, EOT-02, EOT-10,
+EOT-12, EOT-13, and EOT-20 may characterize existing behavior in parallel, but each release gate still requires all
+dependencies listed above to pass.
+
+EOT-08 and EOT-18 need not wait for EOT-04/05/15; EOT-06, EOT-07, and EOT-19 are independent after their listed
+prerequisites. Run memory-heavy verification serially even when implementation work is independent.
 
 ## Phase Exits
 
@@ -110,8 +112,8 @@ work is independent.
 - Record versions, host modes, workload fixtures, raw metrics, queue/resource counters, and a baseline comparison format.
 - Add missing behavioral probes before modifying hot paths; characterize existing best-effort and fallback semantics.
 - Ratify EOT-01 candidate budgets in a reviewed baseline artifact. A noisy or missing baseline is not a pass.
-- Define the three-layer testing harness (EOT-20) and run it against the existing suites to confirm no regressions
-  before the first slice lands.
+- Characterize existing harnesses and identify missing probes for EOT-20 before changing behavior.
+  The full three-layer harness gate belongs to P1 and requires EOT-01 and EOT-02 to pass; P0 does not close EOT-20.
 
 ### P1: Make Lifetimes, Failures, Identity, and Observability Explicit
 
@@ -121,6 +123,7 @@ work is independent.
 - Land the typed identity state machine (EOT-12) and the observability pipeline (EOT-13). One span schema, one
   metric schema, one log schema, one redaction policy — applied to every cross-boundary call.
 - Wire EOT-20's harness layers so every spec from this phase lands with matching tests, not retroactive scaffolding.
+  Close its full release gate only after EOT-01 and EOT-02 pass.
 
 ### P2: Bound the Data Path and the Bridge Surface
 
@@ -128,7 +131,8 @@ work is independent.
 - Introduce snapshot/watermark barriers (EOT-15) for the sync subsystem and the mobile companion.
 - Make workspace a typed Effect scope (EOT-16) and permission/sandbox a typed boundary (EOT-17).
 - Land the plugin v2 contract (EOT-14), the provider-streaming adapter (EOT-11), and the jobs/persistence durability
-  guards (EOT-09) — in this order, because each depends on the prior slice's typed contract.
+  guards (EOT-09) after their respective listed dependencies pass, not as a plugin-to-provider-to-jobs chain.
+  Beyond shared EOT-02/EOT-10, EOT-14 requires EOT-03/EOT-08, EOT-11 requires EOT-01, and EOT-09 requires EOT-04.
 
 ### P3: Improve the Experience and the Bridge Orchestration
 

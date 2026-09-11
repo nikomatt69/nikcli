@@ -2,9 +2,17 @@
 
 Prioritize user outcomes through measured evidence gates.
 
-Status: **Proposed** (reconciled 2026-09-10; release-identity discovery was promoted to C3 and implemented 2026-09-09, and its probe was exercised against a real server on 2026-09-10 — only the production two-upload window is left).
+Status: **Proposed** (reconciled 2026-09-10; release-identity discovery was promoted to C3 and implemented 2026-09-09, and its probe was exercised against a real server on 2026-09-10 — the production two-upload window and a real failed-build case on Railway remain outstanding).
 
-This document orders user outcomes, not implementation projects. [ROADMAP.md](./ROADMAP.md) admits engineering work only after discovery identifies the smallest verifiable change.
+This document orders user outcomes, not implementation projects. The current [engineering program](./ROADMAP.md) uses proposed EOT-01 through EOT-20 specs with dependency exit gates.
+
+---
+
+## Interpret historical references
+
+Non-EOT IDs below (including C1-C3, B1, E5, H8, P2/P2.1, E8/E9, S2/S4r, D1-D3, and U4/U6) belong to the earlier engineering plan, not the current EOT phases or IDs. Dated implementation, discovery, and validation statements are retained historical reports, not fresh verification or completion of the proposed EOT program.
+
+The [historical CI contract](./v2/ci-pipeline-runtime-budgets.md) documents C1-C3, including release identity. The earlier roadmap's `verify-before-proceeding` execution record was not located in the inspected checkout; that contract is not a substitute for the missing run evidence.
 
 ---
 
@@ -22,7 +30,7 @@ The roadmap uses horizons rather than dates. `Now` means establish the baseline 
 
 ## Follow the sequence
 
-This section sequences the evidence-gated discovery activities against the engineering roadmap. Each phase names engineering dependencies and measurement decisions; detailed acceptance criteria stay in [ROADMAP.md](./ROADMAP.md).
+This section preserves the earlier evidence-gated discovery sequence and its historical engineering IDs. For new work, use the current [dependency gates](./ROADMAP.md#prioritized-work-and-dependencies) and [verification requirements](./ROADMAP.md#verification-and-promotion); they do not reconstruct the earlier acceptance records.
 
 A phase only moves to the next when both legs hold: the engineering acceptance gate passes and the product-side measurement window closes without observing the blocked failure mode. Product discovery may audit, define cohorts/events/privacy fields/windows/rollback thresholds, and measure existing behavior; any production instrumentation or behavior change must first be admitted to ROADMAP with an ID and runnable acceptance gate.
 
@@ -31,7 +39,7 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 ### Verify release integrity
 
 - **Engineering** - C1 gates every publish; E5, H8, and P2 landed on 2026-08-24. On 2026-09-09 the full validation runner (`script/ci-validate.ts`, the same one CI's `validate` job runs) passed 12 steps of 12, which closes B1 and C2. **C3 landed the same day**: the validated commit is baked into the binary, served on the existing public health response, and confirmed by a bounded probe after the detached upload.
-- **Local evidence** - See [the evidence record](./ROADMAP.md#verify-before-proceeding) for the step-by-step result.
+- **Local evidence** - The earlier `verify-before-proceeding` record is unavailable in the inspected checkout; the reported run results below have not been reverified in this review.
 - **The probe is proven, not just unit-tested (2026-09-10)** - A compiled binary built from an earlier commit was served locally and probed three ways: matching revision accepted (exit 0), the newer expected commit rejected at the deadline while the older one kept answering (exit 1), and nothing listening rejected (exit 1). The middle case is this brief's **old-healthy-instance** case, staged with a real older binary rather than a fixture.
 - **Limits** - Desktop/mobile builds and production deployment were not run. C3 gives the release decision something that can be wrong, and the gate that reads it now works end to end; what it has never done is judge an actual Railway upload.
 - **Product** - Release-identity discovery is now promoted and implemented. First-use, continuity, automation, share, and paid-value discovery are recorded below and still admit no implementation or production collection.
@@ -98,7 +106,7 @@ A phase only moves to the next when both legs hold: the engineering acceptance g
 - **Rollback** — This brief does not authorize automatic production rollback. A failed observation fails the release decision; the next upload still needs identity match. Auto-rollback is a later product choice.
 - **Contract and privacy** — Health is already public, so a revision in the JSON body is public metadata. An optional additive field would regenerate `GlobalHealth` and is a C1 drift item; a required field is a contract bump. Header-only identity would hide the value from generated clients and from the curl probe operators already use. Store only revision, service, environment, upload/deployment id if Railway exposes one, timestamps, and coarse pass/fail. No tokens, source, prompts, or credentials.
 - **Evidence gate** — Record expected vs observed identity for two consecutive separately approved uploads, plus a failed-build case and an old-healthy-instance case. **The old-healthy-instance case is done (2026-09-10)**, against a locally served binary compiled from an earlier commit: the probe reported `still serving a30188cfc7…` twice and then failed the release at the deadline. The unreachable case is done the same way. What is left needs Railway: two consecutive approved uploads, and a real failed build.
-- **Promoted 2026-09-09 as [C3](./ROADMAP.md#revision-bearing-release-identity-c3--implemented-2026-09-09)** — This brief named one gap and both halves of the promotion rule held for it: the evidence was in the repository, and the gate is runnable. The smallest item it described is what was built — the validated commit baked at image build (`NIKCLI_REVISION`, beside the existing version define), exposed as an additive `revision` on the public health response, and associated with the detached upload through the deploy script and the CI job. `script/check-release-identity.ts` is the gate; a detached upload that is never confirmed is a failed release, not a pending one.
+- **Historical promotion, 2026-09-09: C3** - The [retained CI contract](./v2/ci-pipeline-runtime-budgets.md#4-what---detach-still-cannot-tell-you) describes the validated commit baked as `NIKCLI_REVISION`, exposed as an optional health-response `revision`, and checked by `script/check-release-identity.ts` after upload. This documents the mechanism, not the missing execution record or completion of the production observation window.
 - **Still not admitted** — Production collection and automatic rollback. The two-upload window needs deploy permission and is not run from a checkout; a failed observation fails the release decision, and the next upload still has to match.
 
 ---
