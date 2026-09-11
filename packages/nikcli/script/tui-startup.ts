@@ -223,9 +223,21 @@ function series(samples: Marks[]) {
   }
 }
 
+/**
+ * Progress goes to stderr, the JSON report to stdout.
+ *
+ * `bun run bench:startup <bin> > baseline.json` has to produce a file
+ * `script/bench-compare.ts` can read, and it could not while the percentile
+ * lines shared the stream with the report. EOT-01's P0 exit asks for "a
+ * baseline comparison format"; a blob that needs a human to trim it is not one.
+ */
+function progress(...args: unknown[]) {
+  console.error(...args)
+}
+
 function line(label: string, stats: SampleSummary, note?: string, format: (value: number) => string = ms) {
   const suffix = note ? ` ${note}` : ""
-  console.log(
+  progress(
     `${label}: n=${stats.count} min=${format(stats.min)} median=${format(stats.median)} p95=${format(stats.p95)} max=${format(stats.max)}${suffix}`,
   )
 }
@@ -234,8 +246,71 @@ function ms(value: number) {
   return `${value.toFixed(0)}ms`
 }
 
+type WarmSummary = {
+  firstPaint: SampleSummary | null
+  usablePrompt: SampleSummary | null
+  rssBytes: SampleSummary | null
+}
+
 function samplesLine(label: string, values: number[], format: (value: number) => string = (value) => value.toFixed(0)) {
-  console.log(`${label}: ${values.map(format).join(",")}`)
+  progress(`${label}: ${values.map(format).join(",")}`)
+}
+
+/**
+ * Compare this run against a stored one, when `BASELINE` names a file.
+ *
+ * `script/bench-compare.ts` cannot do this: it reads the `test/benchmarks`
+ * runner's `{ samples: [{ suite, name }] }` shape, while this probe emits
+ * warm/cold series. Feeding one to the other fails with "samples.map is not a
+ * function", which is how the P0 "baseline comparison format" turned out to be
+ * two formats that do not meet.
+ *
+ * Descriptive by default. `BASELINE_MAX_REGRESSION` (a percentage) makes it a
+ * gate: exceed it on a warm median or p95 and the probe exits non-zero. Cold
+ * samples stay descriptive — EOT-01 already treats them that way, and 10 cold
+ * runs on a loaded machine do not support a threshold.
+ */
+function compareAgainstBaseline(report: { summary: { warm: WarmSummary | null } }) {
+  const file = process.env.BASELINE
+  if (!file) return
+  if (!existsSync(file)) throw new Error(`BASELINE file not found: ${file}`)
+
+  const previous = JSON.parse(readFileSync(file, "utf8")) as { summary?: { warm?: WarmSummary | null } }
+  const before = previous.summary?.warm
+  const after = report.summary.warm
+  if (!before || !after) {
+    progress("baseline: one of the two runs has no warm samples; nothing to compare")
+    return
+  }
+
+  const limit = process.env.BASELINE_MAX_REGRESSION ? Number(process.env.BASELINE_MAX_REGRESSION) : undefined
+  if (limit !== undefined && (!Number.isFinite(limit) || limit <= 0)) {
+    throw new Error(`BASELINE_MAX_REGRESSION must be a positive percentage, got ${process.env.BASELINE_MAX_REGRESSION}`)
+  }
+
+  const regressions: string[] = []
+  for (const metric of ["firstPaint", "usablePrompt", "rssBytes"] as const) {
+    const a = before[metric]
+    const b = after[metric]
+    if (!a || !b) continue
+    const format = metric === "rssBytes" ? formatBytes : ms
+    for (const stat of ["median", "p95"] as const) {
+      const from = a[stat]
+      const to = b[stat]
+      // A zero baseline cannot express a percentage, and a metric that was
+      // zero and is not any more is a change worth seeing rather than dividing.
+      const delta = from === 0 ? Number.POSITIVE_INFINITY : ((to - from) / from) * 100
+      const sign = delta >= 0 ? "+" : ""
+      progress(`baseline warm ${metric} ${stat}: ${format(from)} -> ${format(to)} (${sign}${delta.toFixed(1)}%)`)
+      if (limit !== undefined && delta > limit) {
+        regressions.push(`${metric} ${stat} ${sign}${delta.toFixed(1)}% (limit ${limit}%)`)
+      }
+    }
+  }
+
+  if (regressions.length > 0) {
+    throw new Error(`startup regressed against ${file}: ${regressions.join(", ")}`)
+  }
 }
 
 // Shared with `packages/tui/script/import-cost.ts` so two probes emit one
@@ -272,7 +347,7 @@ try {
   // Context first: the percentile lines below are meaningless next to another
   // run's without the revision and machine that produced them. This used to
   // reach the JSON blob on the last line and nowhere else.
-  console.log(formatProbeEnvironment(environment))
+  progress(formatProbeEnvironment(environment))
 
   const warm: Marks[] = []
   const cold: Marks[] = []
@@ -282,7 +357,7 @@ try {
     const home = scratch()
     bootstrap = await once(home)
     const bootstrapRss = bootstrap.rssBytes !== undefined ? ` rss=${formatBytes(bootstrap.rssBytes)}` : ""
-    console.log(
+    progress(
       `bootstrap: spawn=${bootstrap.spawnMs.toFixed(0)}ms firstPaint=${bootstrap.firstPaintMs.toFixed(0)}ms usablePrompt=${bootstrap.usablePromptMs.toFixed(0)}ms${bootstrapRss} (fresh home, not a warm sample)`,
     )
     await Bun.sleep(500)
@@ -290,7 +365,7 @@ try {
       const sample = await once(home)
       warm.push(sample)
       const rss = sample.rssBytes !== undefined ? ` rss=${formatBytes(sample.rssBytes)}` : ""
-      console.log(
+      progress(
         `warm ${i + 1}/${WARM_RUNS}: firstPaint=${sample.firstPaintMs.toFixed(0)}ms usablePrompt=${sample.usablePromptMs.toFixed(0)}ms${rss}`,
       )
       await Bun.sleep(500)
@@ -302,7 +377,7 @@ try {
     const sample = await once(home)
     cold.push(sample)
     const rss = sample.rssBytes !== undefined ? ` rss=${formatBytes(sample.rssBytes)}` : ""
-    console.log(
+    progress(
       `cold ${i + 1}/${COLD_RUNS}: firstPaint=${sample.firstPaintMs.toFixed(0)}ms usablePrompt=${sample.usablePromptMs.toFixed(0)}ms${rss}`,
     )
     await rm(home, { recursive: true, force: true }).catch(() => {})
@@ -336,7 +411,7 @@ try {
   // samples contribute to it — a clean reading at the start says nothing about
   // sample 30.
   const loadavg1AtEnd = os.loadavg()[0]
-  console.log(`load: start=${environment.os.loadavg1.toFixed(2)} end=${loadavg1AtEnd.toFixed(2)}`)
+  progress(`load: start=${environment.os.loadavg1.toFixed(2)} end=${loadavg1AtEnd.toFixed(2)}`)
 
   const report = {
     environment,
@@ -364,6 +439,7 @@ try {
         : null,
     },
   }
+  compareAgainstBaseline(report)
   console.log(JSON.stringify(report))
   await reap()
   process.exit(0)

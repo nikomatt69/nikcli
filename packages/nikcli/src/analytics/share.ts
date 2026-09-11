@@ -49,8 +49,9 @@ export namespace AnalyticsShare {
     installID: string
   }
 
-  function native() {
-    return Database.syncNative()
+  /** One row in `analytics_share`, read and upserted. See `Database.rawSql`. */
+  function native(): Database.RawSql {
+    return Database.rawSql("analytics.share")
   }
 
   function dayKey(at: number): string {

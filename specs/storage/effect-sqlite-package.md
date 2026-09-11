@@ -1,11 +1,28 @@
 # Effect Drizzle SQLite Adapter
 
-| Field   | Value                                                                                                                                                                                                     |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status  | **Proposed** — nothing in this document is implemented                                                                                                                                                    |
-| Scope   | New `packages/effect-drizzle-sqlite`, then `packages/nikcli/src/database/database.ts`                                                                                                                     |
-| Buys    | Yieldable Drizzle queries inside `Effect.gen`, without hand-rolling the adapter per call site                                                                                                             |
-| Missing | An adapter test suite (`packages/effect-drizzle-sqlite/test/sqlite.test.ts`) that proves yieldable queries, rollback, migration ordering, and the close finalizer. Until it exists this stays `Proposed`. |
+| Field   | Value                                                                                                                                                                                         |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status  | **Blocked** by the roadmap (see below); nothing in this document is implemented                                                                                                               |
+| Scope   | New `packages/effect-drizzle-sqlite`, then `packages/nikcli/src/database/database.ts`                                                                                                         |
+| Buys    | Yieldable Drizzle queries inside `Effect.gen`, without hand-rolling the adapter per call site                                                                                                 |
+| Blocker | ROADMAP non-negotiable 3 ("an alternate database layer") and Deferred Choices ("Effect SQL"). Needs a measured bottleneck, a compatibility case, and a recorded decision before the first PR. |
+
+## Blocked By The Roadmap
+
+[../ROADMAP.md](../ROADMAP.md) forbids this adoption twice, and both clauses predate this document:
+
+- Non-negotiable decision 3: "Do not introduce Hono, hey-api, a parallel config schema, **an alternate
+  database layer**, or a parallel plugin runtime."
+- Deferred Choices: "Do not adopt … **Effect SQL** … merely because the APIs exist. Reconsider only
+  with a measured bottleneck, a compatibility case, and a separate decision."
+
+Nothing below may be built until all three exist: a measured bottleneck, a compatibility case, and a
+recorded decision. "Drizzle queries should be yieldable" is an ergonomics argument, not a measured
+bottleneck.
+
+This matters for sequencing, not just paperwork. [retire-database-wrapper.md](./retire-database-wrapper.md)
+was written as this spec's consumer, but its groups 1 and 2 do not need the adapter and are therefore
+not blocked — group 1 has already landed without it. Only groups 3 and 4 wait here.
 
 ## Goal
 
@@ -56,9 +73,9 @@ already landed. A failing post-commit effect is logged and does not fail the tra
 read-then-write sequence (allocate a sequence number, then append) must take the write lock up front,
 or two processes sharing `nikcli.db` can both read the same number. `SyncEvent.run` depends on this.
 
-Any Effect port keeps all three properties. The Effect-native way to express the first two is a
-private transaction context holding `{ tx, afterCommit }`: `db` reads the current transaction context
-if present and the root client otherwise, and `transaction` installs the context around the effect.
+Any Effect port keeps all three properties. The shape is already half there: `{ tx, afterCommit }` is
+what the body receives today, and an Effect port would carry it in Effect context rather than as a
+parameter.
 
 ## Package Shape
 
@@ -125,9 +142,9 @@ its own change.
 4. Add the package as a dependency of `packages/nikcli`.
 5. Port `src/database/database.ts` into a thin wrapper over the adapter plus nikcli's own
    transaction/post-commit context.
-6. Keep every existing call site working first: `Database.syncDb()`, `Database.use(...)`,
-   `Database.transaction(...)`, `Database.effect(...)`, `Database.close/closeAll/isOpen`.
-7. Only after that, migrate call sites from callback-style `use` to yielding Drizzle queries.
+6. Keep every existing call site working first: `Database.syncDb()`, `Database.transaction(...)`,
+   `Database.close/closeAll/isOpen`.
+7. Only after that, migrate call sites to yielding Drizzle queries.
 8. Only then build domain stores on top of the wrapper.
 
 Step 6 is where nikcli differs most from upstream's plan. Upstream's wrapper is already

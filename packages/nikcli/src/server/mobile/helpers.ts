@@ -108,7 +108,7 @@ export function runSessionForSession<A, E>(
 export function runSummary<A, E>(
   effect: Effect.Effect<A, E, SessionSummary.Service | Snapshot.Service | Session.Service>,
 ) {
-  return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
+  return runPromiseWithLayer(SessionSummary.runnerLayer, withCurrentInstance(effect))
 }
 
 export function runAgent<A, E>(effect: Effect.Effect<A, E, Agent.Service>) {

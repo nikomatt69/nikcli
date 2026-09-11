@@ -79,8 +79,42 @@ export namespace Database {
     return singleton().db
   }
 
-  /** Shared native SQLite client. Useful for admin/debug tooling only. */
+  /**
+   * Shared native SQLite client.
+   *
+   * Tests, migrations, and admin tooling only — production code must not call
+   * this. `test/database/wrapper-inventory.test.ts` asserts it stays absent
+   * from `src`. Production SQL the query builder cannot express goes through
+   * `rawSql`, which is narrower and says who is asking.
+   */
   export function syncNative(): BunDatabase {
+    return singleton().native
+  }
+
+  /**
+   * The native handle narrowed to `query`, for SQL Drizzle's builder cannot
+   * express.
+   *
+   * Analytics is the reason this exists: its aggregates are `json_extract`
+   * sums over `message_part.info` grouped by `date(created_at/1000,
+   * 'unixepoch')`, which is not a query builder shape, and rewriting them
+   * would trade readable SQL for a slower plan on a table that reaches ~600MB.
+   *
+   * Narrowed rather than handed over whole: a caller gets `query` and not
+   * `exec`, `close`, `transaction`, or `serialize`. `purpose` is logged once
+   * per distinct value, so who bypasses the builder is visible at runtime
+   * rather than only in a grep. `specs/storage/retire-database-wrapper.md`
+   * group 2.
+   */
+  export type RawSql = Pick<BunDatabase, "query">
+
+  const rawPurposes = new Set<string>()
+
+  export function rawSql(purpose: string): RawSql {
+    if (!rawPurposes.has(purpose)) {
+      rawPurposes.add(purpose)
+      log.debug("raw sql consumer", { purpose })
+    }
     return singleton().native
   }
 

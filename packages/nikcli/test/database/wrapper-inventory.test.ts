@@ -23,12 +23,14 @@ import { SRC, stripComments } from "../tui/tui-source"
  * change at all.
  */
 const BASELINE = {
-  references: 90,
-  files: 39,
+  references: 85,
+  files: 38,
   /** Group 1 removed both: the post-commit queue is handed to the transaction body. */
   effect: 0,
   use: 0,
-  syncNative: 2,
+  /** Group 2: production raw SQL goes through the narrowed `rawSql`, not the whole handle. */
+  syncNative: 0,
+  rawSql: 2,
 } as const
 
 const API = /Database\.[A-Za-z]+/g
@@ -79,11 +81,14 @@ describe("Database wrapper inventory", () => {
     expect(counts.get("use") ?? 0).toBe(BASELINE.use)
   })
 
-  it("keeps raw-SQL access to the two analytics callers", async () => {
+  it("keeps the native handle out of production code", async () => {
     const { counts } = await scan()
 
-    // `syncNative` is documented as admin/debug only. Group 2 decides whether
-    // those two queries move onto Drizzle or earn a named accessor.
-    expect(counts.get("syncNative") ?? 0).toBeLessThanOrEqual(BASELINE.syncNative)
+    // Group 2. `syncNative` hands over the whole SQLite handle — `exec`,
+    // `close`, `transaction` — and is for tests, migrations, and admin tooling.
+    // Production SQL the builder cannot express uses `rawSql`, which is
+    // narrowed to `query` and names its caller.
+    expect(counts.get("syncNative") ?? 0).toBe(BASELINE.syncNative)
+    expect(counts.get("rawSql") ?? 0).toBeLessThanOrEqual(BASELINE.rawSql)
   })
 })

@@ -5,7 +5,7 @@ import os from "os"
 import path from "path"
 import { removeTestDir } from "../helpers/fs"
 import type { MessageV2 as MessageV2Types } from "../../src/session/message-v2"
-import { Cause, Effect, Layer } from "effect"
+import { Cause, Effect } from "effect"
 import { runPromiseExitWithLayer, runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-home-"))
@@ -469,11 +469,12 @@ describe("session lifecycle", () => {
       await withProject(async () => {
         const { SessionSummary } = await import("../../src/session/summary")
         const missingID = Identifier.descending("session")
-        // SessionSummary.defaultLayer provides SessionSummary.Service only;
-        // Session.Service must be in the same layer stack for `diff` to
-        // resolve a missing session on the typed channel.
+        // `defaultLayer` provides SessionSummary.Service only — it consumes
+        // Snapshot and Agent through `Layer.provide` without re-exporting them.
+        // `runnerLayer` is that plus Session and Snapshot, which is what `diff`
+        // requires to resolve a missing session on the typed channel.
         const exit = await runPromiseExitWithLayer(
-          Layer.merge(SessionSummary.defaultLayer, Session.defaultLayer),
+          SessionSummary.runnerLayer,
           withCurrentInstance(
             Effect.gen(function* () {
               const summary = yield* SessionSummary.Service

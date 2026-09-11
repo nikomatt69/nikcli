@@ -153,7 +153,7 @@ export namespace SessionPrompt {
   }
 
   function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service | Session.Service | Snapshot.Service>) {
-    return runPromiseWithLayer(SessionSummary.defaultLayer, locallyInstance(currentContext(), effect))
+    return runPromiseWithLayer(SessionSummary.runnerLayer, locallyInstance(currentContext(), effect))
   }
 
   function runRevert<A, E>(effect: Effect.Effect<A, E, SessionRevert.Service>) {

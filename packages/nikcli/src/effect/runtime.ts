@@ -64,18 +64,27 @@ export function runtimeFor<R, E>(layer: Layer.Layer<R, E, never>) {
   return runtime
 }
 
-export function runPromiseWithLayer<A, E, R, LE>(
-  layer: Layer.Layer<any, LE, never>,
+/**
+ * Run `effect` on the runtime built from `layer`.
+ *
+ * `R extends ROut` is the whole point: the layer has to provide everything the
+ * effect requires. This used to be `Layer.Layer<any, LE, never>` plus a cast to
+ * `Effect<A, E, any>`, which type-checked every mismatch — a caller could hand
+ * over a layer providing nothing and find out at runtime.
+ * `specs/effect-tui/02-effect-boundaries.md`.
+ */
+export function runPromiseWithLayer<A, E, R extends ROut, ROut, LE>(
+  layer: Layer.Layer<ROut, LE, never>,
   effect: Effect.Effect<A, E, R>,
 ): Promise<A> {
-  return runtimeFor(layer).runPromise(effect as Effect.Effect<A, E, any>)
+  return runtimeFor(layer).runPromise(effect)
 }
 
-export function runPromiseExitWithLayer<A, E, R, LE>(
-  layer: Layer.Layer<any, LE, never>,
+export function runPromiseExitWithLayer<A, E, R extends ROut, ROut, LE>(
+  layer: Layer.Layer<ROut, LE, never>,
   effect: Effect.Effect<A, E, R>,
 ): Promise<import("effect").Exit.Exit<A, E | LE>> {
-  return runtimeFor(layer).runPromiseExit(effect as Effect.Effect<A, E, any>)
+  return runtimeFor(layer).runPromiseExit(effect)
 }
 
 export function withCurrentInstance<A, E, R>(effect: Effect.Effect<A, E, R>) {

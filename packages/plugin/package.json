@@ -27,6 +27,10 @@
       "import": "./src/v2/tui/index.ts",
       "types": "./src/v2/tui/index.ts"
     },
+    "./v2/manifest": {
+      "import": "./src/v2/manifest.ts",
+      "types": "./src/v2/manifest.ts"
+    },
     "./v2/tui/*": {
       "import": "./src/v2/tui/*.ts",
       "types": "./src/v2/tui/*.ts"

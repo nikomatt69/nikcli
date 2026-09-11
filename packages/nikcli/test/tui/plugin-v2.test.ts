@@ -107,7 +107,9 @@ describe("v2 tui plugin compatibility", () => {
     })
 
     const module = readV2TuiPlugin({ default: definition }, "file:///example.ts")
-    expect(module?.id).toBe("example.plugin")
+    // No manifest: the pre-manifest v2 shape still loads and is reported as
+    // `legacy:` so diagnostics say which shape it is. Spec requirement 11.
+    expect(module?.id).toBe("legacy:example.plugin")
     await module!.tui(runtime.api, { enabled: true }, {} as never)
 
     expect(context?.options).toEqual({ enabled: true })
@@ -140,5 +142,120 @@ describe("v2 tui plugin compatibility", () => {
   it("rejects malformed v2 definitions", () => {
     expect(() => readV2TuiPlugin({ default: { id: "", setup() {} } }, "broken")).toThrow("non-empty id")
     expect(() => readV2TuiPlugin({ default: { id: "broken", setup: true } }, "broken")).toThrow("invalid setup export")
+  })
+})
+
+describe("v2 tui plugin manifest", () => {
+  const manifest = {
+    id: "acme:example",
+    version: "1.2.3",
+    kind: "user" as const,
+    capabilities: ["routes", "storage"] as const,
+  }
+
+  function withManifest(overrides: Record<string, unknown> = {}, setup?: Plugin.Definition["setup"]) {
+    return {
+      default: {
+        manifest: { ...manifest, ...overrides },
+        id: "example.plugin",
+        setup: setup ?? (() => {}),
+      },
+    }
+  }
+
+  it("reports the manifest id, not a legacy id", () => {
+    const module = readV2TuiPlugin(withManifest(), "file:///example.ts")
+    expect(module?.id).toBe("acme:example")
+  })
+
+  it("refuses an unscoped id", () => {
+    expect(() => readV2TuiPlugin(withManifest({ id: "example" }), "file:///example.ts")).toThrow(/scoped lowercase id/)
+  })
+
+  it("refuses a non-semver version", () => {
+    expect(() => readV2TuiPlugin(withManifest({ version: "v1" }), "file:///example.ts")).toThrow(/must be semver/)
+  })
+
+  it("refuses an unknown capability", () => {
+    expect(() => readV2TuiPlugin(withManifest({ capabilities: ["telepathy"] }), "file:///example.ts")).toThrow(
+      /unknown capability/,
+    )
+  })
+
+  it("refuses a manifest that declares nothing", () => {
+    expect(() => readV2TuiPlugin(withManifest({ capabilities: [] }), "file:///example.ts")).toThrow(
+      /at least one capability/,
+    )
+  })
+
+  it("refuses a capability this host cannot supply", () => {
+    expect(() => readV2TuiPlugin(withManifest({ capabilities: ["scheduler"] }), "file:///example.ts")).toThrow(
+      /does not supply "scheduler"/,
+    )
+  })
+
+  it("refuses a host version outside the required range", () => {
+    expect(() =>
+      readV2TuiPlugin(withManifest({ hostRequirements: { node: ">=99.0.0" } }), "file:///example.ts", {
+        node: "24.15.0",
+        capabilities: ["routes", "storage"],
+      }),
+    ).toThrow(/requires node >=99.0.0 but the host is 24.15.0/)
+  })
+
+  it("accepts a host version inside the required range", () => {
+    const module = readV2TuiPlugin(withManifest({ hostRequirements: { node: ">=20.0.0" } }), "file:///example.ts", {
+      node: "24.15.0",
+      capabilities: ["routes", "storage"],
+    })
+    expect(module?.id).toBe("acme:example")
+  })
+
+  it("ignores a requirement the host cannot answer", () => {
+    // An embedder that does not report its opentui version must not become a
+    // host where every plugin fails to load.
+    const module = readV2TuiPlugin(withManifest({ hostRequirements: { opentui: ">=99.0.0" } }), "file:///example.ts", {
+      capabilities: ["routes", "storage"],
+    })
+    expect(module?.id).toBe("acme:example")
+  })
+
+  it("denies a capability the plugin did not declare", async () => {
+    const runtime = host()
+    let denied: unknown
+    const module = readV2TuiPlugin(
+      withManifest({ capabilities: ["routes"] }, (input) => {
+        try {
+          void input.storage
+        } catch (error) {
+          denied = error
+        }
+      }),
+      "file:///example.ts",
+    )
+
+    await module!.tui(runtime.api, {}, {} as never)
+
+    // Throws rather than handing back a stub: a stub would let the plugin
+    // believe it had storage.
+    expect(denied).toBeDefined()
+    expect(String((denied as { reason?: string }).reason)).toMatch(/did not declare the "storage" capability/)
+  })
+
+  it("allows a capability the plugin declared", async () => {
+    const runtime = host()
+    let reached = false
+    const module = readV2TuiPlugin(
+      withManifest({ capabilities: ["routes", "storage"] }, (input) => {
+        input.ui.router.register({ name: "settings", render: () => "ok" })
+        reached = true
+      }),
+      "file:///example.ts",
+    )
+
+    await module!.tui(runtime.api, {}, {} as never)
+
+    expect(reached).toBe(true)
+    expect(runtime.routes).toHaveLength(1)
   })
 })

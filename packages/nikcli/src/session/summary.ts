@@ -292,4 +292,23 @@ export namespace SessionSummary {
   export const defaultLayer = Layer.unwrap(
     Effect.sync(() => layer.pipe(Layer.provide(Layer.mergeAll(Snapshot.defaultLayer, Agent.defaultLayer)))),
   )
+
+  /**
+   * `defaultLayer` plus the two services its callers use alongside it.
+   *
+   * `defaultLayer` reaches Snapshot and Agent through `Layer.provide`, which
+   * **consumes** them as dependencies without re-exporting them. Four modules
+   * nevertheless declare `Effect<A, E, SessionSummary.Service | Session.Service
+   * | Snapshot.Service>` and ran it on `defaultLayer`; the old
+   * `Layer.Layer<any, …>` signature on `runPromiseWithLayer` accepted that, and
+   * the first effect to actually touch `Snapshot.Service` there would have
+   * failed at runtime with a missing service.
+   *
+   * A module-level constant rather than a `Layer.mergeAll(...)` at each call
+   * site: `runtimeFor` memoizes runtimes in a `WeakMap` keyed by layer
+   * identity, so a layer built per call builds a runtime per call.
+   *
+   * `specs/effect-tui/02-effect-boundaries.md`.
+   */
+  export const runnerLayer = Layer.mergeAll(defaultLayer, Session.defaultLayer, Snapshot.defaultLayer)
 }

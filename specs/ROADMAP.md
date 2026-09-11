@@ -152,8 +152,18 @@ to P0. Leave any unpassed spec proposed/in-progress rather than claiming the arc
 
 1. EOT-01: the startup probe now records raw samples, nearest-rank percentiles, and child RSS when
    readable; event-feed / plugin-dispose / streaming-cost harnesses record queue-depth, lifecycle
-   residuals, and once-path summaries. Collect the 30-warm / 10-cold baseline on a compiled binary
+   residuals, and once-path summaries. `bench:startup <bin> > run.json` now yields a file the probe
+   itself can diff (`BASELINE=<file>`, descriptive by default, a gate under
+   `BASELINE_MAX_REGRESSION`). Collect the 30-warm / 10-cold baseline on a compiled binary
    and ratify candidate budgets before optimization. No production behavior changes.
+
+   **Not yet ratified.** A 12-warm / 3-cold run on 2026-09-12 (darwin/arm64, 8 cpu, load 4.1→4.8,
+   `71ac3bd2e` dirty) measured warm firstPaint median 4817ms / p95 5659ms and warm RSS median 570MB.
+   A 30-warm attempt on the same machine degraded from 3.9s to 14.7s after sample 24 under load 6.6
+   and a cold sample never painted, so neither run is the reviewed baseline this phase asks for.
+   One observation holds across both: `firstPaint` and `usablePrompt` differ by under a millisecond
+   in every sample, so on this binary the second metric carries no information the first does not.
+
 2. EOT-02: type one `runService` caller chain without widening requirements; exercise finalizers and concurrent instances.
 3. EOT-10: characterize standalone TUI-config 401, malformed response, and offline failure; forbid empty-config success.
 4. EOT-12: lock the identity state machine; pilot one transition (token refresh) through the existing TUI flow;
@@ -186,29 +196,32 @@ First slices only. **Every spec below is still `proposed`** — a landed slice i
 evidence the seam exists and is guarded by a test, not that the spec has passed
 its release gate. Nothing here is marked complete.
 
-| Spec   | What landed                                                                        | Commit                  |
-| ------ | ---------------------------------------------------------------------------------- | ----------------------- |
-| EOT-01 | One probe-environment block shared by both probes; `loadavg1` added                | `5aa643dc8`             |
-| EOT-02 | `runService` requirement typing; `any` and the cast removed                        | `3ec56934`              |
-| EOT-03 | `useAttempts`: supersession guard for restartable dialog flows                     | `4495840e1`             |
-| EOT-04 | Queue depth meter; refetch on reconnect instead of resuming into a gap             | `3ec56934`, `4a767a5f9` |
-| EOT-05 | Optional bootstrap requests settle; `sync.degraded` replaces a pinned `partial`    | `12d8ef764`             |
-| EOT-06 | Windowing math pinned by tests, including two properties                           | `92dc72d2a`             |
-| EOT-07 | Ctrl+C asks the renderer for focus instead of a source string and a missing DOM    | `a0b21dffd`             |
-| EOT-08 | Import-cost probe; one dialog moved off the critical path against a measured delta | `a9725f1d7`             |
-| EOT-09 | `isTerminal`/`canTransition` for background-run outcomes                           | `3ec56934`              |
-| EOT-10 | Standalone and CLI hosts stop turning a config failure into an empty config        | `3ec56934`, `67a2b811b` |
-| EOT-11 | `suppressEmptyTextResult` covered: a rejection still reaches an awaiting caller    | `9483b4645`             |
-| EOT-12 | Onboarding retry bounded; typed `incomplete` outcome instead of a parked startup   | `a6b1c758c`             |
-| EOT-13 | `span-schema.ts`: fixed attribute schema, forbidden segments, redact-then-truncate | `3ec56934`              |
-| EOT-15 | `detectSequenceGap`: a replay resuming across a compacted range is now reported    | `34ed8b55a`             |
-| EOT-16 | LSP and provider refreshes scoped to the active workspace                          | `41b718d16`             |
-| EOT-17 | Precedence corrected to the shipped contract; ordering guarded by a test           | `3ec56934`, `67a2b811b` |
-| EOT-18 | Command-surface gate restored and repointed                                        | `f5783a970`             |
-| EOT-20 | Test layers made disjoint; barrier helpers; one flaky test migrated to a barrier   | `3ec56934`, `c1d323308` |
+| Spec   | What landed                                                                          | Commit                  |
+| ------ | ------------------------------------------------------------------------------------ | ----------------------- |
+| EOT-01 | One probe-environment block shared by both probes; `loadavg1` added                  | `5aa643dc8`             |
+| EOT-01 | Probe progress moved to stderr; `BASELINE` comparison with an opt-in regression gate | working tree            |
+| EOT-02 | `runService` requirement typing; `any` and the cast removed                          | `3ec56934`              |
+| EOT-03 | `useAttempts`: supersession guard for restartable dialog flows                       | `4495840e1`             |
+| EOT-04 | Queue depth meter; refetch on reconnect instead of resuming into a gap               | `3ec56934`, `4a767a5f9` |
+| EOT-05 | Optional bootstrap requests settle; `sync.degraded` replaces a pinned `partial`      | `12d8ef764`             |
+| EOT-06 | Windowing math pinned by tests, including two properties                             | `92dc72d2a`             |
+| EOT-07 | Ctrl+C asks the renderer for focus instead of a source string and a missing DOM      | `a0b21dffd`             |
+| EOT-08 | Import-cost probe; one dialog moved off the critical path against a measured delta   | `a9725f1d7`             |
+| EOT-09 | `isTerminal`/`canTransition` for background-run outcomes                             | `3ec56934`              |
+| EOT-09 | Post-commit publication moved from an ambient queue to the transaction's `ctx`       | working tree            |
+| EOT-10 | Standalone and CLI hosts stop turning a config failure into an empty config          | `3ec56934`, `67a2b811b` |
+| EOT-11 | `suppressEmptyTextResult` covered: a rejection still reaches an awaiting caller      | `9483b4645`             |
+| EOT-12 | Onboarding retry bounded; typed `incomplete` outcome instead of a parked startup     | `a6b1c758c`             |
+| EOT-13 | `span-schema.ts`: fixed attribute schema, forbidden segments, redact-then-truncate   | `3ec56934`              |
+| EOT-14 | v2 manifest is the v1/v2 discriminator; host-range and capability checks at load     | working tree            |
+| EOT-15 | `detectSequenceGap`: a replay resuming across a compacted range is now reported      | `34ed8b55a`             |
+| EOT-16 | LSP and provider refreshes scoped to the active workspace                            | `41b718d16`             |
+| EOT-17 | Precedence corrected to the shipped contract; ordering guarded by a test             | `3ec56934`, `67a2b811b` |
+| EOT-18 | Command-surface gate restored and repointed                                          | `f5783a970`             |
+| EOT-20 | Test layers made disjoint; barrier helpers; one flaky test migrated to a barrier     | `3ec56934`, `c1d323308` |
 
-Every spec has been opened. **EOT-14** is the one with no code: its runtime was
-audited and no change was warranted.
+Every spec has been opened. **EOT-14** is no longer the one with no code: the v2
+manifest, host-compatibility check, and capability gating landed.
 
 What these slices are not. EOT-11, EOT-14 and EOT-15 remain the L/High
 migrations this roadmap scopes across several separately verified PRs. EOT-11
@@ -289,6 +302,10 @@ performance samples with the implementing PR.
 
 Do not adopt a new global state framework, a browser virtualizer, Effect SQL, Effect AI/CLI, distributed actors, or an
 OpenTUI fork merely because the APIs exist. Reconsider only with a measured bottleneck, a compatibility case, and a
-separate decision. Renderer worker/thread defaults, authentication policy, plugin trust, telemetry export defaults,
+separate decision. [storage/effect-sqlite-package.md](storage/effect-sqlite-package.md) proposes exactly this adoption
+and is therefore **blocked by this clause**: it needs the measured bottleneck and the separate decision before its first
+PR, and non-negotiable decision 3 forbids an alternate database layer standing beside the current one. The retirement it
+was written to unblock ([storage/retire-database-wrapper.md](storage/retire-database-wrapper.md)) does not depend on it
+for group 1 or group 2, which is why those run first. Renderer worker/thread defaults, authentication policy, plugin trust, telemetry export defaults,
 and CLI headless posture are not changed by this roadmap. No new mandatory external infrastructure or paid service
 is required.

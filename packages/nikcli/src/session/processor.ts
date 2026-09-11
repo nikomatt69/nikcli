@@ -78,7 +78,7 @@ export namespace SessionProcessor {
   }
 
   function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service | Session.Service | Snapshot.Service>) {
-    return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(SessionSummary.runnerLayer, withCurrentInstance(effect))
   }
 
   function runCompaction<A, E>(effect: Effect.Effect<A, E, SessionCompaction.Service>) {

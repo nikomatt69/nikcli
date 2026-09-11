@@ -140,8 +140,9 @@ const HAS_MODEL = `
 const DAY_OF = "date(created_at / 1000, 'unixepoch')"
 const token = (field: string) => `COALESCE(SUM(COALESCE(json_extract(info, '$.tokens.${field}'), 0)), 0)`
 
-function native() {
-  return Database.syncNative()
+/** Aggregates the query builder cannot express. See `Database.rawSql`. */
+function native(): Database.RawSql {
+  return Database.rawSql("analytics.aggregates")
 }
 
 function num(value: number | null | undefined): number {
