@@ -6,6 +6,7 @@ import {
   adapterState,
   toProcessorStream,
   providerErrorToAPICallError,
+  suppressEmptyTextResult,
 } from "@/session/llm/llm-event-adapter"
 import { MessageV2 } from "@/session/message-v2"
 import { SessionRetry } from "@/session/retry"
@@ -242,5 +243,49 @@ describe("llm-event-adapter", () => {
     expect(collected).toContain("start")
     expect(collected).toContain("text-delta")
     expect(collected).toContain("finish")
+  })
+})
+
+describe("suppressEmptyTextResult", () => {
+  function result(text: Promise<string>) {
+    return {
+      fullStream: (async function* () {})() as AsyncIterable<never>,
+      text,
+    }
+  }
+
+  it("returns the same object, not a copy", () => {
+    const value = result(Promise.resolve("ok"))
+    expect(suppressEmptyTextResult(value)).toBe(value)
+  })
+
+  it("still rejects for a caller that awaits the text", async () => {
+    // This is the property that matters: the helper exists to stop an
+    // unhandled-rejection warning on a promise nobody read, not to turn a
+    // failed generation into a successful empty one.
+    const value = suppressEmptyTextResult(result(Promise.reject(new Error("provider exploded"))))
+    await expect(value.text).rejects.toThrow("provider exploded")
+  })
+
+  it("leaves a resolved text untouched", async () => {
+    const value = suppressEmptyTextResult(result(Promise.resolve("hello")))
+    expect(await value.text).toBe("hello")
+  })
+
+  it("does not leave the rejection unhandled when nobody reads text", async () => {
+    // Without the attached catch this rejection would surface as an unhandled
+    // rejection and, under Bun, can take the process down.
+    let unhandled: unknown
+    const onUnhandled = (reason: unknown) => {
+      unhandled = reason
+    }
+    process.on("unhandledRejection", onUnhandled)
+    try {
+      suppressEmptyTextResult(result(Promise.reject(new Error("ignored"))))
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(unhandled).toBeUndefined()
+    } finally {
+      process.off("unhandledRejection", onUnhandled)
+    }
   })
 })
