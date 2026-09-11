@@ -23,8 +23,10 @@ preserveTestEnv([
 ])
 
 const z = (await import("zod")).default
+const { Schema } = await import("effect")
 const { and, eq } = await import("drizzle-orm")
 const { SyncEvent } = await import("@/sync/sync-event")
+const { BusEvent } = await import("@/bus/bus-event")
 const { Database } = await import("@/database/database")
 const { syncEvent, syncSequence } = await import("@/sync/sync.sql")
 const { Instance } = await import("@/project/instance")
@@ -34,12 +36,29 @@ const projectDir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "ni
 
 // A standalone aggregate so the suite never collides with the session events.
 const Thing = z.object({ thingID: z.string(), name: z.string() })
+const ThingSchema = Schema.Struct({ thingID: Schema.String, name: Schema.String })
+
+/**
+ * Each test event registers on the bus through `BusEvent.schema` (Effect
+ * Schema) and hands `SyncEvent.define` a `bus` thunk pointing at it.
+ *
+ * Without the thunk, `SyncEvent.init` falls back to `BusEvent.define`, which
+ * registers a zod-only entry — and `BusEvent.schemas()` throws on any such
+ * entry. The registry is module-level and shared across every file in the same
+ * bun process, so three test events defined here made *other* files fail as
+ * soon as one of them touched the generated contract. The constraint is the one
+ * documented on `SyncEvent.Definition.bus`.
+ */
+const CreatedBus = BusEvent.schema("test.thing.created", ThingSchema)
+const ExplodedBus = BusEvent.schema("test.thing.exploded", ThingSchema)
+const UnloggedBus = BusEvent.schema("test.thing.unlogged", ThingSchema)
 
 const Created = SyncEvent.define({
   type: "test.thing.created",
   version: 1,
   aggregate: "thingID",
   schema: Thing,
+  bus: () => CreatedBus,
 })
 
 const Exploded = SyncEvent.define({
@@ -47,6 +66,7 @@ const Exploded = SyncEvent.define({
   version: 1,
   aggregate: "thingID",
   schema: Thing,
+  bus: () => ExplodedBus,
 })
 
 const Unlogged = SyncEvent.define({
@@ -55,6 +75,7 @@ const Unlogged = SyncEvent.define({
   aggregate: "thingID",
   schema: Thing,
   log: false,
+  bus: () => UnloggedBus,
 })
 
 const applied: string[] = []
@@ -74,24 +95,19 @@ SyncEvent.init({
 })
 
 function rows(projectID: string, aggregate: string) {
-  return Database.use((db) =>
-    db
-      .select()
-      .from(syncEvent)
-      .where(and(eq(syncEvent.projectId, projectID), eq(syncEvent.aggregate, aggregate)))
-      .all(),
-  )
+  return Database.syncDb()
+    .select()
+    .from(syncEvent)
+    .where(and(eq(syncEvent.projectId, projectID), eq(syncEvent.aggregate, aggregate)))
+    .all()
 }
 
 function sequence(projectID: string, aggregate: string) {
-  return Database.use(
-    (db) =>
-      db
-        .select({ seq: syncSequence.seq })
-        .from(syncSequence)
-        .where(and(eq(syncSequence.projectId, projectID), eq(syncSequence.aggregate, aggregate)))
-        .get()?.seq,
-  )
+  return Database.syncDb()
+    .select({ seq: syncSequence.seq })
+    .from(syncSequence)
+    .where(and(eq(syncSequence.projectId, projectID), eq(syncSequence.aggregate, aggregate)))
+    .get()?.seq
 }
 
 afterAll(async () => {
@@ -146,12 +162,9 @@ describe("SyncEvent", () => {
       directory: projectDir,
       fn: async () => {
         const seen: string[] = []
-        // Subscribed through the bus registration `init()` created for this
-        // event, not through the sync definition: `SyncEvent.Definition.schema`
-        // is zod while `BusEvent.Definition.schema` is an Effect Schema, so the
-        // two shapes are not interchangeable in nikcli (they are in opencode).
-        // Real domain events carry `bus:` and consumers subscribe to that.
-        const unsubscribe = Bus.subscribe({ type: Created.type, properties: Thing }, (event) => {
+        // Subscribed through the same registration the definition's `bus`
+        // thunk points at, which is how real domain events are consumed.
+        const unsubscribe = Bus.subscribe(CreatedBus, (event) => {
           // SAFETY: the subscription just above declares `properties: Thing`,
           // so the bus only delivers events carrying that payload here.
           seen.push((event.properties as { name: string }).name)

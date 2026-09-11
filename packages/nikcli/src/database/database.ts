@@ -117,33 +117,53 @@ export namespace Database {
   export type TransactionBehavior = "deferred" | "immediate" | "exclusive"
 
   /**
-   * Side effects queued by `effect()` inside the current outermost
-   * transaction. They run once, after the commit succeeds — never on
-   * rollback, and never while the write lock is still held.
+   * What a transaction body can do besides write.
+   *
+   * `afterCommit` queues a side effect to run once the outermost transaction
+   * has committed — never on rollback, and never while the write lock is
+   * still held. Publishing from inside the transaction would let a subscriber
+   * observe a state a rollback could still undo.
+   *
+   * This used to be a module-level queue reached through an ambient
+   * `Database.effect(...)`. Handing the registrar to the body instead means a
+   * function that defers work says so in its signature, and a caller cannot
+   * queue against a transaction it is not in. `specs/storage/retire-database-wrapper.md`
+   * group 1.
    */
-  let pending: (() => void)[] | undefined
+  export interface TransactionContext {
+    afterCommit(fn: () => void): void
+  }
+
+  /** The queue shared by an outermost transaction and every nested call inside it. */
+  type PostCommitQueue = (() => void)[]
 
   /**
    * Run `fn` in a transaction, draining post-commit effects afterwards.
    *
    * Nested calls join the outer transaction (SQLite has no real nesting that
-   * would help here) and their effects drain with the outermost commit, so a
-   * rolled-back inner write can never publish.
+   * would help here) and share its queue, so an effect queued in a nested
+   * block drains with the outermost commit and a rolled-back inner write can
+   * never publish.
    *
    * `behavior` defaults to "immediate": a read-then-write sequence (allocate
    * a sequence number, then append) must take the write lock up front or two
    * processes sharing nikcli.db can both read the same number.
    */
-  export function transaction<T>(fn: (tx: TxOrDb) => T, options: { behavior?: TransactionBehavior } = {}): T {
-    if (pending) return fn(syncDb() as TxOrDb) as T
+  export function transaction<T>(
+    fn: (tx: TxOrDb, ctx: TransactionContext) => T,
+    options: { behavior?: TransactionBehavior } = {},
+  ): T {
+    // Set while an outermost transaction is open, so a nested `transaction`
+    // can find the queue to join. Nothing outside this function reads it.
+    if (activeQueue) return fn(syncDb() as TxOrDb, contextFor(activeQueue)) as T
 
-    const queue: (() => void)[] = []
-    pending = queue
+    const queue: PostCommitQueue = []
+    activeQueue = queue
     try {
-      const result = syncDb().transaction((tx) => fn(tx as TxOrDb), {
+      const result = syncDb().transaction((tx) => fn(tx as TxOrDb, contextFor(queue)), {
         behavior: options.behavior ?? "immediate",
       }) as T
-      pending = undefined
+      activeQueue = undefined
       for (const effect of queue) {
         try {
           effect()
@@ -153,27 +173,19 @@ export namespace Database {
       }
       return result
     } catch (error) {
-      pending = undefined
+      activeQueue = undefined
       throw error
     }
   }
 
-  /**
-   * Queue a side effect to run after the current transaction commits. Outside
-   * a transaction it runs immediately — the caller's write has already
-   * landed, so there is nothing to wait for.
-   */
-  export function effect(fn: () => void): void {
-    if (!pending) {
-      fn()
-      return
-    }
-    pending.push(fn)
-  }
+  let activeQueue: PostCommitQueue | undefined
 
-  /** Read through the shared client. Sugar for `fn(syncDb())`. */
-  export function use<T>(fn: (db: Client) => T): T {
-    return fn(syncDb())
+  function contextFor(queue: PostCommitQueue): TransactionContext {
+    return {
+      afterCommit(fn) {
+        queue.push(fn)
+      },
+    }
   }
 
   // ============================================================================

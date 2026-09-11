@@ -224,11 +224,21 @@ export namespace SyncEvent {
    *
    * The projector and the log row land in the same transaction, so a
    * projector that throws leaves no event behind claiming the mutation
-   * happened. Publishing is deferred to `Database.effect` so subscribers
-   * never observe a state that a rollback could still undo, and never run
-   * while the write lock is held.
+   * happened. Publishing is deferred to the transaction's `afterCommit` so
+   * subscribers never observe a state that a rollback could still undo, and
+   * never run while the write lock is held.
+   *
+   * `ctx` is required rather than looked up: this function only makes sense
+   * inside a transaction, and taking the registrar as a parameter is what
+   * says so.
    */
-  function process(def: Definition, event: Event, tx: Database.TxOrDb, options: { publish: boolean }) {
+  function process(
+    def: Definition,
+    event: Event,
+    tx: Database.TxOrDb,
+    ctx: Database.TransactionContext,
+    options: { publish: boolean },
+  ) {
     const projector = projectors.get(def)
     if (!projector) {
       throw new Error(`Projector not found for event: ${def.type}`)
@@ -258,7 +268,7 @@ export namespace SyncEvent {
         .run()
     }
 
-    Database.effect(() => {
+    ctx.afterCommit(() => {
       const entry = { def, event }
       for (const listener of listeners) {
         try {
@@ -315,7 +325,7 @@ export namespace SyncEvent {
 
     // BEGIN IMMEDIATE: the sequence read and the append have to be atomic
     // even across processes sharing nikcli.db.
-    return Database.transaction((tx) => {
+    return Database.transaction((tx, ctx) => {
       const row = def.log
         ? tx
             .select({ seq: syncSequence.seq })
@@ -331,7 +341,7 @@ export namespace SyncEvent {
         projectID,
         data,
       }
-      process(def, event as Event, tx, { publish })
+      process(def, event as Event, tx, ctx, { publish })
       return event
     })
   }
@@ -349,7 +359,7 @@ export namespace SyncEvent {
       throw new Error(`Unknown event type: ${event.type}`)
     }
 
-    return Database.transaction((tx) => {
+    return Database.transaction((tx, ctx) => {
       const row = tx
         .select({ seq: syncSequence.seq })
         .from(syncSequence)
@@ -366,7 +376,7 @@ export namespace SyncEvent {
         )
       }
 
-      process(def, event, tx, { publish: options?.publish ?? false })
+      process(def, event, tx, ctx, { publish: options?.publish ?? false })
     })
   }
 
@@ -390,20 +400,18 @@ export namespace SyncEvent {
    */
   export function history(aggregateID: string, projectID?: string): HistoryEntry[] {
     const project = projectID ?? currentProject()
-    const rows = Database.use((db) =>
-      db
-        .select({
-          id: syncEvent.id,
-          seq: syncEvent.seq,
-          type: syncEvent.type,
-          data: syncEvent.data,
-          timestamp: syncEvent.timestamp,
-        })
-        .from(syncEvent)
-        .where(and(eq(syncEvent.projectId, project), eq(syncEvent.aggregate, aggregateID)))
-        .orderBy(asc(syncEvent.seq))
-        .all(),
-    )
+    const rows = Database.syncDb()
+      .select({
+        id: syncEvent.id,
+        seq: syncEvent.seq,
+        type: syncEvent.type,
+        data: syncEvent.data,
+        timestamp: syncEvent.timestamp,
+      })
+      .from(syncEvent)
+      .where(and(eq(syncEvent.projectId, project), eq(syncEvent.aggregate, aggregateID)))
+      .orderBy(asc(syncEvent.seq))
+      .all()
     return rows.map((row) => ({
       id: row.id,
       seq: row.seq,

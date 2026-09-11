@@ -12,11 +12,13 @@ These documents explain V2 behavior that is difficult to recover from one source
 
 ## Current Contracts
 
-| Document                                            | Job                                                                                                                                              |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [Session](./session.md)                             | Explain admission, the step loop, retry, compaction, cancellation, and recovery boundaries.                                                      |
-| [Session v2 write path](./session-v2-write-path.md) | Entries persist first; v1 is `toV1*` of those entries. HTTP create/prompt share `SessionV2`. `prompt_data` stays on `message_info`. Implemented. |
-| [Tools](./tools.md)                                 | Explain tool construction, registration, execution, truncation, and outcome laws.                                                                |
+| Document                                            | Job                                                                                                                                                      |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Session](./session.md)                             | Explain admission, the step loop, retry, compaction, cancellation, and recovery boundaries.                                                              |
+| [Session v2 write path](./session-v2-write-path.md) | Entries persist first; v1 is `toV1*` of those entries. HTTP create/prompt share `SessionV2`. `prompt_data` stays on `message_info`. Implemented.         |
+| [Tools](./tools.md)                                 | Explain tool construction, registration, execution, truncation, and outcome laws.                                                                        |
+| [Provider and model catalog](./provider-model.md)   | What a provider and a model are, the six ordered build sources, variants, and the route to `@nikcli-ai/llm`.                                             |
+| [API map and context model](./api.md)               | Where runtime context comes from for any route: server-scoped, request, or session-pinned. The route inventory, the two event envelopes, the sync store. |
 
 ## Decisions And Proposals
 
@@ -44,6 +46,7 @@ These documents explain V2 behavior that is difficult to recover from one source
 | [Share v2 contract](./share-v2-contract.md)                                       | Accepted and implemented | The envelope list, `remote` vs `local`, local-only public reads, and delete-not-tombstone.          |
 | [CLI command surface](./cli-command-surface.md)                                   | Accepted and implemented | What `nikcli …` actually registers; the command table is gated by a test.                           |
 | [Brain consolidation pass](./brain-consolidation-pass.md)                         | Accepted and implemented | What the scheduled pass reads and writes, and when it counts as having run.                         |
+| [Config review](./config.md)                                                      | **Proposed**             | Per-field keep/remove/redesign ledger for `nikcli.json`. Missing: a per-field migration test.       |
 
 ## Historical Context
 
@@ -51,10 +54,19 @@ These documents explain V2 behavior that is difficult to recover from one source
 | ----------------------------------------- | -------------------------------------------------------------------- |
 | [Schema changelog](./schema-changelog.md) | Preserve the durable-shape compatibility ledger, newest entry first. |
 
-## No Proposed Contracts
+## Working Documents
 
-Every document in this directory is **Accepted and implemented**: its invariants are named in its header table and pinned by the tests listed there. The status is not decoration — a contract earns it by having a test that fails when the behavior changes, and the last seven earned it on 2026-09-10 (ROADMAP **D2**).
+These are not contracts. They carry no invariants and pin no tests; they exist so the v2 port's conventions and open decisions are written down somewhere other than a commit message.
 
-A new document may enter as `Proposed`, and while it does it must carry a **Missing** row naming the one test that would promote it. A `Proposed` status with no such row is incomplete, not pending.
+| Document                                  | Job                                                                                             |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [Service instructions](./instructions.md) | How to write and port a service here: shape, per-instance state, errors, schemas, verification. |
+| [Open work](./todo.md)                    | What is left of the v2 port, what nikcli already passed, and what it deliberately diverged on.  |
 
-Put actionable work in [../ROADMAP.md](../ROADMAP.md), not here.
+## Status Rule
+
+Every **contract** in this directory is `Accepted and implemented`: its invariants are named in its header table and pinned by the tests listed there. The status is not decoration — a contract earns it by having a test that fails when the behavior changes, and the last seven earned it on 2026-09-10 (ROADMAP **D2**).
+
+A new document may enter as `Proposed`, and while it does it must carry a **Missing** row naming the one test that would promote it. A `Proposed` status with no such row is incomplete, not pending. [config.md](./config.md) is the one document currently in that state.
+
+Put actionable, dated work in [../ROADMAP.md](../ROADMAP.md), not here.
