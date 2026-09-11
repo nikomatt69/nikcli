@@ -143,6 +143,8 @@ function init() {
     refocus()
   }
 
+  const renderer = useRenderer()
+
   useKeyboard((evt) => {
     // Escape closes only the top dialog
     if (evt.name === "escape" && store.stack.length > 0) {
@@ -156,12 +158,20 @@ function init() {
     // (e.g., alert, confirm), otherwise propagate to interrupt AI response
     if (evt.ctrl && evt.name === "c") {
       if (store.stack.length > 0) {
-        // Check if top dialog is interactive (has textarea/input focused)
-        const topElement = store.stack.at(-1)?.element
-        const isInteractive =
-          typeof topElement === "function" &&
-          String(topElement).includes("textarea") &&
-          document.activeElement?.tagName !== "TEXTAREA"
+        // Is a text editor focused inside the dialog? Ask the renderer.
+        //
+        // This used to stringify the stack entry and look for "textarea" in the
+        // result, then check `document.activeElement`. Neither works: the entry
+        // is the wrapper arrow (`() => <DialogFoo />`), whose source never
+        // mentions what the component renders, and there is no DOM in a
+        // terminal — `document` is undefined, so that clause would have thrown
+        // had the first one ever matched. The net effect was that
+        // `isInteractive` was always false and Ctrl+C cleared the whole stack,
+        // including the dialogs this branch exists to protect.
+        //
+        // `currentFocusedEditor` is non-null exactly when an EditBuffer has
+        // focus, and `TextareaRenderable` extends it.
+        const isInteractive = renderer.currentFocusedEditor !== null
 
         if (!isInteractive) {
           // Clear entire stack for non-interactive dialogs
@@ -179,7 +189,6 @@ function init() {
     }
   })
 
-  const renderer = useRenderer()
   let focus: Renderable | null
   let refocusTimer: ReturnType<typeof setTimeout> | undefined
   let reclaimTimer: ReturnType<typeof setTimeout> | undefined
