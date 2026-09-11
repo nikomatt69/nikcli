@@ -20,9 +20,14 @@
  */
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { formatProbeEnvironment, probeEnvironment } from "@nikcli-ai/util/probe-env"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, "..")
+const repoRoot = path.resolve(root, "../..")
+// Same block the startup probe emits: a timing without the machine, runtime
+// and revision behind it cannot be compared with another one.
+const environment = probeEnvironment({ spec: "EOT-01", repoRoot })
 
 const args = process.argv.slice(2)
 const runs = Number(args.find((a) => a.startsWith("--runs="))?.split("=")[1] ?? 5)
@@ -114,9 +119,10 @@ for (const specifier of components) {
 rows.sort((a, b) => b.overBaseline - a.overBaseline)
 
 if (asJson) {
-  console.log(JSON.stringify({ runs, baseline, aggregate, rows }, null, 2))
+  console.log(JSON.stringify({ environment, runs, baseline, aggregate, rows }, null, 2))
 } else {
   const ms = (value: number) => `${value.toFixed(1)}ms`
+  console.log(formatProbeEnvironment(environment))
   console.log(`runs=${runs} per module, fresh process each`)
   console.log(`baseline (import nothing): median=${ms(baseline.median)} p95=${ms(baseline.p95)}`)
   console.log(`\n${"module".padEnd(46)} ${"median".padStart(9)} ${"over baseline".padStart(14)}`)

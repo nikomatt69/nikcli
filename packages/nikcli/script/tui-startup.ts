@@ -21,6 +21,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { spawnPty, type NativePty } from "@nikcli-ai/util/pty"
 import { formatBytes, summarizeSamples, type SampleSummary } from "@tui/util/runtime-samples"
+import { probeEnvironment } from "@nikcli-ai/util/probe-env"
 
 const BIN = process.argv[2] ?? ""
 if (!BIN || !existsSync(BIN)) throw new Error(`usage: tui-startup.ts <binary>  (got ${BIN || "nothing"})`)
@@ -92,24 +93,6 @@ function rssBytes(pid: number): number | undefined {
     return Math.round(kb * 1024)
   } catch {
     return undefined
-  }
-}
-
-function git(args: string[]) {
-  const result = Bun.spawnSync({
-    cmd: ["git", ...args],
-    cwd: repoRoot,
-    stdout: "pipe",
-    stderr: "pipe",
-  })
-  if (result.exitCode !== 0) return undefined
-  return new TextDecoder().decode(result.stdout).trim()
-}
-
-function readJson(file: string) {
-  return JSON.parse(readFileSync(file, "utf8")) as {
-    dependencies?: Record<string, string>
-    workspaces?: { catalog?: Record<string, string> }
   }
 }
 
@@ -210,28 +193,10 @@ function samplesLine(label: string, values: number[], format: (value: number) =>
   console.log(`${label}: ${values.map(format).join(",")}`)
 }
 
-const tuiPkg = readJson(path.join(packageRoot, "../tui/package.json"))
-const rootPkg = readJson(path.join(repoRoot, "package.json"))
+// Shared with `packages/tui/script/import-cost.ts` so two probes emit one
+// comparison format instead of two that drift apart.
 const environment = {
-  spec: "EOT-01",
-  revision: {
-    commit: git(["rev-parse", "HEAD"]) ?? "unknown",
-    dirty: Boolean(git(["status", "--porcelain"])),
-    dirtyCount: (git(["status", "--porcelain"]) ?? "").split("\n").filter(Boolean).length,
-  },
-  bun: Bun.version,
-  versions: {
-    effect: tuiPkg.dependencies?.effect ?? "unknown",
-    opentuiCore: tuiPkg.dependencies?.["@opentui/core"] ?? "unknown",
-    opentuiSolid: tuiPkg.dependencies?.["@opentui/solid"] ?? "unknown",
-    solid: rootPkg.workspaces?.catalog?.["solid-js"] ?? "unknown",
-  },
-  os: {
-    platform: os.platform(),
-    arch: os.arch(),
-    cpus: os.cpus().length,
-    totalmem: os.totalmem(),
-  },
+  ...probeEnvironment({ spec: "EOT-01", repoRoot }),
   terminal: {
     term: process.env.TERM || "xterm-256color",
     cols: COLS,
