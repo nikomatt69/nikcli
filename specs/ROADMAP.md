@@ -189,21 +189,29 @@ its release gate. Nothing here is marked complete.
 | EOT-03 | `useAttempts`: supersession guard for restartable dialog flows                     | `4495840e1`             |
 | EOT-04 | Queue depth meter; refetch on reconnect instead of resuming into a gap             | `3ec56934`, `4a767a5f9` |
 | EOT-05 | Optional bootstrap requests settle; `sync.degraded` replaces a pinned `partial`    | `12d8ef764`             |
+| EOT-06 | Windowing math pinned by tests, including two properties                           | `92dc72d2a`             |
 | EOT-07 | Ctrl+C asks the renderer for focus instead of a source string and a missing DOM    | `a0b21dffd`             |
 | EOT-08 | Import-cost probe; one dialog moved off the critical path against a measured delta | `a9725f1d7`             |
 | EOT-09 | `isTerminal`/`canTransition` for background-run outcomes                           | `3ec56934`              |
 | EOT-10 | Standalone and CLI hosts stop turning a config failure into an empty config        | `3ec56934`, `67a2b811b` |
+| EOT-11 | `suppressEmptyTextResult` covered: a rejection still reaches an awaiting caller    | `9483b4645`             |
 | EOT-12 | Onboarding retry bounded; typed `incomplete` outcome instead of a parked startup   | `a6b1c758c`             |
 | EOT-13 | `span-schema.ts`: fixed attribute schema, forbidden segments, redact-then-truncate | `3ec56934`              |
+| EOT-15 | `detectSequenceGap`: a replay resuming across a compacted range is now reported    | `34ed8b55a`             |
 | EOT-16 | LSP and provider refreshes scoped to the active workspace                          | `41b718d16`             |
 | EOT-17 | Precedence corrected to the shipped contract; ordering guarded by a test           | `3ec56934`, `67a2b811b` |
 | EOT-18 | Command-surface gate restored and repointed                                        | `f5783a970`             |
 | EOT-20 | Test layers made disjoint; barrier helpers; one flaky test migrated to a barrier   | `3ec56934`, `c1d323308` |
 
-Not started: **EOT-06**, **EOT-11**, **EOT-14**, **EOT-15**. EOT-11, EOT-14 and
-EOT-15 are the L/High migrations this roadmap already scopes across several
-separately verified PRs; EOT-06 changes rendering and needs real-terminal
-verification, not a headless one.
+Every spec has been opened. **EOT-14** is the one with no code: its runtime was
+audited and no change was warranted.
+
+What these slices are not. EOT-11, EOT-14 and EOT-15 remain the L/High
+migrations this roadmap scopes across several separately verified PRs. EOT-11
+has its adapter seam covered, not the AI SDK to `LLMEvent` convergence; EOT-15
+reports a compacted-range replay, it does not implement the snapshot barrier;
+EOT-06 has its pure windowing math pinned, while measured row heights and
+anchor-preserving scroll want a real terminal rather than a headless run.
 
 EOT-14's runtime was audited without a change being warranted: reload passes are
 serialized through a promise chain in `schedule`, and `deactivatePluginEntry`
