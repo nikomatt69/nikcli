@@ -70,7 +70,9 @@ export namespace Question {
   export type Reply = z.infer<typeof Reply>
 
   export const Event = {
-    Asked: BusEvent.schema("question.asked", RequestSchema),
+    // Same class as a permission prompt: a question nobody sees is a turn
+    // that never finishes.
+    Asked: BusEvent.schema("question.asked", RequestSchema, { delivery: "decision" }),
     Replied: BusEvent.schema(
       "question.replied",
       Schema.Struct({

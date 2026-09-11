@@ -56,7 +56,30 @@ const REDACT_PATTERNS: RegExp[] = [
   /\bxox[abprs]-[A-Za-z0-9-]{10,}\b/g,
   // JWT shape (three dot-separated base64url segments)
   /\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,
+  // nikcli account tokens. `UserDB` mints these as `nku_` + 32 random bytes of
+  // base64url (`src/user/users.ts`), so the redactor has to know the one
+  // credential format this product issues itself.
+  /\bnku_[A-Za-z0-9_-]{16,}\b/g,
 ]
+
+/**
+ * `Authorization: Bearer <token>` where the token matches none of the shapes
+ * above.
+ *
+ * The patterns are prefix- and structure-based, so an opaque bearer token from
+ * a provider nobody has enumerated survives them all. The header is the tell:
+ * whatever follows `Bearer` in one is a credential regardless of its shape.
+ *
+ * Replaces only the token, leaving the header name — a log line that still says
+ * which header was present is worth more than one that lost it.
+ *
+ * The lookahead requiring a non-letter is what keeps prose out. `Bearer` also
+ * appears in English error text ("Bearer authentication failed"), and a rule
+ * that only measured length redacted the next word there, which makes a
+ * diagnostic less readable while protecting nothing. Real tokens are base64url
+ * or prefixed and effectively always carry a digit, `_`, `-`, `.`, `+` or `/`.
+ */
+const BEARER_RE = /\b(bearer\s+)((?=[A-Za-z0-9._~+/-]{8,})[A-Za-z]*[0-9._~+/-][A-Za-z0-9._~+/-]*={0,2})/gi
 
 const URL_CREDENTIAL_RE =
   /([?&])(token|code|access_token|refresh_token|api_key|apikey|state|session|password|secret)=([^&\s#]+)/gi
@@ -131,6 +154,7 @@ export function redactString(input: string): string {
   // URL query credentials first, so the resulting "key=…" becomes
   // "key=[REDACTED]" instead of triggering the generic pattern below.
   out = out.replace(URL_CREDENTIAL_RE, (_match, prefix, key) => `${prefix}${key}=${REDACTED}`)
+  out = out.replace(BEARER_RE, (_match, prefix) => `${prefix}${REDACTED}`)
   for (const pattern of REDACT_PATTERNS) {
     out = out.replace(pattern, REDACTED)
   }

@@ -153,3 +153,37 @@ describe("discover", () => {
     expect(discover({ user: "alice", count: 42 })).toEqual([])
   })
 })
+
+describe("bearer headers and nikcli account tokens", () => {
+  const JWT =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+
+  test("redacts a nikcli account token anywhere in a string", () => {
+    // `UserDB.issue` mints these as `nku_` + 32 random base64url bytes
+    // (`src/user/users.ts`). The one credential format this product issues
+    // itself was the one the redactor did not know.
+    expect(redactString("failed with nku_9f3a2b1c8d7e6f5a4b3c2d1e0f9a8b7c")).toBe("failed with [REDACTED]")
+  })
+
+  test("redacts a bearer token whatever its shape", () => {
+    expect(redactString(`Authorization: Bearer ${JWT}`)).toBe("Authorization: Bearer [REDACTED]")
+    expect(redactString("Authorization: Bearer nku_9f3a2b1c8d7e6f5a4b3c2d1e0f9a8b7c")).toBe(
+      "Authorization: Bearer [REDACTED]",
+    )
+    // Opaque, from a provider nobody enumerated: the header is the tell.
+    expect(redactString("Bearer QUJDREVGR0hJSktMTU5PUFFSU1R")).toBe("Bearer [REDACTED]")
+  })
+
+  test("keeps the header name", () => {
+    // A line that still says which header was present beats one that lost it.
+    expect(redactString(`Authorization: Bearer ${JWT}`)).toContain("Authorization: Bearer")
+  })
+
+  test("leaves prose that happens to contain the word", () => {
+    // A rule that only measured length redacted the next English word here,
+    // which makes a diagnostic less readable while protecting nothing.
+    expect(redactString("Bearer authentication failed")).toBe("Bearer authentication failed")
+    expect(redactString("bearer credentials missing")).toBe("bearer credentials missing")
+    expect(redactString("Invalid Bearer token supplied")).toBe("Invalid Bearer token supplied")
+  })
+})

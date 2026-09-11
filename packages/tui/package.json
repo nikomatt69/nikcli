@@ -42,14 +42,12 @@
     "open": "10.1.2",
     "opentui-spinner": "0.0.7",
     "remeda": "catalog:",
-    "semver": "7.7.4",
     "solid-js": "catalog:",
     "turndown": "7.2.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
-    "@types/semver": "7.7.1",
     "@types/turndown": "5.0.5",
     "typescript": "catalog:"
   }

@@ -67,9 +67,22 @@ export namespace EventFeed {
 
   export type CloseReason = { name: string; message: string }
 
-  /** A single SSE connection and its lag budget. */
+  /**
+   * Candidate byte ceiling per connection, for P0 ratification.
+   *
+   * Not enforced. `specs/effect-tui/04-event-delivery.md` requires oversized
+   * producers to be inventoried before limits are switched on, because the
+   * alternative to an inventory is discovering which event was over the line
+   * by having it disconnect a user. `Connection.bytes` is the measurement that
+   * inventory is built from.
+   */
+  export const BYTE_BUDGET = 8 * 1024 * 1024
+
+  /** A single SSE connection, its lag budget, and what it has cost so far. */
   export class Connection {
     private closed = false
+    private written = 0
+    private frames = 0
 
     constructor(
       private readonly controller: ReadableStreamDefaultController<Uint8Array>,
@@ -119,7 +132,10 @@ export namespace EventFeed {
      */
     fail(reason: CloseReason) {
       if (this.closed) return
-      log.info("connection failed", reason)
+      // The cost travels with the reason: an eviction is the one moment where
+      // knowing how much this subscriber had already been sent is worth
+      // something, and it is what the byte budget will be ratified against.
+      log.info("connection failed", { ...reason, ...this.cost })
       this.write(frame(this.envelope({ type: "server.error", properties: { ...reason } })))
       this.close()
     }
@@ -142,10 +158,24 @@ export namespace EventFeed {
       this.onClosed()
     }
 
+    /**
+     * Frames and bytes this connection has been handed.
+     *
+     * Counted on the way out, so locally generated frames — the greeting, the
+     * heartbeat, the close reason — are included. A count that only saw
+     * broadcast traffic would under-report exactly the connections that are
+     * being told something is wrong.
+     */
+    get cost(): { frames: number; bytes: number } {
+      return { frames: this.frames, bytes: this.written }
+    }
+
     private write(encoded: Uint8Array): boolean {
       if (this.closed) return false
       try {
         this.controller.enqueue(encoded)
+        this.frames++
+        this.written += encoded.byteLength
         return true
       } catch (error) {
         log.debug("sse write failed", { error })

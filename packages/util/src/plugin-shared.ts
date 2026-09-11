@@ -88,6 +88,23 @@ export async function resolvePathPluginTarget(spec: string) {
   return pathToFileURL(path.resolve(file, pkg.main)).href
 }
 
+/**
+ * Whether `version` satisfies `range`, with the host's coercion rules.
+ *
+ * Exported so the TUI plugin runtime can check a v2 manifest's
+ * `hostRequirements` without taking its own `semver` dependency — this package
+ * already has one, and the TUI already depends on this package. A second copy
+ * on the startup path buys nothing.
+ *
+ * An unparseable range is a failure, not a pass: a manifest that asks for
+ * something nobody can read is a manifest nobody has checked.
+ */
+export function satisfiesRange(version: string, range: string): boolean {
+  if (!semver.validRange(range)) return false
+  const coerced = semver.coerce(version)?.version ?? version
+  return semver.satisfies(coerced, range)
+}
+
 export async function checkPluginCompatibility(target: string, nikcliVersion: string) {
   if (!semver.valid(nikcliVersion) || semver.major(nikcliVersion) === 0) return
   const pkg = await readPluginPackage(target).catch(() => undefined)

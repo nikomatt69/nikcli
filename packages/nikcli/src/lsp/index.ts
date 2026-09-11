@@ -21,7 +21,9 @@ export namespace LSP {
   export type Diagnostic = LSPClient.Diagnostic
 
   export const Event = {
-    Updated: BusEvent.schema("lsp.updated", Schema.Struct({})),
+    // A bare "something changed" ping with no payload: the newest one says
+    // everything the older ones did, so coalescing loses nothing.
+    Updated: BusEvent.schema("lsp.updated", Schema.Struct({}), { delivery: "snapshot" }),
   }
 
   const PositionSchema = Schema.Struct({

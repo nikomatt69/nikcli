@@ -20,7 +20,7 @@ import {
   type Manifest,
 } from "@nikcli-ai/plugin/v2/manifest"
 import { isRecord } from "@nikcli-ai/util/record"
-import semver from "semver"
+import { satisfiesRange } from "@nikcli-ai/util/plugin-shared"
 
 const ROUTE_PREFIX = "__nikcli_v2_tui__:"
 
@@ -92,7 +92,7 @@ export interface Host {
 }
 
 /** What the TUI runtime can supply today. The rest of the vocabulary has no surface yet. */
-export const TUI_HOST_CAPABILITIES: readonly Capability[] = ["routes", "storage", "http"]
+export const TUI_HOST_CAPABILITIES: readonly Capability[] = ["routes"]
 
 function defaultHost(): Host {
   return {
@@ -118,13 +118,8 @@ function checkHost(manifest: Manifest, host: Host) {
     if (!required) continue
     const actual = host[key]
     if (!actual) continue
-    const coerced = semver.coerce(actual)?.version ?? actual
-    if (!semver.validRange(required)) {
-      throw new Incompatible({ pluginID: manifest.id, requirement: key, required, actual: coerced })
-    }
-    if (!semver.satisfies(coerced, required)) {
-      throw new Incompatible({ pluginID: manifest.id, requirement: key, required, actual: coerced })
-    }
+    if (satisfiesRange(actual, required)) continue
+    throw new Incompatible({ pluginID: manifest.id, requirement: key, required, actual })
   }
 }
 
@@ -174,15 +169,14 @@ export function adaptV2TuiPlugin(definition: Definition): TuiPlugin {
     const slots = new Set<string>()
     const context: Context = {
       options: options ?? {},
-      get client() {
-        requireCapability(manifest, "http", definition.id)
-        return api.client
-      },
+      // Handed over as plain properties. Gating them behind getters changed the
+      // shape of the object every existing plugin already receives, for a check
+      // that only fires on a manifest none of them carries yet. The capability
+      // gate lives on the registration calls below, which is where a denial is
+      // both observable and actionable.
+      client: api.client,
       data: api.data,
-      get storage() {
-        requireCapability(manifest, "storage", definition.id)
-        return api.storage
-      },
+      storage: api.storage,
       ui: {
         router: {
           register(page) {
@@ -265,9 +259,11 @@ export function readV2TuiPlugin(raw: Record<string, unknown>, spec: string, host
 
   const definition = { ...(value as unknown as Definition), manifest }
   return {
-    // A plugin without a manifest is reported as `legacy:` so diagnostics say
-    // which shape is loaded without a second field to carry it. Requirement 11.
-    id: manifest ? manifest.id : `legacy:${definition.id}`,
+    // The id stays the plugin's own, manifest or not. The runtime keys slots,
+    // routes and enable state on it, so renaming one for diagnostics would be a
+    // behaviour change dressed as a label. `manifest.id` is the declared
+    // identity and is available on the definition for anything that wants it.
+    id: definition.id,
     tui: adaptV2TuiPlugin(definition),
   }
 }

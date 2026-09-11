@@ -196,32 +196,36 @@ First slices only. **Every spec below is still `proposed`** — a landed slice i
 evidence the seam exists and is guarded by a test, not that the spec has passed
 its release gate. Nothing here is marked complete.
 
-| Spec   | What landed                                                                             | Commit                  |
-| ------ | --------------------------------------------------------------------------------------- | ----------------------- |
-| EOT-01 | One probe-environment block shared by both probes; `loadavg1` added                     | `5aa643dc8`             |
-| EOT-01 | Probe progress moved to stderr; `BASELINE` comparison with an opt-in regression gate    | working tree            |
-| EOT-02 | `runService` requirement typing; `any` and the cast removed                             | `3ec56934`              |
-| EOT-02 | `runPromiseWithLayer` requires `R extends ROut`; four latent missing-service runs fixed | working tree            |
-| EOT-03 | `useAttempts`: supersession guard for restartable dialog flows                          | `4495840e1`             |
-| EOT-04 | Queue depth meter; refetch on reconnect instead of resuming into a gap                  | `3ec56934`, `4a767a5f9` |
-| EOT-05 | Optional bootstrap requests settle; `sync.degraded` replaces a pinned `partial`         | `12d8ef764`             |
-| EOT-06 | Windowing math pinned by tests, including two properties                                | `92dc72d2a`             |
-| EOT-07 | Ctrl+C asks the renderer for focus instead of a source string and a missing DOM         | `a0b21dffd`             |
-| EOT-08 | Import-cost probe; one dialog moved off the critical path against a measured delta      | `a9725f1d7`             |
-| EOT-09 | `isTerminal`/`canTransition` for background-run outcomes                                | `3ec56934`              |
-| EOT-09 | Post-commit publication moved from an ambient queue to the transaction's `ctx`          | working tree            |
-| EOT-10 | Standalone and CLI hosts stop turning a config failure into an empty config             | `3ec56934`, `67a2b811b` |
-| EOT-10 | Open-payload inventory pinned per file; a new `Schema.Unknown` fails a test             | working tree            |
-| EOT-11 | `suppressEmptyTextResult` covered: a rejection still reaches an awaiting caller         | `9483b4645`             |
-| EOT-12 | Onboarding retry bounded; typed `incomplete` outcome instead of a parked startup        | `a6b1c758c`             |
-| EOT-13 | `span-schema.ts`: fixed attribute schema, forbidden segments, redact-then-truncate      | `3ec56934`              |
-| EOT-14 | v2 manifest is the v1/v2 discriminator; host-range and capability checks at load        | working tree            |
-| EOT-15 | `detectSequenceGap`: a replay resuming across a compacted range is now reported         | `34ed8b55a`             |
-| EOT-16 | LSP and provider refreshes scoped to the active workspace                               | `41b718d16`             |
-| EOT-17 | Precedence corrected to the shipped contract; ordering guarded by a test                | `3ec56934`, `67a2b811b` |
-| EOT-18 | Command-surface gate restored and repointed                                             | `f5783a970`             |
-| EOT-20 | Test layers made disjoint; barrier helpers; one flaky test migrated to a barrier        | `3ec56934`, `c1d323308` |
-| EOT-20 | `preserveTestEnv` discipline enforced: a module-scope `NIKCLI_*` write fails a test     | working tree            |
+| Spec   | What landed                                                                                   | Commit                  |
+| ------ | --------------------------------------------------------------------------------------------- | ----------------------- |
+| EOT-01 | One probe-environment block shared by both probes; `loadavg1` added                           | `5aa643dc8`             |
+| EOT-01 | Probe progress moved to stderr; `BASELINE` comparison with an opt-in regression gate          | working tree            |
+| EOT-02 | `runService` requirement typing; `any` and the cast removed                                   | `3ec56934`              |
+| EOT-02 | `runPromiseWithLayer` requires `R extends ROut`; four latent missing-service runs fixed       | working tree            |
+| EOT-03 | `useAttempts`: supersession guard for restartable dialog flows                                | `4495840e1`             |
+| EOT-04 | Queue depth meter; refetch on reconnect instead of resuming into a gap                        | `3ec56934`, `4a767a5f9` |
+| EOT-04 | Delivery-class registry on the event declaration, ahead of admission caps                     | working tree            |
+| EOT-04 | Per-connection frame and byte accounting, including server-generated frames                   | working tree            |
+| EOT-05 | Optional bootstrap requests settle; `sync.degraded` replaces a pinned `partial`               | `12d8ef764`             |
+| EOT-06 | Windowing math pinned by tests, including two properties                                      | `92dc72d2a`             |
+| EOT-07 | Ctrl+C asks the renderer for focus instead of a source string and a missing DOM               | `a0b21dffd`             |
+| EOT-08 | Import-cost probe; one dialog moved off the critical path against a measured delta            | `a9725f1d7`             |
+| EOT-09 | `isTerminal`/`canTransition` for background-run outcomes                                      | `3ec56934`              |
+| EOT-09 | Post-commit publication moved from an ambient queue to the transaction's `ctx`                | working tree            |
+| EOT-10 | Standalone and CLI hosts stop turning a config failure into an empty config                   | `3ec56934`, `67a2b811b` |
+| EOT-10 | Open-payload inventory pinned per file; a new `Schema.Unknown` fails a test                   | working tree            |
+| EOT-11 | `suppressEmptyTextResult` covered: a rejection still reaches an awaiting caller               | `9483b4645`             |
+| EOT-12 | Onboarding retry bounded; typed `incomplete` outcome instead of a parked startup              | `a6b1c758c`             |
+| EOT-13 | `span-schema.ts`: fixed attribute schema, forbidden segments, redact-then-truncate            | `3ec56934`              |
+| EOT-13 | Span `statusMessage` redacted; `nku_` and opaque bearer tokens added to the redactor          | working tree            |
+| EOT-14 | v2 manifest is the v1/v2 discriminator; host-range and capability checks at load              | working tree            |
+| EOT-15 | `detectSequenceGap`: a replay resuming across a compacted range is now reported               | `34ed8b55a`             |
+| EOT-16 | LSP and provider refreshes scoped to the active workspace                                     | `41b718d16`             |
+| EOT-16 | Session directory survives a remote workspace target; corrupt records stop reading as missing | working tree            |
+| EOT-17 | Precedence corrected to the shipped contract; ordering guarded by a test                      | `3ec56934`, `67a2b811b` |
+| EOT-18 | Command-surface gate restored and repointed                                                   | `f5783a970`             |
+| EOT-20 | Test layers made disjoint; barrier helpers; one flaky test migrated to a barrier              | `3ec56934`, `c1d323308` |
+| EOT-20 | `preserveTestEnv` discipline enforced: a module-scope `NIKCLI_*` write fails a test           | working tree            |
 
 Every spec has been opened. **EOT-14** is no longer the one with no code: the v2
 manifest, host-compatibility check, and capability gating landed.

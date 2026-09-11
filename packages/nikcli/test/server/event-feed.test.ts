@@ -239,3 +239,43 @@ describe("EventFeed", () => {
     expect(decoded).toBe('data: {"type":"a"}\n\n')
   })
 })
+
+describe("connection cost accounting", () => {
+  /**
+   * EOT-04 requirement 3 asks for byte accounting alongside frame counts,
+   * "including locally generated frames", before any admission cap is turned
+   * on. `BYTE_BUDGET` is a candidate number awaiting P0 ratification; nothing
+   * enforces it yet, and the inventory it will be ratified against is built
+   * from what this measures.
+   */
+  it("counts frames and bytes handed to the connection", () => {
+    const feed = new EventFeed.Feed((event) => event)
+    const conn = fakeConnection()
+    const connection = feed.attach(conn.controller)
+
+    expect(connection.cost).toEqual({ frames: 0, bytes: 0 })
+
+    feed.broadcast({ type: "session.updated", properties: { id: "ses_1" } })
+    const after = connection.cost
+
+    expect(after.frames).toBe(1)
+    // Every byte the reader was handed, not an estimate of the payload.
+    expect(after.bytes).toBe(conn.frames[0]!.length)
+  })
+
+  it("counts the frames the server generates, not only broadcasts", () => {
+    // A connection being evicted is told why, and that frame costs bytes too.
+    // Counting only broadcast traffic would under-report exactly the
+    // connections something is going wrong on.
+    const feed = new EventFeed.Feed((event) => event)
+    const conn = fakeConnection(1)
+    const connection = feed.attach(conn.controller)
+
+    feed.broadcast({ type: "session.updated", properties: { id: "ses_1" } })
+    feed.broadcast({ type: "session.updated", properties: { id: "ses_2" } })
+
+    expect(conn.frames.some((frame) => frame.includes("SubscriberOverflowError"))).toBe(true)
+    expect(connection.cost.frames).toBe(conn.frames.length)
+    expect(connection.cost.bytes).toBe(conn.frames.reduce((total, frame) => total + frame.length, 0))
+  })
+})

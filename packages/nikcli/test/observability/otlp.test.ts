@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test"
 import path from "path"
+import { Cause } from "effect"
+import { redactString } from "@nikcli-ai/util/redact"
+import { stripComments } from "../tui/tui-source"
 import { resource } from "@/observability/otlp"
 
 /**
@@ -130,5 +133,44 @@ describe("observability resource attributes", () => {
     const info = withEnv({ OTEL_RESOURCE_ATTRIBUTES: "=novalue,alsobroken" }, () => resource("run1234"))
     expect(info.attributes["deployment.environment.name"]).toBeTruthy()
     expect(info.serviceName).toBe("nikcli")
+  })
+})
+
+describe("span status message redaction", () => {
+  const JWT =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+
+  /**
+   * `attributes` were sanitized at the choke point; `statusMessage` was not.
+   * `Cause.pretty` renders whatever the error carried, and error messages are
+   * where request URLs and bearer headers end up — so the redaction policy was
+   * true of one field on the telemetry record and not the other.
+   *
+   * `statusMessageOf` is private, so this asserts the two halves that make the
+   * field safe: the record builder routes through it, and the composition it
+   * applies removes credentials from a realistic failure.
+   */
+  it("routes the failure cause through the redactor", async () => {
+    const source = stripComments(await Bun.file(path.join(packageRoot, "src/observability/otlp.ts")).text())
+
+    expect(source).toContain("statusMessage: Exit.isFailure(args.exit) ? statusMessageOf(args.exit.cause)")
+    expect(source).toContain("redactString(Cause.pretty(cause))")
+    // Redact before truncating: slicing first can cut a credential in half and
+    // leave a prefix that no longer matches the pattern that would remove it.
+    expect(source.indexOf("redactString(Cause.pretty(cause))")).toBeLessThan(source.indexOf(".slice(0, 200)"))
+  })
+
+  it("removes credentials a failure cause carries", () => {
+    const cause = Cause.fail(
+      new Error(`POST https://api.example.com/v1?api_key=sk-live-abcdef1234567890 failed: Bearer ${JWT} rejected`),
+    )
+
+    const message = redactString(Cause.pretty(cause)).slice(0, 200)
+
+    expect(message).not.toContain(JWT)
+    expect(message).not.toContain("sk-live-abcdef1234567890")
+    expect(message).toContain("api_key=[REDACTED]")
+    // The diagnostic survives: method, host and outcome are all still readable.
+    expect(message).toContain("api.example.com")
   })
 })

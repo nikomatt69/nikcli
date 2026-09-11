@@ -63,7 +63,10 @@ export namespace PermissionNext {
   )
 
   export const Event = {
-    Asked: BusEvent.schema("permission.asked", RequestSchema),
+    // A prompt the user has to answer. Never coalesced with a different
+    // request and never silently dropped: the alternative to delivering it is
+    // an operation that waits forever on an answer nobody was asked for.
+    Asked: BusEvent.schema("permission.asked", RequestSchema, { delivery: "decision" }),
     Replied: BusEvent.schema(
       "permission.replied",
       Schema.Struct({

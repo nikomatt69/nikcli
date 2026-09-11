@@ -26,6 +26,33 @@ export namespace BusEvent {
    */
   export type Visibility = "public" | "internal"
 
+  /**
+   * How an event must survive a congested subscriber.
+   *
+   * `specs/effect-tui/04-event-delivery.md` defines four delivery classes and
+   * requires the registry to exist **before** admission caps: a cap that does
+   * not know which events may be coalesced and which may not is a cap that
+   * drops a permission prompt to save a progress bar.
+   *
+   * - `ordered` — text/entry deltas and ordered mutations. Order is the
+   *   payload. On overflow the stream is marked stale and recovered from
+   *   authoritative state, never patched over.
+   * - `decision` — permission and question requests and their answers. Never
+   *   silently dropped and never coalesced with a different request; overflow
+   *   means a visible resync barrier before interaction resumes.
+   * - `terminal` — job terminal states and deletions. Identity and terminal
+   *   ordering are preserved and duplicate processing is safe; completion is
+   *   never inferred from a missing event.
+   * - `snapshot` — replaceable status/progress. The only class where keeping
+   *   the latest per scope and counting the coalesced ones is correct.
+   *
+   * The default is `ordered`, the most conservative class, because an
+   * unclassified event is one nobody has thought about and the cost of being
+   * wrong is asymmetric: treating a delta as replaceable loses user-visible
+   * content, while treating a snapshot as ordered only costs bandwidth.
+   */
+  export type Delivery = "ordered" | "decision" | "terminal" | "snapshot"
+
   export type Definition = {
     type: string
     properties: ZodType
@@ -33,10 +60,13 @@ export namespace BusEvent {
     schema?: Schema.Top
     /** Defaults to `"public"`. */
     visibility?: Visibility
+    /** Defaults to `"ordered"`. */
+    delivery?: Delivery
   }
 
   export type Options = {
     visibility?: Visibility
+    delivery?: Delivery
   }
 
   const registry = new Map<string, Definition>()
@@ -50,9 +80,28 @@ export namespace BusEvent {
       type,
       properties,
       visibility: options?.visibility ?? ("public" as const),
+      delivery: options?.delivery ?? ("ordered" as const),
     }
     registry.set(type, result)
     return result
+  }
+
+  /**
+   * How this event must survive congestion. Unknown types get the conservative
+   * class, for the same reason the default is conservative.
+   */
+  export function deliveryOf(type: string | undefined): Delivery {
+    if (!type) return "ordered"
+    return registry.get(type)?.delivery ?? "ordered"
+  }
+
+  /** Every public event with its delivery class, for tests and audits. */
+  export function deliveryClasses(): Array<{ type: string; delivery: Delivery }> {
+    return registry
+      .values()
+      .filter((def) => def.visibility !== "internal")
+      .map((def) => ({ type: def.type, delivery: def.delivery ?? ("ordered" as const) }))
+      .toArray()
   }
 
   /** Is this event withheld from the public SSE feed? Unknown types are public. */
@@ -91,6 +140,7 @@ export namespace BusEvent {
       properties: zodObject(annotated),
       schema: annotated as Schema.Top,
       visibility: options?.visibility ?? ("public" as const),
+      delivery: options?.delivery ?? ("ordered" as const),
     }
     registry.set(type, result)
     return result

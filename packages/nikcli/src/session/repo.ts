@@ -3,6 +3,7 @@ import { parseModel, stringifyModel } from "@nikcli-ai/util/model"
 import { Filesystem } from "@nikcli-ai/util/filesystem"
 import { Database } from "@/database/database"
 import { sessionInfo } from "./session.sql"
+import { SessionError } from "./error"
 import type { Session } from "./index"
 
 /**
@@ -28,8 +29,21 @@ export namespace SessionRepo {
 
   /** Extract key fields for indexed columns; store the rest as JSON in `data` */
   function rowToInfo(row: SessionRow): Session.Info {
-    // The `data` column holds the full session, parse it
-    const info = JSON.parse(row.data) as Session.Info
+    // The `data` column holds the full session, parse it.
+    //
+    // A row that will not parse is a corrupt store, not a missing session, and
+    // the two must not be indistinguishable to callers: `ServerRouter.context`
+    // treats "not found" as "fall through to request context" and would
+    // otherwise dispatch the request against the wrong instance. Raw
+    // `SyntaxError` says nothing about which session or which store, so it is
+    // translated at the repository boundary into the typed error that exists
+    // for exactly this case. `specs/effect-tui/10-contracts-errors-security.md`.
+    let info: Session.Info
+    try {
+      info = JSON.parse(row.data) as Session.Info
+    } catch (cause) {
+      throw new SessionError.IOError({ message: `Session ${row.id} has an unreadable data column`, cause })
+    }
     // `last_model` is the source of truth for the cached "last used model";
     // the JSON blob may be stale on rows written before this column existed.
     if (row.lastModel) {

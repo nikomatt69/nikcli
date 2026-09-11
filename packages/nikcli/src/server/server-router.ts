@@ -1,3 +1,4 @@
+import z from "zod"
 import { Flag } from "@nikcli-ai/util/flag"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Session } from "@/session"
@@ -44,6 +45,19 @@ export namespace ServerRouter {
     return Session.ID.safeParse(value).success ? value : undefined
   }
 
+  /**
+   * The session a `:sessionID` route names, or `undefined` when there is none.
+   *
+   * "No such session" is a normal outcome — the id may belong to another host,
+   * or be a path segment that merely looks like one — and it falls through to
+   * request context. A **read failure** is not: a row that will not parse means
+   * the store is damaged, and swallowing it would resolve the request against
+   * the caller's directory and dispatch a handler there, quietly operating on
+   * the wrong instance. Those two used to be the same `catch`.
+   *
+   * `specs/effect-tui/10-contracts-errors-security.md`: a failure must not be
+   * able to look like a success.
+   */
   async function sessionForRequest(sessionID: string, directory: string) {
     return withInstanceAsync({ directory, init: InstanceBootstrap }, async () =>
       runPromiseWithLayer(
@@ -55,7 +69,31 @@ export namespace ServerRouter {
           }),
         ),
       ),
-    ).catch(() => undefined)
+    ).catch((error: unknown) => {
+      if (SessionError.isNotFound(error)) return undefined
+      throw error
+    })
+  }
+
+  /**
+   * The workspace an id names, or `undefined` when there is no such workspace.
+   *
+   * A malformed id and an absent row are both "missing": the caller asked for
+   * something that is not there, and the 404 downstream says exactly that. A
+   * record that will not parse is a different thing — the row exists and the
+   * store is damaged — and answering "no such workspace" for a workspace that
+   * is plainly there sends the operator looking in the wrong place.
+   *
+   * `Workspace.get` validates the id with a zod schema before it reads, so the
+   * two cases arrive as different errors and can be told apart here.
+   */
+  async function workspaceForRequest(id: string) {
+    try {
+      return await Workspace.get(id)
+    } catch (error) {
+      if (error instanceof z.ZodError) return undefined
+      throw error
+    }
   }
 
   export async function context(request: Request, parsed?: URL) {
@@ -69,13 +107,21 @@ export namespace ServerRouter {
     const explicitWorkspace = url.searchParams.get("workspace") || request.headers.get("x-nikcli-workspace")
     const routeSession = sessionID && !explicitWorkspace ? await sessionForRequest(sessionID, directory) : undefined
     const workspaceID = explicitWorkspace || routeSession?.workspaceID
-    const workspace = workspaceID ? await Workspace.get(workspaceID).catch(() => undefined) : undefined
+
+    // The session's own directory outranks the one the request named, and it
+    // has to be applied *before* the workspace branch. A remote target carries
+    // no local path, so that branch used to return with `directory` still set
+    // to whatever the caller sent — a session pinned to a container resolved
+    // against the client's cwd, which is the one directory it is certainly not
+    // in. Only a local target overrides it, below.
+    if (routeSession?.directory) directory = routeSession.directory
+
+    const workspace = workspaceID ? await workspaceForRequest(workspaceID) : undefined
     if (workspace) {
       const target = await Workspace.target(workspace.id)
       if (target?.type === "local") directory = target.directory
       return { directory, workspaceID: workspaceID ?? undefined, target }
     }
-    if (routeSession?.directory) directory = routeSession.directory
     return { directory, workspaceID: workspaceID ?? undefined, target: undefined }
   }
 
