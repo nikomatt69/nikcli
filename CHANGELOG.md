@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.345.0 (September 2026)
+
+## Core
+
+- Guard the sticky scroll that replaced the support auto-scroll (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - test(tui): guard the sticky scroll that replaced the support auto-scroll
+  - docs(tui): say where FooterHintGroup can and cannot be used
+  - fix(tui): keep the GitHub list cursor on screen
+
 ## v1.344.0 (September 2026)
 
 ## Core
