@@ -59,7 +59,16 @@ export function FooterSep() {
   )
 }
 
-/** Group of footer hints with separator dots between them */
+/**
+ * Group of footer hints with separator dots between them.
+ *
+ * Use it only on a row it has to itself. A group is roughly twice the width of
+ * the compact `f follow · e errors · esc close` text these rows used to be —
+ * every hint pays for a bold key, a space, a dim label and a `·` — so on a row
+ * it shares with anything else it loses the width fight, `flexWrap` stacks it
+ * one hint per line, and the extra lines paint over whatever sits below. Rows
+ * that share their line keep the plain text; see the telemetry dialog footer.
+ */
 export function FooterHintGroup(props: { children: JSX.Element | JSX.Element[] }) {
   const t = useTheme()
   const children = Array.isArray(props.children) ? props.children : [props.children]
