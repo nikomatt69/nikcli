@@ -190,8 +190,15 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       })
     }
 
+    // Scoped like the bootstrap fetch is. `/lsp/status` carries no sessionID,
+    // so the server cannot derive the workspace from the path the way it does
+    // for `/session/:id` routes — an unscoped call answers for the root
+    // instance. Bootstrap loaded the worktree's LSP state; refreshing it
+    // through the root client overwrote that with another workspace's.
+    // `scopedClient()` is called here rather than captured, so it follows the
+    // workspace that is active when the refresh runs.
     const refreshLspLatest = createLatestOnlyAsync<[], Awaited<ReturnType<typeof sdk.client.lsp.status>>>(async () =>
-      sdk.client.lsp.status(),
+      scopedClient().lsp.status(),
     )
     // Debounce rapid lsp.updated bursts (typing / file switches) so only the latest applies.
     // See specs/effect-tui/05-reactive-state.md.
@@ -671,8 +678,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           if (features(store.config).requests.latestOnlyLspRefresh) {
             refreshLspDebounced()
           } else {
-            void sdk.client.lsp
-              .status()
+            void scopedClient()
+              .lsp.status()
               .then((x) => setStore("lsp", x.data!))
               .catch(() => {})
           }
@@ -723,10 +730,11 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     async function refreshProviders() {
       // Refresh provider data without clearing session state
+      const client = scopedClient()
       const [providerList, providerNext, providerAuth] = await Promise.all([
-        sdk.client.config.providers({}, { throwOnError: true }),
-        sdk.client.provider.list({}, { throwOnError: true }),
-        sdk.client.provider.auth(),
+        client.config.providers({}, { throwOnError: true }),
+        client.provider.list({}, { throwOnError: true }),
+        client.provider.auth(),
       ])
       batch(() => {
         setStore("provider", reconcile(providerList.data!.providers))
