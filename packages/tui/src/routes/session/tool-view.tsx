@@ -10,6 +10,7 @@
  * presentation. `ExplorationSummary` comes along because it renders tool
  * parts too — it is the collapsed form of a finished exploration run.
  */
+import { FooterHint, FooterHintGroup } from "@tui/ui/footer-hints"
 import { useScrollAcceleration } from "@tui/util/scroll"
 import { createEffect, createMemo, createSignal, For, Match, on, onCleanup, onMount, Show, Switch } from "solid-js"
 import { Dynamic } from "solid-js/web"
@@ -1526,9 +1527,13 @@ export function DialogMonitorLog(props: {
       <Show when={error()}>
         <text fg={theme.status.error.fg}>{error()}</text>
       </Show>
-      <text fg={theme.foreground.muted}>
-        f follow {follow() ? "on" : "off"} • r refresh • c copy • x stop • esc close
-      </text>
+      <FooterHintGroup>
+        <FooterHint keys="f" label={`follow ${follow() ? "on" : "off"}`} />
+        <FooterHint keys="r" label="refresh" />
+        <FooterHint keys="c" label="copy" />
+        <FooterHint keys="x" label="stop" />
+        <FooterHint keys="esc" label="close" />
+      </FooterHintGroup>
     </box>
   )
 }

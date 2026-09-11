@@ -1,3 +1,4 @@
+import { FooterHint } from "@tui/ui/footer-hints"
 import { useScrollAcceleration } from "@tui/util/scroll"
 import { createStore } from "solid-js/store"
 import { createMemo, For, Show, Switch, Match, onMount, type JSX } from "solid-js"
@@ -583,7 +584,7 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
             <text fg={theme.foreground.muted}>{spec().subtitle}</text>
           </Show>
         </box>
-        <Show when={spec().screens.length > 1} fallback={<text fg={theme.foreground.muted}>esc cancel</text>}>
+        <Show when={spec().screens.length > 1} fallback={<FooterHint keys="esc" label="cancel" />}>
           <text fg={theme.foreground.muted}>
             {currentScreen()?.title ?? store.screen} ({spec().screens.findIndex((s) => s.id === store.screen) + 1}/
             {spec().screens.length}) · esc

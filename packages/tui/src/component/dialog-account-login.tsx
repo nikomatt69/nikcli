@@ -1,8 +1,9 @@
+import { FooterHint } from "@tui/ui/footer-hints"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/solid"
 import { createSignal, onCleanup, onMount, Show } from "solid-js"
 import open from "open"
-import { useDialog } from "@tui/ui/dialog"
+import { DialogHeader, useDialog } from "@tui/ui/dialog"
 import { useTheme } from "@tui/context/theme"
 import { useToast } from "@tui/ui/toast"
 import { useSDK } from "@tui/context/sdk"
@@ -179,12 +180,7 @@ export function DialogAccountLogin(props: {
 
   return (
     <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} gap={1} flexDirection="column">
-      <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
-          Sign in to nikcli
-        </text>
-        <text fg={theme.foreground.muted}>esc close</text>
-      </box>
+      <DialogHeader title="Sign in to nikcli" hint="esc close" />
 
       <Show when={active()}>
         {(value) => (
@@ -228,9 +224,9 @@ export function DialogAccountLogin(props: {
           <text fg={theme.foreground.muted}>y copy code</text>
         </Show>
         <Show when={error()}>
-          <text fg={theme.foreground.muted}>r retry</text>
+          <FooterHint keys="r" label="retry" />
         </Show>
-        <text fg={theme.foreground.muted}>esc close</text>
+        <FooterHint keys="esc" label="close" />
       </box>
     </box>
   )

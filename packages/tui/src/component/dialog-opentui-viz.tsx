@@ -1,3 +1,4 @@
+import { FooterHint } from "@tui/ui/footer-hints"
 import { useScrollAcceleration } from "@tui/util/scroll"
 import { TextAttributes, RGBA } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
@@ -2283,12 +2284,12 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
           </text>
           <text fg={theme.foreground.muted}>j / k or arrows · scroll content</text>
           <Show when={multiTab()}>
-            <text fg={theme.foreground.muted}>tab / shift+tab · next / prev tab</text>
-            <text fg={theme.foreground.muted}>1 - 9 · tabs 1-9 · 0 · tab 10 · tab cycles 11-30</text>
+            <FooterHint keys="tab / shift+tab" label="next / prev tab" />
+            <FooterHint keys="1-9 · 0" label="tabs 1-10 (tab cycles 11-30)" />
           </Show>
-          <text fg={theme.foreground.muted}>e · copy visualization as markdown</text>
-          <text fg={theme.foreground.muted}>? · toggle this help</text>
-          <text fg={theme.foreground.muted}>esc · close</text>
+          <FooterHint keys="e" label="copy visualization as markdown" />
+          <FooterHint keys="?" label="toggle this help" />
+          <FooterHint keys="esc" label="close" />
         </box>
       </Show>
     </box>

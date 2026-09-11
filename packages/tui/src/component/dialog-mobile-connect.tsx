@@ -5,7 +5,7 @@ import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-j
 import { createStore } from "solid-js/store"
 import { generateQRMatrix } from "@nikcli-ai/remote"
 import { buildMobilePairingDeepLink, getLocalIPs, isLoopbackHostname } from "@nikcli-ai/util/mobile-pairing"
-import { useDialog } from "@tui/ui/dialog"
+import { DialogHeader, useDialog } from "@tui/ui/dialog"
 import { useTheme } from "@tui/context/theme"
 import { useSDK } from "@tui/context/sdk"
 import { useServer } from "@tui/context/server"
@@ -412,12 +412,11 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
 
   return (
     <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} gap={1} flexDirection="column">
-      <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
-          {props.mode === "cloud" ? "Connect cloud server" : "Teleport session"}
-        </text>
-        <text fg={theme.foreground.muted}>esc back</text>
-      </box>
+      <DialogHeader
+        title={props.mode === "cloud" ? "Connect cloud server" : "Teleport session"}
+        hint="esc back"
+        onClose={() => props.onBack()}
+      />
 
       <Show
         when={pairing()}

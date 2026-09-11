@@ -354,15 +354,26 @@ export function useDialog() {
  * a dialog that must not be dismissed from the header — a prompt mid-submit,
  * say — and the handler goes away with the text.
  */
-export function DialogHeader(props: { title: string; hint?: string; muted?: boolean; onClose?: () => void }) {
+export function DialogHeader(props: {
+  title: string
+  subtitle?: string
+  hint?: string
+  muted?: boolean
+  onClose?: () => void
+}) {
   const { theme } = useTheme()
   const dialog = useDialog()
   const hint = () => props.hint ?? "esc"
   return (
     <box flexDirection="row" justifyContent="space-between">
-      <text attributes={TextAttributes.BOLD} fg={props.muted ? theme.foreground.muted : theme.foreground.default}>
-        {props.title}
-      </text>
+      <box flexDirection="row" gap={1}>
+        <text attributes={TextAttributes.BOLD} fg={props.muted ? theme.foreground.muted : theme.foreground.default}>
+          {props.title}
+        </text>
+        <Show when={props.subtitle}>
+          <text fg={theme.foreground.muted}>{props.subtitle}</text>
+        </Show>
+      </box>
       <text
         fg={theme.foreground.muted}
         onMouseUp={hint() ? () => (props.onClose ? props.onClose() : dialog.clear()) : undefined}

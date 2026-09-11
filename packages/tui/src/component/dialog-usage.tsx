@@ -1,3 +1,4 @@
+import { FooterHint, FooterHintGroup } from "@tui/ui/footer-hints"
 import { ScrollBoxRenderable, TextAttributes, RGBA } from "@opentui/core"
 import { scrollChildIntoView, useScrollAcceleration } from "@tui/util/scroll"
 import { useTheme } from "../context/theme"
@@ -389,9 +390,7 @@ export function DialogUsage() {
             </text>
           </Show>
         </box>
-        <text fg={theme.foreground.muted} wrapMode="none">
-          esc close
-        </text>
+        <FooterHint keys="esc" label="close" />
       </box>
 
       <Show
@@ -690,22 +689,16 @@ export function DialogUsage() {
             </box>
           </Show>
 
-          <box paddingTop={1} flexDirection="row" flexWrap="wrap" gap={1} flexShrink={0}>
-            <text fg={theme.foreground.muted} wrapMode="none">
-              ↑↓ navigate
-            </text>
-            <text fg={theme.border.subtle} wrapMode="none">
-              ·
-            </text>
-            <text fg={busy() ? theme.status.warning.fg : theme.foreground.muted} wrapMode="none">
-              {busy() ? "saving…" : "space toggle"}
-            </text>
-            <text fg={theme.border.subtle} wrapMode="none">
-              ·
-            </text>
-            <text fg={theme.foreground.muted} wrapMode="none">
-              esc close
-            </text>
+          <box paddingTop={1} flexShrink={0}>
+            <FooterHintGroup>
+              <FooterHint keys="↑↓" label="navigate" />
+              <FooterHint
+                keys="space"
+                label={busy() ? "saving…" : "toggle"}
+                tone={busy() ? theme.status.warning.fg : undefined}
+              />
+              <FooterHint keys="esc" label="close" />
+            </FooterHintGroup>
           </box>
         </scrollbox>
       </Show>

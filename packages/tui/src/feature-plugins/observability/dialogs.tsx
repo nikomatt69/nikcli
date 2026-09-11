@@ -7,13 +7,13 @@
  * toggle it.
  */
 import { useScrollAcceleration } from "@tui/util/scroll"
-import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { createEffect, createMemo, createSignal, For, on, onMount } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { useSDK } from "@tui/context/sdk"
 import { useTheme } from "@tui/context/theme"
-import { useDialog } from "@tui/ui/dialog"
+import { DialogHeader, useDialog } from "@tui/ui/dialog"
 import { useToast } from "@tui/ui/toast"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useTelemetry, type TelemetryRecord } from "@tui/context/telemetry"
@@ -177,16 +177,8 @@ export function DialogTelemetryLive() {
 
   return (
     <box gap={1}>
-      <box flexDirection="row" justifyContent="space-between" paddingLeft={2} paddingRight={2}>
-        <box flexDirection="row" gap={1}>
-          <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
-            Live telemetry
-          </text>
-          <text fg={theme.foreground.muted}>spans</text>
-        </box>
-        <text fg={theme.foreground.muted} onMouseUp={() => dialog.clear()}>
-          esc
-        </text>
+      <box paddingLeft={2} paddingRight={2}>
+        <DialogHeader title="Live telemetry" subtitle="spans" />
       </box>
 
       <scrollbox
