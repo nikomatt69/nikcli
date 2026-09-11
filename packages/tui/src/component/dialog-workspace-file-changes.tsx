@@ -1,11 +1,10 @@
-import { TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/solid"
 import { createMemo, For } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Locale } from "@nikcli-ai/util/locale"
 import { useTheme } from "../context/theme"
-import { useDialog, type DialogContext } from "../ui/dialog"
-import { getScrollAcceleration } from "../util/scroll"
+import { DialogHeader, useDialog, type DialogContext } from "../ui/dialog"
+import { useScrollAcceleration } from "../util/scroll"
 
 type VcsFileStatus = {
   file: string
@@ -33,7 +32,7 @@ export function DialogWorkspaceFileChanges(props: {
 }) {
   const dialog = useDialog()
   const { theme } = useTheme()
-  const scrollAcceleration = createMemo(() => getScrollAcceleration())
+  const scrollAcceleration = useScrollAcceleration()
   const [store, setStore] = createStore({
     active: "yes" as WorkspaceFileChangesChoice,
   })
@@ -69,18 +68,15 @@ export function DialogWorkspaceFileChanges(props: {
 
   return (
     <box gap={1}>
-      <box flexDirection="row" justifyContent="space-between" paddingLeft={2} paddingRight={2}>
-        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
-          File Changes Found
-        </text>
-        <text fg={theme.foreground.muted} onMouseUp={() => dialog.clear()}>
-          esc
-        </text>
+      <box paddingLeft={2} paddingRight={2}>
+        <DialogHeader title="File Changes Found" />
       </box>
       <scrollbox
         height={height()}
         backgroundColor={theme.surface.offset}
         scrollbarOptions={{ visible: false }}
+        viewportCulling={true}
+        focused={true}
         scrollAcceleration={scrollAcceleration()}
       >
         <For each={props.files}>

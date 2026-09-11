@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { For, Show, createEffect, createMemo, createResource, createSignal } from "solid-js"
 import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
@@ -355,6 +356,7 @@ async function loadDetails(input: { directory: string; hash: string } | undefine
 export function GitGraph() {
   const routeData = useRouteData("git-graph")
   const route = useRoute()
+  const scrollAcceleration = useScrollAcceleration()
   const sdk = useSDK()
   const sync = useSync()
   const toast = useToast()
@@ -674,6 +676,8 @@ export function GitGraph() {
             }
           >
             <scrollbox
+              viewportCulling={true}
+              scrollAcceleration={scrollAcceleration()}
               ref={setListScroll}
               flexGrow={1}
               backgroundColor={theme.surface.base}
@@ -757,6 +761,7 @@ export function GitGraph() {
             >
               {(row) => (
                 <scrollbox
+                  scrollAcceleration={scrollAcceleration()}
                   flexGrow={1}
                   paddingLeft={2}
                   paddingRight={2}

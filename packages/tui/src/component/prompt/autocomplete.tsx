@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import type { BoxRenderable, TextareaRenderable, KeyEvent, ScrollBoxRenderable } from "@opentui/core"
 import { pathToFileURL } from "bun"
 import fuzzysort from "fuzzysort"
@@ -17,6 +18,7 @@ import { Locale } from "@nikcli-ai/util/locale"
 import { createDebouncedSignal, createLatestOnlyAsync } from "../../util/signal"
 import type { PromptInfo } from "./history"
 import { useFrecency } from "./frecency"
+import { moveSelection } from "@tui/ui/select-controller"
 
 function removeLineRange(input: string) {
   const hashIndex = input.lastIndexOf("#")
@@ -88,6 +90,7 @@ export function Autocomplete(props: {
   const dimensions = useTerminalDimensions()
   const frecency = useFrecency()
   const editor = useEditorContext()
+  const scrollAcceleration = useScrollAcceleration()
 
   const [store, setStore] = createStore({
     index: 0,
@@ -539,10 +542,13 @@ export function Autocomplete(props: {
   function move(direction: -1 | 1) {
     if (!store.visible) return
     if (!options().length) return
-    let next = store.selected + direction
-    if (next < 0) next = options().length - 1
-    if (next >= options().length) next = 0
-    moveTo(next)
+    moveTo(
+      moveSelection(store.selected, {
+        count: options().length,
+        delta: direction,
+        policy: "wrap",
+      }),
+    )
   }
 
   function optionID(index: number) {
@@ -758,6 +764,8 @@ export function Autocomplete(props: {
         ref={(r: ScrollBoxRenderable) => (scroll = r)}
         backgroundColor={theme.surface.overlay}
         height={height()}
+        viewportCulling={true}
+        scrollAcceleration={scrollAcceleration()}
         scrollbarOptions={{ visible: false }}
       >
         <Index

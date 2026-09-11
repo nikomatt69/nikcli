@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { For, Show, createMemo } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { useTheme } from "@tui/context/theme"
@@ -31,6 +32,7 @@ export function FileList(props: {
   onFilterDeactivate: () => void
 }) {
   const { theme } = useTheme()
+  const scrollAcceleration = useScrollAcceleration()
 
   const filteredItems = createMemo<FileItem[]>(() => {
     const filter = props.filterText ?? ""
@@ -111,7 +113,14 @@ export function FileList(props: {
 
   return (
     <box width={props.width} height="100%" border={["right"]} borderColor={theme.border.subtle}>
-      <scrollbox flexGrow={1} paddingLeft={2} paddingRight={1} paddingTop={1} scrollbarOptions={{ visible: false }}>
+      <scrollbox
+        scrollAcceleration={scrollAcceleration()}
+        flexGrow={1}
+        paddingLeft={2}
+        paddingRight={1}
+        paddingTop={1}
+        scrollbarOptions={{ visible: false }}
+      >
         <box gap={0}>
           <Show when={props.filterActive || props.filterText.length > 0}>
             <box flexDirection="row" gap={0} paddingBottom={1}>

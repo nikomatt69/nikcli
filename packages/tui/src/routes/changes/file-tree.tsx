@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { useTheme } from "@tui/context/theme"
@@ -30,6 +31,7 @@ export function FileTree(props: {
   reviewed?: ReadonlySet<string>
 }) {
   const { theme } = useTheme()
+  const scrollAcceleration = useScrollAcceleration()
 
   const filtered = createMemo<FileDiff[]>(() => {
     const filter = props.filterText ?? ""
@@ -216,7 +218,14 @@ export function FileTree(props: {
 
   return (
     <box width={props.width} height="100%" border={["right"]} borderColor={theme.border.subtle}>
-      <scrollbox flexGrow={1} paddingLeft={1} paddingRight={1} paddingTop={1} scrollbarOptions={{ visible: false }}>
+      <scrollbox
+        scrollAcceleration={scrollAcceleration()}
+        flexGrow={1}
+        paddingLeft={1}
+        paddingRight={1}
+        paddingTop={1}
+        scrollbarOptions={{ visible: false }}
+      >
         <box gap={0}>
           <Show when={props.filterActive || props.filterText.length > 0}>
             <box flexDirection="row" gap={0} paddingBottom={1}>

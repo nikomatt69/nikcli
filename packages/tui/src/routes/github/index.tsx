@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { For, Show, createEffect, createMemo, createResource, createSignal } from "solid-js"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/solid"
@@ -285,6 +286,7 @@ async function loadGitHubState(directory: string): Promise<GitHubState> {
 export function GitHubPanel() {
   const routeData = useRouteData("github")
   const route = useRoute()
+  const scrollAcceleration = useScrollAcceleration()
   const sync = useSync()
   const sdk = useSDK()
   const toast = useToast()
@@ -927,7 +929,12 @@ export function GitHubPanel() {
               </box>
             }
           >
-            <scrollbox flexGrow={1} scrollbarOptions={{ visible: false }}>
+            <scrollbox
+              viewportCulling={true}
+              scrollAcceleration={scrollAcceleration()}
+              flexGrow={1}
+              scrollbarOptions={{ visible: false }}
+            >
               <For each={visibleItems()}>
                 {(item: any, index) => {
                   const isSelected = () => selected() === index()
@@ -1069,7 +1076,7 @@ export function GitHubPanel() {
             }
           >
             {(item) => (
-              <scrollbox flexGrow={1} scrollbarOptions={{ visible: false }}>
+              <scrollbox scrollAcceleration={scrollAcceleration()} flexGrow={1} scrollbarOptions={{ visible: false }}>
                 <box flexDirection="column" gap={1}>
                   <Show when={section() === "branches"}>
                     <box

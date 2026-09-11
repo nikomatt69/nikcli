@@ -105,6 +105,7 @@ type FileAttachment = {
   readonly source?: { readonly type?: string; readonly path?: string }
 }
 import { DialogMonitorLog, ExplorationSummary, ToolPartView } from "./tool-view"
+import { moveSelection } from "@tui/ui/select-controller"
 
 addDefaultParsers(parsers.parsers)
 
@@ -502,9 +503,14 @@ export function Session() {
     const targets = backgroundWorkerChildren()
     if (targets.length === 0) return
     if (targets.length === 1 && targets[0]?.id === session()?.id) return
-    let next = targets.findIndex((x) => x.id === session()?.id) + direction
-    if (next >= targets.length) next = 0
-    if (next < 0) next = targets.length - 1
+    const next = moveSelection(
+      targets.findIndex((x) => x.id === session()?.id),
+      {
+        count: targets.length,
+        delta: direction,
+        policy: "wrap",
+      },
+    )
     if (targets[next]) {
       navigate({
         type: "session",

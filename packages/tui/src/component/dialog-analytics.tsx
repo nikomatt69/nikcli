@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { TextAttributes, RGBA, ScrollBoxRenderable } from "@opentui/core"
 import { useTheme, type Theme } from "../context/theme"
 import { useSync } from "@tui/context/sync"
@@ -111,6 +112,7 @@ const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", 
 
 export function DialogAnalytics(_props: { onClose: () => void }) {
   const { theme } = useTheme()
+  const scrollAcceleration = useScrollAcceleration()
   const sync = useSync()
   const analyticsCtx = useAnalytics()
   const dialog = useDialog()
@@ -469,6 +471,7 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
             scroll offset resets when you switch. */}
         <box border borderColor={theme.border.default} height={contentHeight()} flexShrink={0}>
           <scrollbox
+            scrollAcceleration={scrollAcceleration()}
             ref={(r: ScrollBoxRenderable) => (scrollRef = r)}
             height={contentHeight() - 2}
             focused={true}

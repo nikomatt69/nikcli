@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { createStore } from "solid-js/store"
 import { createMemo, For, Show, Switch, Match, onMount, type JSX } from "solid-js"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
@@ -87,6 +88,7 @@ function buildInitialState(spec: AppSpecType): Record<string, StateValueType> {
 
 export function DialogInteractionApp(props: { spec: AppSpecType }) {
   const { theme } = useTheme()
+  const scrollAcceleration = useScrollAcceleration()
   const dimensions = useTerminalDimensions()
   const keybind = useKeybind()
   const bindings = useTextareaKeybindings()
@@ -590,7 +592,7 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
       </box>
 
       <box border borderColor={theme.border.default} height={contentHeight()} flexShrink={0}>
-        <scrollbox height={contentHeight() - 2} focused={true}>
+        <scrollbox scrollAcceleration={scrollAcceleration()} height={contentHeight() - 2} focused={true}>
           <box paddingTop={1} paddingBottom={1} paddingLeft={1} paddingRight={1} gap={1}>
             <For each={currentScreen()?.body ?? []}>{(comp) => <Container comp={comp} />}</For>
           </box>

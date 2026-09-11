@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { formatInstructionDelta, visibleInstructionNotices } from "@nikcli-ai/util/instruction-delta"
 import { useSDK } from "@tui/context/sdk"
@@ -8,6 +9,7 @@ import { SESSION_SIDEBAR_WIDTH } from "@tui/ui/layout"
 
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const sdk = useSDK()
+  const scrollAcceleration = useScrollAcceleration()
   const sync = useSync()
   const theme = useTheme().theme
   const session = createMemo(() => sync.session.get(props.sessionID))
@@ -37,7 +39,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
           paddingRight={2}
           position={props.overlay ? "absolute" : "relative"}
         >
-          <scrollbox flexGrow={1}>
+          <scrollbox scrollAcceleration={scrollAcceleration()} flexGrow={1}>
             <box flexShrink={0} gap={1} paddingRight={1}>
               <box paddingRight={1}>
                 <text fg={theme.foreground.default}>

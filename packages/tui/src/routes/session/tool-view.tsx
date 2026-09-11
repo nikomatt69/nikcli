@@ -10,6 +10,7 @@
  * presentation. `ExplorationSummary` comes along because it renders tool
  * parts too — it is the collapsed form of a finished exploration run.
  */
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { createEffect, createMemo, createSignal, For, Match, on, onCleanup, onMount, Show, Switch } from "solid-js"
 import { Dynamic } from "solid-js/web"
 import path from "path"
@@ -1330,6 +1331,7 @@ export function DialogMonitorLog(props: {
   logPath?: string
 }) {
   const sdk = useSDK()
+  const scrollAcceleration = useScrollAcceleration()
   const toast = useToast()
   const { theme } = useTheme()
   const dialog = useDialog()
@@ -1503,6 +1505,7 @@ export function DialogMonitorLog(props: {
         <text fg={theme.foreground.muted}>log {normalizePath(logPath())}</text>
       </Show>
       <scrollbox
+        scrollAcceleration={scrollAcceleration()}
         ref={(value: ScrollBoxRenderable) => {
           scrollbox = value
         }}

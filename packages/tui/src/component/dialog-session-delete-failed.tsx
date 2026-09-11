@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
-import { useDialog } from "../ui/dialog"
+import { DialogHeader, useDialog } from "../ui/dialog"
 import { createStore } from "solid-js/store"
 import { For } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
@@ -54,14 +54,7 @@ export function DialogSessionDeleteFailed(props: {
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
-      <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
-          Failed to Delete Session
-        </text>
-        <text fg={theme.foreground.muted} onMouseUp={() => dialog.clear()}>
-          esc
-        </text>
-      </box>
+      <DialogHeader title="Failed to Delete Session" />
       <text fg={theme.foreground.muted} wrapMode="word">
         {`The session "${props.session}" could not be deleted because the workspace "${props.workspace}" is not available.`}
       </text>

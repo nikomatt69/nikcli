@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { TextAttributes } from "@opentui/core"
 import { useTheme } from "@tui/context/theme"
 import { useRemoteSync } from "@tui/context/remote-sync"
@@ -21,6 +22,7 @@ export function DialogSync() {
   const dialog = useDialog()
   const toast = useToast()
   const dimensions = useTerminalDimensions()
+  const scrollAcceleration = useScrollAcceleration()
   let urlInput: any
   let tokenInput: any
 
@@ -318,7 +320,13 @@ export function DialogSync() {
       <text fg={theme.foreground.muted} paddingTop={1}>
         Recent events (newest first)
       </text>
-      <scrollbox height={bodyHeight()} focused={!showForm()} scrollbarOptions={{ visible: true }}>
+      <scrollbox
+        height={bodyHeight()}
+        focused={!showForm()}
+        viewportCulling={true}
+        scrollAcceleration={scrollAcceleration()}
+        scrollbarOptions={{ visible: true }}
+      >
         <Show when={status().events.length > 0} fallback={<text fg={theme.foreground.muted}>No events yet.</text>}>
           <For each={status().events}>
             {(event) => (

@@ -81,7 +81,13 @@ export function ErrorComponent(props: {
           <text fg={colors.bg}>Exit</text>
         </box>
       </box>
-      <scrollbox height={Math.floor(term().height * 0.7)}>
+      {/* Deliberately no `scrollAcceleration`: this is the fallback of the
+          outermost ErrorBoundary in `app.tsx`, which sits above SyncProvider.
+          `useScrollAcceleration` reads `config.tui` through `useSync`, and that
+          throws outside its provider — inside an error screen, that means the
+          crash handler crashes. Same reason the colors here come from a `mode`
+          prop instead of `useTheme`. */}
+      <scrollbox height={Math.floor(term().height * 0.7)} focused={true}>
         <text fg={colors.muted}>{props.error.stack}</text>
       </scrollbox>
       <text fg={colors.text}>{props.error.message}</text>

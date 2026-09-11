@@ -1,6 +1,7 @@
-import { TextAttributes, type PasteEvent, type ScrollBoxRenderable, type TextareaRenderable } from "@opentui/core"
+import { useScrollAcceleration } from "@tui/util/scroll"
+import { TextAttributes, type PasteEvent, type TextareaRenderable } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
-import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js"
+import { batch, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import { useTheme } from "@tui/context/theme"
 import { useDialog } from "@tui/ui/dialog"
 import { useSDK } from "@tui/context/sdk"
@@ -168,6 +169,7 @@ function timeLabel(ts: number): string {
 
 export function DialogSupport() {
   const dialog = useDialog()
+  const scrollAcceleration = useScrollAcceleration()
   const { theme } = useTheme()
   const sdk = useSDK()
   const local = useLocal()
@@ -188,7 +190,6 @@ export function DialogSupport() {
   const [streamingID, setStreamingID] = createSignal<string | null>(null)
   const [attachments, setAttachments] = createSignal<SupportAttachment[]>([])
 
-  let scroll: ScrollBoxRenderable | undefined
   let textarea: TextareaRenderable | undefined
   let abort: AbortController | null = null
 
@@ -351,32 +352,6 @@ export function DialogSupport() {
   onCleanup(() => {
     abort?.abort()
   })
-
-  // Auto-scroll on message changes
-  createEffect(
-    on(
-      () => messages().length,
-      () => {
-        setTimeout(() => {
-          if (scroll && !scroll.isDestroyed) scroll.scrollTo(scroll.scrollHeight)
-        }, 5)
-      },
-    ),
-  )
-  // And when text updates within the last message
-  createEffect(
-    on(
-      () => {
-        const m = messages().at(-1)
-        return m ? `${m.id}:${m.text.length}` : ""
-      },
-      () => {
-        setTimeout(() => {
-          if (scroll && !scroll.isDestroyed) scroll.scrollTo(scroll.scrollHeight)
-        }, 5)
-      },
-    ),
-  )
 
   // Focus the textarea on mount once ready
   createEffect(() => {
@@ -556,12 +531,19 @@ export function DialogSupport() {
       </box>
 
       {/* Messages */}
+      {/* `stickyScroll` replaces the two effects that used to re-pin the view on
+          every token: those scrolled to the bottom unconditionally, so reading
+          back through the transcript while the assistant was still streaming
+          yanked the view away every few milliseconds. OpenTUI's sticky scroll
+          follows the tail only while the view *is* at the tail, and re-engages
+          by itself once the reader scrolls back down to it. */}
       <scrollbox
+        scrollAcceleration={scrollAcceleration()}
         maxHeight={msgHeight()}
         scrollbarOptions={{ visible: false }}
-        ref={(r: ScrollBoxRenderable) => {
-          scroll = r
-        }}
+        stickyScroll={true}
+        stickyStart="bottom"
+        viewportCulling={true}
         paddingLeft={2}
         paddingRight={2}
       >

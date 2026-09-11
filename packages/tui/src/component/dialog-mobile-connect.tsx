@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
@@ -187,6 +188,7 @@ export function DialogMobileConnect(props: { sessionID?: string; initialMode?: M
 
 function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: string; onBack: () => void }) {
   const { theme } = useTheme()
+  const scrollAcceleration = useScrollAcceleration()
   const dialog = useDialog()
   const sdk = useSDK()
   const sync = useSync()
@@ -513,6 +515,7 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
                 <text fg={theme.foreground.default}>{value().token.slice(0, 8)}••••••••••••••••</text>
               </box>
               <scrollbox
+                scrollAcceleration={scrollAcceleration()}
                 height={Math.min(qrRows(), Math.max(8, dimensions().height - 12))}
                 width={qrWidth()}
                 scrollbarOptions={{
@@ -536,6 +539,7 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
 
 function LocalMobileConnect(props: { onBack: () => void }) {
   const { theme } = useTheme()
+  const scrollAcceleration = useScrollAcceleration()
   const dialog = useDialog()
   const sdk = useSDK()
   const server = useServer()
@@ -740,6 +744,7 @@ function LocalMobileConnect(props: { onBack: () => void }) {
               </Show>
             </box>
             <scrollbox
+              scrollAcceleration={scrollAcceleration()}
               height={Math.min(qrRows(), Math.max(8, dimensions().height - 12))}
               width={qrWidth()}
               scrollbarOptions={{

@@ -1,9 +1,10 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
+import { TextAttributes } from "@opentui/core"
 import { useTheme } from "@tui/context/theme"
 import { DialogHeader, useDialog } from "./dialog"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { useKeybind } from "@tui/context/keybind"
 import { For, createMemo, onMount } from "solid-js"
-import { useScrollAcceleration } from "@tui/util/scroll"
 
 const SHORTCUTS: Array<{ key: string; description: string }> = [
   { key: "command_list", description: "Open the command palette" },

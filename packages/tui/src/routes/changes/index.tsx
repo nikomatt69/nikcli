@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
@@ -58,6 +59,7 @@ function reviewFeedbackErrorMessage(error: unknown): string {
 export function Changes() {
   const routeData = useRouteData("changes")
   const route = useRoute()
+  const scrollAcceleration = useScrollAcceleration()
   const sync = useSync()
   const sdk = useSDK()
   const local = useLocal()
@@ -579,6 +581,7 @@ export function Changes() {
         >
           <box flexGrow={1} flexDirection={reviewInline() ? "row" : "column"}>
             <scrollbox
+              scrollAcceleration={scrollAcceleration()}
               ref={setScroll}
               flexGrow={1}
               paddingLeft={2}
@@ -617,6 +620,7 @@ export function Changes() {
                 borderColor={themeState.theme.border.subtle}
               >
                 <scrollbox
+                  scrollAcceleration={scrollAcceleration()}
                   flexGrow={1}
                   paddingLeft={1}
                   paddingRight={1}

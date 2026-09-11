@@ -123,3 +123,7 @@ if (painted <= 400) {
   throw new Error(`standalone terminal painted only ${painted} characters`)
 }
 console.log(`[standalone-smoke] PASS — painted ${painted} printable characters against ${url}`)
+// `pty.kill()` asks the child to go; it does not close the pty fd this process
+// still holds, so bun keeps the loop alive and the script hangs after printing
+// its result. Nothing is outstanding at this point — exit on the result.
+process.exit(0)

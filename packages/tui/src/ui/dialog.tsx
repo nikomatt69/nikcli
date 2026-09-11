@@ -345,18 +345,30 @@ export function useDialog() {
   return value
 }
 
-/** Title row shared by alert / confirm / prompt / select / help. */
-export function DialogHeader(props: { title: string; hint?: string; muted?: boolean }) {
+/**
+ * Title row shared by alert / confirm / prompt / select / help.
+ *
+ * The hint doubles as the close button: every dialog that hand-rolled this row
+ * hung `dialog.clear()` off it, and a header that only *reads* "esc" takes that
+ * affordance away from anyone driving the TUI with a mouse. Pass `hint=""` for
+ * a dialog that must not be dismissed from the header — a prompt mid-submit,
+ * say — and the handler goes away with the text.
+ */
+export function DialogHeader(props: { title: string; hint?: string; muted?: boolean; onClose?: () => void }) {
   const { theme } = useTheme()
+  const dialog = useDialog()
+  const hint = () => props.hint ?? "esc"
   return (
     <box flexDirection="row" justifyContent="space-between">
-      <text
-        attributes={TextAttributes.BOLD}
-        fg={props.muted ? theme.foreground.muted : theme.foreground.default}
-      >
+      <text attributes={TextAttributes.BOLD} fg={props.muted ? theme.foreground.muted : theme.foreground.default}>
         {props.title}
       </text>
-      <text fg={theme.foreground.muted}>{props.hint ?? "esc"}</text>
+      <text
+        fg={theme.foreground.muted}
+        onMouseUp={hint() ? () => (props.onClose ? props.onClose() : dialog.clear()) : undefined}
+      >
+        {hint()}
+      </text>
     </box>
   )
 }

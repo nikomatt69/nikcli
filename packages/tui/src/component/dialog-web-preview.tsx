@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { TextAttributes, TextareaRenderable } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
@@ -277,6 +278,7 @@ export type DialogWebPreviewProps = { url?: string }
 
 export function DialogWebPreview(props: DialogWebPreviewProps) {
   const dialog = useDialog()
+  const scrollAcceleration = useScrollAcceleration()
   const { theme, syntax } = useTheme()
   const dimensions = useTerminalDimensions()
   const renderer = useRenderer()
@@ -800,7 +802,13 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
             paddingRight={1}
             height={innerHeight()}
           >
-            <scrollbox height={innerHeight()} focused={focusArea() === "content"} flexGrow={1} flexShrink={1}>
+            <scrollbox
+              scrollAcceleration={scrollAcceleration()}
+              height={innerHeight()}
+              focused={focusArea() === "content"}
+              flexGrow={1}
+              flexShrink={1}
+            >
               <box gap={1} paddingTop={1} paddingBottom={1}>
                 <Show when={page().description}>
                   <text fg={theme.foreground.muted} wrapMode="word">
@@ -859,7 +867,12 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
             </scrollbox>
             <Show when={wide() && (page().headings.length > 0 || page().links.length > 0)}>
               <box width={30} flexShrink={0} height={innerHeight()}>
-                <scrollbox height={innerHeight()} paddingLeft={1} paddingRight={1}>
+                <scrollbox
+                  scrollAcceleration={scrollAcceleration()}
+                  height={innerHeight()}
+                  paddingLeft={1}
+                  paddingRight={1}
+                >
                   <Sidebar
                     headings={page().headings}
                     links={page().links}

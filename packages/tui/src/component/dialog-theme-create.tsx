@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { RGBA, TextAttributes } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import path from "path"
@@ -154,6 +155,7 @@ function generateMutedTextColor(bg: RGBA, isDark: boolean): RGBA {
 
 export function DialogThemeCreate() {
   const themeCtx = useTheme()
+  const scrollAcceleration = useScrollAcceleration()
   const { theme } = themeCtx
   const dialog = useDialog()
   const dimensions = useTerminalDimensions()
@@ -607,7 +609,7 @@ export function DialogThemeCreate() {
 
       <box height={1} border={["top"]} borderColor={theme.border.subtle} />
 
-      <scrollbox maxHeight={18} scrollbarOptions={{ visible: false }}>
+      <scrollbox scrollAcceleration={scrollAcceleration()} maxHeight={18} scrollbarOptions={{ visible: false }}>
         <box flexDirection="row" flexWrap="wrap" gap={1}>
           <For each={colorList()}>
             {(item) => {
@@ -659,7 +661,7 @@ export function DialogThemeCreate() {
               {selectedColorDef()?.label}: {selectedColorDef()?.description}
             </text>
           </box>
-          <scrollbox maxHeight={5} scrollbarOptions={{ visible: false }}>
+          <scrollbox scrollAcceleration={scrollAcceleration()} maxHeight={5} scrollbarOptions={{ visible: false }}>
             <box flexDirection="row" flexWrap="wrap" gap={1}>
               <For each={PRESET_COLORS}>
                 {(color, i) => {

@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { createMemo, createSignal, Show, For, onCleanup, onMount } from "solid-js"
 import { pipe } from "remeda"
 import { TextAttributes } from "@opentui/core"
@@ -126,6 +127,7 @@ function TerminalView({ connection }: { connection: TerminalConnection }) {
 
 export function DialogRemote() {
   const sync = useSync()
+  const scrollAcceleration = useScrollAcceleration()
   const sdk = useSDK()
   const toast = useToast()
   const renderer = useRenderer()
@@ -321,7 +323,12 @@ export function DialogRemote() {
               <text attributes={TextAttributes.BOLD} fg="green">
                 Remote Session Active
               </text>
-              <scrollbox flexDirection="column" maxHeight={3} scrollbarOptions={{ visible: false }}>
+              <scrollbox
+                scrollAcceleration={scrollAcceleration()}
+                flexDirection="column"
+                maxHeight={3}
+                scrollbarOptions={{ visible: false }}
+              >
                 <text fg="cyan">{sessionInfo()?.url}</text>
               </scrollbox>
               <text fg="gray">Local: {sessionInfo()?.localUrl}</text>

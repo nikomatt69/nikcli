@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { TextAttributes, RGBA } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import {
@@ -2132,6 +2133,7 @@ function componentToMarkdown(c: VizComponent, lines: string[]): void {
 
 export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
   const dialog = useDialog()
+  const scrollAcceleration = useScrollAcceleration()
   const toast = useToast()
   const { theme } = useTheme()
   const dimensions = useTerminalDimensions()
@@ -2244,7 +2246,7 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
       </Show>
 
       <box border borderColor={theme.border.default} height={contentHeight()} flexShrink={0}>
-        <scrollbox height={contentHeight() - 2} focused={true}>
+        <scrollbox scrollAcceleration={scrollAcceleration()} height={contentHeight() - 2} focused={true}>
           <box paddingTop={1} paddingBottom={1} paddingLeft={1} paddingRight={1} gap={1}>
             {/* `keyed` remounts on tab change so a per-component ErrorBoundary that
                 latched on one tab doesn't stay stuck when switching to another. */}

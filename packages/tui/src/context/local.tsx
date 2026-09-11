@@ -14,6 +14,7 @@ import { useToast } from "../ui/toast"
 import { parseModel } from "@nikcli-ai/util/model"
 import { useArgs } from "./args"
 import { RGBA } from "@opentui/core"
+import { moveSelection } from "@tui/ui/select-controller"
 
 export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
   name: "Local",
@@ -101,9 +102,14 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         },
         move(direction: 1 | -1) {
           batch(() => {
-            let next = agents().findIndex((x) => x.name === agentStore.current) + direction
-            if (next < 0) next = agents().length - 1
-            if (next >= agents().length) next = 0
+            const next = moveSelection(
+              agents().findIndex((x) => x.name === agentStore.current),
+              {
+                count: agents().length,
+                delta: direction,
+                policy: "wrap",
+              },
+            )
             const value = agents()[next]
             if (value) setAgentStore("current", value.name)
           })
@@ -112,9 +118,14 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           const subs = subagents()
           if (subs.length === 0) return
           batch(() => {
-            let next = subs.findIndex((x) => x.name === agentStore.current) + direction
-            if (next < 0) next = subs.length - 1
-            if (next >= subs.length) next = 0
+            const next = moveSelection(
+              subs.findIndex((x) => x.name === agentStore.current),
+              {
+                count: subs.length,
+                delta: direction,
+                policy: "wrap",
+              },
+            )
             const value = subs[next]
             if (value) setAgentStore("current", value.name)
           })
@@ -328,9 +339,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           const recent = modelStore.recent
           const index = recent.findIndex((x) => x.providerID === current.providerID && x.modelID === current.modelID)
           if (index === -1) return
-          let next = index + direction
-          if (next < 0) next = recent.length - 1
-          if (next >= recent.length) next = 0
+          const next = moveSelection(index, { count: recent.length, delta: direction, policy: "wrap" })
           const val = recent[next]
           if (!val) return
           setModelStore("model", agent.current().name, { ...val })

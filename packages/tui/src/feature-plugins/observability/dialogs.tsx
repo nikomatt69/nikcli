@@ -6,6 +6,7 @@
  * the TUI through the telemetry context; these dialogs only render and
  * toggle it.
  */
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { createEffect, createMemo, createSignal, For, on, onMount } from "solid-js"
@@ -110,6 +111,7 @@ function formatDuration(ms: number): string {
 
 export function DialogTelemetryLive() {
   const { theme } = useTheme()
+  const scrollAcceleration = useScrollAcceleration()
   const dialog = useDialog()
   const telemetry = useTelemetry()
   const dimensions = useTerminalDimensions()
@@ -188,6 +190,8 @@ export function DialogTelemetryLive() {
       </box>
 
       <scrollbox
+        viewportCulling={true}
+        scrollAcceleration={scrollAcceleration()}
         height={listHeight()}
         backgroundColor={theme.surface.offset}
         ref={(r: ScrollBoxRenderable) => {

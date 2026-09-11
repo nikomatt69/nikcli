@@ -1,5 +1,5 @@
 import { ScrollBoxRenderable, TextAttributes, RGBA } from "@opentui/core"
-import { scrollChildIntoView } from "@tui/util/scroll"
+import { scrollChildIntoView, useScrollAcceleration } from "@tui/util/scroll"
 import { useTheme } from "../context/theme"
 import { useRoute } from "@tui/context/route"
 import { useSDK } from "@tui/context/sdk"
@@ -33,6 +33,7 @@ import {
   type HealthStatus,
 } from "../util/context-usage"
 import { useDialog } from "@tui/ui/dialog"
+import { moveSelection, reconcileSelection } from "@tui/ui/select-controller"
 
 const EDITOR_SOURCE_ID = "system:editor"
 const EDITOR_TOGGLE_KEY = "editor_context_visibility"
@@ -72,6 +73,7 @@ export function DialogUsage() {
   const toast = useToast()
   const dialog = useDialog()
   const dimensions = useTerminalDimensions()
+  const scrollAcceleration = useScrollAcceleration()
   const editor = useEditorContext()
   const kv = useKV()
 
@@ -269,9 +271,7 @@ export function DialogUsage() {
   }
 
   function clamp(index: number) {
-    const length = sources().length
-    if (length === 0) return 0
-    return Math.max(0, Math.min(index, length - 1))
+    return reconcileSelection(index, sources().length)
   }
 
   function scrollToSelected(index: number) {
@@ -281,9 +281,7 @@ export function DialogUsage() {
   function move(direction: number) {
     const length = sources().length
     if (length === 0) return
-    let next = selected() + direction
-    if (next < 0) next = length - 1
-    if (next >= length) next = 0
+    const next = moveSelection(selected(), { count: length, delta: direction, policy: "wrap" })
     setSelected(next)
     scrollToSelected(next)
   }
@@ -411,6 +409,8 @@ export function DialogUsage() {
           ref={(r: ScrollBoxRenderable) => (scroll = r)}
           height={bodyHeight()}
           paddingRight={1}
+          viewportCulling={true}
+          scrollAcceleration={scrollAcceleration()}
           scrollbarOptions={{ visible: true }}
         >
           {/* KPI row — 4 cards, each carries the sparkline of one metric over

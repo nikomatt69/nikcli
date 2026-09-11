@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { createStore } from "solid-js/store"
 import { createMemo, For, Match, Show, Switch } from "solid-js"
 import { Portal, useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
@@ -33,6 +34,7 @@ function filetype(input?: string) {
 
 function EditBody(props: { request: PermissionRequest }) {
   const themeState = useTheme()
+  const scrollAcceleration = useScrollAcceleration()
   const theme = themeState.theme
   const syntax = themeState.syntax
   const sync = useSync()
@@ -76,7 +78,7 @@ function EditBody(props: { request: PermissionRequest }) {
         </Show>
       </box>
       <Show when={diff()}>
-        <scrollbox height="100%">
+        <scrollbox scrollAcceleration={scrollAcceleration()} height="100%">
           <Switch>
             <Match when={diff()}>
               <diff

@@ -1,3 +1,4 @@
+import { useScrollAcceleration } from "@tui/util/scroll"
 import { TextAttributes, type TextareaRenderable } from "@opentui/core"
 import { batch, createMemo, createSignal, For, onMount, Show, Switch, Match } from "solid-js"
 import { createStore } from "solid-js/store"
@@ -912,6 +913,7 @@ const STEP_CONTINUE_LABELS = [
 
 function OnboardingWizard(props: { onComplete: () => void }) {
   const { theme } = useTheme()
+  const scrollAcceleration = useScrollAcceleration()
   const dialog = useDialog()
   const dimensions = useTerminalDimensions()
   const contentMaxHeight = createMemo(() => Math.max(8, dimensions().height - 12))
@@ -1314,6 +1316,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
       <Switch>
         <Match when={step() !== STEP.ACCOUNT}>
           <scrollbox
+            scrollAcceleration={scrollAcceleration()}
             paddingLeft={2}
             paddingRight={2}
             paddingTop={1}

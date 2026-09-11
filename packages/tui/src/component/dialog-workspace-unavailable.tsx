@@ -1,9 +1,8 @@
-import { TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/solid"
 import { createStore } from "solid-js/store"
 import { For } from "solid-js"
 import { useTheme } from "../context/theme"
-import { useDialog } from "../ui/dialog"
+import { DialogHeader, useDialog } from "../ui/dialog"
 
 export function DialogWorkspaceUnavailable(props: { onRestore?: () => boolean | void | Promise<boolean | void> }) {
   const dialog = useDialog()
@@ -45,14 +44,7 @@ export function DialogWorkspaceUnavailable(props: { onRestore?: () => boolean | 
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
-      <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
-          Workspace Unavailable
-        </text>
-        <text fg={theme.foreground.muted} onMouseUp={() => dialog.clear()}>
-          esc
-        </text>
-      </box>
+      <DialogHeader title="Workspace Unavailable" />
       <text fg={theme.foreground.muted} wrapMode="word">
         This session is attached to a workspace that is no longer available.
       </text>
