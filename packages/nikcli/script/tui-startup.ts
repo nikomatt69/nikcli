@@ -21,7 +21,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { spawnPty, type NativePty } from "@nikcli-ai/util/pty"
 import { formatBytes, summarizeSamples, type SampleSummary } from "@tui/util/runtime-samples"
-import { probeEnvironment } from "@nikcli-ai/util/probe-env"
+import { formatProbeEnvironment, probeEnvironment } from "@nikcli-ai/util/probe-env"
 
 const BIN = process.argv[2] ?? ""
 if (!BIN || !existsSync(BIN)) throw new Error(`usage: tui-startup.ts <binary>  (got ${BIN || "nothing"})`)
@@ -107,16 +107,58 @@ type Marks = {
 const live = new Set<NativePty>()
 const homes = new Set<string>()
 
+/** Bounded grace period between SIGTERM and SIGKILL when reaping a probe child. */
+const REAP_GRACE_MS = 2000
+
 function scratch() {
   const home = mkdtempSync(path.join(os.tmpdir(), "nikcli-startup-"))
   homes.add(home)
   return home
 }
 
-async function reap() {
-  for (const pty of live) {
-    pty.kill()
+/**
+ * Resolve when the child has actually exited, or escalate to SIGKILL after a
+ * bounded grace period. The probe must not advance to the next sample, nor
+ * remove the per-run home directory, while the child still holds the terminal
+ * or its temporary files; doing so leaves overlapping processes and unreadable
+ * failures. The previous implementation called `pty.kill()` without waiting,
+ * which did not detect a hung child or guarantee cleanup before home removal.
+ */
+export async function waitForExit(pty: NativePty): Promise<void> {
+  let resolveExit!: () => void
+  const exited = new Promise<void>((resolve) => {
+    resolveExit = resolve
+  })
+  pty.onExit(() => resolveExit())
+  // `kill` already escalates from pending data and exits; the onExit listener
+  // fires when the child actually leaves the process table.
+  pty.kill()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const grace = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, REAP_GRACE_MS)
+  })
+  // Resolve synchronously when the child exits, so we never settle `exited`
+  // after `grace` and miss the escalation. The second await checks whether
+  // SIGTERM was enough: if not, escalate to SIGKILL and wait for the real
+  // exit. A race-free check would need a shared flag, so the `onExit` callback
+  // resolves the same `exited` promise we await below.
+  let exitedBeforeGrace = false
+  const track = exited.then(() => {
+    exitedBeforeGrace = true
+  })
+  await Promise.race([track, grace])
+  if (!exitedBeforeGrace) {
+    if (timer) clearTimeout(timer)
+    pty.kill("SIGKILL")
   }
+  await exited
+}
+
+async function reap() {
+  // Reap child PTYs deterministically: signal once, wait, then escalate.
+  // Awaiting all of them concurrently keeps the total shutdown bounded by the
+  // slowest child rather than N * REAP_GRACE_MS.
+  await Promise.all([...live].map((pty) => waitForExit(pty)))
   live.clear()
   for (const home of homes) {
     await rm(home, { recursive: true, force: true }).catch(() => {})
@@ -158,7 +200,10 @@ async function once(home: string): Promise<Marks> {
   const deadline = Date.now() + TIMEOUT_MS
   while ((!firstPaintMs || !usablePromptMs) && Date.now() < deadline) await Bun.sleep(10)
   const rss = rssBytes(pty.pid)
-  pty.kill()
+  // Wait for the child to exit before deleting the per-run home. Otherwise the
+  // next sample inherits a database file that may still be locked by the prior
+  // child on some hosts, and bootstrap races overlap their migrations.
+  await waitForExit(pty)
   live.delete(pty)
   if (!firstPaintMs) throw new Error("never painted")
   if (!usablePromptMs) throw new Error("never reached a usable prompt")
@@ -224,6 +269,11 @@ process.on("SIGTERM", () => {
 })
 
 try {
+  // Context first: the percentile lines below are meaningless next to another
+  // run's without the revision and machine that produced them. This used to
+  // reach the JSON blob on the last line and nowhere else.
+  console.log(formatProbeEnvironment(environment))
+
   const warm: Marks[] = []
   const cold: Marks[] = []
   let bootstrap: Marks | undefined
@@ -281,8 +331,16 @@ try {
     if (coldSeries.rssBytes.length > 0) samplesLine("cold rss samples", coldSeries.rssBytes, formatBytes)
   }
 
+  // `environment.os.loadavg1` was read before the first spawn. A probe that
+  // runs for minutes needs the load it actually ran under, and the probe's own
+  // samples contribute to it — a clean reading at the start says nothing about
+  // sample 30.
+  const loadavg1AtEnd = os.loadavg()[0]
+  console.log(`load: start=${environment.os.loadavg1.toFixed(2)} end=${loadavg1AtEnd.toFixed(2)}`)
+
   const report = {
     environment,
+    loadavg1AtEnd,
     bootstrap: bootstrap ?? null,
     samples: {
       warm: warmSeries,
