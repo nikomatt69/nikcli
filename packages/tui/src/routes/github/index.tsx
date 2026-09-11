@@ -1,6 +1,7 @@
-import { useScrollAcceleration } from "@tui/util/scroll"
+import { moveSelection, reconcileSelection } from "@tui/ui/select-controller"
+import { scrollChildIntoView, useScrollAcceleration } from "@tui/util/scroll"
 import { For, Show, createEffect, createMemo, createResource, createSignal } from "solid-js"
-import { TextAttributes } from "@opentui/core"
+import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/solid"
 import path from "node:path"
 import { useRoute, useRouteData } from "@tui/context/route"
@@ -360,14 +361,30 @@ export function GitHubPanel() {
 
   createEffect(() => {
     if (selected() < visibleItems().length) return
-    setSelected(Math.max(0, visibleItems().length - 1))
+    setSelected(reconcileSelection(selected(), visibleItems().length))
   })
 
   function selectDelta(delta: number) {
     const list = visibleItems()
     if (list.length === 0) return
-    setSelected((i) => (i + delta + list.length) % list.length)
+    setSelected((i) => moveSelection(i, { count: list.length, delta, policy: "wrap" }))
   }
+
+  /**
+   * Keep the cursor on screen.
+   *
+   * The list moves on j/k, g/G and a section switch, and nothing ever scrolled
+   * to it: past the fold the selection simply vanished and the only way back
+   * was the mouse wheel. `scrollChildIntoView` is a no-op when the id is not in
+   * the tree, so this stays quiet while the list is empty or still loading.
+   */
+  let listScroll: ScrollBoxRenderable | undefined
+  const rowID = (index: number) => `github-row-${index}`
+  createEffect(() => {
+    const index = selected()
+    if (visibleItems().length === 0) return
+    scrollChildIntoView(listScroll, rowID(index))
+  })
 
   function navigateBack() {
     if (routeData.sessionID) {
@@ -930,6 +947,7 @@ export function GitHubPanel() {
             }
           >
             <scrollbox
+              ref={(r: ScrollBoxRenderable) => (listScroll = r)}
               viewportCulling={true}
               scrollAcceleration={scrollAcceleration()}
               flexGrow={1}
@@ -940,6 +958,7 @@ export function GitHubPanel() {
                   const isSelected = () => selected() === index()
                   return (
                     <box
+                      id={rowID(index())}
                       width="100%"
                       height={1}
                       backgroundColor={isSelected() ? theme.surface.offset : undefined}
