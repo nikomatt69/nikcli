@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.341.0 (September 2026)
+
+## Core
+
+- Stop one failed optional request pinning bootstrap at "partial" (EOT-05) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(tui): stop one failed optional request pinning bootstrap at "partial" (EOT-05)
+
 ## v1.340.0 (September 2026)
 
 ## Core
