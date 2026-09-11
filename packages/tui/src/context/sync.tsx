@@ -30,9 +30,10 @@ import { useProject } from "@tui/context/project"
 import { Binary } from "@nikcli-ai/util/binary"
 import { createSimpleContext } from "./helper"
 import { namedFailures } from "@tui/util/settled"
+import { createReconnectGate } from "@tui/util/reconnect"
 import { useExit } from "./exit"
 import { useArgs } from "./args"
-import { batch, onCleanup, onMount } from "solid-js"
+import { batch, createEffect, on, onCleanup, onMount } from "solid-js"
 import { debounce } from "@solid-primitives/scheduled"
 import { Log } from "@nikcli-ai/util/log"
 import { createLru } from "@tui/util/lru-cache"
@@ -912,6 +913,37 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     onMount(() => {
       bootstrap()
     })
+
+    /**
+     * A reconnect resumes the live stream; it does not replay what was missed.
+     *
+     * The server feed is a live fan-out with a per-connection lag budget, not a
+     * journal — there is no cursor to resume from. So while the SSE loop was
+     * retrying, every event published on the other side was dropped, and
+     * resuming the stream leaves the stores with a hole in the middle while the
+     * UI reports "connected". Session parts, permission answers and job
+     * completions all travel that way.
+     *
+     * Until there is a snapshot/watermark seam to resume against, the honest
+     * recovery is the one EOT-04 prescribes: refetch, rather than assert a
+     * lossless catch-up the transport cannot provide. `bootstrap` supersedes
+     * itself through `bootstrapVersion`, so overlapping reconnects are safe.
+     *
+     * Only a transition through `reconnecting` triggers this. The first
+     * `connecting` → `connected` is the initial connection, which `onMount`
+     * above has already covered.
+     */
+    const reconnectGate = createReconnectGate()
+    createEffect(
+      on(
+        () => sdk.connection.status(),
+        (status) => {
+          if (!reconnectGate.observe(status)) return
+          Log.Default.info("tui reconnected; refetching state the live stream cannot replay")
+          bootstrap()
+        },
+      ),
+    )
 
     const syncedSessions = new Map<string, "partial" | "full">()
 
