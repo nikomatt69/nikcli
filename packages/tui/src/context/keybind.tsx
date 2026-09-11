@@ -1,4 +1,4 @@
-import { createMemo } from "solid-js"
+import { createMemo, onCleanup } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { Keybind } from "@tui/util/keybind"
 import { pipe, mapValues } from "remeda"
@@ -24,7 +24,10 @@ export const { use: useKeybind, provider: KeybindProvider } = createSimpleContex
     const renderer = useRenderer()
 
     let focus: Renderable | null
-    let timeout: NodeJS.Timeout
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    onCleanup(() => {
+      if (timeout) clearTimeout(timeout)
+    })
 
     /** Safely blur a renderable, checking isDestroyed first */
     function safeBlur(r: Renderable | null) {

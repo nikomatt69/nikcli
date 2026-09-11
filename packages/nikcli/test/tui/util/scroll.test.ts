@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { CustomSpeedScroll, getScrollAcceleration } from "@tui/util/scroll"
+import { CustomSpeedScroll, getScrollAcceleration, scrollChildIntoView } from "@tui/util/scroll"
 import { recordBenchmark } from "../../benchmarks/runner"
 
 describe("CustomSpeedScroll", () => {
@@ -49,40 +49,44 @@ describe("getScrollAcceleration", () => {
   })
 
   it("returns MacOS-like acceleration when scroll_acceleration.enabled is true", () => {
-    const s = getScrollAcceleration({ scroll_acceleration: { enabled: true } } as any)
-    // MacOS accel starts at momentum 1 (cold)
-    const first = s.tick(performance.now())
+    const s = getScrollAcceleration({
+      scroll_acceleration: { enabled: true },
+    } as any)
+    const first = s.tick(Date.now())
     expect(first).toBeGreaterThanOrEqual(1)
   })
 
   it("acceleration builds up with rapid ticks", () => {
-    const s = getScrollAcceleration({ scroll_acceleration: { enabled: true } } as any)
-    const now = performance.now()
+    const s = getScrollAcceleration({
+      scroll_acceleration: { enabled: true },
+    } as any)
+    const now = Date.now()
     s.tick(now)
-    const second = s.tick(now + 10) // < 50ms gap → momentum increases
+    const second = s.tick(now + 10)
     expect(second).toBeGreaterThan(1)
   })
 
   it("acceleration resets to 1 after slow ticks", () => {
-    const s = getScrollAcceleration({ scroll_acceleration: { enabled: true } } as any)
-    const now = performance.now()
-    // Build up momentum
+    const s = getScrollAcceleration({
+      scroll_acceleration: { enabled: true },
+    } as any)
+    const now = Date.now()
     s.tick(now)
     s.tick(now + 10)
     s.tick(now + 20)
-    // Then a slow tick (> 120ms) resets momentum
     const slow = s.tick(now + 500)
     expect(slow).toBe(1)
   })
 
   it("reset restores initial state for acceleration", () => {
-    const s = getScrollAcceleration({ scroll_acceleration: { enabled: true } } as any)
-    const now = performance.now()
+    const s = getScrollAcceleration({
+      scroll_acceleration: { enabled: true },
+    } as any)
+    const now = Date.now()
     s.tick(now)
     s.tick(now + 10)
     s.reset()
-    const afterReset = s.tick(now + 20)
-    // After reset, last=0 so delta is large → momentum resets to 1
+    const afterReset = s.tick(now + 40)
     expect(afterReset).toBe(1)
   })
 
@@ -109,5 +113,61 @@ describe("getScrollAcceleration", () => {
         unit: "ms",
       })
     })
+  })
+})
+
+describe("scrollChildIntoView", () => {
+  it("no-ops when the box is missing, destroyed, or the child id is empty", () => {
+    expect(() => scrollChildIntoView(undefined, "row-1")).not.toThrow()
+    expect(() => scrollChildIntoView({ isDestroyed: true } as never, "row-1")).not.toThrow()
+    expect(() =>
+      scrollChildIntoView(
+        {
+          isDestroyed: false,
+          scrollChildIntoView() {
+            throw new Error("should not run")
+          },
+        } as never,
+        "",
+      ),
+    ).not.toThrow()
+  })
+
+  it("delegates to OpenTUI scrollChildIntoView unless centering is requested", () => {
+    const seen: string[] = []
+    const scroll = {
+      isDestroyed: false,
+      viewport: { height: 10, y: 0 },
+      getRenderable() {
+        return { y: 40 }
+      },
+      scrollBy() {
+        throw new Error("plain into-view must not use scrollBy")
+      },
+      scrollChildIntoView(id: string) {
+        seen.push(id)
+      },
+    }
+    scrollChildIntoView(scroll as never, "row-7")
+    expect(seen).toEqual(["row-7"])
+  })
+
+  it("centers by comparing the child against the viewport, not the box origin", () => {
+    const moved: number[] = []
+    const scroll = {
+      isDestroyed: false,
+      viewport: { height: 10, y: 20 },
+      getRenderable() {
+        return { y: 48 }
+      },
+      scrollBy(delta: number) {
+        moved.push(delta)
+      },
+      scrollChildIntoView() {
+        throw new Error("center path must not use nearest-edge into-view")
+      },
+    }
+    scrollChildIntoView(scroll as never, "row-7", { center: true })
+    expect(moved).toEqual([23])
   })
 })

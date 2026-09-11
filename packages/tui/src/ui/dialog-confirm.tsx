@@ -1,6 +1,5 @@
-import { TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
-import { useDialog, type DialogContext } from "./dialog"
+import { DialogHeader, useDialog, type DialogContext } from "./dialog"
 import { createStore } from "solid-js/store"
 import { For } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
@@ -24,37 +23,39 @@ export function DialogConfirm(props: DialogConfirmProps) {
 
   useKeyboard((evt) => {
     if (evt.name === "return") {
+      evt.preventDefault()
+      evt.stopPropagation()
       if (store.active === "confirm") props.onConfirm?.()
       if (store.active === "cancel") props.onCancel?.()
       dialog.clear()
+      return
     }
 
     // Y/N shortcuts for quick confirm/cancel
     if (evt.name === "y" && !evt.ctrl && !evt.meta) {
       evt.preventDefault()
+      evt.stopPropagation()
       props.onConfirm?.()
       dialog.clear()
       return
     }
     if (evt.name === "n" && !evt.ctrl && !evt.meta) {
       evt.preventDefault()
+      evt.stopPropagation()
       props.onCancel?.()
       dialog.clear()
       return
     }
 
     if (evt.name === "left" || evt.name === "right") {
+      evt.preventDefault()
+      evt.stopPropagation()
       setStore("active", store.active === "confirm" ? "cancel" : "confirm")
     }
   })
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
-      <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
-          {props.title}
-        </text>
-        <text fg={theme.foreground.muted}>esc</text>
-      </box>
+      <DialogHeader title={props.title} />
       <box paddingBottom={1}>
         <text fg={theme.foreground.muted}>{props.message}</text>
       </box>

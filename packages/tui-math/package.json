@@ -22,12 +22,12 @@
     "test": "bun test"
   },
   "peerDependencies": {
-    "@opentui/core": ">=0.5.10",
-    "@opentui/solid": ">=0.5.10"
+    "@opentui/core": ">=0.5.11",
+    "@opentui/solid": ">=0.5.11"
   },
   "devDependencies": {
-    "@opentui/core": "0.5.10",
-    "@opentui/solid": "0.5.10",
+    "@opentui/core": "0.5.11",
+    "@opentui/solid": "0.5.11",
     "typescript": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:"

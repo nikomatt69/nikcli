@@ -1,6 +1,6 @@
-import { TextareaRenderable, TextAttributes } from "@opentui/core"
+import { TextareaRenderable } from "@opentui/core"
 import { useTheme } from "../context/theme"
-import { useDialog, type DialogContext } from "./dialog"
+import { DialogHeader, useDialog, type DialogContext } from "./dialog"
 import { createStore } from "solid-js/store"
 import { onMount, Show } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
@@ -35,6 +35,8 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
 
   useKeyboard((evt) => {
     if (evt.name === "return") {
+      evt.preventDefault()
+      evt.stopPropagation()
       const filename = textarea.plainText.trim()
       if (!filename) return
       props.onConfirm?.({
@@ -44,6 +46,8 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
         assistantMetadata: store.assistantMetadata,
         openWithoutSaving: store.openWithoutSaving,
       })
+      dialog.clear()
+      return
     }
     if (evt.name === "tab") {
       const order: Array<"filename" | "thinking" | "toolDetails" | "assistantMetadata" | "openWithoutSaving"> = [
@@ -57,6 +61,8 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
       const nextIndex = (currentIndex + 1) % order.length
       setStore("active", order[nextIndex])
       evt.preventDefault()
+      evt.stopPropagation()
+      return
     }
     if (evt.name === "space") {
       if (store.active === "thinking") setStore("thinking", !store.thinking)
@@ -64,27 +70,19 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
       if (store.active === "assistantMetadata") setStore("assistantMetadata", !store.assistantMetadata)
       if (store.active === "openWithoutSaving") setStore("openWithoutSaving", !store.openWithoutSaving)
       evt.preventDefault()
+      evt.stopPropagation()
     }
   })
 
   onMount(() => {
     dialog.setSize("medium")
-    queueMicrotask(() => {
-      if (!textarea.isDestroyed && !textarea.focused) {
-        textarea.focus()
-      }
-    })
+    if (!textarea || textarea.isDestroyed) return
     textarea.gotoLineEnd()
   })
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
-      <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
-          Export Options
-        </text>
-        <text fg={theme.foreground.muted}>esc</text>
-      </box>
+      <DialogHeader title="Export Options" />
       <box gap={1}>
         <box>
           <text fg={theme.foreground.default}>Filename:</text>
@@ -102,6 +100,7 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
             })
           }}
           height={3}
+          focused={store.active === "filename"}
           keyBindings={[{ name: "return", action: "submit" }]}
           ref={(val: TextareaRenderable) => (textarea = val)}
           initialValue={props.defaultFilename}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { moveSelection, reconcileSelection } from "@tui/ui/select-controller"
+import { stripComments, tuiSource } from "./tui-source"
 
 /**
  * The cursor arithmetic behind every list dialog.
@@ -79,5 +80,14 @@ describe("moveSelection", () => {
     expect(wrap(0, 1, 1)).toBe(0)
     expect(wrap(0, -1, 1)).toBe(0)
     expect(clamp(0, 5, 1)).toBe(0)
+  })
+})
+
+describe("DialogSelect OpenTUI scroll", () => {
+  it("keeps the selected row in view through scrollChildIntoView, not child.y - scroll.y", async () => {
+    const src = stripComments(await tuiSource("ui/dialog-select.tsx"))
+    expect(src).toContain("scrollChildIntoView")
+    expect(src).toContain("viewportCulling={true}")
+    expect(src).not.toMatch(/target\.y - scroll\.y/)
   })
 })

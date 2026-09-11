@@ -1,6 +1,5 @@
-import { TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
-import { useDialog, type DialogContext } from "./dialog"
+import { DialogHeader, useDialog, type DialogContext } from "./dialog"
 import { useKeyboard } from "@opentui/solid"
 
 export type DialogAlertProps = {
@@ -15,18 +14,15 @@ export function DialogAlert(props: DialogAlertProps) {
 
   useKeyboard((evt) => {
     if (evt.name === "return") {
+      evt.preventDefault()
+      evt.stopPropagation()
       props.onConfirm?.()
       dialog.clear()
     }
   })
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
-      <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
-          {props.title}
-        </text>
-        <text fg={theme.foreground.muted}>esc</text>
-      </box>
+      <DialogHeader title={props.title} />
       <box paddingBottom={1}>
         <text fg={theme.foreground.muted}>{props.message}</text>
       </box>

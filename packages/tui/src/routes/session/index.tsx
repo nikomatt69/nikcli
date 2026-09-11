@@ -21,7 +21,7 @@ import { SplitBorder } from "@tui/component/border"
 import { PendingInputCard } from "@tui/component/pending-input-card"
 import { Spinner } from "@tui/component/spinner"
 import { useTheme, selectedForeground } from "@tui/context/theme"
-import { ScrollBoxRenderable, addDefaultParsers, MacOSScrollAccel, type ScrollAcceleration, RGBA } from "@opentui/core"
+import { ScrollBoxRenderable, addDefaultParsers, RGBA } from "@opentui/core"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
 import { TuiPluginRuntime } from "@tui/plugin"
 import {
@@ -95,6 +95,7 @@ import { Link } from "../../ui/link"
 import { context, use } from "./session-context"
 import { fromEntries, stabilize, type Turn, type ViewEntry } from "./view"
 import { formatInstructionDelta, visibleInstructionNotices } from "@nikcli-ai/util/instruction-delta"
+import { getScrollAcceleration, scrollChildIntoView } from "@tui/util/scroll"
 
 /** The file fields the user-message badge row and image preview read. */
 type FileAttachment = {
@@ -106,16 +107,6 @@ type FileAttachment = {
 import { DialogMonitorLog, ExplorationSummary, ToolPartView } from "./tool-view"
 
 addDefaultParsers(parsers.parsers)
-
-class CustomSpeedScroll implements ScrollAcceleration {
-  constructor(private speed: number) {}
-
-  tick(_now?: number): number {
-    return this.speed
-  }
-
-  reset(): void {}
-}
 
 export function Session() {
   const route = useRouteData("session")
@@ -190,11 +181,9 @@ export function Session() {
   createEffect(() => {
     if (!virtualizationEnabled()) return
     const id = setInterval(() => {
-      if (!scroll) return
-      const y = typeof (scroll as { scrollTop?: number }).scrollTop === "number" ? (scroll as any).scrollTop : scroll.y
-      setScrollPos(typeof y === "number" ? y : 0)
-      const h = typeof scroll.height === "number" ? scroll.height : dimensions().height - 10
-      setViewportH(Math.max(1, h))
+      if (!scroll || scroll.isDestroyed) return
+      setScrollPos(scroll.scrollTop)
+      setViewportH(Math.max(1, scroll.viewport.height || dimensions().height - 10))
     }, 50)
     onCleanup(() => clearInterval(id))
   })
@@ -281,17 +270,7 @@ export function Session() {
   const showTimestamps = createMemo(() => timestamps() === "show")
   const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? SESSION_SIDEBAR_WIDTH : 0) - 4)
 
-  const scrollAcceleration = createMemo(() => {
-    const tui = sync.data.config.tui
-    if (tui?.scroll_acceleration?.enabled) {
-      return new MacOSScrollAccel()
-    }
-    if (tui?.scroll_speed) {
-      return new CustomSpeedScroll(tui.scroll_speed)
-    }
-
-    return new CustomSpeedScroll(3)
-  })
+  const scrollAcceleration = createMemo(() => getScrollAcceleration(sync.data.config.tui))
   const toast = useToast()
   const sdk = useSDK()
   const project = useProject()
@@ -475,7 +454,7 @@ export function Session() {
   const findNextVisibleMessage = (direction: "next" | "prev"): string | null => {
     const children = scroll.getChildren()
     const messageSet = new Set(messages().map((m) => m.id))
-    const scrollTop = scroll.y
+    const scrollTop = scroll.scrollTop
 
     const isValidMessage = (c: (typeof children)[0]) => {
       if (!c.id || !messageSet.has(c.id)) return false
@@ -507,8 +486,7 @@ export function Session() {
       return
     }
 
-    const child = scroll.getChildren().find((c) => c.id === targetID)
-    if (child) scroll.scrollBy(child.y - scroll.y - 1)
+    scrollChildIntoView(scroll, targetID)
     dialog.clear()
   }
 
@@ -699,10 +677,7 @@ export function Session() {
         dialog.replace(() => (
           <DialogTimeline
             onMove={(messageID) => {
-              const child = scroll.getChildren().find((child) => {
-                return child.id === messageID
-              })
-              if (child) scroll.scrollBy(child.y - scroll.y - 1)
+              scrollChildIntoView(scroll, messageID)
             }}
             sessionID={route.sessionID}
             setPrompt={(promptInfo) => prompt.set(promptInfo)}
@@ -722,10 +697,7 @@ export function Session() {
         dialog.replace(() => (
           <DialogForkFromTimeline
             onMove={(messageID) => {
-              const child = scroll.getChildren().find((child) => {
-                return child.id === messageID
-              })
-              if (child) scroll.scrollBy(child.y - scroll.y - 1)
+              scrollChildIntoView(scroll, messageID)
             }}
             sessionID={route.sessionID}
           />
@@ -1063,10 +1035,7 @@ export function Session() {
           )
 
           if (hasValidTextPart) {
-            const child = scroll.getChildren().find((child) => {
-              return child.id === message.id
-            })
-            if (child) scroll.scrollBy(child.y - scroll.y - 1)
+            scrollChildIntoView(scroll, message.id)
             break
           }
         }
@@ -1470,7 +1439,9 @@ export function Session() {
                 {(notice) => (
                   <box paddingLeft={2} paddingRight={2} paddingTop={1} flexShrink={0}>
                     <text fg={theme.foreground.muted} wrapMode="word">
-                      {lang.t("session.instructions.updated", { keys: formatInstructionDelta(notice.delta) })}
+                      {lang.t("session.instructions.updated", {
+                        keys: formatInstructionDelta(notice.delta),
+                      })}
                     </text>
                   </box>
                 )}

@@ -1,4 +1,5 @@
 import { ScrollBoxRenderable, TextAttributes, RGBA } from "@opentui/core"
+import { scrollChildIntoView } from "@tui/util/scroll"
 import { useTheme } from "../context/theme"
 import { useRoute } from "@tui/context/route"
 import { useSDK } from "@tui/context/sdk"
@@ -274,12 +275,7 @@ export function DialogUsage() {
   }
 
   function scrollToSelected(index: number) {
-    if (!scroll) return
-    const target = scroll.getChildren().find((child) => child.id === rowID(index))
-    if (!target) return
-    const y = target.y - scroll.y
-    if (y >= scroll.height) scroll.scrollBy(y - scroll.height + 1)
-    if (y < 0) scroll.scrollBy(y)
+    scrollChildIntoView(scroll, rowID(index))
   }
 
   function move(direction: number) {

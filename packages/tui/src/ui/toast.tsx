@@ -1,4 +1,4 @@
-import { createContext, useContext, type ParentProps, Show, For } from "solid-js"
+import { createContext, onCleanup, useContext, type ParentProps, Show, For } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "@tui/context/theme"
 import { useTerminalDimensions } from "@opentui/solid"
@@ -9,7 +9,9 @@ import { TuiEventZod } from "@nikcli-ai/util/tui-event-schema"
 
 // `duration` stays optional at the call site: the zod schema fills the 5000ms
 // default at parse time, but the walker types the field as required.
-type ToastInput = Omit<z.input<typeof TuiEventZod.toastShow>, "duration"> & { duration?: number }
+type ToastInput = Omit<z.input<typeof TuiEventZod.toastShow>, "duration"> & {
+  duration?: number
+}
 type ToastParsed = z.output<typeof TuiEventZod.toastShow>
 type ToastCurrent = Omit<ToastParsed, "duration">
 
@@ -107,6 +109,19 @@ function init() {
   })
 
   let nextId = 0
+  const timers = new Map<number, ReturnType<typeof setTimeout>>()
+
+  function dismiss(id: number) {
+    const timer = timers.get(id)
+    if (timer) clearTimeout(timer)
+    timers.delete(id)
+    setStore("toasts", (prev) => prev.filter((t) => t.id !== id))
+  }
+
+  onCleanup(() => {
+    for (const timer of timers.values()) clearTimeout(timer)
+    timers.clear()
+  })
 
   const toast = {
     show(options: ToastInput) {
@@ -117,15 +132,18 @@ function init() {
       const height = currentToast.title ? 7 : 5
 
       setStore("toasts", (prev) => {
-        const updated = [...prev, { ...currentToast, id, height }]
-        // Keep max MAX_TOASTS
-        return updated.slice(-MAX_TOASTS)
+        const dropped = prev.length >= MAX_TOASTS ? prev.slice(0, prev.length - MAX_TOASTS + 1) : []
+        for (const item of dropped) {
+          const timer = timers.get(item.id)
+          if (timer) clearTimeout(timer)
+          timers.delete(item.id)
+        }
+        return [...prev, { ...currentToast, id, height }].slice(-MAX_TOASTS)
       })
 
-      // Auto-remove after duration
-      setTimeout(() => {
-        setStore("toasts", (prev) => prev.filter((t) => t.id !== id))
-      }, duration).unref()
+      const timer = setTimeout(() => dismiss(id), duration)
+      timer.unref?.()
+      timers.set(id, timer)
     },
     error(err: unknown) {
       const message =

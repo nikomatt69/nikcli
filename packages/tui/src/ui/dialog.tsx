@@ -11,7 +11,7 @@ import {
   type ParentProps,
 } from "solid-js"
 import { useTheme } from "@tui/context/theme"
-import { Renderable, RGBA } from "@opentui/core"
+import { Renderable, RGBA, TextAttributes } from "@opentui/core"
 import { createStore } from "solid-js/store"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "./toast"
@@ -22,7 +22,7 @@ import { useToast } from "./toast"
  * - List rows gap: 1 (between items)
  * - Button spacing: gap=2 for grouped buttons
  */
-export type DialogSize = "medium" | "large" | "xlarge" | "full"
+export type DialogSize = "small" | "medium" | "large" | "xlarge" | "full"
 type DialogElement = JSX.Element | (() => JSX.Element)
 type DialogEntry = {
   element: DialogElement
@@ -57,6 +57,7 @@ export function Dialog(
     if (props.size === "full") return Math.max(1, dims.width - 4)
     if (props.size === "xlarge") return Math.min(120, Math.max(1, dims.width - 8))
     if (props.size === "large") return Math.min(88, Math.max(1, dims.width - 6))
+    if (props.size === "small") return Math.min(42, Math.max(1, dims.width - 4))
     return Math.min(60, Math.max(1, dims.width - 4))
   }
 
@@ -342,4 +343,20 @@ export function useDialog() {
     throw new Error("useDialog must be used within a DialogProvider")
   }
   return value
+}
+
+/** Title row shared by alert / confirm / prompt / select / help. */
+export function DialogHeader(props: { title: string; hint?: string; muted?: boolean }) {
+  const { theme } = useTheme()
+  return (
+    <box flexDirection="row" justifyContent="space-between">
+      <text
+        attributes={TextAttributes.BOLD}
+        fg={props.muted ? theme.foreground.muted : theme.foreground.default}
+      >
+        {props.title}
+      </text>
+      <text fg={theme.foreground.muted}>{props.hint ?? "esc"}</text>
+    </box>
+  )
 }

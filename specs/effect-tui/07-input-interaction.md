@@ -5,9 +5,9 @@ Owner: TUI prompt/dialog/keymap maintainers. [Roadmap](../ROADMAP.md).
 
 ## Problem and Evidence
 
-Evidence B11, B18: prompt/session routes contain substantial coordination, while dialog Ctrl+C behavior inspects component
-source text and a DOM-style active element. OpenTUI has its own focus and input system. Consistency requires explicit
-interaction ownership, not more scattered keyboard handlers or browser assumptions.
+Evidence B11, B18: prompt/session routes contain substantial coordination. Dialog Ctrl+C now asks
+`renderer.currentFocusedEditor`; shared confirm/alert/help/export dialogs consume return. Remaining work is still
+explicit interaction ownership: one focus role, one consumed event, no scattered keyboard handlers or browser assumptions.
 
 ## Scope and Non-Goals
 
@@ -80,3 +80,9 @@ success. Permission denial must remain visible and may not be bypassed by altern
 Characterize current key behavior first, then replace dialog role detection, extract one prompt controller, and integrate
 route/plugin input ownership. Keep public shortcuts stable; any intended behavioral change needs a separate user-facing
 decision. Roll back controller wiring behind the same context, retaining collision diagnostics, draft safety, and tests.
+
+Landed follow-ups on the 0.5.11 pin, still behind this spec's remaining gate:
+
+- Shared list/select scrolling uses `scrollChildIntoView` and `viewportCulling`.
+- `DialogPrompt` can submit a blank value when `allowEmpty` is set (display-name clear).
+- Leader-key timeout and toast timers are cleaned up on unmount.

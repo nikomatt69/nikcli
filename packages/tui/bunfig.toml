@@ -1,0 +1,15 @@
+# Solid's compile-time JSX transform, for running this package from source.
+#
+# `tsconfig.json` sets `jsxImportSource`, which only picks the runtime factory.
+# Solid also needs its compiler pass: without it `<A><B/></A>` becomes
+# `jsx(A, { children: jsx(B, {}) })`, so children are built eagerly, bottom-up —
+# every component runs before the one that wraps it. The app then renders `App`
+# before a single provider above it has executed, and the first `useContext`
+# throws ("Route context must be used within RouteProvider").
+#
+# `packages/nikcli` has carried this line for the CLI host; `packages/tui` did
+# not, so `bin/nikcli-tui.ts` and `smoke:standalone` — which run with this
+# package as cwd, where Bun looks for bunfig — got the runtime factory and no
+# transform. The compiled binary was never affected: `script/build.ts` passes
+# `@opentui/solid/bun-plugin` to `Bun.build`.
+preload = ["@opentui/solid/preload"]

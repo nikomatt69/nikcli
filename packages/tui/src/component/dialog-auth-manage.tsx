@@ -30,7 +30,14 @@ export function DialogAuthManage() {
 
   const options = createMemo<DialogSelectOption[]>(() => {
     if (account.loading) {
-      return [{ title: "Checking account…", value: "loading", category: "Account", disabled: true }]
+      return [
+        {
+          title: "Checking account…",
+          value: "loading",
+          category: "Account",
+          disabled: true,
+        },
+      ]
     }
 
     const user = account()
@@ -139,7 +146,12 @@ function DialogProfile(props: { user: UserSchema.PublicUser; notice?: ProfileNot
 
   const copyValue = async (value: string, label: string) => {
     await Clipboard.copy(value)
-      .then(() => toast.show({ message: `${label} copied to clipboard`, variant: "info" }))
+      .then(() =>
+        toast.show({
+          message: `${label} copied to clipboard`,
+          variant: "info",
+        }),
+      )
       .catch(toast.error)
   }
 
@@ -426,6 +438,7 @@ async function updateDisplayName(dialog: DialogContext, sdk: UserApi.Sdk, userId
   const value = await DialogPrompt.show(dialog, "Change Display Name", {
     placeholder: "Enter display name (leave empty to remove)",
     value: currentName ?? "",
+    allowEmpty: true,
   })
   if (value === null) return
 

@@ -29,9 +29,11 @@ DOM virtualizer, renderer fork, default FPS increase, or unmeasured thread-mode 
 4. Keep streaming virtualization active. Update measured height of the live turn without mounting the entire history.
    Candidate overscan remains five turns initially. Mounted rows are bounded by visible rows plus overscan plus explicitly
    pinned rows; pin active selection/search targets only as needed and release them deterministically.
-5. Integrate scroll/resize/layout notifications only using APIs present in OpenTUI 0.5.10. Inspect installed declarations
-   and test actual event delivery; do not invent an `onScroll` prop. If no reliable public notification exists, use one
-   owner-scoped sampler active only during interaction/streaming, with idle teardown and measured cost.
+5. Integrate scroll/resize/layout notifications only using APIs present in OpenTUI 0.5.11. Inspect installed declarations
+   and test actual event delivery; do not invent an `onScroll` prop. Typed `scrollTop`/`scrollHeight`, `scrollChildIntoView`,
+   `viewportCulling`, and `MacOSScrollAccel` exist in this pin. If no reliable public notification exists, use one
+   owner-scoped sampler active only during interaction/streaming, with idle teardown and measured cost. Never compute
+   scroll offset as `child.y - scroll.y`: `y` is the box origin, not the scroll position.
 6. Preserve `fromEntries`/`stabilize`, `<For>` identity, settled/live markdown splitting, and existing parse/highlight
    caches. Token deltas update the active tail; completed markdown must not be reparsed and remounted on every token.
    Cache keys include layout/language/theme where relevant and obey a bounded memory policy.

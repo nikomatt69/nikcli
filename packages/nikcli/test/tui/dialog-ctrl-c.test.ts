@@ -37,3 +37,27 @@ describe("dialog Ctrl+C interactivity", () => {
     expect(src).toMatch(/closeTop\(\)/)
   })
 })
+
+describe("shared dialog keyboard ownership", () => {
+  test("confirm, alert, help, and export consume return instead of leaking it", async () => {
+    for (const file of [
+      "ui/dialog-confirm.tsx",
+      "ui/dialog-alert.tsx",
+      "ui/dialog-help.tsx",
+      "ui/dialog-export-options.tsx",
+    ]) {
+      const src = stripComments(await tuiSource(file))
+      expect(src).toMatch(/evt\.name === "return"/)
+      expect(src).toMatch(/evt\.preventDefault\(\)/)
+      expect(src).toMatch(/evt\.stopPropagation\(\)/)
+    }
+  })
+
+  test("prompt submit can keep a blank value when the caller asks for it", async () => {
+    const src = stripComments(await tuiSource("ui/dialog-prompt.tsx"))
+    expect(src).toContain("allowEmpty?: boolean")
+    expect(src).toMatch(/if \(!val && !props\.allowEmpty\)/)
+    const auth = stripComments(await tuiSource("component/dialog-auth-manage.tsx"))
+    expect(auth).toMatch(/allowEmpty:\s*true/)
+  })
+})

@@ -545,16 +545,14 @@ export function Autocomplete(props: {
     moveTo(next)
   }
 
+  function optionID(index: number) {
+    return `prompt-autocomplete-option-${index}`
+  }
+
   function moveTo(next: number) {
     setStore("selected", next)
-    if (!scroll) return
-    const viewportHeight = Math.min(height(), options().length)
-    const scrollBottom = scroll.scrollTop + viewportHeight
-    if (next < scroll.scrollTop) {
-      scroll.scrollBy(next - scroll.scrollTop)
-    } else if (next + 1 > scrollBottom) {
-      scroll.scrollBy(next + 1 - scrollBottom)
-    }
+    if (!scroll || scroll.isDestroyed) return
+    scroll.scrollChildIntoView(optionID(next))
   }
 
   function select() {
@@ -772,6 +770,7 @@ export function Autocomplete(props: {
         >
           {(option, index) => (
             <box
+              id={optionID(index)}
               paddingLeft={1}
               paddingRight={1}
               backgroundColor={index === store.selected ? theme.badge.bg : undefined}

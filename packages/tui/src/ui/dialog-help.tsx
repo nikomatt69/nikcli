@@ -1,17 +1,23 @@
-import { TextAttributes } from "@opentui/core"
 import { useTheme } from "@tui/context/theme"
-import { useDialog } from "./dialog"
+import { DialogHeader, useDialog } from "./dialog"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { useKeybind } from "@tui/context/keybind"
 import { For, createMemo, onMount } from "solid-js"
+import { useScrollAcceleration } from "@tui/util/scroll"
 
 const SHORTCUTS: Array<{ key: string; description: string }> = [
   { key: "command_list", description: "Open the command palette" },
   { key: "app_support", description: "Open the support assistant" },
   { key: "session_list", description: "List all sessions" },
   { key: "session_new", description: "Create a new session" },
-  { key: "session_tab_back", description: "Go back through session tab history" },
-  { key: "session_tab_forward", description: "Go forward through session tab history" },
+  {
+    key: "session_tab_back",
+    description: "Go back through session tab history",
+  },
+  {
+    key: "session_tab_forward",
+    description: "Go forward through session tab history",
+  },
   { key: "theme_list", description: "Switch theme" },
   { key: "status_view", description: "View status & usage" },
   {
@@ -60,6 +66,7 @@ export function DialogHelp() {
   const { theme } = useTheme()
   const keybind = useKeybind()
   const dimensions = useTerminalDimensions()
+  const scrollAcceleration = useScrollAcceleration()
 
   // Reserve rows for header (2) + footer hint (2) + OK button (2) + outer
   // gaps/padding (~3) so the body never pushes the footer off-screen.
@@ -77,18 +84,15 @@ export function DialogHelp() {
 
   useKeyboard((evt) => {
     if (evt.name === "return" || evt.name === "escape") {
+      evt.preventDefault()
+      evt.stopPropagation()
       dialog.clear()
     }
   })
 
   return (
     <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} gap={1} flexDirection="column">
-      <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={theme.foreground.default}>
-          Help
-        </text>
-        <text fg={theme.foreground.muted}>esc/enter to close · ↑↓ scroll</text>
-      </box>
+      <DialogHeader title="Help" hint="esc/enter to close · ↑↓ scroll" />
 
       {/* Scrollable body — keeps the footer and OK button anchored on
           screen even when the 31 rows of content don't fit vertically.
@@ -96,7 +100,13 @@ export function DialogHelp() {
           having to click first. `wrapMode="none"` on each row prevents
           descriptions like "Open configuration" from wrapping mid-line and
           bleeding into the next column's layout. */}
-      <scrollbox height={bodyHeight()} focused={true} scrollbarOptions={{ visible: true }}>
+      <scrollbox
+        height={bodyHeight()}
+        focused={true}
+        viewportCulling={true}
+        scrollAcceleration={scrollAcceleration()}
+        scrollbarOptions={{ visible: true }}
+      >
         <box flexDirection="row" gap={3}>
           <box flexDirection="column" gap={1}>
             <text attributes={TextAttributes.BOLD} fg={theme.accent.fg}>

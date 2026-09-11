@@ -5,7 +5,7 @@ import { createStore } from "solid-js/store"
 import { Locale } from "@nikcli-ai/util/locale"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "../ui/dialog"
-import { CustomSpeedScroll } from "../util/scroll"
+import { getScrollAcceleration } from "../util/scroll"
 
 type VcsFileStatus = {
   file: string
@@ -33,8 +33,10 @@ export function DialogWorkspaceFileChanges(props: {
 }) {
   const dialog = useDialog()
   const { theme } = useTheme()
-  const scrollAcceleration = createMemo(() => new CustomSpeedScroll(3))
-  const [store, setStore] = createStore({ active: "yes" as WorkspaceFileChangesChoice })
+  const scrollAcceleration = createMemo(() => getScrollAcceleration())
+  const [store, setStore] = createStore({
+    active: "yes" as WorkspaceFileChangesChoice,
+  })
   const height = createMemo(() => Math.min(props.files.length, 8))
   const fileNameWidth = createMemo(() => 48 - Math.max(Math.max(7, ...props.files.map(changeCountWidth)) - 7, 0))
 

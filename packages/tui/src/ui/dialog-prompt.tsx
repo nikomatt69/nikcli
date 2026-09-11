@@ -1,8 +1,8 @@
-import { TextareaRenderable, TextAttributes } from "@opentui/core"
+import { TextareaRenderable } from "@opentui/core"
 import { useTheme } from "../context/theme"
-import { useDialog, type DialogContext } from "./dialog"
+import { DialogHeader, useDialog, type DialogContext } from "./dialog"
 import { useKeybind } from "@tui/context/keybind"
-import { createEffect, onMount, Show, type JSX } from "solid-js"
+import { onMount, Show, type JSX } from "solid-js"
 import { Spinner } from "../component/spinner"
 
 export type DialogPromptProps = {
@@ -12,6 +12,8 @@ export type DialogPromptProps = {
   value?: string
   busy?: boolean
   busyText?: string
+  /** When true, Enter submits even if the field is blank. Needed for "clear this value". */
+  allowEmpty?: boolean
   onConfirm?: (value: string) => void
   onCancel?: () => void
 }
@@ -26,32 +28,13 @@ export function DialogPrompt(props: DialogPromptProps) {
 
   onMount(() => {
     dialog.setSize("medium")
-    queueMicrotask(() => {
-      if (!textarea.isDestroyed && !textarea.focused && !props.busy) {
-        textarea.focus()
-      }
-    })
+    if (!textarea || textarea.isDestroyed) return
     textarea.gotoLineEnd()
-  })
-
-  createEffect(() => {
-    if (props.busy) {
-      if (!textarea.isDestroyed) textarea.blur()
-    } else {
-      if (!textarea.isDestroyed) textarea.focus()
-    }
   })
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1}>
-      <box flexDirection="row" justifyContent="space-between">
-        <text attributes={TextAttributes.BOLD} fg={props.busy ? theme.foreground.muted : theme.foreground.default}>
-          {props.title}
-        </text>
-        <Show when={!props.busy}>
-          <text fg={theme.foreground.muted}>esc</text>
-        </Show>
-      </box>
+      <DialogHeader title={props.title} muted={props.busy} hint={props.busy ? "" : "esc"} />
       <box gap={1}>
         {props.description?.()}
         <Show
@@ -65,7 +48,7 @@ export function DialogPrompt(props: DialogPromptProps) {
           <textarea
             onSubmit={() => {
               const val = textarea.plainText.trim()
-              if (!val) {
+              if (!val && !props.allowEmpty) {
                 return
               }
               props.onConfirm?.(val)
@@ -73,9 +56,11 @@ export function DialogPrompt(props: DialogPromptProps) {
             onKeyPress={(evt) => {
               if (props.busy) {
                 evt.preventDefault()
+                evt.stopPropagation()
               }
             }}
             height={3}
+            focused={!props.busy}
             keyBindings={[{ name: "return", action: "submit" }]}
             ref={(val: TextareaRenderable) => (textarea = val)}
             initialValue={props.value}
