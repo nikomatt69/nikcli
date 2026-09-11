@@ -11,6 +11,7 @@
  */
 import { Sync, type SyncEventRecord } from "./index"
 import { SyncSnapshot, SNAPSHOT_INTERVAL, type SnapshotKey } from "./snapshot"
+import { detectSequenceGap } from "./gap"
 import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "sync.reducer" })
@@ -38,6 +39,20 @@ export namespace SyncReducer {
     // Read events strictly after the snapshot's seq. The projection is
     // applied in seq order so the result is deterministic.
     const events = await Sync.getEvents(key.projectID, key.aggregate, lastSeq)
+
+    // Compaction deletes from the front of an aggregate without consulting any
+    // snapshot's cursor, so a snapshot that has fallen far enough behind can be
+    // resumed across a hole. The events below the floor are gone either way —
+    // discarding the snapshot would drop its prefix too — so this reports the
+    // hole rather than pretending to repair it. Silence here is a projection
+    // that is wrong and says it is fine.
+    if (cached) {
+      const gap = detectSequenceGap({
+        fromSeq: lastSeq,
+        oldestAvailableSeq: await Sync.oldestSeq(key.projectID, key.aggregate),
+      })
+      if (gap) log.error("replaying across a compacted range; projection is incomplete", { ...key, ...gap })
+    }
     let eventsSinceSnapshot = 0
     for (const event of events) {
       for (const projector of projectors) {

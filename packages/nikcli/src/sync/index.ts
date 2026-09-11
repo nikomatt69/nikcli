@@ -238,6 +238,23 @@ export namespace SyncStorage {
     return row?.seq ?? 0
   }
 
+  /**
+   * Lowest `seq` still on disk for an aggregate, or `undefined` when it has no
+   * events. Compaction deletes from the front, so this is the floor below which
+   * history no longer exists — the number a replay cursor has to be compared
+   * against to know whether it is about to skip a hole rather than resume.
+   */
+  export async function oldestSeq(projectID: string, aggregate: string): Promise<number | undefined> {
+    const row = db()
+      .select({ seq: syncEvent.seq })
+      .from(syncEvent)
+      .where(and(eq(syncEvent.projectId, projectID), eq(syncEvent.aggregate, aggregate)))
+      .orderBy(asc(syncEvent.seq))
+      .limit(1)
+      .get()
+    return row?.seq
+  }
+
   export async function clear(projectID: string): Promise<void> {
     db().delete(syncEvent).where(eq(syncEvent.projectId, projectID)).run()
     db().delete(syncSequence).where(eq(syncSequence.projectId, projectID)).run()
@@ -334,6 +351,10 @@ export namespace Sync {
 
   export async function getLatestSeq(projectID: string, aggregate: string): Promise<number> {
     return SyncStorage.getLatestSeq(projectID, aggregate)
+  }
+
+  export async function oldestSeq(projectID: string, aggregate: string): Promise<number | undefined> {
+    return SyncStorage.oldestSeq(projectID, aggregate)
   }
 
   export async function clear(projectID: string): Promise<void> {
