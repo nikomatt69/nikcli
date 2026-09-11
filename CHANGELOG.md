@@ -3,6 +3,29 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.342.0 (September 2026)
+
+## Core
+
+- Surface a replay that resumes across a compacted range (EOT-15) (@nikomatt69)
+- Cover the one untested export in the LLM event adapter (EOT-11) (@nikomatt69)
+- Cover the message windowing math (EOT-06) (@nikomatt69)
+- Record the machine behind every EOT-01 measurement (@nikomatt69)
+- Wait for the search index instead of racing it (EOT-20) (@nikomatt69)
+- Ask the renderer whether a dialog is being typed into (EOT-07) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(tui): ask the renderer whether a dialog is being typed into (EOT-07)
+  - test(server): wait for the search index instead of racing it (EOT-20)
+  - perf(probe): record the machine behind every EOT-01 measurement
+  - docs(specs): record which slices landed, and which specs have not started
+  - test(tui): cover the message windowing math (EOT-06)
+  - test(session): cover the one untested export in the LLM event adapter (EOT-11)
+  - feat(sync): surface a replay that resumes across a compacted range (EOT-15)
+  - docs(specs): correct the landed-slices table for EOT-06, EOT-11 and EOT-15
+
 ## v1.341.0 (September 2026)
 
 ## Core
