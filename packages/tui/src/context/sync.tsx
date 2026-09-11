@@ -29,6 +29,7 @@ import { useSDK } from "@tui/context/sdk"
 import { useProject } from "@tui/context/project"
 import { Binary } from "@nikcli-ai/util/binary"
 import { createSimpleContext } from "./helper"
+import { namedFailures } from "@tui/util/settled"
 import { useExit } from "./exit"
 import { useArgs } from "./args"
 import { batch, onCleanup, onMount } from "solid-js"
@@ -89,6 +90,16 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   init: () => {
     const [store, setStore] = createStore<{
       status: "loading" | "partial" | "complete"
+      /**
+       * Best-effort resources that failed to load, by request name.
+       *
+       * `status` answers "has bootstrap finished", not "did everything
+       * arrive". Folding one optional endpoint's failure into the status was
+       * how a machine with, say, connectors down sat at `partial` forever —
+       * and `partial` gates the empty-provider prompt, which needs none of
+       * these resources.
+       */
+      degraded: string[]
       provider: Provider[]
       provider_default: Record<string, string>
       provider_next: ProviderListResponse
@@ -128,6 +139,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       workspaceList: Workspace[]
     }>({
       status: "loading",
+      degraded: [],
       provider: [],
       provider_default: {},
       provider_next: { all: [], default: {}, connected: [] },
@@ -805,42 +817,85 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         .then(() => {
           if (!current()) return
           if (store.status !== "complete") setStore("status", "partial")
-          // non-blocking
-          Promise.all([
-            ...(args.continue ? [] : [sessionListPromise]),
-            client.provider.list().then((x) => {
-              if (!current() || !x.data) return
-              setStore("provider_next", reconcile(x.data))
-            }),
-            client.command.list().then((x) => current() && setStore("command", reconcile(x.data ?? []))),
-            client.lsp.status().then((x) => current() && setStore("lsp", reconcile(x.data!))),
-            client.mcp.status().then((x) => current() && setStore("mcp", reconcile(x.data!))),
-            client.experimental.resource
-              .list()
-              .then((x) => current() && setStore("mcp_resource", reconcile(x.data ?? {}))),
-            client.connectors.status().then((x) => current() && setStore("connectors", reconcile(x.data!))),
-            client.formatter.status().then((x) => current() && setStore("formatter", reconcile(x.data!))),
-            client.session.status().then((x) => {
+          // Best-effort, and settled rather than raced: `Promise.all` rejects on
+          // the first failure, which left `status` pinned at `partial` even
+          // though the other requests had already written their data. `partial`
+          // gates the empty-provider prompt, so one unrelated endpoint being
+          // down silently stopped a user with no provider from ever being asked
+          // to add one. Which resources failed is now state, not a status.
+          const optional: { name: string; run: Promise<unknown> }[] = [
+            ...(args.continue ? [] : [{ name: "GET /session", run: sessionListPromise }]),
+            {
+              name: "GET /provider",
+              run: client.provider.list().then((x) => {
+                if (!current() || !x.data) return
+                setStore("provider_next", reconcile(x.data))
+              }),
+            },
+            {
+              name: "GET /command",
+              run: client.command.list().then((x) => current() && setStore("command", reconcile(x.data ?? []))),
+            },
+            {
+              name: "GET /lsp",
+              run: client.lsp.status().then((x) => current() && setStore("lsp", reconcile(x.data!))),
+            },
+            {
+              name: "GET /mcp",
+              run: client.mcp.status().then((x) => current() && setStore("mcp", reconcile(x.data!))),
+            },
+            {
+              name: "GET /experimental/resource",
+              run: client.experimental.resource
+                .list()
+                .then((x) => current() && setStore("mcp_resource", reconcile(x.data ?? {}))),
+            },
+            {
+              name: "GET /connectors",
+              run: client.connectors.status().then((x) => current() && setStore("connectors", reconcile(x.data!))),
+            },
+            {
+              name: "GET /formatter",
+              run: client.formatter.status().then((x) => current() && setStore("formatter", reconcile(x.data!))),
+            },
+            {
+              name: "GET /session/status",
+              run: client.session.status().then((x) => {
+                if (!current()) return
+                setStore("session_status", reconcile(x.data!))
+              }),
+            },
+            {
+              name: "GET /provider/auth",
+              run: client.provider.auth().then((x) => current() && setStore("provider_auth", reconcile(x.data ?? {}))),
+            },
+            { name: "GET /vcs", run: client.vcs.get().then((x) => current() && setStore("vcs", reconcile(x.data))) },
+            {
+              name: "GET /path",
+              run: client.path.get().then((x) => current() && setStore("path", reconcile(x.data!))),
+            },
+            { name: "project.sync", run: project.sync() },
+            { name: "syncWorkspaces", run: syncWorkspaces() },
+          ]
+          void Promise.allSettled(optional.map((item) => item.run))
+            .then((results) => {
               if (!current()) return
-              setStore("session_status", reconcile(x.data!))
-            }),
-            client.provider.auth().then((x) => current() && setStore("provider_auth", reconcile(x.data ?? {}))),
-            client.vcs.get().then((x) => current() && setStore("vcs", reconcile(x.data))),
-            client.path.get().then((x) => current() && setStore("path", reconcile(x.data!))),
-            project.sync(),
-            syncWorkspaces(),
-          ])
-            .then(() => {
-              if (!current()) return
-              setStore("status", "complete")
-            })
-            .catch((e) => {
-              if (!current()) return
-              Log.Default.warn("tui bootstrap non-blocking refresh failed", {
-                error: e instanceof Error ? e.message : String(e),
-                name: e instanceof Error ? e.name : undefined,
+              const { failed, errors } = namedFailures(
+                optional.map((item) => item.name),
+                results,
+              )
+              if (failed.length > 0) Log.Default.warn("tui bootstrap optional refresh failed", { failed, errors })
+              batch(() => {
+                setStore("degraded", reconcile(failed))
+                setStore("status", "complete")
               })
-              if (store.status !== "complete") setStore("status", "partial")
+            })
+            .catch((error) => {
+              // Nothing above rejects, but an unhandled rejection here would
+              // take down a TUI that is otherwise fine.
+              Log.Default.error("tui bootstrap settle failed", {
+                error: error instanceof Error ? error.message : String(error),
+              })
             })
         })
         .catch(async (e) => {
