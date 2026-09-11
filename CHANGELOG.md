@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.346.0 (September 2026)
+
+## Core
+
+- Replace ambient transaction context with explicit TransactionContext (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(database): replace ambient transaction context with explicit TransactionContext
+
 ## v1.345.0 (September 2026)
 
 ## Core
