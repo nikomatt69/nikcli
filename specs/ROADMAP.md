@@ -176,6 +176,43 @@ Each slice contains its matching test, source change, measured result when relev
 an Effect upgrade, transport protocol migration, virtualization default flip, observability schema change, and CLI
 migration in one PR.
 
+## Landed Slices
+
+First slices only. **Every spec below is still `proposed`** — a landed slice is
+evidence the seam exists and is guarded by a test, not that the spec has passed
+its release gate. Nothing here is marked complete.
+
+| Spec   | What landed                                                                        | Commit                  |
+| ------ | ---------------------------------------------------------------------------------- | ----------------------- |
+| EOT-01 | One probe-environment block shared by both probes; `loadavg1` added                | `5aa643dc8`             |
+| EOT-02 | `runService` requirement typing; `any` and the cast removed                        | `3ec56934`              |
+| EOT-03 | `useAttempts`: supersession guard for restartable dialog flows                     | `4495840e1`             |
+| EOT-04 | Queue depth meter; refetch on reconnect instead of resuming into a gap             | `3ec56934`, `4a767a5f9` |
+| EOT-05 | Optional bootstrap requests settle; `sync.degraded` replaces a pinned `partial`    | `12d8ef764`             |
+| EOT-07 | Ctrl+C asks the renderer for focus instead of a source string and a missing DOM    | `a0b21dffd`             |
+| EOT-08 | Import-cost probe; one dialog moved off the critical path against a measured delta | `a9725f1d7`             |
+| EOT-09 | `isTerminal`/`canTransition` for background-run outcomes                           | `3ec56934`              |
+| EOT-10 | Standalone and CLI hosts stop turning a config failure into an empty config        | `3ec56934`, `67a2b811b` |
+| EOT-12 | Onboarding retry bounded; typed `incomplete` outcome instead of a parked startup   | `a6b1c758c`             |
+| EOT-13 | `span-schema.ts`: fixed attribute schema, forbidden segments, redact-then-truncate | `3ec56934`              |
+| EOT-16 | LSP and provider refreshes scoped to the active workspace                          | `41b718d16`             |
+| EOT-17 | Precedence corrected to the shipped contract; ordering guarded by a test           | `3ec56934`, `67a2b811b` |
+| EOT-18 | Command-surface gate restored and repointed                                        | `f5783a970`             |
+| EOT-20 | Test layers made disjoint; barrier helpers; one flaky test migrated to a barrier   | `3ec56934`, `c1d323308` |
+
+Not started: **EOT-06**, **EOT-11**, **EOT-14**, **EOT-15**. EOT-11, EOT-14 and
+EOT-15 are the L/High migrations this roadmap already scopes across several
+separately verified PRs; EOT-06 changes rendering and needs real-terminal
+verification, not a headless one.
+
+EOT-14's runtime was audited without a change being warranted: reload passes are
+serialized through a promise chain in `schedule`, and `deactivatePluginEntry`
+does not mutate `state.plugins`, so the index `swapPluginEntry` captures across
+its await stays valid. EOT-19's two highest-risk points were also checked and
+hold: the router logs `pathname`, so a `?token=` never reaches the log, and the
+websocket upgrade runs inside `dispatch`, behind the same `Auth.authenticate`
+as every HTTP route.
+
 ## Domain Adoption Map
 
 The inspected hotspots establish the architecture, not an exhaustive defect audit of every backend directory. Apply these
