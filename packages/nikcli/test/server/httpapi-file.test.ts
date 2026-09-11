@@ -1,4 +1,5 @@
 import { preserveTestEnv } from "../helpers/env"
+import { waitFor } from "../helpers/barrier"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -51,10 +52,21 @@ describe("File HttpApi bridge", () => {
     await fs.mkdir(path.join(directory, "src"), { recursive: true })
     await fs.writeFile(path.join(directory, "src", "sample.ts"), "export const sampleValue = 42\n")
 
-    const textMatches = (await request("/find", directory, { pattern: "sampleValue" })) as Array<{
-      path: { text: string }
-      lines: { text: string }
-    }>
+    // `/find` resolves through `SearchBackend.search`, which asks the fff index
+    // before ripgrep and short-circuits on any non-error answer — including an
+    // empty one. A file written a moment ago is therefore invisible until the
+    // index has it, and under CI load that window is wide enough to lose this
+    // assertion. Waiting for the file to become searchable is not a weaker
+    // check: if it never does, this still fails, and says what it waited for.
+    type TextMatch = { path: { text: string }; lines: { text: string } }
+    let textMatches: TextMatch[] = []
+    await waitFor(
+      async () => {
+        textMatches = (await request("/find", directory, { pattern: "sampleValue" })) as TextMatch[]
+        return textMatches.some((match) => match.path.text.endsWith("src/sample.ts"))
+      },
+      { timeoutMs: 10_000, intervalMs: 50, label: "search to index src/sample.ts" },
+    )
     expect(textMatches.some((match) => match.path.text.endsWith("src/sample.ts"))).toBe(true)
 
     // `/find` above returns `/`-separated paths while `/find/file` returns the
@@ -101,7 +113,7 @@ describe("File HttpApi bridge", () => {
     expect(writeResponse.status).toBe(200)
     expect(await writeResponse.json()).toEqual({ success: true })
     expect(await fs.readFile(path.join(directory, "src", "written.ts"), "utf8")).toBe("export const written = true\n")
-  })
+  }, 30_000)
 })
 
 afterEach(async () => {
