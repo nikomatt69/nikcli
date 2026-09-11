@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.344.0 (September 2026)
+
+## Core
+
+- Re-register the opentui patch the 0.5.11 bump dropped (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - test(tui): make the standalone smoke fail on a terminal that crashed
+  - fix(tui): re-register the opentui patch the 0.5.11 bump dropped
+  - refactor(tui): make scroll, dialog headers and selection consistent
+
 ## v1.342.0 (September 2026)
 
 ## Core
