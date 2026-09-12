@@ -3,6 +3,24 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.350.0 (September 2026)
+
+## Core
+
+- Format the settings command search test (#264) (@nikomatt69)
+- Standardize parameter naming in command handlers (@nikomatt69)
+
+## Mobile
+
+- Add background activity sheet for sub-agents and shell commands (#263) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(cli): standardize parameter naming in command handlers
+  - Add background activity sheet for sub-agents and shell commands (#263)
+  - style(nikcli): format the settings command search test (#264)
+
 ## v1.348.0 (September 2026)
 
 - No notable changes

@@ -1,37 +1,30 @@
-import { createMemo } from "solid-js";
-import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select";
-import { useDialog, type DialogContext } from "@tui/ui/dialog";
-import type { CommandOption } from "../dialog-command";
-import { DialogSettingsSpinner } from "./spinner";
-import { DialogSettingsPrompt } from "./prompt";
-import { DialogSettingsSidebar } from "./sidebar";
-import { DialogSettingsUI } from "./ui";
-import { DialogSettingsBrain } from "./brain";
-import { DialogSettingsDiagnostics } from "./diagnostics";
-import { DialogSettingsAudio } from "./audio";
+import { createMemo } from "solid-js"
+import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
+import { useDialog, type DialogContext } from "@tui/ui/dialog"
+import type { CommandOption } from "../dialog-command"
+import { DialogSettingsSpinner } from "./spinner"
+import { DialogSettingsPrompt } from "./prompt"
+import { DialogSettingsSidebar } from "./sidebar"
+import { DialogSettingsUI } from "./ui"
+import { DialogSettingsBrain } from "./brain"
+import { DialogSettingsDiagnostics } from "./diagnostics"
+import { DialogSettingsAudio } from "./audio"
 
-export type SettingsCategory =
-  | "spinner"
-  | "prompt"
-  | "sidebar"
-  | "ui"
-  | "brain"
-  | "diagnostics"
-  | "audio";
+export type SettingsCategory = "spinner" | "prompt" | "sidebar" | "ui" | "brain" | "diagnostics" | "audio"
 
 type SettingsSearchEntry = {
-  title: string;
-  keywords?: readonly string[];
-};
+  title: string
+  keywords?: readonly string[]
+}
 
 type SettingsCategoryInfo = {
-  title: string;
-  value: SettingsCategory;
-  description: string;
-  group: string;
-  keywords: readonly string[];
-  settings: readonly SettingsSearchEntry[];
-};
+  title: string
+  value: SettingsCategory
+  description: string
+  group: string
+  keywords: readonly string[]
+  settings: readonly SettingsSearchEntry[]
+}
 
 export const SETTINGS_CATEGORIES: readonly SettingsCategoryInfo[] = [
   {
@@ -70,9 +63,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategoryInfo[] = [
     description: "Sidebar visibility and sections",
     group: "Layout",
     keywords: ["side panel", "navigation"],
-    settings: [
-      { title: "Sidebar Visibility", keywords: ["auto", "show", "hide"] },
-    ],
+    settings: [{ title: "Sidebar Visibility", keywords: ["auto", "show", "hide"] }],
   },
   {
     title: "UI",
@@ -124,53 +115,38 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategoryInfo[] = [
     settings: [
       {
         title: "Sound Effects",
-        keywords: [
-          "sound on",
-          "sound off",
-          "notification",
-          "pulse",
-          "volume",
-          "mute",
-        ],
+        keywords: ["sound on", "sound off", "notification", "pulse", "volume", "mute"],
       },
     ],
   },
-];
+]
 
-export function openSettingsCategory(
-  dialog: DialogContext,
-  category: SettingsCategory,
-) {
+export function openSettingsCategory(dialog: DialogContext, category: SettingsCategory) {
   const content = () => {
     switch (category) {
       case "spinner":
-        return <DialogSettingsSpinner />;
+        return <DialogSettingsSpinner />
       case "prompt":
-        return <DialogSettingsPrompt />;
+        return <DialogSettingsPrompt />
       case "sidebar":
-        return <DialogSettingsSidebar />;
+        return <DialogSettingsSidebar />
       case "ui":
-        return <DialogSettingsUI />;
+        return <DialogSettingsUI />
       case "brain":
-        return <DialogSettingsBrain />;
+        return <DialogSettingsBrain />
       case "diagnostics":
-        return <DialogSettingsDiagnostics />;
+        return <DialogSettingsDiagnostics />
       case "audio":
-        return <DialogSettingsAudio />;
+        return <DialogSettingsAudio />
     }
-  };
-  dialog.replace(content);
+  }
+  dialog.replace(content)
 }
 
 export function settingsCommandOptions(): CommandOption[] {
   return SETTINGS_CATEGORIES.flatMap((category) => {
-    const open = (dialog: DialogContext) =>
-      openSettingsCategory(dialog, category.value);
-    const context = [
-      category.title,
-      category.description,
-      ...category.keywords,
-    ];
+    const open = (dialog: DialogContext) => openSettingsCategory(dialog, category.value)
+    const context = [category.title, category.description, ...category.keywords]
     return [
       {
         title: `${category.title} Settings`,
@@ -188,12 +164,12 @@ export function settingsCommandOptions(): CommandOption[] {
         searchText: [...context, ...(setting.keywords ?? [])].join(" "),
         onSelect: open,
       })),
-    ];
-  });
+    ]
+  })
 }
 
 export function DialogSettings() {
-  const dialog = useDialog();
+  const dialog = useDialog()
 
   const categories = createMemo((): DialogSelectOption<SettingsCategory>[] =>
     SETTINGS_CATEGORIES.map((category) => ({
@@ -203,17 +179,11 @@ export function DialogSettings() {
       category: category.group,
       searchText: category.keywords.join(" "),
     })),
-  );
+  )
 
   const handleSelect = (option: DialogSelectOption<SettingsCategory>) => {
-    openSettingsCategory(dialog, option.value);
-  };
+    openSettingsCategory(dialog, option.value)
+  }
 
-  return (
-    <DialogSelect
-      title="Settings"
-      options={categories()}
-      onSelect={handleSelect}
-    />
-  );
+  return <DialogSelect title="Settings" options={categories()} onSelect={handleSelect} />
 }

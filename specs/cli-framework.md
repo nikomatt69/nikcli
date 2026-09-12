@@ -3,7 +3,7 @@
 ## Why
 
 `cli-main.ts` must import `TuiThreadCommand` eagerly, because yargs needs the
-default command's module to build its parser. That module *is* the TUI, so every
+default command's module to build its parser. That module _is_ the TUI, so every
 invocation — `nikcli --help`, `nikcli heap`, a shell completion — evaluates it.
 
 opencode v2 does not have this problem. Its command tree is a dependency-free
@@ -14,10 +14,10 @@ default one, and the framework that binds them is 173 lines
 Measured on the same machine, importing each entrypoint, both carrying the
 complete command surface:
 
-| entrypoint | Function | FunctionExecutable | total RSS |
-| --- | ---: | ---: | ---: |
-| `cli-main` (yargs, lazy handlers) | 154,001 | 13,449 | 116.0 MB |
-| `cli/main-effect` | **33,014** | **10,571** | **~90 MB** |
+| entrypoint                        |   Function | FunctionExecutable |  total RSS |
+| --------------------------------- | ---------: | -----------------: | ---------: |
+| `cli-main` (yargs, lazy handlers) |    154,001 |             13,449 |   116.0 MB |
+| `cli/main-effect`                 | **33,014** |         **10,571** | **~90 MB** |
 
 −79% `Function` objects. The gap is `thread.ts`: yargs had to load the default
 command's module to build its parser, and that module is the TUI. Effect never
@@ -35,7 +35,7 @@ The whole command surface is declared in the effect tree: **147 commands
 declarations and held to them by the parity harness.
 
 - `src/cli/framework/spec.ts` — `Spec.make(name, {description, params, commands,
-  aliases})` builds the tree as data. Ported from opencode, including the detail
+aliases})` builds the tree as data. Ported from opencode, including the detail
   that effect carries one native alias and the rest become sibling commands:
   yargs allowed a list, and 36 aliases are in use.
 - `src/cli/framework/runtime.ts` — `Runtime.handlers(tree, loaders)` flattens the
@@ -68,10 +68,8 @@ signature would otherwise widen every nested builder to `any`. Three sites neede
 a type annotation that yargs used to infer from its builder chain
 (`analytics`'s two range handlers, one `split` callback in `agent`).
 
-Effect owns parsing, help, routing and completion, and **`src/cli/cmd/**` is
-gone**: each handler holds the body it runs. What is left in that directory is
-`cmd.ts` and `argv.ts` (the command-module types, still used by two modules under
-`src/session/`) and `tui/worker.ts` plus `tui/plugin/host-local.ts`, which were
+Effect owns parsing, help, routing and completion, and **`src/cli/cmd/**`is
+gone**: each handler holds the body it runs. What is left in that directory is`cmd.ts`and`argv.ts`(the command-module types, still used by two modules under`src/session/`) and `tui/worker.ts`plus`tui/plugin/host-local.ts`, which were
 never commands.
 
 Getting there needed every command object to be reachable as a named export, and
@@ -79,7 +77,7 @@ only 42 of 100 subcommands were. The rest were module-level consts missing the
 `export` keyword (35, a one-word change each), objects defined inline inside a
 parent's `builder` (11, hoisted to exported consts), or declared through
 `.command(name, describe, builder, handler)` (2, in `analytics`, converted to
-command objects). A subcommand is also frequently exported from a *sibling*
+command objects). A subcommand is also frequently exported from a _sibling_
 module — `debug/file.ts` under `debug/index.ts` — so the generator resolves
 owners by indexing every exported command object in `src/cli/cmd/**` by identity,
 not by looking only at the parent's module.
@@ -111,7 +109,7 @@ Both were found by the generated output failing, not by reading the code:
 57 files, ~12,900 lines: **166 `.option()`, 62 `.positional()`, 101 subcommand
 registrations** — about 330 declarations.
 
-What is *in* those declarations matters more than the count: `choices:` 13,
+What is _in_ those declarations matters more than the count: `choices:` 13,
 `array:` 7, `demandOption` 29, `default:` 88, `alias:` 36, `count:` 6, and
 **zero** `coerce`, `conflicts`, `implies`, `check`, `strict` or `--` handling.
 No custom validators, no cross-flag constraints. `Flag.choice`, `withDefault`,
@@ -153,7 +151,7 @@ declared type and choices.
 It earned its place immediately. `remote start` and `mobile serve` override
 `--hostname` to `0.0.0.0` through yargs' `.default()` **method**, which the
 generator's recorder ignored — so the generated spec bound loopback instead. The
-declaration harness passed 150/150 the whole time, because the flag is *declared*
+declaration harness passed 150/150 the whole time, because the flag is _declared_
 identically. Only the parsed value differed.
 
 ### A pre-existing bug it surfaced
@@ -188,7 +186,7 @@ papered over.
 **The root cannot own a positional.** yargs special-cases its default command, so
 `nikcli [project]` and `nikcli heap --detailed` both work. Effect has no such
 rule: an optional positional on a command that also has subcommands swallows the
-subcommand name as soon as a flag follows, and *every* `nikcli <cmd> --flag`
+subcommand name as soon as a flag follows, and _every_ `nikcli <cmd> --flag`
 routes to the root handler — the TUI — instead. The generator therefore emits the
 root's positionals as flags, and `normalizeArgv` rewrites a leading path back
 into `--project`, so the spelling users type is unchanged. The declaration parity
@@ -211,7 +209,7 @@ handle. `main-effect.ts` exits after the command returns, as opencode's
 entrypoint does. Worth knowing because the symptom is not a failure: the command
 works, it just never gives the shell back.
 
-**Both spellings of every flag.** yargs filled `keep-config` *and* `keepConfig`,
+**Both spellings of every flag.** yargs filled `keep-config` _and_ `keepConfig`,
 and the bodies read whichever the author preferred — `uninstall`'s args type
 requires the camelCase ones. Generated handlers emit both.
 

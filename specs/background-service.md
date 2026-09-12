@@ -36,7 +36,7 @@ from "per channel" that are easy to miss and expensive to get wrong:
 
 - The registration file is `service.json` for the shared channels
   (`latest`/`dev`/`beta`/`next`) and `service-<channel>.json` otherwise. Without
-  it a `local` dev build and an installed release discover *each other's*
+  it a `local` dev build and an installed release discover _each other's_
   service and restart it on every version check, forever.
 - The default port is per channel too — `0xc0de` shared, `0xc0df` local,
   otherwise hashed into 10000-60000 — so two builds never race for one socket.
@@ -136,12 +136,12 @@ paint**. The dwell has to be fixed: an adaptive wait (`stable`) settles at
 different times in the two modes, compares two different load states, and
 reported this backwards the first time it was run.
 
-| | client | service | total |
-| --- | ---: | ---: | ---: |
-| in-process, eager commands (before) | 973 MB | — | 975 MB |
-| service, eager commands | 412 MB | 517 MB | 929 MB |
-| in-process, lazy commands | 819 MB | — | 821 MB |
-| **service + lazy commands** | **340 MB** | 450 MB | **790 MB** |
+|                                     |     client | service |      total |
+| ----------------------------------- | ---------: | ------: | ---------: |
+| in-process, eager commands (before) |     973 MB |       — |     975 MB |
+| service, eager commands             |     412 MB |  517 MB |     929 MB |
+| in-process, lazy commands           |     819 MB |       — |     821 MB |
+| **service + lazy commands**         | **340 MB** |  450 MB | **790 MB** |
 
 What the table says, which is not what you would guess:
 
@@ -159,7 +159,7 @@ What the table says, which is not what you would guess:
 ## Command registration
 
 `cli-main` imported all ~44 command modules eagerly. Because `run [message..]`
-pulls the whole engine, the main thread loaded a complete engine graph *and* the
+pulls the whole engine, the main thread loaded a complete engine graph _and_ the
 TUI worker loaded another in its own isolate — two engines per session, to run a
 command that is almost always the default TUI.
 
@@ -171,7 +171,7 @@ This is the change commit `1e6e0ce304` made and had reverted for making the tool
 worse. Three differences:
 
 1. `$0` — the interactive TUI — stays eager. Only named, one-shot commands defer.
-2. Nothing gets slower. Under eager registration *every* invocation paid for all
+2. Nothing gets slower. Under eager registration _every_ invocation paid for all
    44 command modules, so each command now loads strictly less than before.
 3. `describe` and `command` stay at the registration site, so `--help`, command
    matching and completion never load a handler. yargs awaits an async `builder`,
@@ -184,19 +184,19 @@ worse. Three differences:
 private server instead of the background service". nikcli's TUI takes the same
 shape:
 
-| | path |
-| --- | --- |
-| `nikcli` | shared background service |
-| `nikcli --standalone` | private in-process server |
-| `NIKCLI_SERVICE=0` | private in-process server |
-| `--port` / `--hostname` / `--mdns` | private server, since the caller wants their own listener |
-| `NIKCLI_DRIVE` (simulation) | private, always — the deterministic mock lives in the client |
-| `NIKCLI_TEST_HOME` set | private, unless `NIKCLI_SERVICE=1` |
+|                                    | path                                                         |
+| ---------------------------------- | ------------------------------------------------------------ |
+| `nikcli`                           | shared background service                                    |
+| `nikcli --standalone`              | private in-process server                                    |
+| `NIKCLI_SERVICE=0`                 | private in-process server                                    |
+| `--port` / `--hostname` / `--mdns` | private server, since the caller wants their own listener    |
+| `NIKCLI_DRIVE` (simulation)        | private, always — the deterministic mock lives in the client |
+| `NIKCLI_TEST_HOME` set             | private, unless `NIKCLI_SERVICE=1`                           |
 
 The test-home rule is not cosmetic. A service outlives its client by design, so a
 suite that boots the TUI would leave one daemon per test home behind, and stray
 nikcli processes are already a documented cause of bogus measurements and flaky
-runs. Tests that *want* the service ask for it with `NIKCLI_SERVICE=1`.
+runs. Tests that _want_ the service ask for it with `NIKCLI_SERVICE=1`.
 
 A service that will not start is not fatal: the client logs a warning and falls
 through to the private path. The failure modes are environmental — a wedged port,
@@ -206,7 +206,7 @@ a cold engine.
 The one behaviour change to know about: **a session now outlives the client**.
 Closing the TUI no longer stops the work; `nikcli service stop` does.
 
-Upgrade runs in the *client*, not the service: it replaces the installed binary,
+Upgrade runs in the _client_, not the service: it replaces the installed binary,
 and the service is a different (older) copy of it. After an upgrade the running
 service is on the previous version, and the next client restarts it on the version
 skew check.

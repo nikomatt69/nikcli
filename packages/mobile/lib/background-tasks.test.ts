@@ -88,11 +88,7 @@ describe("collectBackgroundTasks", () => {
     const tasks = collectBackgroundTasks([runningAgent, completedAgent, finishedShell, runningShell])
 
     // Live runs first, newest first within each group; the finished shell run drops out.
-    expect(tasks.map((task) => task.title)).toEqual([
-      "Check roadmap coherence",
-      "Run the suite",
-      "Risk review",
-    ])
+    expect(tasks.map((task) => task.title)).toEqual(["Check roadmap coherence", "Run the suite", "Risk review"])
   })
 
   test("reads the child session, agent type and tool-use count off the task metadata", () => {

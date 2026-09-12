@@ -297,10 +297,7 @@ export function BackgroundActivitySheet({
           ) : null}
 
           {running.length > 0 ? (
-            <CollapsibleSection
-              label="Running"
-              accessory={<ActivityIndicator size="small" color={palette.muted} />}
-            >
+            <CollapsibleSection label="Running" accessory={<ActivityIndicator size="small" color={palette.muted} />}>
               {running.map((task) => (
                 <BackgroundTaskCard
                   key={task.id}

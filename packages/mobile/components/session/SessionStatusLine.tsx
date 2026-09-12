@@ -31,9 +31,7 @@ export function SessionStatusLine({ label, working, runningCount, onOpenActivity
       spin.setValue(0)
       return
     }
-    const animation = Animated.loop(
-      Animated.timing(spin, { toValue: 1, duration: 2600, useNativeDriver: true }),
-    )
+    const animation = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 2600, useNativeDriver: true }))
     animation.start()
     return () => animation.stop()
   }, [prefersReducedMotion, spin, working])

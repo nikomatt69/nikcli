@@ -8,15 +8,7 @@ import { type as typeStyle } from "@/lib/typography"
  * screen's name centred between them. The sides reserve equal width so the
  * title stays centred whether or not both controls are present.
  */
-export function CenteredScreenHeader({
-  title,
-  left,
-  right,
-}: {
-  title: string
-  left?: ReactNode
-  right?: ReactNode
-}) {
+export function CenteredScreenHeader({ title, left, right }: { title: string; left?: ReactNode; right?: ReactNode }) {
   const { palette } = useAppTheme()
 
   return (

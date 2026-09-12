@@ -363,11 +363,7 @@ function createNikcli() {
  */
 function explainFailure(error: unknown): string {
   const base =
-    error instanceof $.ShellError
-      ? error.stderr.toString()
-      : error instanceof Error
-        ? error.message
-        : String(error)
+    error instanceof $.ShellError ? error.stderr.toString() : error instanceof Error ? error.message : String(error)
   const exited = server?.exited()
   if (!exited) return base
   const how =
