@@ -1546,7 +1546,7 @@ export default function SessionScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
     >
-      <View className="px-4 pb-3" style={{ paddingTop: top + 8 }}>
+      <View style={{ paddingHorizontal: 16, paddingBottom: 12, paddingTop: top + 8 }}>
         <View className="flex-row items-center gap-3">
           <Pressable
             onPress={() => router.back()}

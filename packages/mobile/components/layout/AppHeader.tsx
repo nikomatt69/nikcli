@@ -25,7 +25,7 @@ type AppHeaderProps = {
  * action block that every screen previously hand-rolled, keeping spacing and
  * chip rendering consistent everywhere.
  */
-export function AppHeader({ chips, children, className = "gap-3 pb-5" }: AppHeaderProps) {
+export function AppHeader({ chips, children, className = "gap-3 pb-4" }: AppHeaderProps) {
   const visibleChips = (chips ?? []).filter((chip): chip is HeaderChip => Boolean(chip))
 
   return (

@@ -70,9 +70,9 @@ export default function ObservabilityScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-background px-4 pt-4"
+      className="flex-1 bg-background"
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ paddingBottom: 36, gap: 16 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 36, gap: 16 }}
     >
       {error ? <ErrorBanner message={error} /> : null}
       <SurfaceCard

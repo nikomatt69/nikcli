@@ -86,12 +86,12 @@ export default function HostStatusScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-background px-4 pt-4"
+      className="flex-1 bg-background"
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ paddingBottom: 36, gap: 16 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 36, gap: 16 }}
     >
       {error ? <ErrorBanner message={error} /> : null}
-      <Text selectable style={{ paddingHorizontal: 4, color: palette.soft, ...typeStyle(13) }}>
+      <Text selectable style={{ color: palette.soft, ...typeStyle(13) }}>
         These controls report the linked host. They do not drive this phone.
       </Text>
 

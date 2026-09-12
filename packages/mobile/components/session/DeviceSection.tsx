@@ -35,7 +35,7 @@ export function DeviceSection({ url, connected, version }: DeviceSectionProps) {
 
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ color: palette.muted, paddingHorizontal: 4, ...typeStyle(15, { weight: "500" }) }}>Devices</Text>
+      <Text style={{ color: palette.muted, ...typeStyle(15, { weight: "500" }) }}>Devices</Text>
 
       {url ? (
         <ListRow

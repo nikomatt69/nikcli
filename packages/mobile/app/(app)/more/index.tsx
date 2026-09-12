@@ -1,39 +1,21 @@
 import { ScrollView, Text, View } from "react-native"
 import { Link, type Href } from "expo-router"
 import type { ReactNode } from "react"
-import {
-  Activity,
-  Brain,
-  Bot,
-  ImageIcon,
-  Monitor,
-  Repeat,
-  Settings as SettingsIcon,
-  Sparkles,
-  Target,
-} from "lucide-react-native"
-import { SettingsNavCard } from "@/components/settings/SettingsNavCard"
+import { SettingsGroup, SettingsNavCard } from "@/components/settings/SettingsNavCard"
 import { CenteredScreenHeader } from "@/components/layout/CenteredScreenHeader"
+import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { Divider } from "@/components/ui/Divider"
 import { SectionHeader } from "@/components/ui/SectionHeader"
 import { TipsCard } from "@/components/ui/TipsCard"
 import { useServer } from "@/lib/server-context"
-import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { useAppTheme } from "@/lib/theme"
 import { type as typeStyle } from "@/lib/typography"
 
-function Group({ children }: { children: ReactNode }) {
-  const { palette } = useAppTheme()
+function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <View
-      className="overflow-hidden bg-surface"
-      style={{
-        borderRadius: 18,
-        borderCurve: "continuous",
-        borderWidth: 1,
-        borderColor: hexToRgba(palette.ink, 0.08),
-      }}
-    >
-      {children}
+    <View>
+      <SectionHeader label={label} />
+      <SettingsGroup>{children}</SettingsGroup>
     </View>
   )
 }
@@ -45,112 +27,92 @@ export default function MoreScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-background px-4 pt-4"
+      style={{ flex: 1, backgroundColor: palette.background }}
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ paddingBottom: 28 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 96, gap: 20 }}
     >
-      <View className="gap-4">
-        <CenteredScreenHeader title="Tools" />
-        <Text selectable style={{ paddingHorizontal: 4, color: palette.soft, ...typeStyle(13) }}>
+      <View style={{ gap: 8 }}>
+        <CenteredScreenHeader title="Tools" brand right={<SettingsCircleButton />} />
+        <Text selectable style={{ color: palette.soft, ...typeStyle(13) }}>
           Automation, host controls, and appearance for this workspace.
         </Text>
-        <TipsCard />
-
-        <SectionHeader label="Automation" />
-        <Group>
-          <Link href={"/more/missions" as Href} asChild>
-            <SettingsNavCard
-              icon={Target}
-              eyebrow="Automation"
-              title="Missions"
-              description="Multi-milestone autonomous work with a live plan and history."
-              badges={["Start", "Pause", "History"]}
-            />
-          </Link>
-          <Divider inset={65} />
-          <Link href="/more/loops" asChild>
-            <SettingsNavCard
-              icon={Repeat}
-              eyebrow="Automation"
-              title="Loops"
-              description="Run recurring work and review past iterations."
-              badges={["Recurring runs", "History"]}
-            />
-          </Link>
-          <Divider inset={65} />
-          <Link href={"/more/brain" as Href} asChild>
-            <SettingsNavCard
-              icon={Brain}
-              eyebrow="Memory"
-              title="Brain"
-              description="Consolidate recent sessions into long-term memory on the host."
-              badges={["On demand"]}
-            />
-          </Link>
-        </Group>
-
-        <SectionHeader label="Host" />
-        <Group>
-          <Link href={"/more/chatbots" as Href} asChild>
-            <SettingsNavCard
-              icon={Bot}
-              eyebrow="Connectors"
-              title="Chatbots"
-              description="Start and stop Discord, Slack, and other chat bots on the host."
-            />
-          </Link>
-          <Divider inset={65} />
-          <Link href={"/more/observability" as Href} asChild>
-            <SettingsNavCard
-              icon={Activity}
-              eyebrow="Telemetry"
-              title="Observability"
-              description="Toggle OpenTelemetry and inspect OTLP export status."
-            />
-          </Link>
-          <Divider inset={65} />
-          <Link href={"/more/host" as Href} asChild>
-            <SettingsNavCard
-              icon={Monitor}
-              eyebrow="Machine"
-              title="Host status"
-              description="Browser, computer use, Herdr, Island, and runtime health."
-              badges={[hostLabel]}
-            />
-          </Link>
-        </Group>
-
-        <SectionHeader label="Appearance" />
-        <Group>
-          <Link href={"/more/settings/appearance" as Href} asChild>
-            <SettingsNavCard
-              icon={ImageIcon}
-              eyebrow="Session"
-              title="Appearance"
-              description="Wallpaper, math rendering, and rotating tips."
-            />
-          </Link>
-          <Divider inset={65} />
-          <Link href="/more/settings/providers" asChild>
-            <SettingsNavCard
-              icon={Sparkles}
-              eyebrow="Models"
-              title="Fusion"
-              description="OpenRouter Fusion presets live with models in Settings."
-            />
-          </Link>
-          <Divider inset={65} />
-          <Link href="/more/settings" asChild>
-            <SettingsNavCard
-              icon={SettingsIcon}
-              eyebrow="Configuration"
-              title="Settings"
-              description="Host, models, integrations, security, and appearance."
-              badges={[hostLabel]}
-            />
-          </Link>
-        </Group>
       </View>
+
+      <TipsCard />
+
+      <Section label="Automation">
+        <Link href={"/more/missions" as Href} asChild>
+          <SettingsNavCard
+            title="Missions"
+            description="Multi-milestone autonomous work with a live plan and history."
+            badges={["Start", "Pause", "History"]}
+          />
+        </Link>
+        <Divider inset={20} />
+        <Link href="/more/loops" asChild>
+          <SettingsNavCard
+            title="Loops"
+            description="Run recurring work and review past iterations."
+            badges={["Recurring runs", "History"]}
+          />
+        </Link>
+        <Divider inset={20} />
+        <Link href={"/more/brain" as Href} asChild>
+          <SettingsNavCard
+            title="Brain"
+            description="Consolidate recent sessions into long-term memory on the host."
+            badges={["On demand"]}
+          />
+        </Link>
+      </Section>
+
+      <Section label="Host">
+        <Link href={"/more/chatbots" as Href} asChild>
+          <SettingsNavCard
+            title="Chatbots"
+            description="Start and stop Discord, Slack, and other chat bots on the host."
+          />
+        </Link>
+        <Divider inset={20} />
+        <Link href={"/more/observability" as Href} asChild>
+          <SettingsNavCard
+            title="Observability"
+            description="Toggle OpenTelemetry and inspect OTLP export status."
+          />
+        </Link>
+        <Divider inset={20} />
+        <Link href={"/more/host" as Href} asChild>
+          <SettingsNavCard
+            title="Host status"
+            description="Browser, computer use, Herdr, Island, and runtime health."
+            badges={[hostLabel]}
+          />
+        </Link>
+      </Section>
+
+      <Section label="Appearance">
+        <Link href={"/more/settings/appearance" as Href} asChild>
+          <SettingsNavCard
+            title="Appearance"
+            description="Wallpaper, math rendering, and rotating tips."
+          />
+        </Link>
+        <Divider inset={20} />
+        <Link href="/more/settings/providers" asChild>
+          <SettingsNavCard
+            title="Fusion"
+            description="OpenRouter Fusion presets live with models in Settings."
+          />
+        </Link>
+        <Divider inset={20} />
+        <Link href="/more/settings" asChild>
+          <SettingsNavCard
+            title="Settings"
+            description="Host, models, integrations, security, and appearance."
+            badges={[hostLabel]}
+          />
+        </Link>
+      </Section>
     </ScrollView>
   )
 }

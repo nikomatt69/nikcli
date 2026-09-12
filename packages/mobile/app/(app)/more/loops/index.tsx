@@ -177,13 +177,13 @@ export default function LoopsScreen() {
   )
 
   return (
-    <View className="flex-1 bg-background px-4 pt-4">
+    <View className="flex-1 bg-background" style={{ paddingHorizontal: 16, paddingTop: 16 }}>
       <FlashList
         contentInsetAdjustmentBehavior="automatic"
         data={loops}
         keyExtractor={(loop) => loop.id}
         refreshControl={refreshControl}
-        ItemSeparatorComponent={() => <View className="h-3" />}
+        ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
         renderItem={({ item }) => (
           <LoopRow loop={item} runtime={runtimeFor(item.id)} running={runningID === item.id} onRun={runLoop} />
         )}
@@ -195,7 +195,7 @@ export default function LoopsScreen() {
             action={<ActionButton label="Create loop" onPress={() => router.push("/more/loops/new" as Href)} />}
           />
         }
-        contentContainerStyle={{ paddingBottom: 28 }}
+        contentContainerStyle={{ paddingBottom: 36 }}
       />
     </View>
   )

@@ -321,7 +321,7 @@ export default function ReposScreen() {
         data={EMPTY_ROWS}
         keyExtractor={() => "_"}
         renderItem={() => null}
-        contentContainerStyle={{ paddingBottom: 28 }}
+        contentContainerStyle={{ paddingBottom: 36 }}
         refreshControl={useMemo(
           () => (
             <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />
@@ -330,7 +330,7 @@ export default function ReposScreen() {
         )}
         ListHeaderComponent={
           <View style={{ gap: 20 }}>
-            <CenteredScreenHeader title="Workspaces" right={<SettingsCircleButton />} />
+            <CenteredScreenHeader title="Workspaces" brand right={<SettingsCircleButton />} />
             <AppHeader
               chips={[
                 { label: `${projects.length} workspaces`, tone: "accent" },

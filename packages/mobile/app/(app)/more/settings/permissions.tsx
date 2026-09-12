@@ -100,7 +100,7 @@ export default function PermissionsSettingsScreen() {
       <Stack.Screen options={{ title: "Permissions" }} />
       <ScrollView
         className="flex-1 bg-background"
-        contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 36, gap: 16 }}
         keyboardShouldPersistTaps="handled"
       >
         {message ? <ErrorBanner message={message} /> : null}
@@ -125,7 +125,7 @@ export default function PermissionsSettingsScreen() {
                     minHeight: 44,
                     borderRadius: 14,
                     borderWidth: 1,
-                    paddingHorizontal: 14,
+                    paddingHorizontal: 16,
                     paddingVertical: 12,
                     opacity: pressed ? 0.78 : 1,
                     backgroundColor: active

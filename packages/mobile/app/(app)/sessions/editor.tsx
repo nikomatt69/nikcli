@@ -432,7 +432,7 @@ export default function EditorScreen() {
         style={{
             paddingTop: top + 8,
             paddingBottom: 10,
-            paddingHorizontal: 14,
+            paddingHorizontal: 16,
             overflow: "hidden",
             borderBottomWidth: StyleSheet.hairlineWidth,
             borderBottomColor: isDark ? hexToRgba(palette.ink, 0.07) : hexToRgba(palette.border, 0.8),

@@ -9,8 +9,8 @@ export function SectionHeader({ label }: { label: string }) {
     <Text
       style={{
         color: palette.muted,
-        paddingTop: 18,
-        paddingBottom: 6,
+        paddingTop: 0,
+        paddingBottom: 12,
         paddingHorizontal: 4,
         ...typeStyle(13, { weight: "600" }),
       }}

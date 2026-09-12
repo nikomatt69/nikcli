@@ -58,7 +58,7 @@ export default function AgentsSettingsScreen() {
     <ScrollView
       className="flex-1 bg-background"
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 36 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 36, gap: 16 }}
     >
       <Stack.Screen options={{ title: "Agents" }} />
 

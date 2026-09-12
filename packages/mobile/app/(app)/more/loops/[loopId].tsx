@@ -352,7 +352,7 @@ export default function LoopDetailScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 bg-background px-4 pt-4">
+      <View className="flex-1 bg-background" style={{ paddingHorizontal: 16, paddingTop: 16 }}>
         <SurfaceCard eyebrow="Loading" title="Fetching loop…" description="" />
       </View>
     )
@@ -362,7 +362,7 @@ export default function LoopDetailScreen() {
     <ScrollView
       className="flex-1 bg-background"
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 48 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 36, gap: 16 }}
       keyboardShouldPersistTaps="handled"
     >
       <ActionButton label="Back to loops" onPress={() => router.replace("/more/loops" as Href)} variant="secondary" />

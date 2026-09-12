@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native"
 import * as WebBrowser from "expo-web-browser"
 import { Link, useFocusEffect, type Href } from "expo-router"
-import { SettingsNavCard } from "@/components/settings/SettingsNavCard"
+import { SettingsGroup, SettingsNavCard } from "@/components/settings/SettingsNavCard"
 import { useColorScheme } from "nativewind"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
@@ -841,7 +841,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background px-4 pt-4">
+    <View className="flex-1 bg-background" style={{ paddingHorizontal: 16, paddingTop: 16 }}>
       <FlatList
         contentInsetAdjustmentBehavior="automatic"
         data={EMPTY_ROWS}
@@ -849,7 +849,7 @@ export default function SettingsScreen() {
         renderItem={() => null}
         contentContainerStyle={{ paddingBottom: 36 }}
         ListHeaderComponent={
-          <View style={{ gap: 20 }}>
+          <View style={{ gap: 16 }}>
             <CenteredScreenHeader title="Settings" />
             <View className="flex-row flex-wrap gap-2">
               <InfoChip label={config ? "Host linked" : "Host offline"} tone={config ? "good" : "warn"} />
@@ -863,9 +863,9 @@ export default function SettingsScreen() {
 
             {maybeHandle(message)}
 
-            <View className="gap-3">
+            <View>
               <SectionHeader label="Manage" />
-              <View className="gap-3">
+              <SettingsGroup>
                 {visibleSettingsSections.profile ? (
                   <Link href="/user" asChild>
                     <SettingsNavCard
@@ -1001,7 +1001,7 @@ export default function SettingsScreen() {
                     />
                   </Link>
                 ) : null}
-              </View>
+              </SettingsGroup>
             </View>
 
             {visibleSettingsSections.profile ? (

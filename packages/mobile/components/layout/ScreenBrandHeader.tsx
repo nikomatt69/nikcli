@@ -16,7 +16,7 @@ export function ScreenBrandHeader({ title, right }: { title: string; right?: Rea
   const { palette } = useAppTheme()
 
   return (
-    <View style={{ paddingHorizontal: 4, paddingTop: 8, paddingBottom: 4, gap: 12 }}>
+    <View style={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, gap: 12 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <BrandMark />
         {right ? <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>{right}</View> : null}

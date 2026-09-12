@@ -708,7 +708,7 @@ export default function ExplorerScreen() {
         style={{
           paddingTop: top + 8,
           paddingBottom: 10,
-          paddingHorizontal: 14,
+          paddingHorizontal: 16,
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: palette.border,
           overflow: "hidden",

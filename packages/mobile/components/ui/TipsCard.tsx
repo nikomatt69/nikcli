@@ -16,7 +16,7 @@ export function TipsCard({ seed }: { seed?: number }) {
     <View
       style={{
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingVertical: 14,
         borderRadius: 16,
         borderCurve: "continuous",
         borderWidth: 1,

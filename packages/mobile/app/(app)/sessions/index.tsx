@@ -243,9 +243,10 @@ export default function SessionsScreen() {
   )
 
   const hero = (
-    <AppHeader className="gap-4 pb-2">
+    <AppHeader className="gap-3 pb-0">
       <CenteredScreenHeader
         title="Code"
+        brand
         left={
           <IconCircleButton
             size={44}
@@ -276,7 +277,7 @@ export default function SessionsScreen() {
   if ((loading || bootstrapLoading) && sessions.length === 0) {
     return (
       <View className="flex-1 bg-background">
-        <View className="flex-1 px-4 pt-4">
+        <View className="flex-1" style={{ paddingHorizontal: 16, paddingTop: 16 }}>
           {hero}
           <SessionListSkeleton />
         </View>
@@ -306,9 +307,9 @@ export default function SessionsScreen() {
             <Text
               style={{
                 color: palette.muted,
-                paddingTop: 18,
-                paddingBottom: 6,
-                paddingHorizontal: 4,
+                paddingTop: 16,
+                paddingBottom: 8,
+                paddingHorizontal: 0,
                 ...typeStyle(15, { weight: "500" }),
               }}
             >

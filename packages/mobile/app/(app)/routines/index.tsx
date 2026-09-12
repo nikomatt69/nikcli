@@ -108,7 +108,7 @@ export default function RoutinesScreen() {
 
   const hero = (
     <AppHeader className="gap-3 pb-4">
-      <CenteredScreenHeader title="Routines" right={<SettingsCircleButton />} />
+      <CenteredScreenHeader title="Routines" brand right={<SettingsCircleButton />} />
       <ActionButton label="New routine" onPress={() => router.push("/routines/new" as Href)} />
       {routines.length > 0 ? (
         <Text style={{ color: palette.muted, ...typeStyle(13) }}>
@@ -136,7 +136,7 @@ export default function RoutinesScreen() {
             action={<ActionButton label="Create routine" onPress={() => router.push("/routines/new" as Href)} />}
           />
         }
-        contentContainerStyle={{ paddingBottom: 28 }}
+        contentContainerStyle={{ paddingBottom: 36 }}
       />
     </View>
   )

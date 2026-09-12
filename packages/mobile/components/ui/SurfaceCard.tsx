@@ -34,8 +34,8 @@ export function SurfaceCard({
       className={cn(className)}
       style={{
         overflow: "hidden",
-        paddingHorizontal: compact ? 16 : 20,
-        paddingVertical: compact ? 16 : 20,
+        paddingHorizontal: 16,
+        paddingVertical: 16,
         borderRadius: 18,
         borderCurve: "continuous",
         borderWidth: 1,

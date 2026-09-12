@@ -169,13 +169,13 @@ export default function MissionsScreen() {
   )
 
   return (
-    <View className="flex-1 bg-background px-4 pt-4">
+    <View className="flex-1 bg-background" style={{ paddingHorizontal: 16, paddingTop: 16 }}>
       <FlashList
         contentInsetAdjustmentBehavior="automatic"
         data={missions}
         keyExtractor={(mission) => mission.id}
         refreshControl={refreshControl}
-        ItemSeparatorComponent={() => <View className="h-3" />}
+        ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
         renderItem={({ item }) => (
           <MissionRow
             mission={item}
@@ -192,7 +192,7 @@ export default function MissionsScreen() {
             action={<ActionButton label="Create mission" onPress={() => router.push("/more/missions/new" as Href)} />}
           />
         }
-        contentContainerStyle={{ paddingBottom: 28 }}
+        contentContainerStyle={{ paddingBottom: 36 }}
       />
     </View>
   )

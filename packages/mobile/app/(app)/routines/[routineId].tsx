@@ -168,7 +168,7 @@ export default function RoutineDetailScreen() {
     <ScrollView
       style={{ flex: 1, backgroundColor: palette.background }}
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 48 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 36, gap: 16 }}
     >
       {error ? <ErrorBanner message={error} /> : null}
 

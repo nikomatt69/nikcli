@@ -15,8 +15,8 @@ import { triggerHaptic } from "@/lib/haptics"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
-import { BrandMark } from "@/components/layout/BrandMark"
+import { CenteredScreenHeader } from "@/components/layout/CenteredScreenHeader"
+import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { TerminalKeyBar } from "@/components/terminal/TerminalKeyBar"
 import { consumeTerminalLaunchIntent } from "@/lib/terminal-launch"
 import { ptyStatusLabel, type PtyConnectionStatus } from "@/lib/terminal-keys"
@@ -385,7 +385,7 @@ function TerminalScreenHeader() {
         backgroundColor: palette.background,
       }}
     >
-      <CenteredScreenHeader title="Terminal" right={<SettingsCircleButton />} />
+      <CenteredScreenHeader title="Terminal" brand right={<SettingsCircleButton />} />
     </View>
   )
 }
@@ -637,7 +637,7 @@ export default function TerminalScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: palette.background }}>
         <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 16 }}>
-          <ScreenBrandHeader title="Terminal" right={<SettingsCircleButton />} />
+          <CenteredScreenHeader title="Terminal" brand right={<SettingsCircleButton />} />
         </View>
         <View
           style={{
