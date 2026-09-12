@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { Pressable, Text, View } from "react-native"
 import { ChevronRight } from "lucide-react-native"
 import { triggerHaptic } from "@/lib/haptics"
@@ -22,6 +22,7 @@ type DisclosureRowProps = {
  */
 export function DisclosureRow({ label, icon, emphasis, tone = "muted", onPress }: DisclosureRowProps) {
   const { palette } = useAppTheme()
+  const [pressed, setPressed] = useState(false)
   const color = tone === "ink" ? palette.ink : palette.muted
 
   return (
@@ -29,17 +30,19 @@ export function DisclosureRow({ label, icon, emphasis, tone = "muted", onPress }
       accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={emphasis ? `${emphasis} ${label}` : label}
       disabled={!onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
       onPress={() => {
         void triggerHaptic("selection")
         onPress?.()
       }}
-      style={({ pressed }) => ({
+      style={{
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
         paddingVertical: 9,
         opacity: pressed ? 0.62 : 1,
-      })}
+      }}
     >
       {icon}
       <View style={{ flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 5 }}>

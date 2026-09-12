@@ -57,6 +57,7 @@ type BackgroundTaskCardProps = {
 
 function BackgroundTaskCard({ task, now, tokens, onStop, onOpenTranscript }: BackgroundTaskCardProps) {
   const { palette, isDark } = useAppTheme()
+  const [linkPressed, setLinkPressed] = useState(false)
   const running = task.status === "running"
   const duration = durationLabel(task, now)
 
@@ -103,11 +104,13 @@ function BackgroundTaskCard({ task, now, tokens, onStop, onOpenTranscript }: Bac
               <Pressable
                 accessibilityRole="link"
                 accessibilityLabel={`View transcript for ${task.title}`}
+                onPressIn={() => setLinkPressed(true)}
+                onPressOut={() => setLinkPressed(false)}
                 onPress={() => {
                   void triggerHaptic("selection")
                   onOpenTranscript(task)
                 }}
-                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                style={{ opacity: linkPressed ? 0.6 : 1 }}
               >
                 <Text style={{ color: palette.accentLight, ...typeStyle(13, { weight: "500" }) }}>View transcript</Text>
               </Pressable>

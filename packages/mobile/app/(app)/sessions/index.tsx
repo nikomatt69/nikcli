@@ -30,7 +30,9 @@ const EMPTY_PROJECTS: ProjectInfo[] = []
 function lastPathSegment(path?: string): string {
   if (!path) return "Unknown workspace"
   const segments = path.split("/").filter(Boolean)
-  return segments[segments.length - 1] || path
+  // A root worktree ("/") has no last segment, and a bare "/" reads as nothing
+  // at all as a section heading.
+  return segments[segments.length - 1] || "Workspace"
 }
 
 function projectLabel(project: ProjectInfo): string {
@@ -287,7 +289,7 @@ export default function SessionsScreen() {
           />
         }
         style={{ paddingHorizontal: 16 }}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 196 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 188 }}
       />
       <FloatingDock
         actionLabel="New session"
@@ -297,7 +299,7 @@ export default function SessionsScreen() {
         onSearchChange={setSearch}
         searchPlaceholder="Filter sessions"
         // Clears the native tab bar so the dock floats above it, not behind it.
-        bottomInset={54}
+        bottomInset={44}
       />
       <WorkspaceSwitcherSheet
         sheetRef={workspaceSheetRef}

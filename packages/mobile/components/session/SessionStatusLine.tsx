@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
 import { Sparkles } from "lucide-react-native"
 import { usePrefersReducedMotion } from "@/lib/animation"
@@ -22,6 +22,7 @@ type SessionStatusLineProps = {
 export function SessionStatusLine({ label, working, runningCount, onOpenActivity }: SessionStatusLineProps) {
   const { palette } = useAppTheme()
   const prefersReducedMotion = usePrefersReducedMotion()
+  const [pressed, setPressed] = useState(false)
   const spinRef = useRef<Animated.Value | null>(null)
   if (spinRef.current === null) spinRef.current = new Animated.Value(0)
   const spin = spinRef.current
@@ -62,11 +63,13 @@ export function SessionStatusLine({ label, working, runningCount, onOpenActivity
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${countLabel}. Opens background activity.`}
+            onPressIn={() => setPressed(true)}
+            onPressOut={() => setPressed(false)}
             onPress={() => {
               void triggerHaptic("selection")
               onOpenActivity()
             }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            style={{ opacity: pressed ? 0.6 : 1 }}
           >
             <Text style={{ color: palette.accentLight, ...typeStyle(15, { weight: "500" }) }}>{countLabel}</Text>
           </Pressable>

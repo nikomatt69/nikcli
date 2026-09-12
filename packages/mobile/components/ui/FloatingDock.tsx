@@ -37,6 +37,7 @@ export function FloatingDock({
   const insets = useSafeAreaInsets()
   const press = usePressAnimation()
   const [focused, setFocused] = useState(false)
+  const [actionPressed, setActionPressed] = useState(false)
 
   return (
     <View
@@ -58,15 +59,22 @@ export function FloatingDock({
             accessibilityLabel={actionLabel}
             accessibilityState={{ disabled: Boolean(actionLoading) }}
             disabled={actionLoading}
-            onPressIn={press.onPressIn}
-            onPressOut={press.onPressOut}
+            onPressIn={() => {
+              setActionPressed(true)
+              press.onPressIn()
+            }}
+            onPressOut={() => {
+              setActionPressed(false)
+              press.onPressOut()
+            }}
             onPress={() => {
               void triggerHaptic("selection")
               onAction()
             }}
-            style={({ pressed }) => ({
+            style={{
               flexDirection: "row",
               alignItems: "center",
+              justifyContent: "center",
               gap: 8,
               minHeight: 52,
               paddingHorizontal: 22,
@@ -78,8 +86,8 @@ export function FloatingDock({
               shadowRadius: 16,
               shadowOffset: { width: 0, height: 6 },
               elevation: 6,
-              opacity: pressed || actionLoading ? 0.82 : 1,
-            })}
+              opacity: actionPressed || actionLoading ? 0.82 : 1,
+            }}
           >
             {actionLoading ? (
               <ActivityIndicator size="small" color={palette.background} />

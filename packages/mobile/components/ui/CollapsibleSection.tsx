@@ -31,6 +31,7 @@ export function CollapsibleSection({
   const { palette } = useAppTheme()
   const prefersReducedMotion = usePrefersReducedMotion()
   const [open, setOpen] = useState(defaultOpen)
+  const [pressed, setPressed] = useState(false)
   const turn = useToggleAnimation(open)
 
   function toggle() {
@@ -53,13 +54,15 @@ export function CollapsibleSection({
         accessibilityState={{ expanded: open }}
         accessibilityLabel={count === undefined ? label : `${label} ${count}`}
         onPress={toggle}
-        style={({ pressed }) => ({
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+        style={{
           flexDirection: "row",
           alignItems: "center",
           gap: 8,
           paddingVertical: 10,
           opacity: pressed ? 0.7 : 1,
-        })}
+        }}
       >
         <Text style={{ color: palette.muted, ...typeStyle(15, { weight: "500" }) }}>
           {label}
