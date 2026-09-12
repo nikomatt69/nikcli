@@ -2,6 +2,8 @@
 
 Status: proposed implementation program. Baseline date: 2026-09-10.
 Scope: `packages/tui`, `packages/nikcli`, and the SDK/identity seams they cross. [Catalog and evidence](README.md).
+User outcomes these specs are meant to move: [product roadmap](PRODUCT_ROADMAP.md). A spec that cannot be tied to
+an outcome there is a refactor, and should be argued as one.
 
 ## Objective
 
@@ -10,7 +12,8 @@ preserving the standalone TUI, CLI/worker/HTTP/mobile modes, existing user workf
 pins. Deliver vertical slices with measured outcomes; do not rewrite every Promise into Effect or every Solid signal
 into a service.
 
-Twenty specifications organize the work across three horizons that match the phase column below: a correctness,
+Twenty-one specifications organize the work across three horizons that match the phase column below, preceded by a
+single released-defect gate (EOT-00) that blocks every promotion until it passes: a correctness,
 contract, and evidence baseline (EOT-01..03, EOT-10, EOT-12, EOT-13, EOT-20), a bounded data/state/isolation layer
 (EOT-04, EOT-05, EOT-08, EOT-09, EOT-11, EOT-14..17), and the user-visible experience and bridge surface (EOT-06,
 EOT-07, EOT-18, EOT-19). Each spec is **proposed** — implementation lands in dependency order, one slice at a time.
@@ -45,15 +48,32 @@ may bypass the typed contract.
 1. Preserve `layer`/`defaultLayer`, `runPromiseWithLayer`/`runService`, and the existing instance bridge. No second runtime
    factory, second instance ALS, or runtime per component. Any TUI-side Effect execution needs a host-provided owner and
    evidence that it is better than the existing cancellation adapter; the default is not to add one.
+
+   Known debt, not an exemption: two call sites already build a runtime without `makeRuntime`
+   (`packages/nikcli/src/effect/runtime.ts:42`), so they run without `LogRedirect` and without
+   `Observability.layer` — `packages/llm/src/runtime.ts:12` and `packages/nikcli/src/server/server.ts:196`.
+   EOT-02 converges the first and EOT-13 cannot claim "every cross-boundary call" until the second is
+   routed through the shared factory. No new bypass may be added in the meantime.
+
 2. Use `Schema.TaggedError` for new expected domain failures, retain `Cause`/`Exit` at internal boundaries, and distinguish
    interruption, defect, timeout, transport failure, and an empty successful result.
 3. HttpApi remains the contract authority. `nikcli.json` stays Zod-derived through `fromZod`; generated clients are not
-   handwritten. Do not introduce Hono, hey-api, a parallel config schema, an alternate database layer, or a parallel
-   plugin runtime.
+   handwritten. Do not introduce hey-api, a parallel config schema, an alternate database layer, or a parallel
+   plugin runtime. The Hono prohibition covers `packages/nikcli` and `packages/tui` only: Hono is already the
+   shipped router in `packages/identity`, `packages/auth`, `packages/cloud`, and `packages/companion`, and this
+   roadmap does not migrate them. Do not let it cross into the two packages above.
 4. Bounded queues require a stated overflow/recovery policy. A faster view that drops text, permission prompts, or final
    outcomes is a correctness regression. Safety and tenant isolation outrank performance.
 5. Keep existing tests and CI signals. Do not add the full nikcli suite back to CI; run whole-suite checks locally through
    `bun run test:ci`. Preserve targeted Windows suites, client-drift, formatting/lint, and Railway/Docker guards.
+
+   Be honest about what this costs. Today `.github/workflows/test.yml` runs `bun turbo typecheck` and
+   nothing else, and the only real `bun test` in CI is `windows-compat.yml` over four directories; the
+   12 steps of `script/ci-validate.ts` contain no test execution. So every gate below that reads
+   "extend `test/...`" is self-certified by whoever wrote the PR. Until a sharded, non-blocking
+   `script/test-ci.ts` job exists, a slice does not count as verified unless its PR carries the raw
+   exit code and pass/fail counts of the suite the author actually ran.
+
 6. The bridge protocol (CLI / TUI / SDK / mobile / companion / remote) is one typed contract per direction; clients are
    generated, not handwritten. Capability gating is part of the contract; absent capabilities are surfaced, not silently
    stubbed.
@@ -77,7 +97,8 @@ promised.
 
 | ID                                                        | Tier | Phase | Dependencies                   | Effort | Risk   | Primary owner               | Release gate                                                      |
 | --------------------------------------------------------- | ---- | ----- | ------------------------------ | ------ | ------ | --------------------------- | ----------------------------------------------------------------- |
-| [EOT-01](effect-tui/01-performance-baseline.md)           | 1    | P0    | none                           | M      | Low    | Performance/test            | Reproducible measurements and failure-sensitive assertions        |
+| [EOT-00](effect-tui/00-startup-hang.md)                   | 1    | P0    | none                           | M      | High   | TUI host/renderer           | `hangRate == 0` over 200 compiled starts across the PTY matrix    |
+| [EOT-01](effect-tui/01-performance-baseline.md)           | 1    | P0    | EOT-00                         | M      | Low    | Performance/test            | Reproducible measurements and failure-sensitive assertions        |
 | [EOT-02](effect-tui/02-effect-boundaries.md)              | 1    | P1    | EOT-01                         | L      | High   | Effect/domain               | Typed boundary and multi-instance teardown tests                  |
 | [EOT-03](effect-tui/03-tui-lifecycle.md)                  | 1    | P1    | EOT-02                         | M      | High   | TUI lifecycle               | No stale commits or surviving owner work                          |
 | [EOT-10](effect-tui/10-contracts-errors-security.md)      | 1    | P1    | EOT-01                         | L      | High   | HttpApi/security            | Error/encoding/auth parity and clean generated output             |
@@ -98,17 +119,32 @@ promised.
 | [EOT-06](effect-tui/06-terminal-rendering.md)             | 2    | P3    | EOT-05                         | L      | High   | TUI rendering               | Streaming virtualization, anchor fidelity, measured latency       |
 | [EOT-07](effect-tui/07-input-interaction.md)              | 2    | P3    | EOT-03, EOT-05                 | M      | High   | TUI interaction             | Keyboard/focus/permission matrix on real terminals                |
 
+EOT-00 is the one hard stop: while a compiled start can silently fail to paint, no other spec may be promoted past
+its current phase. Characterization work continues; promotion does not.
+
 Dependencies are exit gates, not permission to stall unrelated characterization tests. After P0, EOT-02, EOT-10,
 EOT-12, EOT-13, and EOT-20 may characterize existing behavior in parallel, but each release gate still requires all
 dependencies listed above to pass.
 
+That licence has been taken too far. All twenty specs are open and none has passed its gate, which is maximum
+work-in-progress and zero delivery. Until EOT-00, EOT-01, and EOT-08 close, open no further spec: a spec with no
+landed slice stays shut, and a spec whose only landed slice is a contract table is not evidence of progress toward
+its gate.
+
 EOT-08 and EOT-18 need not wait for EOT-04/05/15; EOT-06, EOT-07, and EOT-19 are independent after their listed
 prerequisites. Run memory-heavy verification serially even when implementation work is independent.
+
+Two tier/dependency inversions are deliberate and stay flagged rather than silently reconciled: EOT-14 (Tier 1)
+depends on EOT-08 (Tier 2) and EOT-15 (Tier 1) depends on EOT-05 (Tier 2). Tier is priority of the correctness
+claim, not scheduling order, so in both cases the Tier 2 prerequisite is scheduled first. If that ordering ever
+becomes unacceptable, change the tier — do not quietly start the Tier 1 item.
 
 ## Phase Exits
 
 ### P0: Establish Truth
 
+- Close EOT-00 first. A binary that intermittently never paints makes every other P0 number a measurement of a
+  startup that sometimes does not happen, and it is the one defect in this program that users hit directly.
 - Record versions, host modes, workload fixtures, raw metrics, queue/resource counters, and a baseline comparison format.
 - Add missing behavioral probes before modifying hot paths; characterize existing best-effort and fallback semantics.
 - Ratify EOT-01 candidate budgets in a reviewed baseline artifact. A noisy or missing baseline is not a pass.
@@ -148,7 +184,25 @@ No new feature scope. Remove only migration adapters proven unused, update this 
 exercise every host mode (CLI, embedded worker, HTTP, standalone, mobile, companion, remote), and compare final results
 to P0. Leave any unpassed spec proposed/in-progress rather than claiming the architecture program is complete.
 
+"Leave it proposed" is a reporting rule, not a definition of done, and on its own it lets the program end with
+nothing closed. P4 is reached only when EOT-00, EOT-01, and EOT-08 have passed their gates and every remaining spec
+has been explicitly either passed or **archived with a written reason and its landed slices accounted for**. A spec
+that is neither passed nor archived blocks P4. If more than half the specs would have to be archived, the program
+was scoped wrong and the catalog is rewritten rather than declared finished.
+
 ## First Implementable Slices
+
+This list is grouped by tier and phase, **not** in topological order: several entries appear before a prerequisite
+listed in the dependency table (EOT-12 before EOT-03, EOT-14 before EOT-08, EOT-15 before EOT-05). Read the
+dependency table for what must pass first; read this list for where to cut the first slice of each spec.
+
+0. EOT-00, before any of the following: make the never-paints startup countable, then stop it. Replace the probe's
+   `throw new Error("never painted")` (`packages/nikcli/script/tui-startup.ts:208`) with a recorded outcome so a
+   wedged sample yields `{painted, hung, hangRate}` instead of aborting the run; then reproduce the hang on demand
+   and put a deadline on terminal capability negotiation. `createCliRenderer` is awaited with no deadline
+   (`packages/tui/src/app.tsx:189`) while the adjacent theme probe already has one (`waitForThemeMode?.(1000)`,
+   `packages/tui/src/app.tsx:198`) and the palette query is deliberately fire-and-forget
+   (`packages/tui/src/app.tsx:197`) — that asymmetry is the first thing to test.
 
 1. EOT-01: the startup probe now records raw samples, nearest-rank percentiles, and child RSS when
    readable; event-feed / plugin-dispose / streaming-cost harnesses record queue-depth, lifecycle
@@ -173,16 +227,17 @@ to P0. Leave any unpassed spec proposed/in-progress rather than claiming the arc
    `OPENTUI_GRAPHICS` / `OPENTUI_NOTIFICATIONS` / `OTUI_PALETTE_IDLE_TIMEOUT_MS` still hangs, with
    the same query block as the last output.
 
-   Fix the hang before ratifying anything. A budget averaged over the samples that _did_ paint
-   certifies a startup that sometimes does not happen. Two observations stand regardless: warm
-   firstPaint sits around 4.8-5.2s median with RSS around 500-620MB, and `firstPaint` and
-   `usablePrompt` differ by under a millisecond in every sample, so on this binary the second metric
-   carries no information the first does not.
+   Fix the hang before ratifying anything; the baseline is a measurement of the hang until then. A
+   budget averaged over the samples that _did_ paint certifies a startup that sometimes does not
+   happen. This is [EOT-00](effect-tui/00-startup-hang.md), which gates every other promotion.
 
-   Fix the hang first; the baseline is a measurement of it until then. Two observations stand
-   regardless: warm firstPaint sits around 4.8-5.2s median with RSS around 500-620MB, and
-   `firstPaint` and `usablePrompt` differ by under a millisecond in every sample, so on this binary
-   the second metric carries no information the first does not.
+   Two observations stand regardless: warm firstPaint sits around 4.8-5.2s median with RSS around
+   500-620MB, and `firstPaint` and `usablePrompt` differ by under a millisecond in every sample, so
+   on this binary the second metric carries no information the first does not.
+
+   No repro harness has landed yet. The probe cannot even count the hang: it raises
+   `never painted` (`packages/nikcli/script/tui-startup.ts:208`), so one wedged sample aborts the
+   whole 30-run collection instead of being recorded. EOT-00 owns both the counter and the fix.
 
 2. EOT-02: type one `runService` caller chain without widening requirements; exercise finalizers and concurrent instances.
 3. EOT-10: characterize standalone TUI-config 401, malformed response, and offline failure; forbid empty-config success.
@@ -218,9 +273,8 @@ its release gate. Nothing here is marked complete.
 
 | Spec   | What landed                                                                                   | Commit                  |
 | ------ | --------------------------------------------------------------------------------------------- | ----------------------- |
-| EOT-01 | One probe-environment block shared by both probes; `loadavg1` added                           | `5aa643dc8`             |
+| EOT-01 | One probe-environment block shared by both probes; `loadavg1` added                           | `ae360475`              |
 | EOT-01 | Probe progress moved to stderr; `BASELINE` comparison with an opt-in regression gate          | working tree            |
-| EOT-01 | `repro:startup-hang`: the intermittent never-paints startup, reproduced on demand             | working tree            |
 | EOT-02 | `runService` requirement typing; `any` and the cast removed                                   | `3ec56934`              |
 | EOT-02 | `runPromiseWithLayer` requires `R extends ROut`; four latent missing-service runs fixed       | working tree            |
 | EOT-03 | `useAttempts`: supersession guard for restartable dialog flows                                | `4495840e1`             |
@@ -232,7 +286,7 @@ its release gate. Nothing here is marked complete.
 | EOT-05 | Replay equivalence verified: a snapshot reaches the same state as a cold journal              | working tree            |
 | EOT-06 | Windowing math pinned by tests, including two properties                                      | `92dc72d2a`             |
 | EOT-06 | Windowing heights derived per turn from content instead of a flat constant                    | working tree            |
-| EOT-07 | Ctrl+C asks the renderer for focus instead of a source string and a missing DOM               | `a0b21dffd`             |
+| EOT-07 | Ctrl+C asks the renderer for focus instead of a source string and a missing DOM               | `2744425a`              |
 | EOT-07 | Input precedence as an ordered table: modal > editable > route > application                  | working tree            |
 | EOT-08 | Import-cost probe; one dialog moved off the critical path against a measured delta            | `a9725f1d7`             |
 | EOT-08 | Four more dialogs off the critical path: eager set 3344ms -> 1552-2003ms                      | working tree            |
@@ -257,7 +311,7 @@ its release gate. Nothing here is marked complete.
 | EOT-18 | Command-surface gate restored and repointed                                                   | `f5783a970`             |
 | EOT-18 | `cmd()` takes `bootstrap`/`teardown`; teardown runs in a finally without masking the handler  | working tree            |
 | EOT-19 | Per-device capabilities the bridge advertises; an unknown scope grants nothing                | working tree            |
-| EOT-20 | Test layers made disjoint; barrier helpers; one flaky test migrated to a barrier              | `3ec56934`, `c1d323308` |
+| EOT-20 | Test layers made disjoint; barrier helpers; one flaky test migrated to a barrier              | `3ec56934`, `4035590e`  |
 | EOT-20 | `preserveTestEnv` discipline enforced: a module-scope `NIKCLI_*` write fails a test           | working tree            |
 
 Every spec has been opened and every spec now has at least one landed slice,
@@ -310,7 +364,8 @@ over the tier order, then return to the dependency gates; record the evidence an
 
 ## Verification and Promotion
 
-Run commands from the stated package through Bun; use `monitor` for tests, typechecks, builds, and codegen.
+Run commands from the stated package through Bun. `monitor` here is the nikcli agent tool for long-running
+commands (see `packages/nikcli/AGENTS.md`), not a Bun script: there is no `bun run monitor`.
 
 | Change surface             | Required evidence                                                                                                           |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
