@@ -10,7 +10,7 @@ export default Runtime.handler(Commands.commands["heap"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "detailed": Option.getOrUndefined(input["detailed"]),
+    detailed: Option.getOrUndefined(input["detailed"]),
   }
   const output = Heap.report(
     args.detailed

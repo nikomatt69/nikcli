@@ -13,7 +13,7 @@ export default Runtime.handler(Commands.commands["artifact"].commands["list"], a
     $0: "nikcli",
     "--": passthrough(),
     "session-id": Option.getOrUndefined(input["session-id"]),
-    "sessionId": Option.getOrUndefined(input["session-id"]),
+    sessionId: Option.getOrUndefined(input["session-id"]),
   }
   await bootstrap(process.cwd(), async () => {
     UI.empty()

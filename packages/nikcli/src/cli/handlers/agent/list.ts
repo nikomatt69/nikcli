@@ -6,7 +6,6 @@ import { withInstanceAsync } from "@/effect"
 import { log, agentList } from "./shared"
 
 export default Runtime.handler(Commands.commands["agent"].commands["list"], async (_input) => {
-  
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     const agents = await agentList()
     const sortedAgents = agents.sort((a: Agent.Info, b: Agent.Info) => {

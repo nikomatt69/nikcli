@@ -130,7 +130,7 @@ export default Runtime.handler(Commands.commands["import"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "file": input["file"],
+    file: input["file"],
   }
   await bootstrap(process.cwd(), async (instance) => {
     let exportData:

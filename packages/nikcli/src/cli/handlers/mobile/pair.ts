@@ -3,9 +3,7 @@ import { Runtime } from "../../framework/runtime"
 import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
 import { MobileAuth } from "@/mobile/auth"
-import {
-  normalizePublicUrl,
-} from "@nikcli-ai/util/mobile-pairing"
+import { normalizePublicUrl } from "@nikcli-ai/util/mobile-pairing"
 import { printPairing } from "./shared"
 
 export default Runtime.handler(Commands.commands["mobile"].commands["pair"], async (input) => {
@@ -14,11 +12,11 @@ export default Runtime.handler(Commands.commands["mobile"].commands["pair"], asy
     $0: "nikcli",
     "--": passthrough(),
     "public-url": input["public-url"],
-    "publicUrl": input["public-url"],
-    "name": input["name"],
+    publicUrl: input["public-url"],
+    name: input["name"],
     "expiry-days": Option.getOrUndefined(input["expiry-days"]),
-    "expiryDays": Option.getOrUndefined(input["expiry-days"]),
-    "directory": Option.getOrUndefined(input["directory"]),
+    expiryDays: Option.getOrUndefined(input["expiry-days"]),
+    directory: Option.getOrUndefined(input["directory"]),
   }
   const created = await MobileAuth.create({
     name: String(args.name || "iphone"),

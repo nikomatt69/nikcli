@@ -48,10 +48,7 @@ type RuntimeHandlers =
  * Identity at runtime; it exists so a handler file can name the node it
  * implements and have its `input` typed from that node's parameters.
  */
-export function handler<const Node extends Spec.Any>(
-  _node: Node,
-  run: (input: Input<Node>) => Promise<void> | void,
-) {
+export function handler<const Node extends Spec.Any>(_node: Node, run: (input: Input<Node>) => Promise<void> | void) {
   return run
 }
 
@@ -105,16 +102,13 @@ function rootCommand(root: Spec.Any, handlers: ReadonlyArray<LazyHandler>) {
   return provide(root, handlers).pipe(Command.withGlobalFlags(GlobalFlags as never))
 }
 
-export function run(
-  root: Spec.Any,
-  handlers: ReadonlyArray<LazyHandler>,
-  options: { readonly version: string },
-) {
+export function run(root: Spec.Any, handlers: ReadonlyArray<LazyHandler>, options: { readonly version: string }) {
   // `runWith` rather than `run` so the argv can be normalised first — see
   // `normalizeArgv` for the two yargs behaviours effect does not reproduce.
-  return Command.runWith(rootCommand(root, handlers) as never, options)(
-    normalizeArgv(process.argv.slice(2), Object.keys(root.commands)),
-  )
+  return Command.runWith(
+    rootCommand(root, handlers) as never,
+    options,
+  )(normalizeArgv(process.argv.slice(2), Object.keys(root.commands)))
 }
 
 /**

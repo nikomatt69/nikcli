@@ -44,8 +44,6 @@ export function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
 
-
-
 export async function getAvailableTools(agent: Agent.Info) {
   const model = agent.model ?? (await defaultProviderModel())
   return runPromiseWithLayer(
@@ -161,9 +159,9 @@ export default Runtime.handler(Commands.commands["debug"].commands["agent"], asy
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "name": input["name"],
-    "tool": Option.getOrUndefined(input["tool"]),
-    "params": Option.getOrUndefined(input["params"]),
+    name: input["name"],
+    tool: Option.getOrUndefined(input["tool"]),
+    params: Option.getOrUndefined(input["params"]),
   }
   await bootstrap(process.cwd(), async () => {
     const agentName = args.name as string

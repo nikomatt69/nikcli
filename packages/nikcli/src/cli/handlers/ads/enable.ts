@@ -7,7 +7,6 @@ import { loadAds, saveAds } from "./shared"
 import type { AdsConfig } from "./shared"
 
 export default Runtime.handler(Commands.commands["ads"].commands["enable"], async (_input) => {
-  
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {
       UI.empty()

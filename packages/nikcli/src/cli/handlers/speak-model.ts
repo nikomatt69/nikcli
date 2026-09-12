@@ -63,7 +63,6 @@ export async function getOpenRouterAudioModels(): Promise<{ id: string; name: st
   }
 }
 
-
 export async function saveConfig(config: Config.Info, globalFlag: boolean) {
   const configPath = globalFlag ? path.join(Global.Path.config, "nikcli.json") : path.join(process.cwd(), "nikcli.json")
 
@@ -99,10 +98,10 @@ export default Runtime.handler(Commands.commands["speak-model"], async (input) =
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "provider": Option.getOrUndefined(input["provider"]),
-    "model": Option.getOrUndefined(input["model"]),
-    "reset": input["reset"],
-    "global": input["global"],
+    provider: Option.getOrUndefined(input["provider"]),
+    model: Option.getOrUndefined(input["model"]),
+    reset: input["reset"],
+    global: input["global"],
   }
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {

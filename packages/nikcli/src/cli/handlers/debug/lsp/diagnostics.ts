@@ -12,7 +12,7 @@ export default Runtime.handler(Commands.commands["debug"].commands["lsp"].comman
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "file": input["file"],
+    file: input["file"],
   }
   await bootstrap(process.cwd(), async () => {
     await runLSP(

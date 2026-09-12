@@ -8,9 +8,9 @@ export default Runtime.handler(Commands.commands["sync"].commands["token"].comma
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "name": input["name"],
+    name: input["name"],
     "expiry-days": Option.getOrUndefined(input["expiry-days"]),
-    "expiryDays": Option.getOrUndefined(input["expiry-days"]),
+    expiryDays: Option.getOrUndefined(input["expiry-days"]),
   }
   const { MobileAuth } = await import("@/mobile/auth")
   const created = await MobileAuth.create({

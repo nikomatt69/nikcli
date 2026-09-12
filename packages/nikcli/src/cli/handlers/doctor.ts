@@ -12,7 +12,7 @@ export default Runtime.handler(Commands.commands["doctor"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "json": Option.getOrUndefined(input["json"]),
+    json: Option.getOrUndefined(input["json"]),
   }
   const { results } = await runDoctorChecks()
 

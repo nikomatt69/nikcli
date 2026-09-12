@@ -13,7 +13,7 @@ export default Runtime.handler(Commands.commands["ads"].commands["remove"], asyn
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "id": Option.getOrUndefined(input["id"]),
+    id: Option.getOrUndefined(input["id"]),
   }
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {

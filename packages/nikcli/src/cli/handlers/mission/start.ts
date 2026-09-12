@@ -13,8 +13,8 @@ export default Runtime.handler(Commands.commands["mission"].commands["start"], a
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "id": input["id"],
-    "tail": Option.getOrUndefined(input["tail"]),
+    id: input["id"],
+    tail: Option.getOrUndefined(input["tail"]),
   }
   await bootstrap(process.cwd(), async (instance) => {
     const mission = await Manager.get(instance.project.id, String(args.id))

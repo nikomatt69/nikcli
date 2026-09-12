@@ -12,12 +12,12 @@ export default Runtime.handler(Commands.commands["routine"].commands["create"], 
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "name": Option.getOrUndefined(input["name"]),
-    "prompt": Option.getOrUndefined(input["prompt"]),
-    "cron": Option.getOrUndefined(input["cron"]),
-    "api": Option.getOrUndefined(input["api"]),
+    name: Option.getOrUndefined(input["name"]),
+    prompt: Option.getOrUndefined(input["prompt"]),
+    cron: Option.getOrUndefined(input["cron"]),
+    api: Option.getOrUndefined(input["api"]),
     "api-token": Option.getOrUndefined(input["api-token"]),
-    "apiToken": Option.getOrUndefined(input["api-token"]),
+    apiToken: Option.getOrUndefined(input["api-token"]),
   }
   await bootstrap(process.cwd(), async (instance) => {
     prompts.intro("Create routine")

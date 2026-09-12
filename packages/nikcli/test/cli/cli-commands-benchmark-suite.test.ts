@@ -208,11 +208,13 @@ describe("CLI command suite", () => {
     const walk = (node: any, parents: string[]): CommandExport[] => {
       const path = [...parents, node.name].filter(Boolean)
       const self: CommandExport[] = path.length
-        ? [{
-            modulePath: "@/cli/commands",
-            exportName: path.join(" "),
-            command: { command: node.spec.name, describe: node.spec.description } as CommandLike,
-          }]
+        ? [
+            {
+              modulePath: "@/cli/commands",
+              exportName: path.join(" "),
+              command: { command: node.spec.name, describe: node.spec.description } as CommandLike,
+            },
+          ]
         : []
       return [...self, ...Object.values(node.commands ?? {}).flatMap((c) => walk(c, path))]
     }

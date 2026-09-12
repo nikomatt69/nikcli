@@ -89,7 +89,6 @@ export interface SessionUsage {
 // Command Definition
 // ============================================
 
-
 // ============================================
 // Data Aggregation
 // ============================================
@@ -540,12 +539,12 @@ export default Runtime.handler(Commands.commands["usage"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "days": input["days"],
-    "top": input["top"],
-    "models": input["models"],
-    "project": Option.getOrUndefined(input["project"]),
+    days: input["days"],
+    top: input["top"],
+    models: input["models"],
+    project: Option.getOrUndefined(input["project"]),
     "no-chart": input["no-chart"],
-    "noChart": input["no-chart"],
+    noChart: input["no-chart"],
   }
   log.debug("Usage command started", {
     days: args.days,

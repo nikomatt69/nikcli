@@ -12,7 +12,7 @@ export default Runtime.handler(Commands.commands["connectors"].commands["logout"
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "name": Option.getOrUndefined(input["name"]),
+    name: Option.getOrUndefined(input["name"]),
   }
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {

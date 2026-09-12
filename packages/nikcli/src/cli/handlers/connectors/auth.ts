@@ -14,7 +14,7 @@ export default Runtime.handler(Commands.commands["connectors"].commands["auth"],
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "name": Option.getOrUndefined(input["name"]),
+    name: Option.getOrUndefined(input["name"]),
   }
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {
@@ -24,8 +24,8 @@ export default Runtime.handler(Commands.commands["connectors"].commands["auth"],
       const config = await configGet()
       const connectors = config.connectors ?? {}
 
-      const configuredConnectors = Object.entries(connectors).filter(
-        (entry): entry is [string, ConnectorConfigured] => Connectors.isConnectorConfigured(entry[1]),
+      const configuredConnectors = Object.entries(connectors).filter((entry): entry is [string, ConnectorConfigured] =>
+        Connectors.isConnectorConfigured(entry[1]),
       )
 
       if (configuredConnectors.length === 0) {

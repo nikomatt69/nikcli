@@ -1,4 +1,3 @@
-
 /** Helpers shared by the `service` commands. */
 
 /**
@@ -13,10 +12,6 @@ export async function service() {
   const { BackgroundService } = await import("@/service/service")
   return BackgroundService
 }
-
-
-
-
 
 export async function config() {
   const { ServiceConfig } = await import("@/service/config")

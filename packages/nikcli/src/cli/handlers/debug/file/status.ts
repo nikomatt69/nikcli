@@ -7,7 +7,6 @@ import { Effect } from "effect"
 import { runFile } from "./shared"
 
 export default Runtime.handler(Commands.commands["debug"].commands["file"].commands["status"], async (_input) => {
-  
   await bootstrap(process.cwd(), async () => {
     const status = await runFile(
       Effect.gen(function* () {

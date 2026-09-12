@@ -16,11 +16,11 @@ export default Runtime.handler(Commands.commands["acp"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "port": input["port"],
-    "hostname": input["hostname"],
-    "mdns": input["mdns"],
-    "cors": [...input["cors"]],
-    "cwd": input["cwd"],
+    port: input["port"],
+    hostname: input["hostname"],
+    mdns: input["mdns"],
+    cors: [...input["cors"]],
+    cwd: input["cwd"],
   }
   await bootstrap(process.cwd(), async () => {
     // SAFETY: this command's builder is `withNetworkOptions`, which declares

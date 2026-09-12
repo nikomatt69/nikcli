@@ -10,7 +10,7 @@ export default Runtime.handler(Commands.commands["routine"].commands["list"], as
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "format": input["format"],
+    format: input["format"],
   }
   await bootstrap(process.cwd(), async (instance) => {
     const routines = await Routine.list(instance)

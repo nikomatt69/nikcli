@@ -7,7 +7,6 @@ import { configGet, mcpGetAuthStatus, getAuthStatusIcon, getAuthStatusText, isMc
 import type { McpRemote } from "../shared"
 
 export default Runtime.handler(Commands.commands["mcp"].commands["auth"].commands["list"], async (_input) => {
-  
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {
       UI.empty()

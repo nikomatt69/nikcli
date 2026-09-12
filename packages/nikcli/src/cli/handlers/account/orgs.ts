@@ -14,7 +14,7 @@ export default Runtime.handler(Commands.commands["account"].commands["orgs"], as
     $0: "nikcli",
     "--": passthrough(),
     "account-id": Option.getOrUndefined(input["account-id"]),
-    "accountId": Option.getOrUndefined(input["account-id"]),
+    accountId: Option.getOrUndefined(input["account-id"]),
   }
   UI.empty()
   prompts.intro("Organizations")

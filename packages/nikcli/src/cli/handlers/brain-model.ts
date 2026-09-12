@@ -48,7 +48,6 @@ export function parseBrainModel(value: string): { providerID: string; modelID: s
   }
 }
 
-
 export async function saveExperimental(experimental: NonNullable<Config.Info["experimental"]>, globalFlag: boolean) {
   const configPath = globalFlag ? path.join(Global.Path.config, "nikcli.json") : path.join(process.cwd(), "nikcli.json")
 
@@ -71,10 +70,10 @@ export default Runtime.handler(Commands.commands["brain-model"], async (input) =
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "model": Option.getOrUndefined(input["model"]),
-    "reset": input["reset"],
-    "global": input["global"],
-    "refresh": input["refresh"],
+    model: Option.getOrUndefined(input["model"]),
+    reset: input["reset"],
+    global: input["global"],
+    refresh: input["refresh"],
   }
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     if (args.refresh) {

@@ -6,7 +6,6 @@ import { SyncConfig } from "@/sync/sync-config"
 import { readRemote, runSyncConnect } from "./shared"
 
 export default Runtime.handler(Commands.commands["sync"].commands["connect"], async (_input) => {
-  
   await runSyncConnect({
     readRemote,
     withInstance: withInstanceAsync,

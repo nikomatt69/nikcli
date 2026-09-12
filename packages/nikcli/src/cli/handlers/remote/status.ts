@@ -12,7 +12,7 @@ export default Runtime.handler(Commands.commands["remote"].commands["status"], a
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "json": Option.getOrUndefined(input["json"]),
+    json: Option.getOrUndefined(input["json"]),
   }
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {

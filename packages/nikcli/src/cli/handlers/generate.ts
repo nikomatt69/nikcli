@@ -2,7 +2,6 @@ import { Runtime } from "../framework/runtime"
 import { Commands } from "../commands"
 
 export default Runtime.handler(Commands.commands["generate"], async (_input) => {
-  
   const { OpenApi } = await import("effect/unstable/httpapi")
   const { PublicApi } = await import("../../server/httpapi/public")
   const specs = OpenApi.fromApi(PublicApi) as Record<string, any>

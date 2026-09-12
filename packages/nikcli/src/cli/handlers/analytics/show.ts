@@ -10,11 +10,11 @@ export default Runtime.handler(Commands.commands["analytics"].commands["show"], 
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "today": input["today"],
-    "week": input["week"],
-    "month": input["month"],
-    "all": input["all"],
-    "json": input["json"],
+    today: input["today"],
+    week: input["week"],
+    month: input["month"],
+    all: input["all"],
+    json: input["json"],
   }
   // The rollups read the project's database through the instance ALS
   // context, which only exists inside bootstrap.

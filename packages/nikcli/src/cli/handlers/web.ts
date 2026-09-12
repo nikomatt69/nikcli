@@ -31,10 +31,10 @@ export default Runtime.handler(Commands.commands["web"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "port": input["port"],
-    "hostname": input["hostname"],
-    "mdns": input["mdns"],
-    "cors": [...input["cors"]],
+    port: input["port"],
+    hostname: input["hostname"],
+    mdns: input["mdns"],
+    cors: [...input["cors"]],
   }
   // SAFETY: this command's builder is `withNetworkOptions`, which declares
   // exactly the flags `resolveNetworkOptions` reads. yargs infers a wider
@@ -77,11 +77,7 @@ export default Runtime.handler(Commands.commands["web"], async (input) => {
     }
 
     if (opts.mdns) {
-      UI.println(
-        UI.Style.TEXT_INFO_BOLD + "  mDNS:              ",
-        UI.Style.TEXT_NORMAL,
-        `nikcli.local:${server.port}`,
-      )
+      UI.println(UI.Style.TEXT_INFO_BOLD + "  mDNS:              ", UI.Style.TEXT_NORMAL, `nikcli.local:${server.port}`)
     }
 
     open(localhostUrl.toString()).catch(() => {})

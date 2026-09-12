@@ -6,7 +6,6 @@ import { remoteService } from "@nikcli-ai/util/remote-tunnel"
 import { ensureRemoteService } from "./shared"
 
 export default Runtime.handler(Commands.commands["remote"].commands["stop"], async (_input) => {
-  
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     try {
       await ensureRemoteService()

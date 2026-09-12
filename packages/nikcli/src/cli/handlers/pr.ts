@@ -11,7 +11,7 @@ export default Runtime.handler(Commands.commands["pr"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "number": input["number"],
+    number: input["number"],
   }
   await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
     {

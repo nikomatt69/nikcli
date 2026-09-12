@@ -11,7 +11,7 @@ export default Runtime.handler(Commands.commands["debug"].commands["snapshot"].c
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "hash": input["hash"],
+    hash: input["hash"],
   }
   await bootstrap(process.cwd(), async () => {
     console.log(

@@ -29,8 +29,6 @@ export interface RemovalTargets {
   binary: string | null
 }
 
-
-
 export async function collectRemovalTargets(args: UninstallArgs, method: Installation.Method): Promise<RemovalTargets> {
   const directories: RemovalTargets["directories"] = [
     { path: Global.Path.data, label: "Data", keep: args.keepData },
@@ -307,12 +305,12 @@ export default Runtime.handler(Commands.commands["uninstall"], async (input) => 
     $0: "nikcli",
     "--": passthrough(),
     "keep-config": input["keep-config"],
-    "keepConfig": input["keep-config"],
+    keepConfig: input["keep-config"],
     "keep-data": input["keep-data"],
-    "keepData": input["keep-data"],
+    keepData: input["keep-data"],
     "dry-run": input["dry-run"],
-    "dryRun": input["dry-run"],
-    "force": input["force"],
+    dryRun: input["dry-run"],
+    force: input["force"],
   }
   UI.empty()
   UI.println(UI.logo("  "))

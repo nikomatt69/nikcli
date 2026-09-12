@@ -11,8 +11,8 @@ export default Runtime.handler(Commands.commands["routine"].commands["run"], asy
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "id": input["id"],
-    "text": Option.getOrUndefined(input["text"]),
+    id: input["id"],
+    text: Option.getOrUndefined(input["text"]),
   }
   await bootstrap(process.cwd(), async (instance) => {
     const spinner = prompts.spinner()

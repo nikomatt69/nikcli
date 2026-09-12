@@ -10,8 +10,8 @@ export default Runtime.handler(Commands.commands["routine"].commands["get"], asy
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "id": input["id"],
-    "format": input["format"],
+    id: input["id"],
+    format: input["format"],
   }
   await bootstrap(process.cwd(), async (instance) => {
     const routine = await Routine.get(instance, String(args.id))

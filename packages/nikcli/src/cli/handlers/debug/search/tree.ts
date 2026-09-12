@@ -11,7 +11,7 @@ export default Runtime.handler(Commands.commands["debug"].commands["search"].com
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "limit": Option.getOrUndefined(input["limit"]),
+    limit: Option.getOrUndefined(input["limit"]),
   }
   await bootstrap(process.cwd(), async (instance) => {
     const output = await SearchBackend.tree({ cwd: instance.directory, limit: args.limit })

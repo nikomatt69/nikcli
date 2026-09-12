@@ -18,9 +18,9 @@ export default Runtime.handler(Commands.commands["auth"].commands["login"], asyn
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "url": Option.getOrUndefined(input["url"]),
-    "provider": input["provider"],
-    "server": Option.getOrUndefined(input["server"]),
+    url: Option.getOrUndefined(input["url"]),
+    provider: input["provider"],
+    server: Option.getOrUndefined(input["server"]),
   }
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {

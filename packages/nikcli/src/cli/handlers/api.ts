@@ -117,12 +117,12 @@ export default Runtime.handler(Commands.commands["api"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "request": input["request"],
-    "data": Option.getOrUndefined(input["data"]),
-    "param": [...input["param"]],
-    "header": [...input["header"]],
-    "list": Option.getOrUndefined(input["list"]),
-    "directory": Option.getOrUndefined(input["directory"]),
+    request: input["request"],
+    data: Option.getOrUndefined(input["data"]),
+    param: [...input["param"]],
+    header: [...input["header"]],
+    list: Option.getOrUndefined(input["list"]),
+    directory: Option.getOrUndefined(input["directory"]),
   }
   const routes = publicRoutes().filter((route) => route.operationId)
   const directory = args.directory ?? process.cwd()

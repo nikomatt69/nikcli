@@ -3,10 +3,7 @@ import fs from "fs/promises"
 import { UI } from "@/cli/ui"
 import { Log } from "@nikcli-ai/util/log"
 import * as Orchestrator from "@/mission/orchestrator"
-import {
-  definitionFromGeneratedText,
-  type MissionDefinition,
-} from "@/mission/schema"
+import { definitionFromGeneratedText, type MissionDefinition } from "@/mission/schema"
 
 /** Helpers shared by the `mission` commands. */
 
@@ -24,17 +21,6 @@ import {
  * thin headless wrapper that boots the instance, drives a plan, then prints
  * the result.
  */
-
-
-
-
-
-
-
-
-
-
-
 
 export const log = Log.create({ service: "mission-cmd" })
 
@@ -72,9 +58,6 @@ export async function readBrief(file: string | undefined, inline: string | undef
   process.exit(1)
 }
 
-
-
-
 export async function tailUntilDone(missionID: string, timeoutMs = 10 * 60_000): Promise<void> {
   const start = Date.now()
   let lastStatus: string | undefined
@@ -93,12 +76,6 @@ export async function tailUntilDone(missionID: string, timeoutMs = 10 * 60_000):
     await new Promise((r) => setTimeout(r, 1000))
   }
 }
-
-
-
-
-
-
 
 // Touch the import so eslint/tsc don't flag the schema re-export as unused.
 void definitionFromGeneratedText

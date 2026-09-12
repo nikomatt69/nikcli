@@ -13,8 +13,8 @@ export default Runtime.handler(Commands.commands["session"].commands["list"], as
     $0: "nikcli",
     "--": passthrough(),
     "max-count": Option.getOrUndefined(input["max-count"]),
-    "maxCount": Option.getOrUndefined(input["max-count"]),
-    "format": input["format"],
+    maxCount: Option.getOrUndefined(input["max-count"]),
+    format: input["format"],
   }
   await bootstrap(process.cwd(), async () => {
     const sessions = await runSession(

@@ -9,10 +9,10 @@ export default Runtime.handler(Commands.commands["workspace-serve"], async (inpu
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "port": input["port"],
-    "hostname": input["hostname"],
-    "mdns": input["mdns"],
-    "cors": [...input["cors"]],
+    port: input["port"],
+    hostname: input["hostname"],
+    mdns: input["mdns"],
+    cors: [...input["cors"]],
   }
   // SAFETY: this command's builder is `withNetworkOptions`, which declares
   // exactly the flags `resolveNetworkOptions` reads. yargs infers a wider

@@ -14,8 +14,6 @@ export function runAccount<A, E>(effect: Effect.Effect<A, E, Account.Service>): 
   return runPromiseWithLayer(Account.defaultLayer, effect)
 }
 
-
-
 export async function loginAccount(serverUrl?: string) {
   UI.empty()
   prompts.intro("Account login")

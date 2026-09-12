@@ -8,7 +8,7 @@ export default Runtime.handler(Commands.commands["debug"].commands["file"].comma
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "dir": input["dir"],
+    dir: input["dir"],
   }
   const files = await SearchBackend.tree({ cwd: args.dir, limit: 200 })
   console.log(JSON.stringify(files, null, 2))

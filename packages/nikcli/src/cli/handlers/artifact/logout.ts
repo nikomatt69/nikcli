@@ -5,7 +5,6 @@ import { Artifact } from "@/artifact"
 import { UI } from "@/cli/ui"
 
 export default Runtime.handler(Commands.commands["artifact"].commands["logout"], async (_input) => {
-  
   UI.empty()
   prompts.intro("nikcli.store account")
   await Artifact.logout()

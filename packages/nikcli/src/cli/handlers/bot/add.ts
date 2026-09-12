@@ -8,7 +8,6 @@ import { withInstanceAsync } from "@/effect"
 import { connectorAuthUpdateBotToken, resolveConfigPath, addConnectorToConfig } from "./shared"
 
 export default Runtime.handler(Commands.commands["bot"].commands["add"], async (_input) => {
-  
   await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
     {
       UI.empty()

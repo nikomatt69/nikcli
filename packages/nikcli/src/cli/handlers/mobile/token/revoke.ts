@@ -8,7 +8,7 @@ export default Runtime.handler(Commands.commands["mobile"].commands["token"].com
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "id": input["id"],
+    id: input["id"],
   }
   const ok = await MobileAuth.remove(String(args.id))
   if (!ok) throw new Error(`Token not found: ${args.id}`)

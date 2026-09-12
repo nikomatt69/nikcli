@@ -13,7 +13,7 @@ export default Runtime.handler(Commands.commands["debug"].commands["lsp"].comman
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "query": input["query"],
+    query: input["query"],
   }
   await bootstrap(process.cwd(), async () => {
     using _ = Log.Default.time("symbols")

@@ -8,7 +8,6 @@ import { Effect } from "effect"
 import { log, runAuth, authAll } from "./shared"
 
 export default Runtime.handler(Commands.commands["auth"].commands["logout"], async (_input) => {
-  
   UI.empty()
   try {
     const credentials = await authAll().then((x) => Object.entries(x))

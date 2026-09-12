@@ -13,10 +13,10 @@ export default Runtime.handler(Commands.commands["ads"].commands["create"], asyn
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "id": Option.getOrUndefined(input["id"]),
-    "text": Option.getOrUndefined(input["text"]),
-    "url": Option.getOrUndefined(input["url"]),
-    "disabled": Option.getOrUndefined(input["disabled"]),
+    id: Option.getOrUndefined(input["id"]),
+    text: Option.getOrUndefined(input["text"]),
+    url: Option.getOrUndefined(input["url"]),
+    disabled: Option.getOrUndefined(input["disabled"]),
   }
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {

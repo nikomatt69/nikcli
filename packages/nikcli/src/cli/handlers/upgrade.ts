@@ -18,8 +18,8 @@ export default Runtime.handler(Commands.commands["upgrade"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "target": Option.getOrUndefined(input["target"]),
-    "method": Option.getOrUndefined(input["method"]),
+    target: Option.getOrUndefined(input["target"]),
+    method: Option.getOrUndefined(input["method"]),
   }
   // The build being replaced may have leaked mouse reporting into the
   // terminal on exit, which turns every mouse move during the upgrade into

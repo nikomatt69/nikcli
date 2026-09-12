@@ -7,7 +7,6 @@ import { Effect } from "effect"
 import { log, runAccount } from "./shared"
 
 export default Runtime.handler(Commands.commands["account"].commands["list"], async (_input) => {
-  
   UI.empty()
   prompts.intro("Accounts")
 

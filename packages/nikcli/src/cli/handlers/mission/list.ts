@@ -4,9 +4,7 @@ import { Commands } from "../../commands"
 import { bootstrap } from "@/cli/bootstrap"
 import * as Manager from "@/mission/manager"
 import * as Orchestrator from "@/mission/orchestrator"
-import {
-  progressOf,
-} from "@/mission/schema"
+import { progressOf } from "@/mission/schema"
 import { formatDate, formatStatus } from "./shared"
 
 export default Runtime.handler(Commands.commands["mission"].commands["list"], async (input) => {
@@ -14,7 +12,7 @@ export default Runtime.handler(Commands.commands["mission"].commands["list"], as
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "format": input["format"],
+    format: input["format"],
   }
   await bootstrap(process.cwd(), async (instance) => {
     const missions = await Manager.list(instance.project.id)

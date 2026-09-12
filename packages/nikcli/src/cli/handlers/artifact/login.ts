@@ -6,7 +6,6 @@ import { UI } from "@/cli/ui"
 import { log } from "./shared"
 
 export default Runtime.handler(Commands.commands["artifact"].commands["login"], async (_input) => {
-  
   UI.empty()
   prompts.intro("nikcli.store account")
 

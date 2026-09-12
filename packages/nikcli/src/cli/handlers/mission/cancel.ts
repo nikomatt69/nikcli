@@ -11,7 +11,7 @@ export default Runtime.handler(Commands.commands["mission"].commands["cancel"], 
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "id": input["id"],
+    id: input["id"],
   }
   await bootstrap(process.cwd(), async (instance) => {
     const mission = await Manager.get(instance.project.id, String(args.id))

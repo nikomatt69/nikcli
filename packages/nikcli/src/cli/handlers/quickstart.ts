@@ -68,9 +68,9 @@ export default Runtime.handler(Commands.commands["quickstart"], async (input) =>
     $0: "nikcli",
     "--": passthrough(),
     "skip-checks": Option.getOrUndefined(input["skip-checks"]),
-    "skipChecks": Option.getOrUndefined(input["skip-checks"]),
+    skipChecks: Option.getOrUndefined(input["skip-checks"]),
     "dry-run": Option.getOrUndefined(input["dry-run"]),
-    "dryRun": Option.getOrUndefined(input["dry-run"]),
+    dryRun: Option.getOrUndefined(input["dry-run"]),
   }
   UI.empty()
   UI.println(UI.logo("  "))

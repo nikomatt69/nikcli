@@ -15,12 +15,6 @@ import type { NetworkOptions, ResolvedNetworkConfig } from "@/cli/network"
 
 export { buildMobilePairingDeepLink, getLocalIPs, isLoopbackHostname, normalizePublicUrl, resolveServerUrl }
 
-
-
-
-
-
-
 export async function printPairing(info: { serverUrl: string; token: string; directory?: string }) {
   const deepLink = buildMobilePairingDeepLink(info)
 

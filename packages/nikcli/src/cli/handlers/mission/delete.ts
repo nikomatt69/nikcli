@@ -11,8 +11,8 @@ export default Runtime.handler(Commands.commands["mission"].commands["delete"], 
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "id": input["id"],
-    "yes": Option.getOrUndefined(input["yes"]),
+    id: input["id"],
+    yes: Option.getOrUndefined(input["yes"]),
   }
   await bootstrap(process.cwd(), async (instance) => {
     if (!args.yes) {

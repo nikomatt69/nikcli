@@ -18,9 +18,9 @@ export default Runtime.handler(Commands.commands["models"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "provider": Option.getOrUndefined(input["provider"]),
-    "verbose": Option.getOrUndefined(input["verbose"]),
-    "refresh": Option.getOrUndefined(input["refresh"]),
+    provider: Option.getOrUndefined(input["provider"]),
+    verbose: Option.getOrUndefined(input["verbose"]),
+    refresh: Option.getOrUndefined(input["refresh"]),
   }
   if (args.refresh) {
     await ModelsDev.refresh()

@@ -10,10 +10,10 @@ export default Runtime.handler(Commands.commands["analytics"].commands["publish"
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "today": input["today"],
-    "week": input["week"],
-    "month": input["month"],
-    "all": input["all"],
+    today: input["today"],
+    week: input["week"],
+    month: input["month"],
+    all: input["all"],
   }
   await bootstrap(process.cwd(), async () => {
     const { AnalyticsShare } = await import("@/analytics/share")

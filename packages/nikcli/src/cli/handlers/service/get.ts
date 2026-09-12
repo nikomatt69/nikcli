@@ -10,7 +10,7 @@ export default Runtime.handler(Commands.commands["service"].commands["get"], asy
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "key": Option.getOrUndefined(input["key"]),
+    key: Option.getOrUndefined(input["key"]),
   }
   const ServiceConfig = await config()
   const value = await ServiceConfig.get(args.key)

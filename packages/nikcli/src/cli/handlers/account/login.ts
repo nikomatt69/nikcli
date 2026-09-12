@@ -9,7 +9,7 @@ export default Runtime.handler(Commands.commands["account"].commands["login"], a
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "server": Option.getOrUndefined(input["server"]),
+    server: Option.getOrUndefined(input["server"]),
   }
   await loginAccount(args.server)
 })

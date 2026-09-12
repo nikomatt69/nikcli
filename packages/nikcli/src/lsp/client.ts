@@ -58,9 +58,7 @@ export namespace LSPClient {
     // module evaluation in every process that loads the LSP module, including
     // the ones that never start a language server. By the time we get here the
     // server process is already spawned, so the load is free in wall-clock terms.
-    const { createMessageConnection, StreamMessageReader, StreamMessageWriter } = await import(
-      "vscode-jsonrpc/node"
-    )
+    const { createMessageConnection, StreamMessageReader, StreamMessageWriter } = await import("vscode-jsonrpc/node")
 
     const connection = createMessageConnection(
       new StreamMessageReader(input.server.process.stdout as any),

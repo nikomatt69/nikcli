@@ -8,9 +8,9 @@ export default Runtime.handler(Commands.commands["attach"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "url": input["url"],
-    "dir": Option.getOrUndefined(input["dir"]),
-    "session": Option.getOrUndefined(input["session"]),
+    url: input["url"],
+    dir: Option.getOrUndefined(input["dir"]),
+    session: Option.getOrUndefined(input["session"]),
   }
   if (args.dir) process.chdir(args.dir)
   // Lazy: ./app pulls in TuiPluginRuntime, whose OpenTUI runtime Bun plugin

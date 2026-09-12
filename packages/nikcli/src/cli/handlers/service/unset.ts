@@ -10,8 +10,8 @@ export default Runtime.handler(Commands.commands["service"].commands["unset"], a
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "key": input["key"],
-    "nested": Option.getOrUndefined(input["nested"]),
+    key: input["key"],
+    nested: Option.getOrUndefined(input["nested"]),
   }
   const ServiceConfig = await config()
   await ServiceConfig.unset(args.key as string, args.nested as string | undefined)

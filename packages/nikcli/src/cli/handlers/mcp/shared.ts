@@ -107,11 +107,6 @@ export function isMcpRemote(config: McpEntry): config is McpRemote {
   return isMcpConfigured(config) && config.type === "remote"
 }
 
-
-
-
-
-
 export async function resolveConfigPath(baseDir: string, global = false) {
   const candidates = [path.join(baseDir, "nikcli.json")]
 

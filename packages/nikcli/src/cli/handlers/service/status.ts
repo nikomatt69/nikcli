@@ -9,7 +9,7 @@ export default Runtime.handler(Commands.commands["service"].commands["status"], 
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "json": input["json"],
+    json: input["json"],
   }
   const BackgroundService = await service()
   const status = await BackgroundService.status()

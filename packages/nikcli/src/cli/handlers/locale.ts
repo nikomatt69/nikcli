@@ -31,7 +31,6 @@ export function parseReplyLanguage(value: string | undefined): LocaleConfig["rep
   return value.trim()
 }
 
-
 export function printResolved(cfg: LocaleConfig | undefined) {
   const r = resolveLocale(cfg)
   const reply = r.replyLanguage ? `${r.languageName} (${r.replyLanguage})` : "off (English / not steered)"
@@ -73,20 +72,20 @@ export default Runtime.handler(Commands.commands["locale"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "action": input["action"],
-    "language": Option.getOrUndefined(input["language"]),
-    "region": Option.getOrUndefined(input["region"]),
-    "locale": Option.getOrUndefined(input["locale"]),
-    "timezone": Option.getOrUndefined(input["timezone"]),
-    "currency": Option.getOrUndefined(input["currency"]),
+    action: input["action"],
+    language: Option.getOrUndefined(input["language"]),
+    region: Option.getOrUndefined(input["region"]),
+    locale: Option.getOrUndefined(input["locale"]),
+    timezone: Option.getOrUndefined(input["timezone"]),
+    currency: Option.getOrUndefined(input["currency"]),
     "reply-language": Option.getOrUndefined(input["reply-language"]),
-    "replyLanguage": Option.getOrUndefined(input["reply-language"]),
+    replyLanguage: Option.getOrUndefined(input["reply-language"]),
     "no-auto-detect": Option.getOrUndefined(input["no-auto-detect"]),
     // yargs' boolean negation set `auto-detect: false` when `--no-auto-detect`
     // was passed, and the body reads that key. Effect has no such rule.
     "auto-detect": Option.getOrUndefined(input["no-auto-detect"]) ? false : undefined,
-    "noAutoDetect": Option.getOrUndefined(input["no-auto-detect"]),
-    "global": input["global"],
+    noAutoDetect: Option.getOrUndefined(input["no-auto-detect"]),
+    global: input["global"],
   }
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     const config = await configGet()

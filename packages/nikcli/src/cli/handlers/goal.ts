@@ -9,15 +9,15 @@ export default Runtime.handler(Commands.commands["goal"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "condition": input["condition"],
-    "continue": Option.getOrUndefined(input["continue"]),
-    "session": Option.getOrUndefined(input["session"]),
-    "model": Option.getOrUndefined(input["model"]),
-    "agent": Option.getOrUndefined(input["agent"]),
-    "variant": Option.getOrUndefined(input["variant"]),
+    condition: input["condition"],
+    continue: Option.getOrUndefined(input["continue"]),
+    session: Option.getOrUndefined(input["session"]),
+    model: Option.getOrUndefined(input["model"]),
+    agent: Option.getOrUndefined(input["agent"]),
+    variant: Option.getOrUndefined(input["variant"]),
     "token-budget": Option.getOrUndefined(input["token-budget"]),
-    "tokenBudget": Option.getOrUndefined(input["token-budget"]),
-    "format": input["format"],
+    tokenBudget: Option.getOrUndefined(input["token-budget"]),
+    format: input["format"],
   }
   const condition = [...args.condition, ...(args["--"] || [])].join(" ").trim()
   if (!condition) {

@@ -9,7 +9,7 @@ export default Runtime.handler(Commands.commands["routine"].commands["resume"], 
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "id": input["id"],
+    id: input["id"],
   }
   await bootstrap(process.cwd(), async (instance) => {
     const routine = await Routine.resume(instance, String(args.id))

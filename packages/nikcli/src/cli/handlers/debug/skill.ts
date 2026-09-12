@@ -17,7 +17,6 @@ export function skillAll() {
 }
 
 export default Runtime.handler(Commands.commands["debug"].commands["skill"], async (_input) => {
-  
   await bootstrap(process.cwd(), async () => {
     const skills = await skillAll()
     process.stdout.write(JSON.stringify(skills, null, 2) + EOL)

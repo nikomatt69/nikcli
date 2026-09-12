@@ -6,10 +6,7 @@ import { bootstrap } from "@/cli/bootstrap"
 import { UI } from "@/cli/ui"
 import * as Manager from "@/mission/manager"
 import * as Orchestrator from "@/mission/orchestrator"
-import {
-  definitionFromGenerated,
-  type MissionDefinition,
-} from "@/mission/schema"
+import { definitionFromGenerated, type MissionDefinition } from "@/mission/schema"
 import { truncate, readBrief, tailUntilDone } from "./shared"
 
 export default Runtime.handler(Commands.commands["mission"].commands["new"], async (input) => {
@@ -17,16 +14,16 @@ export default Runtime.handler(Commands.commands["mission"].commands["new"], asy
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "name": Option.getOrUndefined(input["name"]),
-    "brief": Option.getOrUndefined(input["brief"]),
-    "file": Option.getOrUndefined(input["file"]),
+    name: Option.getOrUndefined(input["name"]),
+    brief: Option.getOrUndefined(input["brief"]),
+    file: Option.getOrUndefined(input["file"]),
     "from-description": Option.getOrUndefined(input["from-description"]),
-    "fromDescription": Option.getOrUndefined(input["from-description"]),
-    "model": Option.getOrUndefined(input["model"]),
-    "agent": Option.getOrUndefined(input["agent"]),
+    fromDescription: Option.getOrUndefined(input["from-description"]),
+    model: Option.getOrUndefined(input["model"]),
+    agent: Option.getOrUndefined(input["agent"]),
     "worker-model": Option.getOrUndefined(input["worker-model"]),
-    "workerModel": Option.getOrUndefined(input["worker-model"]),
-    "start": Option.getOrUndefined(input["start"]),
+    workerModel: Option.getOrUndefined(input["worker-model"]),
+    start: Option.getOrUndefined(input["start"]),
   }
   await bootstrap(process.cwd(), async (instance) => {
     let draft: MissionDefinition

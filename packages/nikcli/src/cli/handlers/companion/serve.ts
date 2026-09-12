@@ -8,8 +8,8 @@ export default Runtime.handler(Commands.commands["companion"].commands["serve"],
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "port": input["port"],
-    "host": input["host"],
+    port: input["port"],
+    host: input["host"],
   }
   const port = args.port as number
   const host = args.host as string

@@ -6,7 +6,6 @@ import { Effect } from "effect"
 import { runSnapshot } from "./shared"
 
 export default Runtime.handler(Commands.commands["debug"].commands["snapshot"].commands["track"], async (_input) => {
-  
   await bootstrap(process.cwd(), async () => {
     console.log(
       await runSnapshot(

@@ -9,8 +9,8 @@ export default Runtime.handler(Commands.commands["companion"].commands["open"], 
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "port": input["port"],
-    "session": Option.getOrUndefined(input["session"]),
+    port: input["port"],
+    session: Option.getOrUndefined(input["session"]),
   }
   const port = args.port as number
   const session = args.session as string | undefined

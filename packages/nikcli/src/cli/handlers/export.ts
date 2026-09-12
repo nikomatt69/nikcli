@@ -20,7 +20,7 @@ export default Runtime.handler(Commands.commands["export"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "sessionID": Option.getOrUndefined(input["sessionID"]),
+    sessionID: Option.getOrUndefined(input["sessionID"]),
   }
   await bootstrap(process.cwd(), async () => {
     let sessionID = args.sessionID

@@ -8,7 +8,6 @@ import { withInstanceAsync } from "@/effect"
 import { resolveConfigPath, addMcpToConfig } from "./shared"
 
 export default Runtime.handler(Commands.commands["mcp"].commands["add"], async (_input) => {
-  
   await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
     {
       UI.empty()

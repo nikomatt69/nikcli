@@ -7,7 +7,6 @@ import { withInstanceAsync } from "@/effect"
 import { loadAds } from "./shared"
 
 export default Runtime.handler(Commands.commands["ads"].commands["list"], async (_input) => {
-  
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {
       UI.empty()

@@ -9,7 +9,6 @@ import { Global } from "@nikcli-ai/util/global"
 import { log, authAll } from "./shared"
 
 export default Runtime.handler(Commands.commands["auth"].commands["list"], async (_input) => {
-  
   UI.empty()
   const authPath = path.join(Global.Path.data, "auth.json")
   const homedir = os.homedir()

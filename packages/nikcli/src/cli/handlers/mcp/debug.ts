@@ -16,7 +16,7 @@ export default Runtime.handler(Commands.commands["mcp"].commands["debug"], async
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "name": input["name"],
+    name: input["name"],
   }
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {

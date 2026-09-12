@@ -14,10 +14,7 @@ import { Flag, GlobalFlag } from "effect/unstable/cli"
  * defaults, the Island bridge — before any command runs.
  */
 export const PrintLogs = GlobalFlag.setting("print-logs")({
-  flag: Flag.boolean("print-logs").pipe(
-    Flag.withDescription("print logs to stderr"),
-    Flag.withDefault(false),
-  ),
+  flag: Flag.boolean("print-logs").pipe(Flag.withDescription("print logs to stderr"), Flag.withDefault(false)),
 })
 
 export const Island = GlobalFlag.setting("island")({

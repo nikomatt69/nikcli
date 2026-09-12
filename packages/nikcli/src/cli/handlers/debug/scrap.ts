@@ -11,7 +11,6 @@ export function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
 }
 
 export default Runtime.handler(Commands.commands["debug"].commands["scrap"], async (_input) => {
-  
   const timer = Log.Default.time("scrap")
   const list = await runProject(
     Effect.gen(function* () {

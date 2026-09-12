@@ -172,17 +172,17 @@ export default Runtime.handler(Commands, async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "port": input["port"],
-    "hostname": input["hostname"],
-    "mdns": input["mdns"],
-    "cors": [...input["cors"]],
-    "project": Option.getOrUndefined(input["project"]),
-    "standalone": input["standalone"],
-    "model": Option.getOrUndefined(input["model"]),
-    "continue": Option.getOrUndefined(input["continue"]),
-    "session": Option.getOrUndefined(input["session"]),
-    "prompt": Option.getOrUndefined(input["prompt"]),
-    "agent": Option.getOrUndefined(input["agent"]),
+    port: input["port"],
+    hostname: input["hostname"],
+    mdns: input["mdns"],
+    cors: [...input["cors"]],
+    project: Option.getOrUndefined(input["project"]),
+    standalone: input["standalone"],
+    model: Option.getOrUndefined(input["model"]),
+    continue: Option.getOrUndefined(input["continue"]),
+    session: Option.getOrUndefined(input["session"]),
+    prompt: Option.getOrUndefined(input["prompt"]),
+    agent: Option.getOrUndefined(input["agent"]),
   }
   // Resolve relative paths against PWD to preserve behavior when using --cwd flag.
   const cwd = resolveThreadDirectory(args.project)
@@ -231,11 +231,7 @@ export default Runtime.handler(Commands, async (input) => {
   // source of bogus measurements and flaky runs.
   const testHome = Boolean(process.env.NIKCLI_TEST_HOME) && process.env.NIKCLI_SERVICE !== "1"
   const useService =
-    !args.standalone &&
-    process.env.NIKCLI_SERVICE !== "0" &&
-    !process.env.NIKCLI_DRIVE &&
-    !wantsOwnServer &&
-    !testHome
+    !args.standalone && process.env.NIKCLI_SERVICE !== "0" && !process.env.NIKCLI_DRIVE && !wantsOwnServer && !testHome
 
   if (useService) {
     const { BackgroundService } = await import("@/service/service")
@@ -252,39 +248,39 @@ export default Runtime.handler(Commands, async (input) => {
     })
     if (registration) {
       Log.Default.info("using background service", { url: registration.url, pid: registration.pid })
-    const { tui } = await import("@nikcli-ai/tui/app")
-    const tuiConfig = await TuiConfig.get().catch(() => undefined)
-    // Upgrade runs in *this* process, not the service: it replaces the
-    // installed binary, and the service is a different (older) copy of it.
-    // Imported inside the callbacks so the upgrade chain — and the instance
-    // bootstrap it needs — stays out of the boot graph; both are rare,
-    // user-initiated, and already slow.
-    const withUpgradeInstance = async <T>(fn: () => Promise<T>): Promise<T> => {
-      const { InstanceBootstrap } = await import("@/project/bootstrap")
-      const { withInstanceAsync } = await import("@/effect")
-      return withInstanceAsync({ directory: cwd, init: InstanceBootstrap }, fn)
-    }
+      const { tui } = await import("@nikcli-ai/tui/app")
+      const tuiConfig = await TuiConfig.get().catch(() => undefined)
+      // Upgrade runs in *this* process, not the service: it replaces the
+      // installed binary, and the service is a different (older) copy of it.
+      // Imported inside the callbacks so the upgrade chain — and the instance
+      // bootstrap it needs — stays out of the boot graph; both are rare,
+      // user-initiated, and already slow.
+      const withUpgradeInstance = async <T>(fn: () => Promise<T>): Promise<T> => {
+        const { InstanceBootstrap } = await import("@/project/bootstrap")
+        const { withInstanceAsync } = await import("@/effect")
+        return withInstanceAsync({ directory: cwd, init: InstanceBootstrap }, fn)
+      }
 
-    await tui({
-      url: registration.url,
-      pluginHost: localPluginHost,
-      tuiConfig,
-      directory: cwd,
-      args: {
-        continue: args.continue,
-        sessionID: args.session,
-        agent: args.agent,
-        model: args.model,
-        prompt: args.prompt,
-      },
-      checkUpgrade: async () => {
-        await withUpgradeInstance(async () => {
-          const { upgrade } = await import("@/cli/upgrade")
-          await upgrade()
-        }).catch((error) => {
-          Log.Default.debug("upgrade check failed", { error: errorMessage(error) })
-        })
-      },
+      await tui({
+        url: registration.url,
+        pluginHost: localPluginHost,
+        tuiConfig,
+        directory: cwd,
+        args: {
+          continue: args.continue,
+          sessionID: args.session,
+          agent: args.agent,
+          model: args.model,
+          prompt: args.prompt,
+        },
+        checkUpgrade: async () => {
+          await withUpgradeInstance(async () => {
+            const { upgrade } = await import("@/cli/upgrade")
+            await upgrade()
+          }).catch((error) => {
+            Log.Default.debug("upgrade check failed", { error: errorMessage(error) })
+          })
+        },
         upgradeNow: async (method: string, version: string) => {
           await withUpgradeInstance(async () => {
             const { upgradeNow } = await import("@/cli/upgrade")

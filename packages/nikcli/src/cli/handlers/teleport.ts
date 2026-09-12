@@ -74,12 +74,12 @@ export default Runtime.handler(Commands.commands["teleport"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "sessionID": Option.getOrUndefined(input["sessionID"]),
-    "url": Option.getOrUndefined(input["url"]),
-    "token": Option.getOrUndefined(input["token"]),
-    "content": input["content"],
-    "git": input["git"],
-    "save": input["save"],
+    sessionID: Option.getOrUndefined(input["sessionID"]),
+    url: Option.getOrUndefined(input["url"]),
+    token: Option.getOrUndefined(input["token"]),
+    content: input["content"],
+    git: input["git"],
+    save: input["save"],
   }
   await bootstrap(process.cwd(), async () => {
     const config = await configGet().catch(() => undefined)

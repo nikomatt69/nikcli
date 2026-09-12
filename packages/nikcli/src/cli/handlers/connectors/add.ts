@@ -5,10 +5,14 @@ import { UI } from "@/cli/ui"
 import { Config } from "@/config/config"
 import { Global } from "@nikcli-ai/util/global"
 import { withInstanceAsync } from "@/effect"
-import { connectorAuthUpdateToken, connectorAuthUpdateBotToken, resolveConfigPath, addConnectorToConfig } from "./shared"
+import {
+  connectorAuthUpdateToken,
+  connectorAuthUpdateBotToken,
+  resolveConfigPath,
+  addConnectorToConfig,
+} from "./shared"
 
 export default Runtime.handler(Commands.commands["connectors"].commands["add"], async (_input) => {
-  
   await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
     {
       UI.empty()

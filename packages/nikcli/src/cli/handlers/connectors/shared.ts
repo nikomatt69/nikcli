@@ -61,10 +61,6 @@ export function connectorAuthUpdateBotToken(name: string, botToken: string) {
   )
 }
 
-
-
-
-
 export async function resolveConfigPath(baseDir: string, global = false) {
   const candidates = [path.join(baseDir, "nikcli.json")]
 

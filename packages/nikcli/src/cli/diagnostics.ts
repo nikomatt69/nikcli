@@ -68,9 +68,7 @@ export namespace Diagnostics {
     const session = new Session()
     const post = (method: string) =>
       new Promise<any>((resolve, reject) => {
-        session.post(method as never, (error: unknown, result: unknown) =>
-          error ? reject(error) : resolve(result),
-        )
+        session.post(method as never, (error: unknown, result: unknown) => (error ? reject(error) : resolve(result)))
       })
     try {
       await fs.mkdir(path.dirname(file), { recursive: true })

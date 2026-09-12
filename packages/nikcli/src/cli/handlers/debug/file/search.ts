@@ -12,7 +12,7 @@ export default Runtime.handler(Commands.commands["debug"].commands["file"].comma
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "query": input["query"],
+    query: input["query"],
   }
   await bootstrap(process.cwd(), async () => {
     const results = await runFile(

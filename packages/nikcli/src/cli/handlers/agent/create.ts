@@ -18,11 +18,11 @@ export default Runtime.handler(Commands.commands["agent"].commands["create"], as
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "path": Option.getOrUndefined(input["path"]),
-    "description": Option.getOrUndefined(input["description"]),
-    "mode": Option.getOrUndefined(input["mode"]),
-    "tools": Option.getOrUndefined(input["tools"]),
-    "model": Option.getOrUndefined(input["model"]),
+    path: Option.getOrUndefined(input["path"]),
+    description: Option.getOrUndefined(input["description"]),
+    mode: Option.getOrUndefined(input["mode"]),
+    tools: Option.getOrUndefined(input["tools"]),
+    model: Option.getOrUndefined(input["model"]),
   }
   await withInstanceAsync({ directory: process.cwd() }, async (instance) => {
     const cliPath = args.path
@@ -70,10 +70,7 @@ export default Runtime.handler(Commands.commands["agent"].commands["create"], as
         }
         scope = scopeResult
       }
-      targetPath = path.join(
-        scope === "global" ? Global.Path.config : path.join(instance.worktree, ".nikcli"),
-        "agent",
-      )
+      targetPath = path.join(scope === "global" ? Global.Path.config : path.join(instance.worktree, ".nikcli"), "agent")
     }
 
     let description: string

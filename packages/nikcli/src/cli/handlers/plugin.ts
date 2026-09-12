@@ -16,12 +16,6 @@ import { UI } from "@/cli/ui"
 // Reachable directly (`nikcli plug …`), not only through `cli-main`.
 installPluginInstaller()
 
-
-
-
-
-
-
 export type Spin = {
   start: (msg: string) => void
   stop: (msg: string, code?: number) => void
@@ -188,9 +182,9 @@ export default Runtime.handler(Commands.commands["plugin"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "module": input["module"],
-    "global": input["global"],
-    "force": input["force"],
+    module: input["module"],
+    global: input["global"],
+    force: input["force"],
   }
   const mod = String(args.module ?? "").trim()
   if (!mod) {

@@ -37,8 +37,6 @@ export function pagerCmd(): string[] {
   return ["cmd", "/c", "more"]
 }
 
-
-
 export function formatSessionTable(sessions: Session.Info[]): string {
   const lines: string[] = []
 

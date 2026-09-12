@@ -11,9 +11,9 @@ export default Runtime.handler(Commands.commands["debug"].commands["search"].com
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "pattern": input["pattern"],
-    "mode": input["mode"],
-    "limit": Option.getOrUndefined(input["limit"]),
+    pattern: input["pattern"],
+    mode: input["mode"],
+    limit: Option.getOrUndefined(input["limit"]),
   }
   await bootstrap(process.cwd(), async () => {
     const result = await FFF.grep(args.pattern, {

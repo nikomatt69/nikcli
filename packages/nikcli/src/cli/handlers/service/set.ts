@@ -10,9 +10,9 @@ export default Runtime.handler(Commands.commands["service"].commands["set"], asy
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "key": input["key"],
-    "value": input["value"],
-    "nested": Option.getOrUndefined(input["nested"]),
+    key: input["key"],
+    value: input["value"],
+    nested: Option.getOrUndefined(input["nested"]),
   }
   const ServiceConfig = await config()
   await ServiceConfig.set(args.key as string, args.value as string, args.nested as string | undefined)

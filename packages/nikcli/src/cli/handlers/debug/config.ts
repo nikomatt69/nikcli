@@ -19,7 +19,6 @@ export function configGet() {
 }
 
 export default Runtime.handler(Commands.commands["debug"].commands["config"], async (_input) => {
-  
   await bootstrap(process.cwd(), async () => {
     const config = await configGet()
     process.stdout.write(JSON.stringify(config, null, 2) + EOL)

@@ -4,7 +4,6 @@ import { UI } from "@/cli/ui"
 import { service } from "./shared"
 
 export default Runtime.handler(Commands.commands["service"].commands["restart"], async (_input) => {
-  
   const BackgroundService = await service()
   await BackgroundService.stop()
   const registration = await BackgroundService.start()

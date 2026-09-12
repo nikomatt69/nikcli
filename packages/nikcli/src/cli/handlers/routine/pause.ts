@@ -9,7 +9,7 @@ export default Runtime.handler(Commands.commands["routine"].commands["pause"], a
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "id": input["id"],
+    id: input["id"],
   }
   await bootstrap(process.cwd(), async (instance) => {
     const routine = await Routine.pause(instance, String(args.id))

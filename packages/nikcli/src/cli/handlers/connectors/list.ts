@@ -8,7 +8,6 @@ import { configGet } from "./shared"
 import type { ConnectorConfigured } from "./shared"
 
 export default Runtime.handler(Commands.commands["connectors"].commands["list"], async (_input) => {
-  
   await withInstanceAsync({ directory: process.cwd() }, async () => {
     {
       UI.empty()

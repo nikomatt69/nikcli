@@ -4,7 +4,6 @@ import { Outbox } from "@/sync/outbox"
 import { readRemote } from "./shared"
 
 export default Runtime.handler(Commands.commands["sync"].commands["status"], async (_input) => {
-  
   const remote = await readRemote()
   if (!remote) {
     console.log("remote sync not configured")

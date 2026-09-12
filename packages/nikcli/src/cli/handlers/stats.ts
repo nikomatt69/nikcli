@@ -52,7 +52,6 @@ export interface SessionStats {
   medianTokensPerSession: number
 }
 
-
 export async function getAllSessions(): Promise<Session.Info[]> {
   const sessions: Session.Info[] = []
 
@@ -424,10 +423,10 @@ export default Runtime.handler(Commands.commands["stats"], async (input) => {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
-    "days": Option.getOrUndefined(input["days"]),
-    "tools": Option.getOrUndefined(input["tools"]),
-    "models": Option.getOrUndefined(input["models"]),
-    "project": Option.getOrUndefined(input["project"]),
+    days: Option.getOrUndefined(input["days"]),
+    tools: Option.getOrUndefined(input["tools"]),
+    models: Option.getOrUndefined(input["models"]),
+    project: Option.getOrUndefined(input["project"]),
   }
   log.debug("Stats command started", {
     days: args.days,
