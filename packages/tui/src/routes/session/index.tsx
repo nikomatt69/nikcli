@@ -93,7 +93,7 @@ import {
 import { friendlyErrorMessage, shareErrorMessage } from "../../util/error-message"
 import { Link } from "../../ui/link"
 import { context, use } from "./session-context"
-import { fromEntries, stabilize, type Turn, type ViewEntry } from "./view"
+import { estimateTurnHeight, fromEntries, stabilize, type Turn, type ViewEntry } from "./view"
 import { formatInstructionDelta, visibleInstructionNotices } from "@nikcli-ai/util/instruction-delta"
 import { getScrollAcceleration, scrollChildIntoView } from "@tui/util/scroll"
 
@@ -173,8 +173,11 @@ export function Session() {
   // the active row grows on every text delta, so those estimates no longer
   // describe the scroll position and can window the live response out.
   const streaming = createMemo(() => turns().some((turn) => turn.role === "assistant" && !turn.completedAt))
-  /** Estimated row height per message for windowing (refined later from measured heights). */
-  const MESSAGE_HEIGHT_ESTIMATE = 6
+  /**
+   * Fallback row height, used only when a turn's content cannot be measured.
+   * `estimateTurnHeight` derives the real figure from the turn's body.
+   */
+  const MESSAGE_HEIGHT_FALLBACK = 6
   const OVERSCAN = 5
   const virtualizationEnabled = createMemo(() => features(sync.data.config).tui.messageVirtualization)
   const [scrollPos, setScrollPos] = createSignal(0)
@@ -198,7 +201,13 @@ export function Session() {
       return { items: all, top: 0, bottom: 0, baseIndex: 0 }
     }
     try {
-      const heights = all.map(() => MESSAGE_HEIGHT_ESTIMATE)
+      // Per-turn, from content. A flat constant was wrong in both directions
+      // and the errors did not cancel: a one-line acknowledgement was
+      // over-reserved while a long diff was under-reserved by an order of
+      // magnitude, so the offset drifted further the more the transcript mixed
+      // the two. `specs/effect-tui/06-terminal-rendering.md`.
+      const columns = Math.max(1, scroll?.viewport.width || dimensions().width || 80)
+      const heights = all.map((turn) => estimateTurnHeight(turn, columns) || MESSAGE_HEIGHT_FALLBACK)
       const scrollTop = scrollPos()
       const vp = viewportH()
       // Sticky-bottom is owned by the scrollbox itself (stickyScroll=true,

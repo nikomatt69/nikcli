@@ -289,3 +289,87 @@ describe("suppressEmptyTextResult", () => {
     }
   })
 })
+
+describe("native turn equivalence", () => {
+  /**
+   * One complete turn through the native path, pinned as a sequence.
+   *
+   * `specs/effect-tui/11-provider-inference-streaming.md` asks for the native
+   * adapter and the AI SDK path to converge on identical processor-visible
+   * output. The per-event tests above check each mapping in isolation; what
+   * they cannot see is the **shape of a whole turn** — whether a step is opened
+   * exactly once, whether an open text part is closed before the turn
+   * finishes, and in what order.
+   *
+   * Those are the properties that break when a provider emits a slightly
+   * different event mix, and the symptom is a transcript that renders wrong
+   * rather than an error. Pinning the sequence makes a divergence a failing
+   * test instead of a screenshot.
+   */
+  it("emits one ordered sequence for a text-then-tool turn", () => {
+    const state = adapterState()
+    const emitted = [
+      ...mapLLMEvent(state, { type: "request-start" } as LLMEvent),
+      ...mapLLMEvent(state, { type: "text-start", id: "t1" } as LLMEvent),
+      ...mapLLMEvent(state, { type: "text-delta", id: "t1", text: "look" } as LLMEvent),
+      ...mapLLMEvent(state, { type: "text-end", id: "t1" } as LLMEvent),
+      ...mapLLMEvent(state, {
+        type: "tool-call",
+        id: "c1",
+        name: "read",
+        input: { path: "a.ts" },
+      } as LLMEvent),
+      ...mapLLMEvent(state, {
+        type: "tool-result",
+        id: "c1",
+        name: "read",
+        result: { type: "json", value: { contents: "ok" } },
+      } as LLMEvent),
+      ...mapLLMEvent(state, { type: "request-finish", reason: "stop" } as LLMEvent),
+    ].map((event) => event.type)
+
+    expect(emitted).toEqual([
+      // The turn is wrapped: `start`/`finish` frame it, `start-step`/
+      // `finish-step` frame the billed step inside it. Both pairs matter —
+      // the processor snapshots against the step and the session against the
+      // turn.
+      "start",
+      "start-step",
+      "text-start",
+      "text-delta",
+      "text-end",
+      "tool-input-start",
+      "tool-input-end",
+      "tool-call",
+      "tool-result",
+      "finish-step",
+      "finish",
+    ])
+  })
+
+  it("opens the step exactly once when a provider emits both request-start and step-start", () => {
+    // No native protocol emits both, but nothing stops one from doing so, and
+    // a doubled step is billed and snapshotted twice.
+    const state = adapterState()
+    const opens = [
+      ...mapLLMEvent(state, { type: "request-start" } as LLMEvent),
+      ...mapLLMEvent(state, { type: "step-start", index: 0 } as LLMEvent),
+    ].filter((event) => event.type === "start-step")
+
+    expect(opens).toHaveLength(1)
+  })
+
+  it("closes an open text part before finishing, without a text-end from the provider", () => {
+    // A provider that ends the request with a text part still streaming must
+    // not leave the part open: the renderer would keep it in the live slot.
+    const state = adapterState()
+    const emitted = [
+      ...mapLLMEvent(state, { type: "request-start" } as LLMEvent),
+      ...mapLLMEvent(state, { type: "text-delta", id: "t1", text: "partial" } as LLMEvent),
+      ...mapLLMEvent(state, { type: "request-finish", reason: "stop" } as LLMEvent),
+    ].map((event) => event.type)
+
+    expect(emitted.indexOf("text-end")).toBeGreaterThan(-1)
+    expect(emitted.indexOf("text-end")).toBeLessThan(emitted.indexOf("finish-step"))
+  })
+})

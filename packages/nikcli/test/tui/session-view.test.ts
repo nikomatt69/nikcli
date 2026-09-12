@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { fromEntries, stabilize, type ViewEntry } from "@tui/routes/session/view"
+import { estimateTurnHeight, fromEntries, stabilize, type ViewEntry } from "@tui/routes/session/view"
 import { groupParts, toolOf } from "@tui/routes/session/rows"
 import { liveMarkdown, splitLiveMarkdown } from "@tui/routes/session/diagram"
 
@@ -301,5 +301,51 @@ describe("splitLiveMarkdown", () => {
     const md = "a\n\nb\n\n### c\n\nd"
     const split = splitLiveMarkdown(md)
     expect(split.settled + split.live).toBe(md)
+  })
+})
+
+describe("estimateTurnHeight", () => {
+  function turnOf(body: Array<Record<string, unknown>>) {
+    return fromEntries([
+      { id: "e1", sessionID: "s", messageID: "m1", type: "user", timestamp: 1 },
+      ...body.map((entry, index) => ({
+        id: `e${index + 2}`,
+        sessionID: "s",
+        messageID: "m1",
+        timestamp: index + 2,
+        ...entry,
+      })),
+    ] as ViewEntry[])[0]!
+  }
+
+  it("grows with the number of wrapped lines", () => {
+    const short = estimateTurnHeight(turnOf([{ type: "text", text: "ok" }]), 80)
+    const long = estimateTurnHeight(turnOf([{ type: "text", text: "x".repeat(800) }]), 80)
+
+    // A flat constant treated these as the same height. 800 characters at 80
+    // columns is ten rows, not one, and the offset drift is the difference.
+    expect(long).toBeGreaterThan(short)
+    expect(long - short).toBe(9)
+  })
+
+  it("counts every hard line break, empty ones included", () => {
+    const height = estimateTurnHeight(turnOf([{ type: "text", text: "a\n\nb" }]), 80)
+    const single = estimateTurnHeight(turnOf([{ type: "text", text: "a" }]), 80)
+
+    expect(height - single).toBe(2)
+  })
+
+  it("counts a non-text entry as one collapsed row", () => {
+    const withTool = estimateTurnHeight(turnOf([{ type: "tool", ref: "t1" }]), 80)
+    const empty = estimateTurnHeight(turnOf([]), 80)
+
+    expect(withTool - empty).toBe(1)
+  })
+
+  it("survives a viewport that has not reported a width yet", () => {
+    // Wrapping against zero would divide by zero and poison every offset after
+    // it, which is worse than a wrong estimate.
+    expect(Number.isFinite(estimateTurnHeight(turnOf([{ type: "text", text: "abc" }]), 0))).toBe(true)
+    expect(estimateTurnHeight(turnOf([{ type: "text", text: "abc" }]), 0)).toBeGreaterThan(0)
   })
 })

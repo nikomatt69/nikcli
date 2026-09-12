@@ -30,19 +30,15 @@ import { AnalyticsProvider } from "@tui/context/analytics"
 import { TelemetryProvider } from "@tui/context/telemetry"
 import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
-import { DialogMcp } from "@tui/component/dialog-mcp"
-import { DialogRoutine } from "@tui/component/dialog-routine"
 import { DialogStatus } from "@tui/component/dialog-status"
 import { DialogSync } from "@tui/component/dialog-sync"
 import { DialogUsage } from "@tui/component/dialog-usage"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogSettings } from "@tui/component/dialog-settings"
-import { DialogConfig } from "@tui/component/dialog-config"
 import { DialogHelp } from "./ui/dialog-help"
 import { DialogTour } from "@tui/component/dialog-tour"
 import { DialogQuickstartInfo, DialogDoctorInfo, DialogSupport, openExternal } from "@tui/component/dialog-support"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
-import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogPermissionMode } from "@tui/component/dialog-permission-mode"
 import { DialogAdvisorModel } from "@tui/component/dialog-advisor-model"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
@@ -949,7 +945,12 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         name: "agents",
       },
       onSelect: () => {
-        dialog.replace(() => <DialogAgent />)
+        // Lazy: picking an agent is not on the path to the first frame, and this
+        // dialog is among the most expensive of the eager component imports.
+        // See `script/import-cost.ts` for the measurement.
+        void import("@tui/component/dialog-agent").then(({ DialogAgent }) => {
+          dialog.replace(() => <DialogAgent />)
+        })
       },
     },
     {
@@ -997,7 +998,12 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         name: "mcps",
       },
       onSelect: () => {
-        dialog.replace(() => <DialogMcp />)
+        // Lazy: inspecting mcp servers is not on the path to the first frame, and this
+        // dialog is among the most expensive of the eager component imports.
+        // See `script/import-cost.ts` for the measurement.
+        void import("@tui/component/dialog-mcp").then(({ DialogMcp }) => {
+          dialog.replace(() => <DialogMcp />)
+        })
       },
     },
     {
@@ -1009,7 +1015,12 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         aliases: ["routine"],
       },
       onSelect: () => {
-        dialog.replace(() => <DialogRoutine />)
+        // Lazy: managing routines is not on the path to the first frame, and this
+        // dialog is among the most expensive of the eager component imports.
+        // See `script/import-cost.ts` for the measurement.
+        void import("@tui/component/dialog-routine").then(({ DialogRoutine }) => {
+          dialog.replace(() => <DialogRoutine />)
+        })
       },
     },
     {
@@ -1131,7 +1142,12 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
       value: "config.edit",
       slash: { name: "config" },
       onSelect: () => {
-        dialog.replace(() => <DialogConfig />)
+        // Lazy: editing config is not on the path to the first frame, and this
+        // dialog is among the most expensive of the eager component imports.
+        // See `script/import-cost.ts` for the measurement.
+        void import("@tui/component/dialog-config").then(({ DialogConfig }) => {
+          dialog.replace(() => <DialogConfig />)
+        })
       },
       category: "System",
     },

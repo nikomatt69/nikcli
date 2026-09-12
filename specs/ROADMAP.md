@@ -203,32 +203,51 @@ its release gate. Nothing here is marked complete.
 | EOT-02 | `runService` requirement typing; `any` and the cast removed                                   | `3ec56934`              |
 | EOT-02 | `runPromiseWithLayer` requires `R extends ROut`; four latent missing-service runs fixed       | working tree            |
 | EOT-03 | `useAttempts`: supersession guard for restartable dialog flows                                | `4495840e1`             |
+| EOT-03 | `attempt.adopt`: a resource acquired by a superseded attempt is released, not leaked          | working tree            |
 | EOT-04 | Queue depth meter; refetch on reconnect instead of resuming into a gap                        | `3ec56934`, `4a767a5f9` |
 | EOT-04 | Delivery-class registry on the event declaration, ahead of admission caps                     | working tree            |
 | EOT-04 | Per-connection frame and byte accounting, including server-generated frames                   | working tree            |
 | EOT-05 | Optional bootstrap requests settle; `sync.degraded` replaces a pinned `partial`               | `12d8ef764`             |
+| EOT-05 | Replay equivalence verified: a snapshot reaches the same state as a cold journal              | working tree            |
 | EOT-06 | Windowing math pinned by tests, including two properties                                      | `92dc72d2a`             |
+| EOT-06 | Windowing heights derived per turn from content instead of a flat constant                    | working tree            |
 | EOT-07 | Ctrl+C asks the renderer for focus instead of a source string and a missing DOM               | `a0b21dffd`             |
+| EOT-07 | Input precedence as an ordered table: modal > editable > route > application                  | working tree            |
 | EOT-08 | Import-cost probe; one dialog moved off the critical path against a measured delta            | `a9725f1d7`             |
+| EOT-08 | Four more dialogs off the critical path: eager set 3344ms -> 1552-2003ms                      | working tree            |
 | EOT-09 | `isTerminal`/`canTransition` for background-run outcomes                                      | `3ec56934`              |
 | EOT-09 | Post-commit publication moved from an ambient queue to the transaction's `ctx`                | working tree            |
 | EOT-10 | Standalone and CLI hosts stop turning a config failure into an empty config                   | `3ec56934`, `67a2b811b` |
 | EOT-10 | Open-payload inventory pinned per file; a new `Schema.Unknown` fails a test                   | working tree            |
 | EOT-11 | `suppressEmptyTextResult` covered: a rejection still reaches an awaiting caller               | `9483b4645`             |
+| EOT-11 | A whole native turn pinned as one ordered processor sequence                                  | working tree            |
 | EOT-12 | Onboarding retry bounded; typed `incomplete` outcome instead of a parked startup              | `a6b1c758c`             |
+| EOT-12 | Auth lifecycle as a legal-transition table, shared contract for server and TUI                | working tree            |
 | EOT-13 | `span-schema.ts`: fixed attribute schema, forbidden segments, redact-then-truncate            | `3ec56934`              |
 | EOT-13 | Span `statusMessage` redacted; `nku_` and opaque bearer tokens added to the redactor          | working tree            |
 | EOT-14 | v2 manifest is the v1/v2 discriminator; host-range and capability checks at load              | working tree            |
 | EOT-15 | `detectSequenceGap`: a replay resuming across a compacted range is now reported               | `34ed8b55a`             |
+| EOT-15 | A projection replayed across a hole is no longer persisted as a snapshot                      | working tree            |
 | EOT-16 | LSP and provider refreshes scoped to the active workspace                                     | `41b718d16`             |
 | EOT-16 | Session directory survives a remote workspace target; corrupt records stop reading as missing | working tree            |
 | EOT-17 | Precedence corrected to the shipped contract; ordering guarded by a test                      | `3ec56934`, `67a2b811b` |
+| EOT-17 | Every permission decision audited with the rule that produced it; denials at info             | working tree            |
 | EOT-18 | Command-surface gate restored and repointed                                                   | `f5783a970`             |
+| EOT-18 | `cmd()` takes `bootstrap`/`teardown`; teardown runs in a finally without masking the handler  | working tree            |
+| EOT-19 | Per-device capabilities the bridge advertises; an unknown scope grants nothing                | working tree            |
 | EOT-20 | Test layers made disjoint; barrier helpers; one flaky test migrated to a barrier              | `3ec56934`, `c1d323308` |
 | EOT-20 | `preserveTestEnv` discipline enforced: a module-scope `NIKCLI_*` write fails a test           | working tree            |
 
-Every spec has been opened. **EOT-14** is no longer the one with no code: the v2
-manifest, host-compatibility check, and capability gating landed.
+Every spec has been opened and every spec now has at least one landed slice,
+EOT-14 and EOT-19 included.
+
+A landed slice is still not a passed release gate. What is landed is, in most
+cases, the **contract** a spec turns on — the delivery-class table, the auth
+transition table, the input-precedence order, the plugin manifest, the
+permission audit — written as data with a test that fails when it changes. The
+migrations those contracts exist to govern (EOT-11's adapter convergence,
+EOT-19's bridge, EOT-06's measured heights, EOT-07's controller extraction)
+remain the multi-PR work this roadmap scopes them as.
 
 What these slices are not. EOT-11, EOT-14 and EOT-15 remain the L/High
 migrations this roadmap scopes across several separately verified PRs. EOT-11

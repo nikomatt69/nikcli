@@ -259,3 +259,52 @@ function sameBody(a: readonly ViewEntry[], b: readonly ViewEntry[]): boolean {
   }
   return true
 }
+
+// ============================================================================
+// Height estimation
+// ============================================================================
+
+/** Chrome every turn pays: the header row, the footer row, and the gap after it. */
+const TURN_CHROME_ROWS = 3
+
+/** A tool call, a reasoning block, or any other non-text entry, collapsed. */
+const ENTRY_ROWS = 1
+
+/**
+ * How tall a turn is likely to render, in rows, at a given width.
+ *
+ * The virtualizer used a flat 6 for every turn. A constant is wrong in both
+ * directions and the errors do not cancel: a one-line acknowledgement is
+ * over-reserved while a fifty-line diff is under-reserved by an order of
+ * magnitude, so the scroll offset drifts further the more the transcript mixes
+ * the two — which is what a transcript is.
+ *
+ * This is still an **estimate**, derived from content rather than measured from
+ * a rendered row. The measured-height endpoint EOT-06 describes needs heights
+ * fed back from the renderer and a real terminal to verify against; this is the
+ * part that can be computed purely, and it is strictly closer than a constant.
+ *
+ * Deliberately cheap: it runs for every turn on every scroll tick, so it counts
+ * newlines and divides, and never touches a layout engine.
+ */
+export function estimateTurnHeight(turn: Turn, width: number): number {
+  // A zero or negative width is a viewport that has not reported yet. Wrapping
+  // against it would divide by zero and poison every offset after it.
+  const columns = Math.max(1, Math.floor(width) || 1)
+  let rows = TURN_CHROME_ROWS
+
+  for (const entry of turn.body) {
+    const text = typeof entry.text === "string" ? entry.text : undefined
+    if (text === undefined) {
+      rows += ENTRY_ROWS
+      continue
+    }
+    // Every hard line break is a row, and each line wraps by width. An empty
+    // line still occupies one.
+    for (const line of text.split("\n")) {
+      rows += Math.max(1, Math.ceil(line.length / columns))
+    }
+  }
+
+  return rows
+}

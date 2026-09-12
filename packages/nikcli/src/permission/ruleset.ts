@@ -120,7 +120,29 @@ export namespace PermissionRuleset {
     const match = merged.findLast(
       (rule: Rule) => Wildcard.match(permission, rule.permission) && Wildcard.match(pattern, rule.pattern),
     )
-    return match ?? { action: "ask", permission, pattern: "*" }
+    const decision = match ?? { action: "ask" as const, permission, pattern: "*" }
+
+    // `specs/effect-tui/17-sandbox-permission-boundaries.md` requirement 10:
+    // every decision is auditable with the rule that produced it, never the
+    // ruleset that contained it — the four fields below are cheap on a hot
+    // path where stringifying the whole list is not, and they are what an
+    // operator reconstructing "why was this allowed" actually needs.
+    //
+    // A deny is the one outcome that changes what the user sees without
+    // telling them, so it is reported at a level they will have on. `allow`
+    // and `ask` stay at debug: one is the common case and the other announces
+    // itself with a prompt.
+    const audit = {
+      permission,
+      pattern,
+      outcome: decision.action,
+      rule: `${decision.permission} ${decision.pattern}`,
+      matched: match !== undefined,
+    }
+    if (decision.action === "deny") log.info("permission denied", audit)
+    else log.debug("permission decided", audit)
+
+    return decision
   }
 
   /**

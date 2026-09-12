@@ -11,7 +11,7 @@
  */
 import { Sync, type SyncEventRecord } from "./index"
 import { SyncSnapshot, SNAPSHOT_INTERVAL, type SnapshotKey } from "./snapshot"
-import { detectSequenceGap } from "./gap"
+import { detectSequenceGap, type SequenceGap } from "./gap"
 import { Log } from "@nikcli-ai/util/log"
 
 const log = Log.create({ service: "sync.reducer" })
@@ -29,12 +29,13 @@ export namespace SyncReducer {
     key: SnapshotKey,
     initial: S,
     projectors: Projector<S>[],
-  ): Promise<{ state: S; lastSeq: number }> {
+  ): Promise<{ state: S; lastSeq: number; gap?: SequenceGap }> {
     const cached = SyncSnapshot.load(key)
     // SAFETY: the snapshot is loaded under the same `key` the projectors for
     // `S` write it under, so a cached state for this key is an `S`.
     let state: S = cached ? (cached.state as S) : initial
     let lastSeq = cached?.lastSeq ?? 0
+    let incomplete: SequenceGap | undefined
 
     // Read events strictly after the snapshot's seq. The projection is
     // applied in seq order so the result is deterministic.
@@ -51,7 +52,10 @@ export namespace SyncReducer {
         fromSeq: lastSeq,
         oldestAvailableSeq: await Sync.oldestSeq(key.projectID, key.aggregate),
       })
-      if (gap) log.error("replaying across a compacted range; projection is incomplete", { ...key, ...gap })
+      if (gap) {
+        log.error("replaying across a compacted range; projection is incomplete", { ...key, ...gap })
+        incomplete = gap
+      }
     }
     let eventsSinceSnapshot = 0
     for (const event of events) {
@@ -66,12 +70,18 @@ export namespace SyncReducer {
       eventsSinceSnapshot++
     }
 
-    if (eventsSinceSnapshot >= SNAPSHOT_INTERVAL || !cached) {
+    // A projection that replayed across a hole is incomplete, and persisting it
+    // would launder the hole into the durable record: the next cold start would
+    // load a snapshot that looks authoritative and has no way to know it is
+    // missing a prefix. The gap stays reported and the old snapshot stays put.
+    // `specs/effect-tui/15-sync-snapshots-watermarks.md` requirement 4 — a gap
+    // surfaces as visible stale state, never as silent catch-up.
+    if (!incomplete && (eventsSinceSnapshot >= SNAPSHOT_INTERVAL || !cached)) {
       // Persist a fresh snapshot so the next cold start can skip these
       // events entirely.
       SyncSnapshot.save(key, lastSeq, state)
     }
 
-    return { state, lastSeq }
+    return incomplete ? { state, lastSeq, gap: incomplete } : { state, lastSeq }
   }
 }

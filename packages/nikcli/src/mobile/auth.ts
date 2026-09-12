@@ -25,6 +25,50 @@ export namespace MobileAuth {
 
   export const SYNC_SCOPES = new Set<Scope>(["mobile", "cli-sync", "studio"])
 
+  /**
+   * What a paired device is allowed to reach.
+   *
+   * `specs/effect-tui/19-mobile-companion-bridge.md` requirement 9: the bridge
+   * advertises capabilities per device, and a device without one cannot use the
+   * operation it guards — surfaced as a typed affordance, never a silent no-op.
+   * A no-op is worse than a refusal here: the phone shows a button, the button
+   * does nothing, and the user concludes the host is broken.
+   */
+  export const Capability = z.enum(["read", "write", "pty", "teleport", "git"])
+  export type Capability = z.infer<typeof Capability>
+
+  /**
+   * Capabilities by scope.
+   *
+   * Derived from the scope rather than stored on the token: every existing
+   * token would otherwise need a migration and a default, and the default is
+   * exactly this table. Making them per-token is a later slice — the shape
+   * below is what it would migrate *to*, so call sites written against `can`
+   * do not change when it happens.
+   *
+   * `cli-sync` is a sync transport, not an operator: it moves journal rows and
+   * has no business opening a pty or reading a working tree.
+   */
+  const CAPABILITIES: Readonly<Record<Scope, readonly Capability[]>> = {
+    mobile: ["read", "write", "pty", "teleport", "git"],
+    studio: ["read", "write", "git"],
+    "cli-sync": ["read"],
+  }
+
+  /** The capabilities a scope carries, for the handshake to advertise. */
+  export function capabilities(scope: string): readonly Capability[] {
+    const parsed = Scope.safeParse(scope)
+    // An unrecognised scope gets nothing rather than the default set: a token
+    // whose scope this build does not know is a token from a newer or forged
+    // issuer, and guessing generously is the wrong direction to guess.
+    return parsed.success ? CAPABILITIES[parsed.data] : []
+  }
+
+  /** Whether a scope may perform an operation. */
+  export function can(scope: string, capability: Capability): boolean {
+    return capabilities(scope).includes(capability)
+  }
+
   export const Token = z
     .object({
       id: z.string(),

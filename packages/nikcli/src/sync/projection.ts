@@ -8,13 +8,14 @@
  * and by the session bridge's write-through refresh.
  */
 import { SyncReducer } from "./reducer"
+import type { SequenceGap } from "./gap"
 import { SyncProjector, type SessionState, type WorkspaceState } from "./projector"
 
 export namespace SyncProjection {
   export async function workspace(
     projectID: string,
     workspaceID: string,
-  ): Promise<{ state: WorkspaceState; lastSeq: number }> {
+  ): Promise<{ state: WorkspaceState; lastSeq: number; gap?: SequenceGap }> {
     return SyncReducer.replayWithSnapshot<WorkspaceState>(
       { projectID, aggregate: workspaceID, aggregateID: workspaceID },
       {
@@ -32,7 +33,7 @@ export namespace SyncProjection {
   export async function session(
     projectID: string,
     sessionID: string,
-  ): Promise<{ state: SessionState; lastSeq: number }> {
+  ): Promise<{ state: SessionState; lastSeq: number; gap?: SequenceGap }> {
     return SyncReducer.replayWithSnapshot<SessionState>(
       { projectID, aggregate: sessionID, aggregateID: sessionID },
       {

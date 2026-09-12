@@ -69,11 +69,41 @@ export function useAttempts() {
       const own = new AbortController()
       current = own
       const generationAtStart = ++generation
+      const stale = () => disposed || generationAtStart !== generation
       return {
         /** Aborted when the owner is cleaned up, or when a newer attempt starts. */
         signal: own.signal,
         /** True once the owner is gone or a newer attempt has superseded this one. */
-        stale: () => disposed || generationAtStart !== generation,
+        stale,
+        /**
+         * Take ownership of a resource this attempt acquired, or release it if
+         * the attempt no longer owns anything.
+         *
+         * `stale()` answers whether a *result* still matters. A resource is the
+         * harder half: an abort signal does not un-open a pty, un-subscribe a
+         * watcher, or un-spawn a process that was already in flight when the
+         * newer attempt started. Checking `stale()` and returning leaks it —
+         * the caller has dropped the only reference and nothing will close it.
+         *
+         * Returns the resource when this attempt is still current, `undefined`
+         * when it has been released, so the call site reads as one statement:
+         *
+         *     const pty = attempt.adopt(await open(), (p) => p.kill())
+         *     if (!pty) return
+         *
+         * `specs/effect-tui/03-tui-lifecycle.md` — late resource acquisition.
+         */
+        adopt<R>(resource: R, release: (resource: R) => void): R | undefined {
+          if (!stale()) return resource
+          try {
+            release(resource)
+          } catch {
+            // A release that throws is already the unhappy path; swallowing it
+            // here keeps one stale resource from taking down the flow that
+            // superseded it.
+          }
+          return undefined
+        },
       }
     },
     /** True once the owner is gone, regardless of attempts. */

@@ -531,6 +531,51 @@ async function deactivatePluginEntry(state: RuntimeState, plugin: PluginEntry, p
   return true
 }
 
+/**
+ * How long startup waits for one plugin to activate before moving on.
+ *
+ * Not a cancellation: the activation keeps running and still registers when it
+ * finishes. What the budget bounds is how long *startup* is willing to block on
+ * it, because a plugin that is merely slow and a plugin that is wedged look
+ * identical from here, and only one of them should be able to stop the terminal
+ * from opening. `specs/effect-tui/14-plugin-v2-architecture.md` gives cleanup
+ * the same treatment for the same reason.
+ */
+const ACTIVATION_BUDGET_MS = 5_000
+
+/**
+ * Activate a plugin, logging which one and giving up the *wait* (not the work)
+ * after the budget.
+ */
+async function activateWithBudget(state: RuntimeState, plugin: PluginEntry) {
+  log.debug("activating tui plugin", { id: plugin.id })
+  const started = Date.now()
+
+  const activation = activatePluginEntry(state, plugin, false)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const budget = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), ACTIVATION_BUDGET_MS)
+    timer.unref?.()
+  })
+
+  try {
+    const outcome = await Promise.race([activation.then(() => "done" as const), budget])
+    if (outcome === "timeout") {
+      log.warn("tui plugin is still activating; continuing startup without it", {
+        id: plugin.id,
+        afterMs: ACTIVATION_BUDGET_MS,
+      })
+      // Keep the failure observable when it eventually lands, rather than
+      // leaving an unhandled rejection behind.
+      void activation.catch((error) => log.error("tui plugin activation failed", { id: plugin.id, error }))
+      return
+    }
+    log.debug("activated tui plugin", { id: plugin.id, ms: Date.now() - started })
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 async function activatePluginEntry(state: RuntimeState, plugin: PluginEntry, persist: boolean) {
   plugin.enabled = true
   if (persist) writePluginEnabledState(state.api, plugin.id, true)
@@ -1420,7 +1465,13 @@ export namespace TuiPluginRuntime {
           // command registration order affects keybind/command precedence,
           // route registration is last-wins when ids collide,
           // and hook chains rely on stable plugin ordering.
-          await activatePluginEntry(next, plugin, false)
+          //
+          // Sequential also means one plugin whose `setup` never settles holds
+          // every plugin after it, and the whole startup with them: the footer
+          // sits on "Loading plugins..." forever because `init` never resolves.
+          // There was no per-plugin log here, so the only evidence was the id
+          // of the last plugin to be *listed*, which is not the one that hung.
+          await activateWithBudget(next, plugin)
         }
       }
     } catch (error) {
