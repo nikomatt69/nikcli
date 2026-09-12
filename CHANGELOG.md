@@ -3,6 +3,28 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.349.0 (September 2026)
+
+## Core
+
+- Format the migrated command handlers with prettier (@nikomatt69)
+- Remove deprecated CLI files and update command structure (@nikomatt69)
+- Move command bodies into handlers and drop cli/cmd (@nikomatt69)
+- Migrate CLI from yargs to effect framework (@nikomatt69)
+- Update default hostname to 0.0.0.0 for remote start and mobile serve commands (@nikomatt69)
+- Optimize command loading and improve performance (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(cli): optimize command loading and improve performance
+  - fix(cli): update default hostname to 0.0.0.0 for remote start and mobile serve commands
+  - refactor(cli): migrate CLI from yargs to effect framework
+  - refactor(cli): move command bodies into handlers and drop cli/cmd
+  - refactor(cli): remove deprecated CLI files and update command structure
+  - style(cli): format the migrated command handlers with prettier
+  - docs(specs): record the per-token Effect hot-path exception
+
 ## v1.348.0 (September 2026)
 
 - No notable changes

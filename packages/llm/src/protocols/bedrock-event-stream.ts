@@ -14,7 +14,8 @@ import { ProviderShared } from "./shared"
 let codec: EventStreamCodec | undefined
 const eventCodec = (): EventStreamCodec => {
   if (codec === undefined) {
-    const { EventStreamCodec: Codec } = require("@smithy/eventstream-codec") as typeof import("@smithy/eventstream-codec")
+    const { EventStreamCodec: Codec } =
+      require("@smithy/eventstream-codec") as typeof import("@smithy/eventstream-codec")
     const { fromUtf8, toUtf8 } = require("@smithy/util-utf8") as typeof import("@smithy/util-utf8")
     codec = new Codec(toUtf8, fromUtf8)
   }
