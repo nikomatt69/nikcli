@@ -15,7 +15,7 @@ export const SnapshotCommand = cmd({
   async handler() {},
 })
 
-const TrackCommand = cmd({
+export const TrackCommand = cmd({
   command: "track",
   describe: "track current snapshot state",
   async handler() {
@@ -32,7 +32,7 @@ const TrackCommand = cmd({
   },
 })
 
-const PatchCommand = cmd({
+export const PatchCommand = cmd({
   command: "patch <hash>",
   describe: "show patch for a snapshot hash",
   builder: (yargs) =>
@@ -55,7 +55,7 @@ const PatchCommand = cmd({
   },
 })
 
-const DiffCommand = cmd({
+export const DiffCommand = cmd({
   command: "diff <hash>",
   describe: "show diff for a snapshot hash",
   builder: (yargs) =>

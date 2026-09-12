@@ -1,9 +1,14 @@
 import { Runtime } from "../../framework/runtime"
-import { delegate } from "../../framework/yargs-bridge"
+import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
 
-export default Runtime.handler(Commands.commands["routine"].commands["resume"], (input) =>
-  delegate(() => import("@/cli/cmd/routine"), "RoutineCommand", ["resume"] as string[], {
+export default Runtime.handler(Commands.commands["routine"].commands["resume"], async (input) => {
+  const { RoutineResumeCommand } = await import("@/cli/cmd/routine")
+  const args = {
+    _: [],
+    $0: "nikcli",
+    "--": passthrough(),
     "id": input["id"],
-  }),
-)
+  }
+  await RoutineResumeCommand.handler(args)
+})

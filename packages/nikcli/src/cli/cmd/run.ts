@@ -1,4 +1,4 @@
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import path from "path"
 import { UI } from "../ui"
 import { cmd } from "./cmd"

@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/package.json",
   "version": "1.348.0",
   "name": "nikcli-ai",
-  "description": "AI coding agent with TUI, server, connectors and mobile companion — a fork of OpenCode (https://github.com/anomalyco/opencode)",
+  "description": "AI coding agent with TUI, server, connectors and mobile companion \u2014 a fork of OpenCode (https://github.com/anomalyco/opencode)",
   "type": "module",
   "license": "MIT",
   "private": false,
@@ -69,7 +69,6 @@
     "@types/shell-quote": "^1.7.5",
     "@types/turndown": "5.0.5",
     "@types/ws": "^8.18.1",
-    "@types/yargs": "17.0.35",
     "@typescript/native": "catalog:",
     "drizzle-kit": "0.31.10",
     "oxlint": "1.79.0",
@@ -175,7 +174,6 @@
     "web-tree-sitter": "0.25.10",
     "ws": "^8.18.0",
     "xdg-basedir": "5.1.0",
-    "yargs": "18.0.0",
     "zod": "catalog:",
     "zod-to-json-schema": "3.24.5"
   }

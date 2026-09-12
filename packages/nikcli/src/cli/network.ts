@@ -1,4 +1,4 @@
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import { Config } from "../config/config"
 import { runPromiseWithLayer } from "@/effect"
 import { Effect } from "effect"

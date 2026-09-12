@@ -6,6 +6,80 @@ import { Outbox } from "@/sync/outbox"
 import { RemoteSync } from "@/sync/remote-sync"
 import { SyncConfig } from "@/sync/sync-config"
 
+export const SyncStatusCommand = cmd({
+        command: "status",
+        describe: "show outbox state and last-seen sequence",
+        handler: async () => {
+          const remote = await readRemote()
+          if (!remote) {
+            console.log("remote sync not configured")
+            console.log("set NIKCLI_REMOTE_URL and NIKCLI_REMOTE_TOKEN, or use /sync in the TUI to save it")
+            return
+          }
+          const outbox = Outbox.status(remote.url)
+          console.log(`target:        ${remote.url} (${remote.source === "env" ? "env vars" : "config file"})`)
+          console.log(`outbox pending: ${outbox.pending}`)
+          console.log(`outbox failed:  ${outbox.failed}`)
+          console.log(`outbox total:   ${outbox.total}`)
+        },
+      })
+
+export const SyncConnectCommand = cmd({
+        command: "connect",
+        describe: "force a connection to the configured remote hub",
+        handler: async () => {
+          await runSyncConnect({
+            readRemote,
+            withInstance: withInstanceAsync,
+            getProjectId: (instance) => instance.project.id,
+            remoteStart: (opts) =>
+              RemoteSync.start({
+                ...opts,
+                resolveToken: SyncConfig.refreshToken,
+              }),
+            onSignal: (signal, handler) => process.once(signal, handler),
+            offSignal: (signal, handler) => process.off(signal, handler),
+          })
+        },
+      })
+
+export const SyncDisconnectCommand = cmd({
+        command: "disconnect",
+        describe: "show how to end an active sync connect session (no separate stop API)",
+        handler: async () => {
+          console.log("To end an active connection, stop the process that ran `nikcli sync connect` (e.g. Ctrl-C).")
+          console.log("Queued events in the outbox are sent on the next connect.")
+        },
+      })
+
+export const SyncTokenCreateCommand = cmd({
+        command: "token create",
+        describe: "create a cli-sync scoped token for connecting a CLI to this hub",
+        builder: (inner) =>
+          inner
+            .option("name", {
+              type: "string",
+              default: "cli-sync",
+              describe: "token label",
+            })
+            .option("expiry-days", {
+              type: "number",
+              describe: "optional token expiry in days",
+            }),
+        handler: async (args) => {
+          const { MobileAuth } = await import("@/mobile/auth")
+          const created = await MobileAuth.create({
+            name: String(args.name || "cli-sync"),
+            expiresInDays: args.expiryDays ? Number(args.expiryDays) : undefined,
+            scope: "cli-sync",
+          })
+          console.log(`token id: ${created.info.id} (scope: cli-sync)`)
+          console.log(`NIKCLI_REMOTE_TOKEN=${created.token}`)
+          console.log("store the token now — it cannot be shown again")
+        },
+      })
+
+
 const log = Log.create({ service: "cli.sync" })
 
 export type SyncRemoteConfig = {
@@ -72,75 +146,10 @@ export const SyncCommand = cmd({
   describe: "manage optional remote hub sync (e.g. https://s.nikcli.store)",
   builder: (yargs) =>
     yargs
-      .command({
-        command: "status",
-        describe: "show outbox state and last-seen sequence",
-        handler: async () => {
-          const remote = await readRemote()
-          if (!remote) {
-            console.log("remote sync not configured")
-            console.log("set NIKCLI_REMOTE_URL and NIKCLI_REMOTE_TOKEN, or use /sync in the TUI to save it")
-            return
-          }
-          const outbox = Outbox.status(remote.url)
-          console.log(`target:        ${remote.url} (${remote.source === "env" ? "env vars" : "config file"})`)
-          console.log(`outbox pending: ${outbox.pending}`)
-          console.log(`outbox failed:  ${outbox.failed}`)
-          console.log(`outbox total:   ${outbox.total}`)
-        },
-      })
-      .command({
-        command: "connect",
-        describe: "force a connection to the configured remote hub",
-        handler: async () => {
-          await runSyncConnect({
-            readRemote,
-            withInstance: withInstanceAsync,
-            getProjectId: (instance) => instance.project.id,
-            remoteStart: (opts) =>
-              RemoteSync.start({
-                ...opts,
-                resolveToken: SyncConfig.refreshToken,
-              }),
-            onSignal: (signal, handler) => process.once(signal, handler),
-            offSignal: (signal, handler) => process.off(signal, handler),
-          })
-        },
-      })
-      .command({
-        command: "disconnect",
-        describe: "show how to end an active sync connect session (no separate stop API)",
-        handler: async () => {
-          console.log("To end an active connection, stop the process that ran `nikcli sync connect` (e.g. Ctrl-C).")
-          console.log("Queued events in the outbox are sent on the next connect.")
-        },
-      })
-      .command({
-        command: "token create",
-        describe: "create a cli-sync scoped token for connecting a CLI to this hub",
-        builder: (inner) =>
-          inner
-            .option("name", {
-              type: "string",
-              default: "cli-sync",
-              describe: "token label",
-            })
-            .option("expiry-days", {
-              type: "number",
-              describe: "optional token expiry in days",
-            }),
-        handler: async (args) => {
-          const { MobileAuth } = await import("@/mobile/auth")
-          const created = await MobileAuth.create({
-            name: String(args.name || "cli-sync"),
-            expiresInDays: args.expiryDays ? Number(args.expiryDays) : undefined,
-            scope: "cli-sync",
-          })
-          console.log(`token id: ${created.info.id} (scope: cli-sync)`)
-          console.log(`NIKCLI_REMOTE_TOKEN=${created.token}`)
-          console.log("store the token now — it cannot be shown again")
-        },
-      })
+      .command(SyncStatusCommand)
+      .command(SyncConnectCommand)
+      .command(SyncDisconnectCommand)
+      .command(SyncTokenCreateCommand)
       .demandCommand()
       .help(),
   handler: async () => {},

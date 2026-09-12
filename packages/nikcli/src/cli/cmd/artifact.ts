@@ -1,4 +1,4 @@
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import * as prompts from "@clack/prompts"
 import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"

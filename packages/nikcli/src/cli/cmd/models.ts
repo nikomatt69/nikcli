@@ -1,4 +1,4 @@
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import { Provider } from "../../provider/provider"
 import { ModelsDev } from "../../provider/models"
 import { cmd } from "./cmd"

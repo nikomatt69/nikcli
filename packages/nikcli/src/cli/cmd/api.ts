@@ -1,4 +1,4 @@
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
 import { publicRoutes, type PublicRoute } from "@/server/httpapi/inventory"

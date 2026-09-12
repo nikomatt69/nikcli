@@ -1,4 +1,4 @@
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 
 import { Session } from "../session"
 import { SessionRepo } from "./repo"

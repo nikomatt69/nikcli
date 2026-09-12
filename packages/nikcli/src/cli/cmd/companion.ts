@@ -2,12 +2,7 @@ import { cmd } from "./cmd"
 import open from "open"
 import { Server } from "../../server/server"
 
-export const CompanionCommand = cmd({
-  command: "companion",
-  describe: "Web UI for nikcli sessions",
-  builder: (yargs) =>
-    yargs
-      .command({
+export const CompanionServeCommand = cmd({
         command: "serve",
         describe: "Start the nikcli server with companion UI",
         builder: (yargs) =>
@@ -47,7 +42,8 @@ export const CompanionCommand = cmd({
           await new Promise(() => {})
         },
       })
-      .command({
+
+export const CompanionOpenCommand = cmd({
         command: "open",
         describe: "Open the companion UI in browser",
         builder: (yargs) =>
@@ -73,7 +69,16 @@ export const CompanionCommand = cmd({
           await open(url)
           console.log(`Opening ${url}`)
         },
-      }),
+      })
+
+
+export const CompanionCommand = cmd({
+  command: "companion",
+  describe: "Web UI for nikcli sessions",
+  builder: (yargs) =>
+    yargs
+      .command(CompanionServeCommand)
+      .command(CompanionOpenCommand),
   handler: async () => {
     console.log("Use 'nikcli companion serve' to start the server with companion UI")
     console.log("Use 'nikcli companion open' to open the companion UI")

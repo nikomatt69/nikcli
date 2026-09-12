@@ -13,7 +13,7 @@
  * the result.
  */
 
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import path from "path"
 import fs from "fs/promises"
 import { cmd } from "./cmd"
@@ -82,7 +82,7 @@ export const MissionCommand = cmd({
   async handler() {},
 })
 
-const MissionListCommand = cmd({
+export const MissionListCommand = cmd({
   command: "list",
   aliases: ["ls"],
   describe: "list all missions for the current project",
@@ -125,7 +125,7 @@ const MissionListCommand = cmd({
   },
 })
 
-const MissionNewCommand = cmd({
+export const MissionNewCommand = cmd({
   command: "new",
   describe: "create a new mission from a brief (or an LLM-generated plan from a description)",
   builder: (yargs) =>
@@ -248,7 +248,7 @@ async function tailUntilDone(missionID: string, timeoutMs = 10 * 60_000): Promis
   }
 }
 
-const MissionGetCommand = cmd({
+export const MissionGetCommand = cmd({
   command: "get <id>",
   describe: "show details of a mission",
   builder: (yargs) =>
@@ -322,7 +322,7 @@ const MissionGetCommand = cmd({
   },
 })
 
-const MissionStartCommand = cmd({
+export const MissionStartCommand = cmd({
   command: "start <id>",
   describe: "start (or resume) orchestrating a mission",
   builder: (yargs) =>
@@ -351,7 +351,7 @@ const MissionStartCommand = cmd({
   },
 })
 
-const MissionPauseCommand = cmd({
+export const MissionPauseCommand = cmd({
   command: "pause <id>",
   describe: "pause orchestration of a mission",
   builder: (yargs) =>
@@ -373,7 +373,7 @@ const MissionPauseCommand = cmd({
   },
 })
 
-const MissionResumeCommand = cmd({
+export const MissionResumeCommand = cmd({
   command: "resume <id>",
   aliases: ["start"],
   describe: "resume a paused or frozen mission",
@@ -396,7 +396,7 @@ const MissionResumeCommand = cmd({
   },
 })
 
-const MissionCancelCommand = cmd({
+export const MissionCancelCommand = cmd({
   command: "cancel <id>",
   describe: "cancel and freeze a mission for reassessment",
   builder: (yargs) =>
@@ -418,7 +418,7 @@ const MissionCancelCommand = cmd({
   },
 })
 
-const MissionDeleteCommand = cmd({
+export const MissionDeleteCommand = cmd({
   command: "delete <id>",
   aliases: ["rm"],
   describe: "delete a mission and its execution history",

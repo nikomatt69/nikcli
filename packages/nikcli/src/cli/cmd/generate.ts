@@ -1,6 +1,8 @@
-import type { CommandModule } from "yargs"
+import type { CommandModule } from "@/cli/cmd/argv"
 
-export const GenerateCommand = {
+// Typed as a command module so its handler accepts the same args object every
+// other command's does; it ignores them.
+export const GenerateCommand: CommandModule = {
   command: "generate",
   handler: async () => {
     const { OpenApi } = await import("effect/unstable/httpapi")

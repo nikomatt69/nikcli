@@ -1,11 +1,15 @@
 import { Option } from "effect"
 import { Runtime } from "../framework/runtime"
-import { delegate } from "../framework/yargs-bridge"
+import { passthrough } from "../framework/args"
 import { Commands } from "../commands"
 
 /** The default command: `nikcli [project]` starts the TUI. */
-export default Runtime.handler(Commands, (input) =>
-  delegate(() => import("@/cli/cmd/tui/thread"), "TuiThreadCommand", [] as string[], {
+export default Runtime.handler(Commands, async (input) => {
+  const { TuiThreadCommand } = await import("@/cli/cmd/tui/thread")
+  const args = {
+    _: [],
+    $0: "nikcli",
+    "--": passthrough(),
     "port": input["port"],
     "hostname": input["hostname"],
     "mdns": input["mdns"],
@@ -17,5 +21,6 @@ export default Runtime.handler(Commands, (input) =>
     "session": Option.getOrUndefined(input["session"]),
     "prompt": Option.getOrUndefined(input["prompt"]),
     "agent": Option.getOrUndefined(input["agent"]),
-  }),
-)
+  }
+  await TuiThreadCommand.handler(args)
+})

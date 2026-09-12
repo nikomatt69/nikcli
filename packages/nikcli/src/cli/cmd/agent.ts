@@ -8,7 +8,7 @@ import path from "path"
 import fs from "fs/promises"
 import matter from "gray-matter"
 import { EOL } from "os"
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { Log } from "@nikcli-ai/util/log"
@@ -60,7 +60,7 @@ function agentList() {
   )
 }
 
-const AgentCreateCommand = cmd({
+export const AgentCreateCommand = cmd({
   command: "create",
   describe: "create a new agent",
   builder: (yargs: Argv) =>
@@ -174,7 +174,7 @@ const AgentCreateCommand = cmd({
 
       let selectedTools: string[]
       if (cliTools !== undefined) {
-        selectedTools = cliTools ? cliTools.split(",").map((t) => t.trim()) : [...AVAILABLE_TOOLS]
+        selectedTools = cliTools ? cliTools.split(",").map((t: string) => t.trim()) : [...AVAILABLE_TOOLS]
       } else {
         const result = await prompts.multiselect({
           message: "Select tools to enable (Space to toggle)",
@@ -274,7 +274,7 @@ const AgentCreateCommand = cmd({
   },
 })
 
-const AgentListCommand = cmd({
+export const AgentListCommand = cmd({
   command: "list",
   describe: "list all available agents",
   async handler() {

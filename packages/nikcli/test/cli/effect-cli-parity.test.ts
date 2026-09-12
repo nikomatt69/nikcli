@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import { removeTestDir } from "../helpers/fs"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-cli-parity-home-"))
@@ -178,23 +178,12 @@ function fromEffectCommand(spec: any): Param[] {
 
 // ── the comparison ────────────────────────────────────────────────────────────
 
-const main = await fs.readFile(path.join(import.meta.dir, "../../src/cli-main.ts"), "utf8")
-const staticImports = new Map<string, string>()
-for (const match of main.matchAll(/import \{ (\w+Command) \} from "([^"]+)"/g)) {
-  staticImports.set(match[1]!, match[2]!)
-}
-const registrations: Array<{ name: string; from: string }> = []
-for (const match of main.matchAll(/\.command\((\w+Command)\)/g)) {
-  const from = staticImports.get(match[1]!)
-  if (from) registrations.push({ name: match[1]!, from })
-}
-for (const match of main.matchAll(/exported\(\(\) => import\("([^"]+)"\), "(\w+)"\)/g)) {
-  registrations.push({ name: match[2]!, from: match[1]! })
-}
+const { CommandModules } = await import("@/cli/registry")
+const registrations = CommandModules.map((entry) => ({ name: entry.exportName, from: entry.from }))
 
 const yargsRoot: YargsNode = { params: [], children: new Map() }
 for (const registration of registrations) {
-  const specifier = registration.from.replace(/^\.\//, "@/")
+  const specifier = registration.from
   const module = (await import(specifier))[registration.name]
   if (!module) continue
   const recorded = recordYargs(module)
@@ -239,7 +228,17 @@ describe("effect CLI parity with yargs", () => {
       const segments = key === "" ? [] : key.split(" ")
       const counterpart = findYargs(yargsRoot, segments)
       expect(counterpart, `no yargs command at "${key}"`).toBeDefined()
-      expect(fromEffectCommand(spec)).toEqual(counterpart!.params)
+      // The root's positionals are flags on the effect side, deliberately: an
+      // optional positional on a command that also has subcommands swallows the
+      // subcommand name as soon as a flag follows, so `nikcli heap --detailed`
+      // would run the TUI. `normalizeArgv` rewrites a leading path back into
+      // `--project`, so the spelling users type is unchanged. Everything else
+      // about the parameter still has to match.
+      const expected =
+        segments.length === 0
+          ? counterpart!.params.map((param) => ({ ...param, kind: "flag" as const })).sort(byName)
+          : counterpart!.params
+      expect(fromEffectCommand(spec)).toEqual(expected)
     },
   )
 

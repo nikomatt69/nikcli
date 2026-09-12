@@ -173,19 +173,8 @@ function normalise(value: unknown): unknown {
   return value
 }
 
-const main = await fs.readFile(path.join(import.meta.dir, "../../src/cli-main.ts"), "utf8")
-const staticImports = new Map<string, string>()
-for (const match of main.matchAll(/import \{ (\w+Command) \} from "([^"]+)"/g)) {
-  staticImports.set(match[1]!, match[2]!)
-}
-const modules = new Map<string, string>()
-for (const match of main.matchAll(/\.command\((\w+Command)\)/g)) {
-  const from = staticImports.get(match[1]!)
-  if (from) modules.set(match[1]!, from)
-}
-for (const match of main.matchAll(/exported\(\(\) => import\("([^"]+)"\), "(\w+)"\)/g)) {
-  modules.set(match[2]!, match[1]!)
-}
+const { CommandModules } = await import("@/cli/registry")
+const modules = new Map(CommandModules.map((entry) => [entry.exportName, entry.from] as const))
 
 /**
  * A sample value for a parameter, taken from what it declares.
@@ -326,7 +315,7 @@ describe("effect CLI parses like yargs", () => {
   const uncovered: string[] = []
 
   it.each(cases.map((entry) => [entry.label, entry] as const))("%s", async (_label, entry) => {
-    const specifier = modules.get(entry.exportName)!.replace(/^\.\//, "@/")
+    const specifier = modules.get(entry.exportName)!
     const module = (await import(specifier))[entry.exportName]
     const fromYargs = parseWithYargs(module, entry.segments, entry.pathLength, entry.argv)
     const fromEffect = await parseWithEffect(entry.argv)

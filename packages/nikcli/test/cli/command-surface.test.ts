@@ -1,83 +1,44 @@
+import { preserveTestEnv } from "../helpers/env"
 import { describe, expect, it } from "bun:test"
 import fs from "fs/promises"
+import os from "os"
 import path from "path"
+import { removeTestDir } from "../helpers/fs"
+
+const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-cmd-surface-home-"))
+process.env.NIKCLI_TEST_HOME = testHome
+process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+process.env.XDG_DATA_HOME = path.join(testHome, "data")
+process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
+process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
+process.env.XDG_STATE_HOME = path.join(testHome, "state")
+
+preserveTestEnv([
+  "NIKCLI_TEST_HOME",
+  "NIKCLI_DISABLE_PROJECT_CONFIG",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+])
 
 /**
  * The registration invariant of the CLI surface
  * ([specs/v2/cli-command-surface.md](../../../../specs/v2/cli-command-surface.md)):
- * a file under `src/cli/cmd/` is not a command until `cli-main.ts` registers
- * it, and the document's table is the list of what is registered.
+ * a file under `src/cli/cmd/` is not a command until it is registered, and the
+ * document's table is the list of what is registered.
  *
- * Read from source rather than by running `--help`: the help subprocess is
- * already known to time out under parallel load, and a coherence check that
- * flakes is a check people learn to re-run instead of read.
+ * This used to read `cli-main.ts` with regexes, because the list was implicit in
+ * a chain of `.command(...)` calls. There is no such file any more — the tree is
+ * `src/cli/commands.ts`, generated from `src/cli/registry.ts` — so the check
+ * reads the tree directly. Same invariant, no parsing.
  */
+const { Commands } = await import("@/cli/commands")
+const docPath = path.join(import.meta.dir, "../../../../specs/v2/cli-command-surface.md")
 
-const packageRoot = path.join(import.meta.dir, "../..")
-const mainPath = path.join(packageRoot, "src/cli-main.ts")
-const docPath = path.join(packageRoot, "../../specs/v2/cli-command-surface.md")
-
-/** `command: "mission <id>"` → `mission`; `$0 [project]` keeps its `$0`. */
-function nameOf(spec: string): string {
-  return spec.trim().split(/\s+/)[0]
-}
-
-async function readModule(relative: string): Promise<{ file: string; source: string }> {
-  const base = path.join(packageRoot, "src", relative.replace(/^\.\//, ""))
-  for (const candidate of [`${base}.ts`, path.join(base, "index.ts")]) {
-    const source = await fs.readFile(candidate, "utf8").catch(() => undefined)
-    if (source !== undefined) return { file: candidate, source }
-  }
-  throw new Error(`no module for ${relative}`)
-}
-
-/**
- * Every top-level command yargs is given, read out of `cli-main.ts`.
- *
- * Two registration forms, and both count. `.command(FooCommand)` names a
- * statically imported module, so the spec has to be read out of that module.
- * `.command(lazy({ command, describe }, exported(() => import("..."), "Foo")))`
- * carries the spec at the registration site precisely so `--help` never loads
- * the handler — there the spec is already here. `lazy-commands.test.ts` is what
- * holds the duplicated spec to the module it points at; this file only needs the
- * names.
- */
-async function registeredCommands(): Promise<Map<string, string>> {
-  const main = await fs.readFile(mainPath, "utf8")
-  const commands = new Map<string, string>()
-
-  for (const match of main.matchAll(/lazy\(\s*\{\s*command:\s*"([^"]+)"/g)) {
-    commands.set(nameOf(match[1]), match[1])
-  }
-
-  const identifiers = [...main.matchAll(/\.command\((\w+)\)/g)].map((match) => match[1])
-  expect(identifiers.length + commands.size).toBeGreaterThan(20)
-
-  const modulePaths = new Map<string, string>()
-  for (const statement of main.matchAll(/import\s*\{([^}]+)\}\s*from\s*"([^"]+)"/g)) {
-    for (const clause of statement[1].split(",")) {
-      const local = clause
-        .trim()
-        .split(/\s+as\s+/)
-        .pop()
-        ?.trim()
-      if (local) modulePaths.set(local, statement[2])
-    }
-  }
-
-  for (const identifier of identifiers) {
-    const relative = modulePaths.get(identifier)
-    if (!relative) throw new Error(`${identifier} is registered but never imported`)
-    const { source } = await readModule(relative)
-    const declaration = source.indexOf(`export const ${identifier}`)
-    if (declaration < 0) throw new Error(`${relative} does not export ${identifier}`)
-    // The first `command:` after the declaration is the command's own spec;
-    // anything later belongs to its subcommands.
-    const spec = /command:\s*"([^"]+)"/.exec(source.slice(declaration))
-    if (!spec) throw new Error(`${identifier} has no command spec`)
-    commands.set(nameOf(spec[1]), spec[1])
-  }
-  return commands
+/** Top-level command names, with `$0` standing for the default (the TUI). */
+function registeredCommands(): Set<string> {
+  return new Set(["$0", ...Object.keys(Commands.commands as Record<string, unknown>)])
 }
 
 /** The command column of the document's table. */
@@ -91,29 +52,35 @@ async function documentedCommands(): Promise<Set<string>> {
 }
 
 describe("CLI command surface", () => {
-  it("registers the TUI as the default command", async () => {
-    const commands = await registeredCommands()
-    expect(commands.get("$0")).toBe("$0 [project]")
+  it("keeps the TUI as the default command", () => {
+    // The default command is the root itself, which is why it carries the TUI's
+    // description and parameters rather than being a subcommand.
+    expect(registeredCommands().has("$0")).toBe(true)
+    expect(Commands.spec.description).toBe("start nikcli tui")
   })
 
   it("documents exactly the commands that are registered", async () => {
-    const registered = await registeredCommands()
+    const registered = registeredCommands()
     const documented = await documentedCommands()
-    // `completion` is registered by `yargs.completion(...)`, not `.command()`.
+    // `completion` was a yargs built-in; effect ships shell completion as the
+    // `--completions` global flag, so there is no command by that name.
     documented.delete("completion")
-    expect(new RegExp('\\.completion\\("completion"').test(await fs.readFile(mainPath, "utf8"))).toBe(true)
 
-    const missingFromDoc = [...registered.keys()].filter((name) => !documented.has(name)).sort()
+    const missingFromDoc = [...registered].filter((name) => !documented.has(name)).sort()
     const staleInDoc = [...documented].filter((name) => !registered.has(name)).sort()
     expect({ missingFromDoc, staleInDoc }).toEqual({ missingFromDoc: [], staleInDoc: [] })
   })
 
-  it("keeps the names the document says are deliberately not commands", async () => {
-    const registered = await registeredCommands()
-    // The document records these as files or drafts that never became
-    // commands; a `nikcli loop` appearing silently is the drift to catch.
+  it("keeps the names the document says are deliberately not commands", () => {
+    const registered = registeredCommands()
+    // The document records these as files or drafts that never became commands;
+    // a `nikcli loop` appearing silently is the drift to catch.
     for (const name of ["config", "db", "tool", "loop"]) {
       expect(registered.has(name)).toBe(false)
     }
   })
+})
+
+process.on("beforeExit", () => {
+  void removeTestDir(testHome)
 })

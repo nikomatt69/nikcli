@@ -10,7 +10,7 @@ function runFile<A, E>(effect: Effect.Effect<A, E, File.Service>) {
   return runPromiseWithLayer(File.defaultLayer, withCurrentInstance(effect))
 }
 
-const FileSearchCommand = cmd({
+export const FileSearchCommand = cmd({
   command: "search <query>",
   describe: "search files by query",
   builder: (yargs) =>
@@ -32,7 +32,7 @@ const FileSearchCommand = cmd({
   },
 })
 
-const FileReadCommand = cmd({
+export const FileReadCommand = cmd({
   command: "read <path>",
   describe: "read file contents as JSON",
   builder: (yargs) =>
@@ -54,7 +54,7 @@ const FileReadCommand = cmd({
   },
 })
 
-const FileStatusCommand = cmd({
+export const FileStatusCommand = cmd({
   command: "status",
   describe: "show file status information",
   builder: (yargs) => yargs,
@@ -71,7 +71,7 @@ const FileStatusCommand = cmd({
   },
 })
 
-const FileListCommand = cmd({
+export const FileListCommand = cmd({
   command: "list <path>",
   describe: "list files in a directory",
   builder: (yargs) =>
@@ -93,7 +93,7 @@ const FileListCommand = cmd({
   },
 })
 
-const FileTreeCommand = cmd({
+export const FileTreeCommand = cmd({
   command: "tree [dir]",
   describe: "show directory tree",
   builder: (yargs) =>

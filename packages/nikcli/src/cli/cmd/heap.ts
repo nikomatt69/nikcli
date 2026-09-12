@@ -1,5 +1,5 @@
 import { EOL } from "os"
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import { cmd } from "./cmd"
 import { Heap } from "../heap"
 

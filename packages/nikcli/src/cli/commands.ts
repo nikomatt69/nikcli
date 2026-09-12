@@ -1052,7 +1052,7 @@ export const Commands = Spec.make("nikcli", {
     "hostname": Flag.string("hostname").pipe(Flag.withDescription("hostname to listen on"), Flag.withDefault("127.0.0.1")),
     "mdns": Flag.boolean("mdns").pipe(Flag.withDescription("enable mDNS service discovery (defaults hostname to 0.0.0.0)"), Flag.withDefault(false)),
     "cors": Flag.string("cors").pipe(Flag.withDescription("additional domains to allow for CORS"), Flag.atLeast(0)),
-    "project": Argument.string("project").pipe(Argument.withDescription("path to start nikcli in"), Argument.optional),
+    "project": Flag.string("project").pipe(Flag.withDescription("path to start nikcli in"), Flag.optional),
     "standalone": Flag.boolean("standalone").pipe(Flag.withDescription("run with a private in-process server instead of the shared background service"), Flag.withDefault(false)),
     "model": Flag.string("model").pipe(Flag.withAlias("m"), Flag.withDescription("model to use in the format of provider/model"), Flag.optional),
     "continue": Flag.boolean("continue").pipe(Flag.withAlias("c"), Flag.withDescription("continue the last session"), Flag.optional),

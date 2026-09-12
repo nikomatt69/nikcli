@@ -1,5 +1,5 @@
 import { intro, log, outro, spinner } from "@clack/prompts"
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 
 import { ConfigPaths } from "../../config/paths"
 import { Global } from "@nikcli-ai/util/global"

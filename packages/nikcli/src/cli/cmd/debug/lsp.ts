@@ -18,7 +18,7 @@ export const LSPCommand = cmd({
   async handler() {},
 })
 
-const DiagnosticsCommand = cmd({
+export const DiagnosticsCommand = cmd({
   command: "diagnostics <file>",
   describe: "get diagnostics for a file",
   builder: (yargs) => yargs.positional("file", { type: "string", demandOption: true }),

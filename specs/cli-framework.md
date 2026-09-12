@@ -11,22 +11,22 @@ spec (`commands/commands.ts`), every handler is a `() => import()` including the
 default one, and the framework that binds them is 173 lines
 (`framework/spec.ts` + `framework/runtime.ts`).
 
-Measured on the same machine, importing each entrypoint — **both carrying the
-complete command surface**:
+Measured on the same machine, importing each entrypoint, both carrying the
+complete command surface:
 
-| entrypoint | Function | FunctionExecutable | eval | total RSS |
-| --- | ---: | ---: | ---: | ---: |
-| `cli-main` (yargs, lazy handlers) | 154,001 | 13,449 | 875 ms | 116.0 MB |
-| `cli/main-effect` (147 commands) | **25,252** | **9,519** | **171 ms** | **91.1 MB** |
+| entrypoint | Function | FunctionExecutable | total RSS |
+| --- | ---: | ---: | ---: |
+| `cli-main` (yargs, lazy handlers) | 154,001 | 13,449 | 116.0 MB |
+| `cli/main-effect` | **33,014** | **10,571** | **~90 MB** |
 
-−84% `Function` objects, −25 MB, −80% eval. The gap is `thread.ts`: yargs must
-load the default command's module to build its parser, and that module is the
-TUI. Effect never loads it for `--help`, for another command, or for a completion.
+−79% `Function` objects. The gap is `thread.ts`: yargs had to load the default
+command's module to build its parser, and that module is the TUI. Effect never
+loads it for `--help`, for another command, or for a completion.
 
-Declaring the other 143 commands cost **+2,010 `Function` objects** over the
-first four-command slice — specs are `Flag` and `Argument` declarations, and they
-are nearly free. What was expensive was never the command table; it was the
-implementations hanging off it.
+Declaring all 147 commands costs about 2,000 `Function` objects over a
+four-command slice — specs are `Flag` and `Argument` declarations and are nearly
+free. What was expensive was never the command table; it was the implementations
+hanging off it.
 
 ## What exists
 
@@ -48,7 +48,29 @@ declarations and held to them by the parity harness.
   **generated** by `script/generate-cli.ts`. That script runs every yargs builder
   against a recording proxy and renders the result; regenerate after changing a
   command, then run the parity test.
-- `src/cli/main-effect.ts` — the second entrypoint, selected by `NIKCLI_CLI=effect`.
+- `src/cli/global-flags.ts` — the flags every command accepts, plus `normalizeArgv`.
+- `src/cli/registry.ts` — every command module, as data. The list used to be
+  implicit in `cli-main.ts`'s chain of `.command(...)` calls, which the generator
+  and both parity tests had to parse with regexes.
+- `src/cli/main-effect.ts` — **the entrypoint**, including the bootstrap yargs ran
+  in a root `.middleware()`.
+- `src/cli/framework/command-bridge.ts` — calls a command's body from its
+  generated handler.
+
+**yargs is gone.** `cli-main.ts`, `cli/cmd/lazy.ts` and the dependency are
+deleted; it survives in `node_modules` only as a transitive dependency of
+unrelated packages (metro, qrcode, localtunnel). The modules under `cli/cmd/**`
+keep the `{command, builder, handler}` shape — `builder` is now purely the
+declaration the generator reads — and type against `cli/cmd/argv.ts` instead of
+`@types/yargs`.
+
+That shim is deliberately permissive: the only thing that ever calls a builder is
+a recording `Proxy` that answers every method, so re-declaring yargs' real
+surface would be hundreds of lines describing an API nothing uses. `command` is
+the one method declared explicitly, because it takes callbacks and the index
+signature would otherwise widen every nested builder to `any`. Three sites needed
+a type annotation that yargs used to infer from its builder chain
+(`analytics`'s two range handlers, one `split` callback in `agent`).
 
 Effect owns parsing, help, routing and completion. The ~12,900 lines of command
 bodies stay where they are and run through the bridge, so parsing and
@@ -148,17 +170,44 @@ the machine running the suite. It now walks the builders itself to the leaf
 module and registers that leaf alone, with its own handler, in a fresh parser —
 there is nothing nested for yargs to dispatch into.
 
+## Three places effect and yargs disagree
+
+Each was found by running the CLI, and each is handled explicitly rather than
+papered over.
+
+**The root cannot own a positional.** yargs special-cases its default command, so
+`nikcli [project]` and `nikcli heap --detailed` both work. Effect has no such
+rule: an optional positional on a command that also has subcommands swallows the
+subcommand name as soon as a flag follows, and *every* `nikcli <cmd> --flag`
+routes to the root handler — the TUI — instead. The generator therefore emits the
+root's positionals as flags, and `normalizeArgv` rewrites a leading path back
+into `--project`, so the spelling users type is unchanged. The declaration parity
+test encodes this exception with its reason.
+
+**`--log-level` is effect's, not ours.** It ships as a built-in global flag;
+declaring a second one is a hard `Duplicate flag name` error at startup. Its
+choices are lower-case where nikcli has always taken `DEBUG`, so `normalizeArgv`
+folds the value before the parser sees it.
+
+**`--` is not populated.** yargs did it via
+`parserConfiguration({"populate--": true})`, and `run` and `goal` append those
+tokens to their message. The bridge reconstructs it from the real argv in one
+place rather than in each generated handler.
+
 ## Order of work
 
-1. ~~Framework, spec tree, handlers, second entrypoint, parity harness.~~ Done —
-   the effect CLI serves the full command surface.
-2. Move the command bodies from `src/cli/cmd/**` into `src/cli/handlers/**`, a
-   batch at a time, deleting each bridge call as its body arrives. The parity
-   harness stays useful throughout: it compares declarations, which do not move.
-3. Rewrite `command-surface.test.ts` and `lazy-commands.test.ts` against the spec
-   tree. Both parse `cli-main.ts` with regexes today; against a tree of data they
-   get simpler.
-4. Flip `index.ts` to the effect entry, then delete `cli-main.ts`,
-   `cli/cmd/lazy.ts`, `cli/framework/yargs-bridge.ts`, `script/generate-cli.ts`
-   and the yargs dependency. At that point the generated files stop being
-   generated and become the source.
+1. ~~Framework, spec tree, handlers, parity harnesses.~~ Done.
+2. ~~Global flags, bootstrap, entrypoint flip.~~ Done.
+3. ~~Delete `cli-main.ts`, `cli/cmd/lazy.ts` and the yargs dependency.~~ Done.
+4. Move the command bodies from `src/cli/cmd/**` into `src/cli/handlers/**`, a
+   batch at a time, deleting each `delegate()` call as its body arrives, and with
+   it the need for `command-bridge.ts` and `script/generate-cli.ts`. The parity
+   harnesses stay useful throughout: they compare declarations and parsed values,
+   neither of which moves.
+
+   The blocker is not the leaves — 27 top-level commands export their handler and
+   move mechanically. It is the 19 groups: their subcommand handlers are closures
+   inside the parent's `builder`, capturing module scope, which is why the bridge
+   reaches them by replaying that builder rather than importing them. Each group
+   has to be restructured so its subcommands are real exports; that is per-file
+   work, not a transform.

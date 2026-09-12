@@ -1,4 +1,4 @@
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import { cmd } from "./cmd"
 import { UI } from "../ui"
 
@@ -15,7 +15,7 @@ async function service() {
   return BackgroundService
 }
 
-const StartCommand = cmd({
+export const StartCommand = cmd({
   command: "start",
   describe: "start the background service if it is not already running",
   builder: (yargs: Argv) => yargs,
@@ -26,7 +26,7 @@ const StartCommand = cmd({
   },
 })
 
-const StopCommand = cmd({
+export const StopCommand = cmd({
   command: "stop",
   describe: "stop the background service",
   builder: (yargs: Argv) => yargs,
@@ -37,7 +37,7 @@ const StopCommand = cmd({
   },
 })
 
-const RestartCommand = cmd({
+export const RestartCommand = cmd({
   command: "restart",
   describe: "restart the background service",
   builder: (yargs: Argv) => yargs,
@@ -49,7 +49,7 @@ const RestartCommand = cmd({
   },
 })
 
-const StatusCommand = cmd({
+export const StatusCommand = cmd({
   command: "status",
   describe: "show whether the background service is running",
   builder: (yargs: Argv) =>
@@ -83,7 +83,7 @@ async function config() {
   return ServiceConfig
 }
 
-const GetCommand = cmd({
+export const GetCommand = cmd({
   command: "get [key]",
   describe: "show the service settings, or one of them",
   builder: (yargs: Argv) =>
@@ -95,7 +95,7 @@ const GetCommand = cmd({
   },
 })
 
-const SetCommand = cmd({
+export const SetCommand = cmd({
   command: "set <key> <value> [nested]",
   describe: "change a service setting and stop the running service",
   builder: (yargs: Argv) =>
@@ -110,7 +110,7 @@ const SetCommand = cmd({
   },
 })
 
-const UnsetCommand = cmd({
+export const UnsetCommand = cmd({
   command: "unset <key> [nested]",
   describe: "clear a service setting and stop the running service",
   builder: (yargs: Argv) =>

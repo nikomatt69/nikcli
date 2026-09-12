@@ -10,6 +10,17 @@ import { SnapshotCommand } from "./snapshot"
 import { AgentCommand } from "./agent"
 import { SearchCommand } from "./search"
 
+export const WaitCommand = cmd({
+        command: "wait",
+        describe: "wait indefinitely (for debugging)",
+        async handler() {
+          await bootstrap(process.cwd(), async () => {
+            await new Promise((resolve) => setTimeout(resolve, 1_000 * 60 * 60 * 24))
+          })
+        },
+      })
+
+
 export const DebugCommand = cmd({
   command: "debug",
   describe: "debugging and troubleshooting tools",
@@ -24,20 +35,12 @@ export const DebugCommand = cmd({
       .command(SnapshotCommand)
       .command(AgentCommand)
       .command(PathsCommand)
-      .command({
-        command: "wait",
-        describe: "wait indefinitely (for debugging)",
-        async handler() {
-          await bootstrap(process.cwd(), async () => {
-            await new Promise((resolve) => setTimeout(resolve, 1_000 * 60 * 60 * 24))
-          })
-        },
-      })
+      .command(WaitCommand)
       .demandCommand(),
   async handler() {},
 })
 
-const PathsCommand = cmd({
+export const PathsCommand = cmd({
   command: "paths",
   describe: "show global paths (data, config, cache, state)",
   handler() {

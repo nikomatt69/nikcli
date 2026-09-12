@@ -1,8 +1,13 @@
 import { Runtime } from "../../framework/runtime"
-import { delegate } from "../../framework/yargs-bridge"
+import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
 
-export default Runtime.handler(Commands.commands["connectors"].commands["list"], (input) =>
-  delegate(() => import("@/cli/cmd/connectors"), "ConnectorsCommand", ["list"] as string[], {
-  }),
-)
+export default Runtime.handler(Commands.commands["connectors"].commands["list"], async (input) => {
+  const { ConnectorsListCommand } = await import("@/cli/cmd/connectors")
+  const args = {
+    _: [],
+    $0: "nikcli",
+    "--": passthrough(),
+  }
+  await ConnectorsListCommand.handler(args)
+})

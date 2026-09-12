@@ -1,4 +1,4 @@
-import type { ArgumentsCamelCase, CommandModule } from "yargs"
+import type { ArgumentsCamelCase, CommandModule } from "@/cli/cmd/argv"
 
 type WithDoubleDash<T> = T & { "--"?: string[] }
 

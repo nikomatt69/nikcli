@@ -1,4 +1,4 @@
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 import { cmd } from "./cmd"
 import { withInstanceAsync } from "@/effect"
 import { UI } from "../ui"
@@ -10,7 +10,7 @@ import readline from "node:readline"
 import clipboardy from "clipboardy"
 import os from "node:os"
 
-const RemoteStartCommand = cmd({
+export const RemoteStartCommand = cmd({
   command: "start",
   describe: "start a new remote control session",
   builder: (yargs: Argv) =>
@@ -171,7 +171,7 @@ const RemoteStartCommand = cmd({
   },
 })
 
-const RemoteStopCommand = cmd({
+export const RemoteStopCommand = cmd({
   command: "stop",
   describe: "stop the active remote session",
   handler: async () => {
@@ -192,7 +192,7 @@ const RemoteStopCommand = cmd({
   },
 })
 
-const RemoteStatusCommand = cmd({
+export const RemoteStatusCommand = cmd({
   command: "status",
   describe: "show remote session status",
   builder: (yargs: Argv) =>
@@ -242,7 +242,7 @@ const RemoteStatusCommand = cmd({
   },
 })
 
-const RemoteShareCommand = cmd({
+export const RemoteShareCommand = cmd({
   command: "share",
   describe: "get shareable session link",
   handler: async () => {
@@ -255,7 +255,7 @@ const RemoteShareCommand = cmd({
   },
 })
 
-const RemoteAttachCommand = cmd({
+export const RemoteAttachCommand = cmd({
   command: "attach <sessionId>",
   describe: "attach to an existing session",
   handler: async (args) => {

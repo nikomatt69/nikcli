@@ -5,7 +5,7 @@ import { Config } from "../../config/config"
 import { Locale } from "@nikcli-ai/util/locale"
 import { runPromiseWithLayer, withInstanceAsync } from "@/effect"
 import { Effect } from "effect"
-import type { Argv } from "yargs"
+import type { Argv } from "@/cli/cmd/argv"
 
 type AdsConfig = Config.Ads
 type AdsItem = Config.AdsItem

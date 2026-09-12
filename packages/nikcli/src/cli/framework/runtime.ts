@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import { Command } from "effect/unstable/cli"
-import { GlobalFlags } from "../global-flags"
+import { GlobalFlags, normalizeArgv } from "../global-flags"
 import type { Spec } from "./spec"
 
 /**
@@ -110,7 +110,11 @@ export function run(
   handlers: ReadonlyArray<LazyHandler>,
   options: { readonly version: string },
 ) {
-  return Command.run(rootCommand(root, handlers) as never, options)
+  // `runWith` rather than `run` so the argv can be normalised first — see
+  // `normalizeArgv` for the two yargs behaviours effect does not reproduce.
+  return Command.runWith(rootCommand(root, handlers) as never, options)(
+    normalizeArgv(process.argv.slice(2), Object.keys(root.commands)),
+  )
 }
 
 /**

@@ -11,7 +11,7 @@ export const SearchCommand = cmd({
   async handler() {},
 })
 
-const TreeCommand = cmd({
+export const TreeCommand = cmd({
   command: "tree",
   describe: "show file tree using fff",
   builder: (yargs) =>
@@ -27,7 +27,7 @@ const TreeCommand = cmd({
   },
 })
 
-const FilesCommand = cmd({
+export const FilesCommand = cmd({
   command: "files",
   describe: "list files using fff",
   builder: (yargs) =>
@@ -63,7 +63,7 @@ const FilesCommand = cmd({
   },
 })
 
-const ContentCommand = cmd({
+export const ContentCommand = cmd({
   command: "content <pattern>",
   describe: "search file contents using fff",
   builder: (yargs) =>

@@ -42,6 +42,26 @@ interface Cmd {
   from?: string
 }
 
+/**
+ * Every exported command object in `src/cli/cmd/**`, indexed by identity.
+ *
+ * A subcommand is frequently exported from a sibling module rather than its
+ * parent's (`debug/file.ts` under `debug/index.ts`), so resolving by identity is
+ * what lets a generated handler import the body directly instead of rediscovering
+ * it by replaying a builder at runtime.
+ */
+const ownerByObject = new Map<unknown, { from: string; name: string }>()
+for await (const file of new Bun.Glob("src/cli/cmd/**/*.ts").scan(".")) {
+  const spec = "@/" + file.replace(/^src\//, "").replace(/\.ts$/, "")
+  let mod: Record<string, unknown>
+  try { mod = (await import(spec)) as Record<string, unknown> } catch { continue }
+  for (const [name, value] of Object.entries(mod)) {
+    if (value && typeof value === "object" && typeof (value as { command?: unknown }).command === "string") {
+      ownerByObject.set(value, { from: spec, name })
+    }
+  }
+}
+
 function record(module: any): Cmd {
   const params: Param[] = []
   const children: Cmd[] = []
@@ -69,7 +89,10 @@ function record(module: any): Cmd {
       if (prop === "positional") return (n: string, c?: any) => { add(n, c, "argument"); return proxy }
       if (prop === "command") return (a: any, b?: any, c?: any) => {
         // Module form: .command({command, describe, builder, handler})
-        if (a && typeof a === "object" && typeof a.command === "string") children.push(record(a))
+        if (a && typeof a === "object" && typeof a.command === "string") children.push((() => {
+          const owner = ownerByObject.get(a)
+          return owner ? { ...record(a), exportName: owner.name, from: owner.from } : record(a)
+        })())
         // Positional form: .command(name, describe, builder, handler)
         else if (typeof a === "string") children.push(record({ command: a, describe: b, builder: c }))
         return proxy
@@ -95,22 +118,12 @@ function record(module: any): Cmd {
   return { command: module.command, describe: module.describe, params, children, demandCommand }
 }
 
-const main = await fs.readFile("src/cli-main.ts", "utf8")
-// Both registration forms: static `.command(X)` and the lazy `exported(() => import("..."), "X")`.
-const statics = new Map<string, string>()
-for (const m of main.matchAll(/import \{ (\w+Command) \} from "([^"]+)"/g)) statics.set(m[1]!, m[2]!)
-const targets: Array<{ name: string; from: string }> = []
-for (const m of main.matchAll(/\.command\((\w+Command)\)/g)) {
-  const from = statics.get(m[1]!)
-  if (from) targets.push({ name: m[1]!, from })
-}
-for (const m of main.matchAll(/exported\(\(\) => import\("([^"]+)"\), "(\w+)"\)/g)) {
-  targets.push({ name: m[2]!, from: m[1]! })
-}
+const { CommandModules } = await import("../src/cli/registry")
+const targets = CommandModules.map((entry) => ({ name: entry.exportName, from: entry.from }))
 
 const out: Array<Cmd & { exportName: string; from: string }> = []
 for (const t of targets) {
-  const spec = t.from.startsWith("./") ? t.from.replace("./", "@/") : t.from
+  const spec = t.from
   const mod: any = await import(spec)
   const cmdModule = mod[t.name]
   if (!cmdModule) { console.error("missing export", t.name, t.from); continue }
@@ -224,7 +237,13 @@ function emit(cmd: Cmd, parents: Cmd[], root: Cmd | undefined): string {
           ? !shape.required && !shape.variadic && p.default === undefined
           : !p.array && p.default === undefined && !p.demandOption
       const value = optional ? `Option.getOrUndefined(input[${q(p.name)}])` : `input[${q(p.name)}]`
-      return `    ${JSON.stringify(p.name)}: ${value},`
+      // Both spellings, as yargs did: it populated `keep-config` *and*
+      // `keepConfig`, and the bodies read whichever the author preferred.
+      // `uninstall` reads the camelCase ones and its args type requires them.
+      const camel = p.name.replace(/-([a-z0-9])/g, (_m, c: string) => c.toUpperCase())
+      const lines = [`    ${JSON.stringify(p.name)}: ${value},`]
+      if (camel !== p.name) lines.push(`    ${JSON.stringify(camel)}: ${value},`)
+      return lines.join("\n")
     })
     const needsOption = mapping.some((line) => line.includes("Option.getOrUndefined"))
     handlerFiles.push({
@@ -232,13 +251,20 @@ function emit(cmd: Cmd, parents: Cmd[], root: Cmd | undefined): string {
       body:
         (needsOption ? 'import { Option } from "effect"\n' : "") +
         `import { Runtime } from "${up}framework/runtime"\n` +
-        `import { delegate } from "${up}framework/yargs-bridge"\n` +
+        `import { passthrough } from "${up}framework/args"\n` +
         `import { Commands } from "${up}commands"\n\n` +
-        `export default Runtime.handler(${accessor}, (input) =>\n` +
-        `  delegate(() => import(${q(top.from!.replace(/^\.\//, "@/"))}), ${q(top.exportName!)}, ${q(sub)} as string[], {\n` +
+        `export default Runtime.handler(${accessor}, async (input) => {\n` +
+        `  const { ${cmd.exportName ?? top.exportName} } = await import(${q(cmd.from ?? top.from!)})\n` +
+        // Through a const, not inline: a handler typed with a narrow args shape
+        // rejects `_`, `$0` and `--` under excess-property checking, which only
+        // applies to object literals.
+        `  const args = {\n` +
+        `    _: [],\n    $0: "nikcli",\n` +
+        `    "--": passthrough(),\n` +
         mapping.join("\n") +
         (mapping.length ? "\n" : "") +
-        `  }),\n)\n`,
+        `  }\n` +
+        `  await ${cmd.exportName ?? top.exportName}.handler(args)\n})\n`,
     })
   }
   return constName
@@ -272,8 +298,20 @@ import { Spec } from "./framework/spec"
 const roots = rest.map((c) => "Spec" + ident(nameOf(c.command)))
 // `$0` is not a subcommand: yargs' default command is the program itself, so its
 // params belong on the root and its handler is the root handler.
+// The root's positionals become flags.
+//
+// yargs special-cases its default command, so `nikcli [project]` and
+// `nikcli heap --detailed` both work. Effect has no such rule: an optional
+// positional on the root swallows the subcommand name as soon as a flag
+// follows, and *every* `nikcli <cmd> --flag` routes to the root handler
+// instead. `normalizeArgv` rewrites a leading path into `--project` so the
+// spelling users type still works.
 const rootParams = rootCmd
-  ? "  params: {\n" + rootCmd.params.map((p) => `    ${JSON.stringify(p.name)}: ${renderParam(rootCmd, p)},`).join("\n") + "\n  },\n"
+  ? "  params: {\n" +
+    rootCmd.params
+      .map((p) => `    ${JSON.stringify(p.name)}: ${renderParam(rootCmd, { ...p, kind: "flag" })},`)
+      .join("\n") +
+    "\n  },\n"
   : ""
 const footer = `\nexport const Commands = Spec.make("nikcli", {
   description: ${q(rootCmd?.describe ?? "nikcli command line interface")},
@@ -298,12 +336,14 @@ if (rootCmd) {
     "src/cli/handlers/default.ts",
     'import { Option } from "effect"\n' +
       'import { Runtime } from "../framework/runtime"\n' +
-      'import { delegate } from "../framework/yargs-bridge"\n' +
+      'import { passthrough } from "../framework/args"\n' +
       'import { Commands } from "../commands"\n\n' +
       "/** The default command: `nikcli [project]` starts the TUI. */\n" +
-      "export default Runtime.handler(Commands, (input) =>\n" +
-      `  delegate(() => import(${q(rootCmd.from!.replace(/^\.\//, "@/"))}), ${q(rootCmd.exportName!)}, [] as string[], {\n` +
-      mapping.join("\n") + "\n  }),\n)\n",
+      "export default Runtime.handler(Commands, async (input) => {\n" +
+      `  const { ${rootCmd.exportName} } = await import(${q(rootCmd.from!)})\n` +
+      "  const args = {\n    _: [],\n    $0: \"nikcli\",\n    \"--\": passthrough(),\n" +
+      mapping.join("\n") + "\n  }\n" +
+      `  await ${rootCmd.exportName}.handler(args)\n})\n`,
   )
 }
 
