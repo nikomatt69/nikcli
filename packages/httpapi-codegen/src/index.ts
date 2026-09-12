@@ -434,7 +434,7 @@ export function emitPromise(
       },
       {
         path: "client-error.ts",
-        content: `export type ClientErrorReason = "Transport" | "UnexpectedStatus" | "UnsupportedContentType" | "MalformedResponse" | "SseEventTooLarge"\n\nexport class ClientError extends Error {\n  override readonly name = "ClientError"\n  constructor(readonly reason: ClientErrorReason, options?: ErrorOptions) {\n    super(reason, options)\n  }\n}\n`,
+        content: `export type ClientErrorReason = \"Transport\" | \"UnexpectedStatus\" | \"UnsupportedContentType\" | \"MalformedResponse\" | \"SseEventTooLarge\"\n\nexport class ClientError extends Error {\n  override readonly name = \"ClientError\"\n  constructor(readonly reason: ClientErrorReason, options?: ErrorOptions) {\n    // The reason alone is not a diagnosis: a caller that only prints error.message\n    // (core.setFailed in the GitHub action, and most log sinks) reported a bare\n    // \"Transport\" for connection refused, connection reset, DNS failure and abort\n    // alike. Fold the cause in so the message names what actually went wrong.\n    const cause = options?.cause\n    const detail = cause instanceof Error ? cause.message : typeof cause === \"string\" ? cause : undefined\n    super(detail ? reason + \": \" + detail : reason, options)\n  }\n}\n`,
       },
       {
         path: "client.ts",

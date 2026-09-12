@@ -246,12 +246,7 @@ try {
 } catch (e: any) {
   exitCode = 1
   console.error(e)
-  let msg = e
-  if (e instanceof $.ShellError) {
-    msg = e.stderr.toString()
-  } else if (e instanceof Error) {
-    msg = e.message
-  }
+  const msg = explainFailure(e)
   await updateComment(`${msg}${footer()}`)
   core.setFailed(msg)
   // Also output the clean error message for the action to capture
@@ -344,10 +339,44 @@ function createNikcli() {
   // ahead to the SSE subscription before the server had bound its port.
   const client = createNikcliClient({ baseUrl: url, throwOnError: true })
 
+  // Watch the child. Nothing did before, so when the server died mid-run every
+  // later request failed as an opaque transport error and the job reported that
+  // instead of the actual event — the server being gone. A `SIGKILL` here is
+  // almost always the runner's OOM killer, which leaves no trace in the log.
+  let exit: { readonly code: number | null; readonly signal: string | null } | undefined
+  proc.on("exit", (code, signal) => {
+    exit = { code, signal }
+    console.log(`nikcli server exited (code=${code ?? "null"} signal=${signal ?? "null"})`)
+  })
+
   return {
-    server: { url, close: () => proc.kill() },
+    server: { url, close: () => proc.kill(), exited: () => exit },
     client,
   }
+}
+
+/**
+ * Replace an opaque transport failure with the reason the connection broke.
+ *
+ * `ClientError` now carries the underlying socket error in its message, but when
+ * the child server is gone that is still a symptom. Name the cause instead.
+ */
+function explainFailure(error: unknown): string {
+  const base =
+    error instanceof $.ShellError
+      ? error.stderr.toString()
+      : error instanceof Error
+        ? error.message
+        : String(error)
+  const exited = server?.exited()
+  if (!exited) return base
+  const how =
+    exited.signal === "SIGKILL"
+      ? `was killed (SIGKILL) — on a GitHub runner this is almost always the OOM killer`
+      : exited.signal
+        ? `was terminated by ${exited.signal}`
+        : `exited with code ${exited.code}`
+  return `The nikcli server ${how}, so the request could not complete.\n\nUnderlying error: ${base}`
 }
 
 function assertPayloadKeyword() {
