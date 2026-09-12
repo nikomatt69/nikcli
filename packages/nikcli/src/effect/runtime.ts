@@ -2,7 +2,7 @@ import { Instance } from "@/project/instance"
 import { Observability } from "@/observability"
 import { Log } from "@nikcli-ai/util/log"
 import { Cause, Effect, Layer, Logger, ManagedRuntime, Option } from "effect"
-import { InstanceRef, locallyInstance, type InstanceContext } from "./instance-ref"
+import { currentInstance, locallyInstance, type InstanceContext } from "./instance-ref"
 
 export const sharedMemoMap = Effect.runSync(Layer.makeMemoMap)
 const runtimes = new WeakMap<Layer.Layer<any, any, never>, Map<string, ManagedRuntime.ManagedRuntime<any, any>>>()
@@ -88,18 +88,17 @@ export function runPromiseExitWithLayer<A, E, R extends ROut, ROut, LE>(
 }
 
 export function withCurrentInstance<A, E, R>(effect: Effect.Effect<A, E, R>) {
-  return Effect.gen(function* () {
-    const fiberCtx = yield* Effect.serviceOption(InstanceRef)
-    if (Option.isSome(fiberCtx)) {
-      return yield* effect
-    }
+  // Deliberately not an `Effect.gen`: this wraps every `Bus.publish`, i.e. once
+  // per streaming token, and a generator frame per call is measurable there.
+  return Effect.flatMap(currentInstance, (fiberCtx) => {
+    if (Option.isSome(fiberCtx)) return effect
     // R2 boundary: Promise→Effect bridge. Do not delete — ~165 call sites have no context.
     const ctx: InstanceContext = {
       directory: Instance.directory,
       worktree: Instance.worktree,
       project: Instance.project,
     }
-    return yield* locallyInstance(ctx, effect)
+    return locallyInstance(ctx, effect)
   }) as Effect.Effect<A, E, R>
 }
 

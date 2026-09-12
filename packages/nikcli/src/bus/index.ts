@@ -115,9 +115,10 @@ export namespace Bus {
       }
 
       return Service.of({
+        // Not an `Effect.gen`: this runs once per streaming token, and the
+        // generator frame is a measurable share of a publish at that rate.
         publish: (def, properties) =>
-          Effect.gen(function* () {
-            const current = yield* getState()
+          Effect.flatMap(getState(), (current) => {
             const payload = {
               type: def.type,
               properties,
@@ -134,18 +135,26 @@ export namespace Bus {
             // a no-op off macOS, so calling it on every publish is cheap.
             IslandBridge.configure(islandHost)
             IslandBridge.start()
-            const pending: Array<void | Promise<void>> = []
+            // Subscribers are overwhelmingly synchronous. Allocating the array
+            // and a `Promise.all` unconditionally meant every publish paid for
+            // an async suspension with nothing to wait for; collect only what
+            // actually returned a thenable.
+            let pending: Array<Promise<void>> | undefined
             for (const key of [def.type, "*"]) {
               const match = current.subscriptions.get(key)
-              for (const sub of match ?? []) {
-                pending.push(sub(payload))
+              if (!match) continue
+              for (const sub of match) {
+                const result = sub(payload)
+                if (result) (pending ??= []).push(result)
               }
             }
             GlobalBus.emit("event", {
               directory: current.directory,
               payload,
             })
-            yield* Effect.promise(() => Promise.all(pending).then(() => undefined))
+            if (!pending) return Effect.void
+            const awaited = pending
+            return Effect.promise(() => Promise.all(awaited).then(() => undefined))
           }),
         subscribe: (def, callback) => raw(def.type, callback),
         once: (def, callback) =>
@@ -176,12 +185,7 @@ export namespace Bus {
   ): Promise<void> {
     // Best-effort by contract: most call sites fire-and-forget, so a rejection
     // here must never escape as an unhandled rejection — log it instead.
-    return run(
-      Effect.gen(function* () {
-        const bus = yield* Service
-        yield* bus.publish(def, properties)
-      }),
-    ).catch((error) => {
+    return run(Effect.flatMap(Effect.service(Service), (bus) => bus.publish(def, properties))).catch((error) => {
       log.error("publish failed", { type: def.type, error })
     })
   }

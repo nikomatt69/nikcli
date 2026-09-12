@@ -1,6 +1,6 @@
 import { Instance } from "@/project/instance"
-import { Duration, Effect, ScopedCache, Scope } from "effect"
-import { instance, type InstanceContext } from "./instance-ref"
+import { Duration, Effect, Option, ScopedCache, Scope } from "effect"
+import { currentInstance, type InstanceContext } from "./instance-ref"
 
 /**
  * The ambient instance as a plain value, read synchronously in the caller's
@@ -23,7 +23,13 @@ export function ambient(): InstanceContext {
   }
 }
 
-export const context: Effect.Effect<InstanceContext> = instance.pipe(Effect.catch(() => Effect.sync(ambient)))
+// `instance` fails with a freshly allocated `Error` when there is no `InstanceRef`
+// in the fiber, and the only thing anyone ever did with that failure was fall back
+// to `ambient()`. Reading the option directly skips the error allocation (and its
+// stack capture) plus the `catch` frame on a path taken once per `Bus.publish`.
+export const context: Effect.Effect<InstanceContext> = Effect.map(currentInstance, (ctx) =>
+  Option.isSome(ctx) ? ctx.value : ambient(),
+)
 
 export const directory = Effect.map(context, (ctx) => ctx.directory)
 export const worktree = Effect.map(context, (ctx) => ctx.worktree)
@@ -41,21 +47,49 @@ export const project = Effect.map(context, (ctx) => ctx.project)
 // the config-dir/plugin list next to them is reloadable.
 const reloadable = new Set<ScopedCache.ScopedCache<string, any>>()
 
+/**
+ * Already-resolved entries, per cache, for `get`'s synchronous fast path.
+ *
+ * `ScopedCache` has no sync peek (`getOption` is itself an Effect), so every
+ * `get` was paying `Effect.scoped` + a full cache lookup to re-read a value that,
+ * with `capacity: MAX_SAFE_INTEGER` and `timeToLive: infinity`, is created once
+ * per directory and then never changes. On `Bus.publish` — called once per
+ * streaming token — that lookup measured ~1.9µs of a ~4.5µs publish.
+ *
+ * This is a mirror, not a second source of truth: entries are written by the
+ * cache's own `lookup` and removed by a finalizer on the entry's scope, so they
+ * live exactly as long as the cache entry does. Invalidation
+ * (`invalidateReloadable`) and cache-scope close both run those finalizers, so
+ * there is no path that drops a cache entry while leaving the mirror behind.
+ */
+const resolved = new WeakMap<ScopedCache.ScopedCache<string, any>, Map<string, any>>()
+
 export function make<S>(
   init: (ctx: InstanceContext) => Effect.Effect<S, never, Scope.Scope>,
   options?: { reloadable?: boolean },
 ): Effect.Effect<ScopedCache.ScopedCache<string, S>, never, Scope.Scope> {
+  const mirror = new Map<string, S>()
   return ScopedCache.make({
     capacity: Number.MAX_SAFE_INTEGER,
     timeToLive: Duration.infinity,
     lookup: (key: string) =>
       context.pipe(
         Effect.flatMap((ctx) => init(ctx)),
+        Effect.tap((value) =>
+          // Registered on the entry's own scope, so the mirror entry is dropped
+          // by the same event that drops the cache entry.
+          Effect.addFinalizer(() =>
+            Effect.sync(() => {
+              if (mirror.get(key) === value) mirror.delete(key)
+            }),
+          ).pipe(Effect.andThen(Effect.sync(() => mirror.set(key, value)))),
+        ),
         Effect.annotateLogs({ instance: key }),
       ),
   }).pipe(
     Effect.tap((cache) =>
       Effect.sync(() => {
+        resolved.set(cache, mirror)
         if (options?.reloadable) reloadable.add(cache)
       }),
     ),
@@ -82,5 +116,13 @@ export function invalidateReloadable(directory: string): Effect.Effect<void> {
 }
 
 export function get<S>(cache: ScopedCache.ScopedCache<string, S>): Effect.Effect<S> {
-  return Effect.scoped(context.pipe(Effect.flatMap((ctx) => ScopedCache.get(cache, ctx.directory))))
+  const mirror = resolved.get(cache) as Map<string, S> | undefined
+  const lookup = (directory: string) => Effect.scoped(ScopedCache.get(cache, directory))
+  if (!mirror) return context.pipe(Effect.flatMap((ctx) => lookup(ctx.directory)))
+  return context.pipe(
+    Effect.flatMap((ctx) =>
+      // `has`, not a truthiness check: `undefined` is a legitimate state value.
+      mirror.has(ctx.directory) ? Effect.succeed(mirror.get(ctx.directory) as S) : lookup(ctx.directory),
+    ),
+  )
 }
