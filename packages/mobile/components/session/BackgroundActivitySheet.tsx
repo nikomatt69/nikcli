@@ -143,23 +143,40 @@ function BackgroundTaskCard({ task, now, tokens, onStop, onOpenTranscript }: Bac
  * Token totals per background run.
  *
  * A sub-agent's usage lives in its own session, so it is only fetched while the
- * sheet is open, once per child session, a few at a time.
+ * sheet is open, once per child session, a batch at a time. The effect keys on
+ * the child session ids rather than the task array — the transcript hands us a
+ * fresh array on every stream update, and re-running on those would cancel the
+ * fetches before any of them landed.
  */
 function useTaskTokens(tasks: BackgroundTask[], enabled: boolean) {
   const { client } = useServer()
   const [tokens, setTokens] = useState<Record<string, number>>({})
-  const inFlight = useRef(new Set<string>())
+  // Bumped when a batch settles, to pull in the next one.
+  const [batch, setBatch] = useState(0)
+  const requested = useRef(new Set<string>())
+  const mounted = useRef(true)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  const childIDs = tasks
+    .map((task) => task.childSessionID)
+    .filter((id): id is string => Boolean(id))
+    .join(",")
 
   useEffect(() => {
     if (!enabled || !client) return
-    const pending = tasks
-      .map((task) => task.childSessionID)
-      .filter((id): id is string => Boolean(id) && !inFlight.current.has(id as string))
+    const pending = childIDs
+      .split(",")
+      .filter((id) => id.length > 0 && !requested.current.has(id))
       .slice(0, STATS_CONCURRENCY)
     if (pending.length === 0) return
 
-    let cancelled = false
-    for (const id of pending) inFlight.current.add(id)
+    for (const id of pending) requested.current.add(id)
 
     void Promise.all(
       pending.map(async (id) => {
@@ -172,23 +189,23 @@ function useTaskTokens(tasks: BackgroundTask[], enabled: boolean) {
           }, 0)
           return [id, total] as const
         } catch {
-          // A sub-session that has been pruned simply has no token line.
+          // A sub-session that cannot be read simply has no token line. It stays
+          // marked as requested: retrying it would spin, since the next batch
+          // fires as soon as this one settles.
           return [id, 0] as const
         }
       }),
     ).then((entries) => {
-      if (cancelled) return
+      if (!mounted.current) return
       setTokens((current) => {
         const next = { ...current }
         for (const [id, total] of entries) if (total > 0) next[id] = total
         return next
       })
+      // More runs than one batch holds: come back for the rest.
+      setBatch((value) => value + 1)
     })
-
-    return () => {
-      cancelled = true
-    }
-  }, [client, enabled, tasks])
+  }, [batch, childIDs, client, enabled])
 
   return tokens
 }
@@ -221,9 +238,13 @@ export function BackgroundActivitySheet({
   const finished = useMemo(() => finishedTasks(tasks), [tasks])
   const tokens = useTaskTokens(finished, visible)
 
-  // Elapsed times only tick while someone is watching them.
+  // Elapsed times only tick while someone is watching them — and the clock is
+  // re-read on open, so a sheet that has been closed for an hour does not show
+  // the durations it had when the screen mounted.
   useEffect(() => {
-    if (!visible || running.length === 0) return
+    if (!visible) return
+    setNow(Date.now())
+    if (running.length === 0) return
     const timer = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(timer)
   }, [running.length, visible])
