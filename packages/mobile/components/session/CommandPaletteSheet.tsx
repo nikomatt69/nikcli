@@ -3,7 +3,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +10,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native"
+import { Tappable } from "@/components/ui/Tappable"
 import { useEffect, useMemo, useRef } from "react"
 import { AdaptiveBlur } from "@/components/GlassView"
 import { Search, Slash, Sparkles } from "lucide-react-native"
@@ -133,7 +133,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
         />
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <Pressable style={{ flex: 1 }} onPress={props.onClose} />
+          <Tappable style={{ flex: 1 }} onPress={props.onClose} />
 
           <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
             <Animated.View
@@ -218,7 +218,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                     </Text>
                   </View>
 
-                  <Pressable
+                  <Tappable
                     onPress={props.onClose}
                     onPressIn={() =>
                       Animated.spring(scaleAnim, {
@@ -258,7 +258,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                     >
                       Close
                     </Text>
-                  </Pressable>
+                  </Tappable>
                 </View>
 
                 {/* Search field */}
@@ -330,7 +330,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                           {items.map((item) => {
                             const itemScale = getItemScale(item.id)
                             return (
-                              <Pressable
+                              <Tappable
                                 key={item.id}
                                 disabled={item.disabled}
                                 onPress={item.onPress}
@@ -432,7 +432,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                     </View>
                                   ) : null}
                                 </View>
-                              </Pressable>
+                              </Tappable>
                             )
                           })}
                         </View>

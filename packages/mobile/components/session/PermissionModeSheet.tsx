@@ -1,5 +1,6 @@
 import type { RefObject } from "react"
-import { Pressable, StyleSheet, Text, View } from "react-native"
+import { StyleSheet, Text, View } from "react-native"
+import { Tappable } from "@/components/ui/Tappable"
 import { Ban, Check, CircleCheck, ListChecks, Settings, type LucideIcon } from "lucide-react-native"
 import { ActionSheet, ActionSheetDivider, type ActionSheetRef } from "@/components/BottomSheet"
 import { triggerHaptic } from "@/lib/haptics"
@@ -83,7 +84,7 @@ export function PermissionModeSheet({ sheetRef, mode, saving = false, onSelect, 
 
       <ActionSheetDivider />
 
-      <Pressable
+      <Tappable
         onPress={() => {
           void triggerHaptic("selection")
           sheetRef.current?.dismiss(() => onOpenDetailed())
@@ -131,7 +132,7 @@ export function PermissionModeSheet({ sheetRef, mode, saving = false, onSelect, 
             Open detailed permissions
           </Text>
         </View>
-      </Pressable>
+      </Tappable>
     </ActionSheet>
   )
 }
@@ -154,7 +155,7 @@ function PresetRow({
   const tone = toneForMode(mode, palette)
 
   return (
-    <Pressable
+    <Tappable
       onPress={onPress}
       disabled={disabled && !active}
       accessibilityRole="button"
@@ -223,6 +224,6 @@ function PresetRow({
           </View>
         ) : null}
       </View>
-    </Pressable>
+    </Tappable>
   )
 }

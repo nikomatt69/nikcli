@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
-import { Animated, Pressable, Text, View } from "react-native"
+import { Animated, Text, View } from "react-native"
+import { Tappable } from "@/components/ui/Tappable"
 import { ArrowDown } from "lucide-react-native"
 import { SPRING_MICRO, usePrefersReducedMotion } from "@/lib/animation"
 import { triggerHaptic } from "@/lib/haptics"
@@ -67,7 +68,7 @@ export function JumpToLatestPill(props: { visible: boolean; count: number; onPre
           ],
         }}
       >
-        <Pressable
+        <Tappable
           onPress={() => {
             void triggerHaptic("selection")
             props.onPress()
@@ -133,7 +134,7 @@ export function JumpToLatestPill(props: { visible: boolean; count: number; onPre
               </Text>
             </View>
           ) : null}
-        </Pressable>
+        </Tappable>
       </Animated.View>
     </View>
   )

@@ -4,7 +4,6 @@ import {
   Dimensions,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -13,6 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native"
+import { Tappable } from "@/components/ui/Tappable"
 import {
   Brain,
   BookMarked,
@@ -251,7 +251,7 @@ export function ComposerToolDrawer({
     <Modal transparent visible={mounted} animationType="none" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: "flex-end" }}>
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
+          <Tappable style={StyleSheet.absoluteFill} onPress={onClose}>
             <View style={{ flex: 1 }}>
               <AdaptiveBlur
                 tint={isDark ? "dark" : "light"}
@@ -268,7 +268,7 @@ export function ComposerToolDrawer({
                 ]}
               />
             </View>
-          </Pressable>
+          </Tappable>
         </Animated.View>
 
         <View style={{ paddingHorizontal: 10, paddingBottom: 24 }}>
@@ -342,7 +342,7 @@ export function ComposerToolDrawer({
                     {TAB_LABELS[activeTab]}
                   </Text>
                 </View>
-                <Pressable
+                <Tappable
                   onPress={onClose}
                   style={({ pressed }) => ({
                     width: 32,
@@ -363,7 +363,7 @@ export function ComposerToolDrawer({
                   })}
                 >
                   <X size={13} color={palette.soft} strokeWidth={2.5} />
-                </Pressable>
+                </Tappable>
               </View>
 
               {/* Tab Bar */}
@@ -477,7 +477,7 @@ function AttachContent({
   return (
     <ScrollView style={{ paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
       {rows.map((row, i) => (
-        <Pressable
+        <Tappable
           key={row.label}
           onPress={() => {
             void triggerHaptic("selection")
@@ -511,7 +511,7 @@ function AttachContent({
             <Text style={{ fontSize: 12, color: palette.muted, marginTop: 2 }}>{row.desc}</Text>
           </View>
           <ChevronRight size={16} color={palette.muted} strokeWidth={2} />
-        </Pressable>
+        </Tappable>
       ))}
     </ScrollView>
   )
@@ -573,7 +573,7 @@ function AnimatedTabButton({
   })
 
   return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+    <Tappable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
       {/*
         Split the press scale (native driver) from the border glow (JS
         driver) into two Animated.Views. Mixing native and JS animated
@@ -608,7 +608,7 @@ function AnimatedTabButton({
           {children}
         </Animated.View>
       </Animated.View>
-    </Pressable>
+    </Tappable>
   )
 }
 
@@ -628,7 +628,7 @@ function AnimatedItemCard({
   const press = usePressAnimation()
 
   return (
-    <Pressable
+    <Tappable
       disabled={!onPress}
       onPress={onPress}
       onPressIn={onPress ? press.onPressIn : undefined}
@@ -648,7 +648,7 @@ function AnimatedItemCard({
       >
         {children}
       </Animated.View>
-    </Pressable>
+    </Tappable>
   )
 }
 
@@ -760,7 +760,7 @@ function AnimatedToggleSwitch({
   const trackTransform = [{ scaleX: trackScaleX }, { scale: scaleAnim }]
 
   return (
-    <Pressable onPress={() => onValueChange(!value)} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+    <Tappable onPress={() => onValueChange(!value)} onPressIn={handlePressIn} onPressOut={handlePressOut}>
       <Animated.View
         style={{
           transform: trackTransform,
@@ -788,7 +788,7 @@ function AnimatedToggleSwitch({
           }}
         />
       </Animated.View>
-    </Pressable>
+    </Tappable>
   )
 }
 
@@ -813,7 +813,7 @@ function ModelContent({
   return (
     <ScrollView style={{ flex: 1, paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
       {onOpenModelPicker ? (
-        <Pressable
+        <Tappable
           onPress={() => {
             void triggerHaptic("selection")
             onOpenModelPicker()
@@ -842,7 +842,7 @@ function ModelContent({
           <Text style={{ fontSize: 11, color: palette.muted, marginTop: 4 }}>
             Search models and choose thinking effort like the CLI.
           </Text>
-        </Pressable>
+        </Tappable>
       ) : null}
 
       {selected && selected.variants.length > 0 ? (
@@ -858,7 +858,7 @@ function ModelContent({
             Thinking effort
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            <Pressable
+            <Tappable
               onPress={() => onModelSelect?.(selected.id, undefined)}
               style={{
                 borderRadius: 999,
@@ -878,11 +878,11 @@ function ModelContent({
               >
                 Default
               </Text>
-            </Pressable>
+            </Tappable>
             {selected.variants.map((variant) => {
               const active = activeVariant === variant
               return (
-                <Pressable
+                <Tappable
                   key={variant}
                   onPress={() => onModelSelect?.(selected.id, variant)}
                   style={{
@@ -903,7 +903,7 @@ function ModelContent({
                   >
                     {formatVariantLabel(variant)}
                   </Text>
-                </Pressable>
+                </Tappable>
               )
             })}
           </ScrollView>
@@ -1319,16 +1319,16 @@ function GitContent({
           >
             <GitBranch size={12} color={palette.accentLight} strokeWidth={2} />
             <Text style={{ fontSize: 12, fontWeight: "600", color: palette.ink }}>{gitState.branch}</Text>
-            <Pressable onPress={onGitRefresh} hitSlop={8}>
+            <Tappable onPress={onGitRefresh} hitSlop={8}>
               <RefreshCw size={12} color={palette.muted} strokeWidth={2} />
-            </Pressable>
+            </Tappable>
           </View>
         </View>
       )}
 
       <View style={{ paddingHorizontal: 16, gap: 8 }}>
         {actions.map(({ Icon, label, desc, action }) => (
-          <Pressable
+          <Tappable
             key={label}
             onPress={action}
             style={({ pressed }) => ({
@@ -1358,7 +1358,7 @@ function GitContent({
               <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{label}</Text>
               <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}>{desc}</Text>
             </View>
-          </Pressable>
+          </Tappable>
         ))}
       </View>
     </ScrollView>
@@ -1543,7 +1543,7 @@ function AnimatedPressableText({
   }
 
   return (
-    <Pressable
+    <Tappable
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -1557,6 +1557,6 @@ function AnimatedPressableText({
       }}
     >
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>{children}</Animated.View>
-    </Pressable>
+    </Tappable>
   )
 }

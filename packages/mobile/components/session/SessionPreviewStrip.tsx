@@ -1,15 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react"
-import {
-  ActivityIndicator,
-  Animated,
-  Linking,
-  Pressable,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native"
+import { ActivityIndicator, Animated, Linking, ScrollView, Share, StyleSheet, Text, View } from "react-native"
+import { Tappable } from "@/components/ui/Tappable"
 import {
   Code2,
   ExternalLink,
@@ -153,7 +144,7 @@ function ProjectWorkspaceCard(props: {
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {project.onBrowseWorkspace ? (
-          <Pressable
+          <Tappable
             onPress={project.onBrowseWorkspace}
             accessibilityRole="button"
             accessibilityLabel="Open files for this session"
@@ -171,10 +162,10 @@ function ProjectWorkspaceCard(props: {
           >
             <FolderOpen size={14} color={palette.ink} strokeWidth={2.2} />
             <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "700" }}>Files</Text>
-          </Pressable>
+          </Tappable>
         ) : null}
         {project.githubUrl ? (
-          <Pressable
+          <Tappable
             onPress={() => void Linking.openURL(project.githubUrl!)}
             accessibilityRole="button"
             accessibilityLabel="Open repository on GitHub"
@@ -191,7 +182,7 @@ function ProjectWorkspaceCard(props: {
           >
             <Github size={14} color={palette.accentLight} strokeWidth={2.2} />
             <Text style={{ color: palette.accentLight, fontSize: 12, fontWeight: "800" }}>GitHub</Text>
-          </Pressable>
+          </Tappable>
         ) : null}
       </View>
     </View>
@@ -345,7 +336,7 @@ export function InlineArtifactCard(props: { preview: SessionPreview; onPress(): 
 
   return (
     <Animated.View style={{ transform: [{ scale: press.scale }] }}>
-      <Pressable
+      <Tappable
         onPress={() => {
           void triggerHaptic("selection")
           props.onPress()
@@ -409,7 +400,7 @@ export function InlineArtifactCard(props: { preview: SessionPreview; onPress(): 
             </Text>
           </View>
         </View>
-      </Pressable>
+      </Tappable>
     </Animated.View>
   )
 }
@@ -621,7 +612,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                   <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: statusMeta.color }} />
                   <Text style={{ color: statusMeta.color, fontSize: 10, fontWeight: "800" }}>{statusMeta.label}</Text>
                 </View>
-                <Pressable
+                <Tappable
                   onPress={() => {
                     void triggerHaptic("selection")
                     sheetRef.current?.dismiss()
@@ -640,7 +631,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                   })}
                 >
                   <X size={15} color={palette.soft} strokeWidth={2.4} />
-                </Pressable>
+                </Tappable>
               </View>
             </View>
 
@@ -648,7 +639,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
               {(["preview", "source"] as const).map((value) => {
                 const active = tab === value
                 return (
-                  <Pressable
+                  <Tappable
                     key={value}
                     onPress={() => {
                       setTab(value)
@@ -675,7 +666,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                     >
                       {value === "source" && preview.artifact ? "link" : value}
                     </Text>
-                  </Pressable>
+                  </Tappable>
                 )
               })}
             </View>
@@ -775,7 +766,7 @@ function ActionChip(props: {
   const press = usePressAnimation()
   return (
     <Animated.View style={{ flex: 1, transform: [{ scale: press.scale }] }}>
-      <Pressable
+      <Tappable
         onPress={props.onPress}
         onPressIn={press.onPressIn}
         onPressOut={press.onPressOut}
@@ -807,7 +798,7 @@ function ActionChip(props: {
         >
           {props.label}
         </Text>
-      </Pressable>
+      </Tappable>
     </Animated.View>
   )
 }
@@ -845,7 +836,7 @@ function PreviewCard(props: {
       }}
     >
       <Animated.View style={{ transform: [{ scale: cardPress.scale }] }}>
-        <Pressable
+        <Tappable
           onPress={() => {
             void triggerHaptic("selection")
             props.onOpen?.()
@@ -897,7 +888,7 @@ function PreviewCard(props: {
               </View>
             ) : null}
           </View>
-        </Pressable>
+        </Tappable>
       </Animated.View>
 
       <View style={{ padding: 12, gap: 10 }}>
@@ -936,7 +927,7 @@ function PreviewCard(props: {
 
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Animated.View style={{ flex: 1, transform: [{ scale: reloadPress.scale }] }}>
-            <Pressable
+            <Tappable
               onPress={() => {
                 props.onReload()
                 void triggerHaptic("selection")
@@ -959,10 +950,10 @@ function PreviewCard(props: {
             >
               <RefreshCw size={13} color={props.palette.ink} strokeWidth={2.2} />
               <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "700" }}>Reload</Text>
-            </Pressable>
+            </Tappable>
           </Animated.View>
           <Animated.View style={{ flex: 1, transform: [{ scale: browserPress.scale }] }}>
-            <Pressable
+            <Tappable
               onPress={() => {
                 if (browserUrl) {
                   void openPreviewExternally(browserUrl)
@@ -989,7 +980,7 @@ function PreviewCard(props: {
               <Text style={{ color: props.palette.accentLight, fontSize: 12, fontWeight: "800" }}>
                 {browserUrl ? "Browser" : "Open"}
               </Text>
-            </Pressable>
+            </Tappable>
           </Animated.View>
         </View>
       </View>

@@ -1,6 +1,7 @@
 import type { RefObject } from "react"
 import { useEffect, useMemo, useState } from "react"
-import { Pressable, ScrollView, Text, View } from "react-native"
+import { ScrollView, Text, View } from "react-native"
+import { Tappable } from "@/components/ui/Tappable"
 import { Brain, Check } from "lucide-react-native"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import { TextField } from "@/components/ui/TextField"
@@ -19,7 +20,7 @@ type Props = {
 function VariantChip(props: { label: string; active: boolean; onPress(): void }) {
   const { palette } = useAppTheme()
   return (
-    <Pressable
+    <Tappable
       onPress={props.onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: props.active }}
@@ -42,7 +43,7 @@ function VariantChip(props: { label: string; active: boolean; onPress(): void })
       >
         {props.label}
       </Text>
-    </Pressable>
+    </Tappable>
   )
 }
 
@@ -138,7 +139,7 @@ export function ModelPickerSheet({ sheetRef, models, activeModelKey, activeVaria
         {filtered.map((model, index) => {
           const active = model.id === activeModelKey
           return (
-            <Pressable
+            <Tappable
               key={model.id}
               onPress={() => {
                 setDraftModelKey(model.id)
@@ -187,7 +188,7 @@ export function ModelPickerSheet({ sheetRef, models, activeModelKey, activeVaria
                 </View>
               </View>
               {active ? <Check size={16} color={palette.accentLight} strokeWidth={2.4} /> : null}
-            </Pressable>
+            </Tappable>
           )
         })}
         {filtered.length === 0 ? (

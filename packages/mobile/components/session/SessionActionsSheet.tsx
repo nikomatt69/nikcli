@@ -1,5 +1,6 @@
 import type { RefObject } from "react"
-import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native"
+import { ActivityIndicator, Animated, ScrollView, Text, View } from "react-native"
+import { Tappable } from "@/components/ui/Tappable"
 import {
   Braces,
   Copy,
@@ -99,7 +100,7 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent", disabled
   const iconColor = tone === "success" ? palette.success : tone === "neutral" ? palette.soft : palette.accentLight
 
   return (
-    <Pressable
+    <Tappable
       onPress={onPress}
       disabled={disabled || loading}
       onPressIn={handlePressIn}
@@ -146,7 +147,7 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent", disabled
           </Text>
         </View>
       </Animated.View>
-    </Pressable>
+    </Tappable>
   )
 }
 

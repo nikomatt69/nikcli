@@ -1,6 +1,7 @@
 import type { RefObject } from "react"
 import { useRef } from "react"
-import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native"
+import { ActivityIndicator, Animated, ScrollView, Text, View } from "react-native"
+import { Tappable } from "@/components/ui/Tappable"
 import { Check, Folder, GitBranch, type LucideIcon } from "lucide-react-native"
 import { ActionSheet, ActionSheetDivider, type ActionSheetRef } from "@/components/BottomSheet"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
@@ -73,7 +74,7 @@ function WorkspaceRow({ Icon, label, description, selected, loading, disabled, o
   const iconBorder = selected ? hexToRgba(palette.accentLight, 0.2) : hexToRgba(palette.ink, 0.14)
 
   return (
-    <Pressable
+    <Tappable
       onPress={onPress}
       disabled={disabled || loading}
       onPressIn={handlePressIn}
@@ -122,7 +123,7 @@ function WorkspaceRow({ Icon, label, description, selected, loading, disabled, o
           <Check size={18} color={palette.accentLight} strokeWidth={2.4} />
         ) : null}
       </Animated.View>
-    </Pressable>
+    </Tappable>
   )
 }
 

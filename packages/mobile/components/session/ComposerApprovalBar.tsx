@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Animated, Easing, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Tappable } from "@/components/ui/Tappable"
 import {
   AlertCircle,
   ArrowRight,
@@ -146,7 +147,7 @@ function PermissionApprovalView(props: {
       </Text>
 
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <Pressable
+        <Tappable
           onPress={() => props.onRespond("reject")}
           accessibilityRole="button"
           accessibilityLabel={`Deny ${props.request.permission}`}
@@ -172,8 +173,8 @@ function PermissionApprovalView(props: {
           >
             Deny
           </Text>
-        </Pressable>
-        <Pressable
+        </Tappable>
+        <Tappable
           onPress={() => props.onRespond("once")}
           accessibilityRole="button"
           accessibilityLabel={`Allow ${props.request.permission} once`}
@@ -197,7 +198,7 @@ function PermissionApprovalView(props: {
           >
             Allow once
           </Text>
-        </Pressable>
+        </Tappable>
       </View>
     </View>
   )
@@ -270,7 +271,7 @@ function QuestionApprovalView(props: {
           const isSelected = effectiveSelected.includes(optIdx)
 
           return (
-            <Pressable
+            <Tappable
               key={option.label ?? `option-${optIdx}`}
               onPress={() => onSelectAnswer(currentQuestion, optIdx, isMultiple)}
               style={({ pressed }) => ({
@@ -328,7 +329,7 @@ function QuestionApprovalView(props: {
               >
                 {option.label}
               </Text>
-            </Pressable>
+            </Tappable>
           )
         })}
       </ScrollView>
@@ -337,7 +338,7 @@ function QuestionApprovalView(props: {
       {questions.length > 1 && (
         <View style={{ flexDirection: "row", gap: 16, marginTop: 8 }}>
           {questions.map((q, idx) => (
-            <Pressable
+            <Tappable
               key={q.question ?? `q-${idx}`}
               onPress={() => setCurrentQuestion(idx)}
               style={{
@@ -569,7 +570,7 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
           {/* Navigation arrows (only when multiple) */}
           {count > 1 && (
             <View style={{ flexDirection: "row", gap: 16 }}>
-              <Pressable
+              <Tappable
                 onPress={() => {
                   void triggerHaptic("selection")
                   setIndex((prev) => (prev - 1 + count) % count)
@@ -585,8 +586,8 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
                   color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"}
                   strokeWidth={2.2}
                 />
-              </Pressable>
-              <Pressable
+              </Tappable>
+              <Tappable
                 onPress={() => {
                   void triggerHaptic("selection")
                   setIndex((prev) => (prev + 1) % count)
@@ -602,7 +603,7 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
                   color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"}
                   strokeWidth={2.2}
                 />
-              </Pressable>
+              </Tappable>
             </View>
           )}
 
@@ -617,7 +618,7 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
 
           <View style={{ flexDirection: "row", gap: 4, flexShrink: 0 }}>
             {/* Dismiss question */}
-            <Pressable
+            <Tappable
               onPress={handleQuestionReject}
               hitSlop={4}
               style={({ pressed }) => ({
@@ -631,10 +632,10 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
               })}
             >
               <X size={13} color={isDark ? "#f87171" : "#dc2626"} strokeWidth={2.4} />
-            </Pressable>
+            </Tappable>
 
             {/* Submit answer (only if single-select answered or for explicit submit) */}
-            <Pressable
+            <Tappable
               onPress={handleQuestionSubmit}
               disabled={(current as QuestionRequest).questions.some(
                 (_, questionIndex) => (selectedAnswers[questionIndex]?.length ?? 0) === 0,
@@ -659,7 +660,7 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
               })}
             >
               <ArrowRight size={13} color={isDark ? "#60a5fa" : "#3b82f6"} strokeWidth={2.4} />
-            </Pressable>
+            </Tappable>
           </View>
         </View>
       </View>

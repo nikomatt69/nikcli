@@ -21,13 +21,7 @@ type CollapsibleSectionProps = {
  * groups in the background-activity sheet. The chevron turns instead of swapping,
  * so the open state reads as one continuous control.
  */
-export function CollapsibleSection({
-  label,
-  count,
-  defaultOpen = true,
-  accessory,
-  children,
-}: CollapsibleSectionProps) {
+export function CollapsibleSection({ label, count, defaultOpen = true, accessory, children }: CollapsibleSectionProps) {
   const { palette } = useAppTheme()
   const prefersReducedMotion = usePrefersReducedMotion()
   const [open, setOpen] = useState(defaultOpen)
@@ -70,9 +64,7 @@ export function CollapsibleSection({
         </Text>
         <Animated.View
           style={{
-            transform: [
-              { rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ["-90deg", "0deg"] }) },
-            ],
+            transform: [{ rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ["-90deg", "0deg"] }) }],
           }}
         >
           <ChevronDown size={17} color={palette.muted} strokeWidth={2} />

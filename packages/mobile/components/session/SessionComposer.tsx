@@ -4,7 +4,6 @@ import {
   Animated,
   Easing,
   Keyboard,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native"
+import { Tappable } from "@/components/ui/Tappable"
 import {
   ArrowUp,
   CircleAlert,
@@ -446,7 +446,7 @@ export function SessionComposer({
             {error}
           </Text>
           {onRetryError ? (
-            <Pressable
+            <Tappable
               onPress={onRetryError}
               accessibilityRole="button"
               accessibilityLabel="Retry failed action"
@@ -470,9 +470,9 @@ export function SessionComposer({
               >
                 Retry
               </Text>
-            </Pressable>
+            </Tappable>
           ) : onDismissError ? (
-            <Pressable
+            <Tappable
               onPress={onDismissError}
               accessibilityRole="button"
               accessibilityLabel="Dismiss error"
@@ -483,7 +483,7 @@ export function SessionComposer({
               })}
             >
               <X size={14} color={palette.danger} strokeWidth={2.2} />
-            </Pressable>
+            </Tappable>
           ) : null}
         </View>
       ) : null}
@@ -627,7 +627,7 @@ export function SessionComposer({
                 showsVerticalScrollIndicator={slashSuggestions.length > 5}
               >
                 {slashSuggestions.map((item, i) => (
-                  <Pressable
+                  <Tappable
                     key={item.name}
                     onPress={() => {
                       void triggerHaptic("selection")
@@ -710,7 +710,7 @@ export function SessionComposer({
                         </View>
                       ) : null}
                     </View>
-                  </Pressable>
+                  </Tappable>
                 ))}
               </ScrollView>
             ) : !slashLoading ? (
@@ -809,7 +809,7 @@ export function SessionComposer({
                       {attachment.filename || attachment.name || "Attachment"}
                     </Text>
                     {onRemoveAttachment ? (
-                      <Pressable
+                      <Tappable
                         onPress={() => {
                           void triggerHaptic("selection")
                           onRemoveAttachment(attachment.id)
@@ -823,7 +823,7 @@ export function SessionComposer({
                         })}
                       >
                         <X size={12} color={palette.muted} strokeWidth={2.2} />
-                      </Pressable>
+                      </Tappable>
                     ) : null}
                   </View>
                 ))}
@@ -886,7 +886,7 @@ export function SessionComposer({
               >
                 {/* Attach */}
                 {onAttach ? (
-                  <Pressable
+                  <Tappable
                     onPress={() => {
                       void triggerHaptic("selection")
                       Keyboard.dismiss()
@@ -933,11 +933,11 @@ export function SessionComposer({
                         </Text>
                       </View>
                     ) : null}
-                  </Pressable>
+                  </Tappable>
                 ) : null}
 
                 {/* Commands */}
-                <Pressable
+                <Tappable
                   onPress={() => {
                     void triggerHaptic("selection")
                     Keyboard.dismiss()
@@ -955,11 +955,11 @@ export function SessionComposer({
                   })}
                 >
                   <Terminal size={14} color={palette.soft} strokeWidth={2} />
-                </Pressable>
+                </Tappable>
 
                 {/* Git */}
                 {onOpenGit ? (
-                  <Pressable
+                  <Tappable
                     onPress={() => {
                       void triggerHaptic("selection")
                       Keyboard.dismiss()
@@ -977,12 +977,12 @@ export function SessionComposer({
                     })}
                   >
                     <GitBranch size={14} color={palette.soft} strokeWidth={2} />
-                  </Pressable>
+                  </Tappable>
                 ) : null}
 
                 {/* Permissions — icon only so the send/mode controls stay visible */}
                 {onOpenPermissions && !narrowToolbar ? (
-                  <Pressable
+                  <Tappable
                     onPress={() => {
                       void triggerHaptic("selection")
                       Keyboard.dismiss()
@@ -1000,11 +1000,11 @@ export function SessionComposer({
                     })}
                   >
                     <Shield size={14} color={palette.soft} strokeWidth={2.1} />
-                  </Pressable>
+                  </Tappable>
                 ) : null}
 
                 {/* Plus - opens tools drawer */}
-                <Pressable
+                <Tappable
                   onPress={() => {
                     void triggerHaptic("selection")
                     Keyboard.dismiss()
@@ -1022,7 +1022,7 @@ export function SessionComposer({
                   })}
                 >
                   <Plus size={14} color={palette.soft} strokeWidth={2} />
-                </Pressable>
+                </Tappable>
               </View>
 
               {/* Right cluster — always visible (mode, model, send) */}
@@ -1035,7 +1035,7 @@ export function SessionComposer({
                 }}
               >
                 {/* Mode segmented control */}
-                <Pressable
+                <Tappable
                   onPress={() => {
                     void triggerHaptic("selection")
                     setMode(mode === "plan" ? "code" : "plan")
@@ -1080,9 +1080,9 @@ export function SessionComposer({
                       <Animated.Text style={[styles.segmentLabel, { color: segmentLabelCode }]}>Code</Animated.Text>
                     </View>
                   </View>
-                </Pressable>
+                </Tappable>
                 {showModelControl && (modelLabel || onOpenModelPicker) ? (
-                  <Pressable
+                  <Tappable
                     onPress={() => {
                       void triggerHaptic("selection")
                       onOpenModelPicker?.()
@@ -1112,7 +1112,7 @@ export function SessionComposer({
                     >
                       Model
                     </Text>
-                  </Pressable>
+                  </Tappable>
                 ) : null}
                 {/* Char count */}
                 {showCharCount && !sending ? (
@@ -1131,7 +1131,7 @@ export function SessionComposer({
                 {/* Send / Stop */}
                 {showStop ? (
                   <Animated.View style={{ transform: [{ scale: stopPulse }] }}>
-                    <Pressable
+                    <Tappable
                       onPress={() => {
                         void triggerHaptic("error")
                         onStop?.()
@@ -1154,11 +1154,11 @@ export function SessionComposer({
                       })}
                     >
                       <Square size={14} color={palette.ink} strokeWidth={0} fill={palette.ink} />
-                    </Pressable>
+                    </Tappable>
                   </Animated.View>
                 ) : (
                   <Animated.View style={{ transform: [{ scale: sendScaleAnim }] }}>
-                    <Pressable
+                    <Tappable
                       accessibilityRole="button"
                       accessibilityLabel={queueOnSend ? "Queue message" : "Send message"}
                       accessibilityState={{ disabled: sendDisabled }}
@@ -1192,7 +1192,7 @@ export function SessionComposer({
                         ]}
                       />
                       <ArrowUp size={18} color={sendIconColor} strokeWidth={2.2} />
-                    </Pressable>
+                    </Tappable>
                   </Animated.View>
                 )}
               </View>
