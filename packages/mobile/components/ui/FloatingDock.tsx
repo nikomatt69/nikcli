@@ -59,6 +59,7 @@ export function FloatingDock({
             accessibilityLabel={actionLabel}
             accessibilityState={{ disabled: Boolean(actionLoading) }}
             disabled={actionLoading}
+            className="flex-row items-center justify-center"
             onPressIn={() => {
               setActionPressed(true)
               press.onPressIn()

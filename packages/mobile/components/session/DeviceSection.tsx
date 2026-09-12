@@ -50,6 +50,10 @@ export function DeviceSection({ url, connected, version }: DeviceSectionProps) {
           accessibilityRole="button"
           accessibilityLabel={`Host ${hostLabel(url)}. ${detail}`}
           accessibilityHint="Opens host settings"
+          // Both the class and the style say "row": the class is the path this
+          // app's working rows take, the style keeps it correct if class
+          // resolution is ever unavailable to this component.
+          className="flex-row items-center"
           onPressIn={() => setHostPressed(true)}
           onPressOut={() => setHostPressed(false)}
           onPress={() => {
@@ -107,6 +111,7 @@ export function DeviceSection({ url, connected, version }: DeviceSectionProps) {
           accessibilityRole="button"
           accessibilityLabel="Add device"
           accessibilityHint="Connect this app to another nikcli host"
+          className="flex-row items-center"
           onPressIn={() => {
             setAddPressed(true)
             press.onPressIn()
