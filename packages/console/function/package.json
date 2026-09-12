@@ -1,6 +1,6 @@
 {
   "name": "@nikcli-ai/console-function",
-  "version": "1.346.0",
+  "version": "1.347.0",
   "$schema": "https://json.schemastore.org/package.json",
   "private": true,
   "type": "module",

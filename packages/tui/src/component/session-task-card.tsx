@@ -1,8 +1,8 @@
-import { createMemo, Show, type JSX } from "solid-js";
-import type { RGBA } from "@opentui/core";
-import { TextAttributes } from "@opentui/core";
-import { EmptyBorder } from "@tui/component/border";
-import { selectedForeground, tint, useTheme } from "@tui/context/theme";
+import { createMemo, Show, type JSX } from "solid-js"
+import type { RGBA } from "@opentui/core"
+import { TextAttributes } from "@opentui/core"
+import { EmptyBorder } from "@tui/component/border"
+import { selectedForeground, tint, useTheme } from "@tui/context/theme"
 
 /**
  * Visual language for the two kinds of delegated work in a session transcript.
@@ -13,7 +13,7 @@ import { selectedForeground, tint, useTheme } from "@tui/context/theme";
  * the turn. Keep the tokens here so tests can pin the difference without
  * mounting the session route.
  */
-export type SessionTaskKind = "subtask" | "background";
+export type SessionTaskKind = "subtask" | "background"
 
 export const sessionTaskVisual = {
   subtask: {
@@ -30,10 +30,10 @@ export const sessionTaskVisual = {
     rail: "╎",
     hint: "running in parallel",
   },
-} as const;
+} as const
 
 export function sessionTaskChrome(kind: SessionTaskKind) {
-  return sessionTaskVisual[kind];
+  return sessionTaskVisual[kind]
 }
 
 /**
@@ -46,30 +46,25 @@ export function sessionTaskChrome(kind: SessionTaskKind) {
  * storybook fixture can draw both kinds without an SDK.
  */
 export function SessionTaskCard(props: {
-  kind: SessionTaskKind;
+  kind: SessionTaskKind
   /** Agent colour; the session route reads it from `useLocal().agent.color(...)`. */
-  color: RGBA;
-  agent: string;
-  title: string;
-  description?: string;
-  onClick?: () => void;
-  children?: JSX.Element;
+  color: RGBA
+  agent: string
+  title: string
+  description?: string
+  onClick?: () => void
+  children?: JSX.Element
 }) {
-  const { theme } = useTheme();
-  const chrome = createMemo(() => sessionTaskChrome(props.kind));
-  const badgeBg = createMemo(() =>
-    props.kind === "background" ? theme.status.info.fg : props.color,
-  );
-  const badgeFg = createMemo(() => selectedForeground(theme, badgeBg()));
-  const railColor = createMemo(() =>
-    props.kind === "background" ? theme.status.info.fg : props.color,
-  );
+  const { theme } = useTheme()
+  const chrome = createMemo(() => sessionTaskChrome(props.kind))
+  const badgeBg = createMemo(() => (props.kind === "background" ? theme.status.info.fg : props.color))
+  const badgeFg = createMemo(() => selectedForeground(theme, badgeBg()))
+  const railColor = createMemo(() => (props.kind === "background" ? theme.status.info.fg : props.color))
   const panel = createMemo(() => {
-    const base = theme.surface.panel;
-    if (props.kind === "background")
-      return tint(base, theme.status.info.fg, 0.1);
-    return tint(base, props.color, 0.08);
-  });
+    const base = theme.surface.panel
+    if (props.kind === "background") return tint(base, theme.status.info.fg, 0.1)
+    return tint(base, props.color, 0.08)
+  })
 
   return (
     <box
@@ -85,19 +80,9 @@ export function SessionTaskCard(props: {
       flexShrink={0}
       onMouseUp={() => props.onClick?.()}
     >
-      <box
-        paddingTop={1}
-        paddingBottom={1}
-        paddingLeft={2}
-        paddingRight={1}
-        backgroundColor={panel()}
-        flexShrink={0}
-      >
+      <box paddingTop={1} paddingBottom={1} paddingLeft={2} paddingRight={1} backgroundColor={panel()} flexShrink={0}>
         <text wrapMode="none">
-          <span style={{ bg: badgeBg(), fg: badgeFg(), bold: true }}>
-            {" "}
-            {chrome().badge}{" "}
-          </span>
+          <span style={{ bg: badgeBg(), fg: badgeFg(), bold: true }}> {chrome().badge} </span>
           <span style={{ fg: railColor() }}> {chrome().glyph} </span>
           <span
             style={{
@@ -108,10 +93,7 @@ export function SessionTaskCard(props: {
             {props.title}
           </span>
           <Show when={props.agent && props.agent !== props.title}>
-            <span style={{ fg: theme.foreground.muted }}>
-              {" "}
-              · @{props.agent}
-            </span>
+            <span style={{ fg: theme.foreground.muted }}> · @{props.agent}</span>
           </Show>
         </text>
         <Show when={props.description}>
@@ -127,5 +109,5 @@ export function SessionTaskCard(props: {
         </text>
       </box>
     </box>
-  );
+  )
 }

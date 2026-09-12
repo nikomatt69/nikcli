@@ -1,13 +1,10 @@
-import { createMemo, createSignal, For, type JSX } from "solid-js";
-import { useTerminalDimensions } from "@opentui/solid";
-import type { RGBA } from "@opentui/core";
-import { useTheme } from "@tui/context/theme";
-import {
-  SessionTaskCard,
-  type SessionTaskKind,
-} from "@tui/component/session-task-card";
-import { StoryFooter } from "./footer";
-import type { Story, StoryContext } from "./story";
+import { createMemo, createSignal, For, type JSX } from "solid-js"
+import { useTerminalDimensions } from "@opentui/solid"
+import type { RGBA } from "@opentui/core"
+import { useTheme } from "@tui/context/theme"
+import { SessionTaskCard, type SessionTaskKind } from "@tui/component/session-task-card"
+import { StoryFooter } from "./footer"
+import type { Story, StoryContext } from "./story"
 
 /**
  * Nested subtask versus parallel background job, from fixtures.
@@ -17,15 +14,15 @@ import type { Story, StoryContext } from "./story";
  * visible without launching a real delegation.
  */
 type Fixture = {
-  readonly label: string;
-  readonly note: string;
-  readonly kind: SessionTaskKind;
-  readonly color: RGBA;
-  readonly agent: string;
-  readonly title: string;
-  readonly description: string;
-  readonly detail?: string;
-};
+  readonly label: string
+  readonly note: string
+  readonly kind: SessionTaskKind
+  readonly color: RGBA
+  readonly agent: string
+  readonly title: string
+  readonly description: string
+  readonly detail?: string
+}
 
 const fixtures = (accent: RGBA, info: RGBA): ReadonlyArray<Fixture> => [
   {
@@ -67,14 +64,14 @@ const fixtures = (accent: RGBA, info: RGBA): ReadonlyArray<Fixture> => [
     description: "follow this without blocking the parent turn",
     detail: "└ synthesizing results",
   },
-];
+]
 
 function SessionTaskStory(props: { context: StoryContext }): JSX.Element {
-  const dimensions = useTerminalDimensions();
-  const { theme } = useTheme();
-  const [index, setIndex] = createSignal(0);
-  const all = createMemo(() => fixtures(theme.accent.fg, theme.status.info.fg));
-  const current = createMemo(() => all()[index() % all().length]!);
+  const dimensions = useTerminalDimensions()
+  const { theme } = useTheme()
+  const [index, setIndex] = createSignal(0)
+  const all = createMemo(() => fixtures(theme.accent.fg, theme.status.info.fg))
+  const current = createMemo(() => all()[index() % all().length]!)
 
   props.context.keymap.registerLayer({
     commands: () => [
@@ -90,8 +87,7 @@ function SessionTaskStory(props: { context: StoryContext }): JSX.Element {
         title: "Storybook: previous fixture",
         namespace: "Debug",
         hidden: true,
-        run: () =>
-          setIndex((value) => (value + all().length - 1) % all().length),
+        run: () => setIndex((value) => (value + all().length - 1) % all().length),
       },
       {
         name: "storybook.session-task.back",
@@ -118,7 +114,7 @@ function SessionTaskStory(props: { context: StoryContext }): JSX.Element {
         description: "Back to the storybook index",
       },
     ],
-  });
+  })
 
   return (
     <box
@@ -127,13 +123,7 @@ function SessionTaskStory(props: { context: StoryContext }): JSX.Element {
       flexDirection="column"
       backgroundColor={theme.surface.base}
     >
-      <box
-        paddingTop={1}
-        paddingLeft={2}
-        paddingRight={2}
-        flexDirection="column"
-        flexGrow={1}
-      >
+      <box paddingTop={1} paddingLeft={2} paddingRight={2} flexDirection="column" flexGrow={1}>
         <text fg={theme.foreground.muted}>{current().note}</text>
         <SessionTaskCard
           kind={current().kind}
@@ -148,14 +138,7 @@ function SessionTaskStory(props: { context: StoryContext }): JSX.Element {
         <box flexDirection="row" columnGap={1} flexWrap="wrap">
           <For each={all()}>
             {(fixture, position) => (
-              <text
-                fg={
-                  position() === index()
-                    ? theme.foreground.default
-                    : theme.foreground.muted
-                }
-                wrapMode="none"
-              >
+              <text fg={position() === index() ? theme.foreground.default : theme.foreground.muted} wrapMode="none">
                 {position() === index() ? "› " : "  "}
                 {fixture.label}
               </text>
@@ -173,21 +156,21 @@ function SessionTaskStory(props: { context: StoryContext }): JSX.Element {
         ]}
       />
     </box>
-  );
+  )
 }
 
 function ShowDetail(props: { text?: string }) {
-  const { theme } = useTheme();
-  if (!props.text) return null;
+  const { theme } = useTheme()
+  if (!props.text) return null
   return (
     <text fg={theme.foreground.muted} paddingTop={1}>
       {props.text}
     </text>
-  );
+  )
 }
 
 export const sessionTaskStory: Story = {
   id: "session-task",
   title: "Session task (nested subtask vs background)",
   render: (context) => <SessionTaskStory context={context} />,
-};
+}

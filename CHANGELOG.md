@@ -3,6 +3,23 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.347.0 (September 2026)
+
+## Core
+
+- Format five test files so ci-pipeline's validate job passes (@nikomatt69)
+- Improve code formatting and structure in test files (@nikomatt69)
+- Implement state machine for authentication lifecycle (@nikomatt69)
+- Introduce delivery classes for event handling (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(bus-event): introduce delivery classes for event handling
+  - feat(auth): implement state machine for authentication lifecycle
+  - refactor(tests): improve code formatting and structure in test files
+  - style(test): format five test files so ci-pipeline's validate job passes
+
 ## v1.346.0 (September 2026)
 
 ## Core
