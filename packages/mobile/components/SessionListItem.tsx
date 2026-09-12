@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Alert, Animated, Pressable, Text, View } from "react-native"
-import { ArrowRight, Square, Trash2 } from "lucide-react-native"
+import { ArrowRight, Cloud, Square, Trash2 } from "lucide-react-native"
+import { SessionGlyph, type SessionGlyphKind } from "@/components/session/SessionGlyph"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import { usePrefersReducedMotion, usePressAnimation } from "@/lib/animation"
 import type { SessionSummary } from "@/lib/types"
@@ -194,10 +195,21 @@ function statusLabel(status: string, hasChanges: boolean): string {
   return hasChanges ? "Done" : "No changes"
 }
 
+function sessionBranch(item: SessionSummary): string | undefined {
+  return item.info.github?.worktree.branch ?? item.info.worktree?.branch
+}
+
+function glyphKind(status: string, branch: string | undefined): SessionGlyphKind {
+  if (status === "busy") return "busy"
+  if (status === "retry") return "attention"
+  return branch ? "branch" : "idle"
+}
+
 /**
- * Minimal Cursor-style list row: status dot, one-line title, and a meta line
- * "workspace · status · +N -M" with tinted diff counts. Actions live behind
- * long-press (unchanged sheet).
+ * A session row: a glyph that says what state the session is in, its title, and
+ * one quiet meta line — "repo · branch · +N -M" — with the diff counts tinted
+ * and a cloud mark for sessions that live on a remote repository. Actions live
+ * behind long-press (unchanged sheet).
  */
 export function SessionListItem(props: {
   item: SessionSummary
@@ -220,14 +232,8 @@ export function SessionListItem(props: {
   const hasChanges = additions + deletions > 0
   const isBusy = status === "busy"
 
-  const dotColor =
-    status === "busy"
-      ? palette.secondary
-      : status === "retry"
-        ? palette.danger
-        : hasChanges
-          ? palette.secondary
-          : hexToRgba(palette.ink, 0.25)
+  const branch = sessionBranch(props.item)
+  const remote = Boolean(props.item.info.github)
 
   const openSheet = useCallback(() => {
     sheetRef.current?.present()
@@ -267,7 +273,9 @@ export function SessionListItem(props: {
           backgroundColor: pressed ? hexToRgba(palette.ink, 0.04) : "transparent",
         }}
       >
-        <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: dotColor, marginTop: 6 }} />
+        <View style={{ width: 16, alignItems: "center", marginTop: 3 }}>
+          <SessionGlyph kind={glyphKind(status, branch)} />
+        </View>
         <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
           <Text className="text-[15px] font-semibold leading-5 text-ink" numberOfLines={1}>
             {props.item.info.title || "Untitled session"}
@@ -275,6 +283,7 @@ export function SessionListItem(props: {
           <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
             <Text className="text-[13px] text-muted" numberOfLines={1}>
               {sessionLocation(props.item)}
+              {branch ? ` · ${branch}` : ""}
               {" · "}
               {statusLabel(status, hasChanges)}
             </Text>
@@ -289,6 +298,11 @@ export function SessionListItem(props: {
               {" · "}
               {relativeTime(props.item.info.time.updated)}
             </Text>
+            {remote ? (
+              <View style={{ marginLeft: 6 }}>
+                <Cloud size={13} color={palette.muted} strokeWidth={2} />
+              </View>
+            ) : null}
           </View>
         </View>
       </Pressable>

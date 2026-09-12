@@ -30,6 +30,12 @@ import { AttachmentPickerSheet } from "@/components/session/AttachmentPickerShee
 import { ModelPickerSheet } from "@/components/session/ModelPickerSheet"
 import { SessionComposer } from "@/components/session/SessionComposer"
 import { JumpToLatestPill } from "@/components/session/JumpToLatestPill"
+import { BackgroundActivitySheet } from "@/components/session/BackgroundActivitySheet"
+import { ScaffoldingRow } from "@/components/session/ScaffoldingRow"
+import { SessionStatusLine } from "@/components/session/SessionStatusLine"
+import { TimeDivider } from "@/components/ui/TimeDivider"
+import { buildTranscriptRows, type TranscriptRow } from "@/lib/transcript-rows"
+import { collectBackgroundTasks, runningTasks, type BackgroundTask } from "@/lib/background-tasks"
 import { SessionRenameSheet } from "@/components/session/SessionRenameSheet"
 import { PermissionModeSheet } from "@/components/session/PermissionModeSheet"
 import {
@@ -191,7 +197,7 @@ export default function SessionScreen() {
   const composerPreferences = useUIStore((state) => state.composer)
   const promptPresets = useUIStore((state) => state.promptPresets)
   const offlineQueueRevision = useUIStore((state) => state.offlineQueueRevision)
-  const listRef = useRef<FlashListRef<MessageWithParts>>(null)
+  const listRef = useRef<FlashListRef<TranscriptRow>>(null)
   const statusRef = useRef<SessionDetail["status"]>(undefined)
   const permissionIDsRef = useRef<Set<string>>(new Set())
   const questionIDsRef = useRef<Set<string>>(new Set())
@@ -250,6 +256,7 @@ export default function SessionScreen() {
   const [gitLoading, setGitLoading] = useState(false)
   const [gitReviewOpen, setGitReviewOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(false)
+  const [activityOpen, setActivityOpen] = useState(false)
   const [availableModels, setAvailableModels] = useState<MobileModelOption[]>([])
   const [activeModelKey, setActiveModelKey] = useState("")
   const [activeVariant, setActiveVariant] = useState<string | undefined>()
@@ -610,6 +617,11 @@ export default function SessionScreen() {
   })
 
   const messages = useMemo(() => detail?.messages ?? [], [detail])
+  // The transcript is laid out before it is rendered: timestamps between
+  // sittings, injected context folded away from the conversation.
+  const rows = useMemo(() => buildTranscriptRows(messages), [messages])
+  const backgroundTasks = useMemo(() => collectBackgroundTasks(messages), [messages])
+  const runningBackgroundTasks = useMemo(() => runningTasks(backgroundTasks), [backgroundTasks])
   const pendingAssistantId = useMemo(() => getPendingAssistantMessageId(messages), [messages])
   const queuedMessageCount = useMemo(
     () => countQueuedUserMessages(messages, pendingAssistantId),
@@ -1614,7 +1626,7 @@ export default function SessionScreen() {
           ref={listRef}
           style={{ flex: 1 }}
           maintainVisibleContentPosition={{ disabled: true }}
-          getItemType={(item) => item.info.role}
+          getItemType={(row) => (row.kind === "message" ? row.message.info.role : row.kind)}
           contentInsetAdjustmentBehavior="automatic"
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
@@ -1637,25 +1649,30 @@ export default function SessionScreen() {
           }}
           onScroll={updateTranscriptFollow}
           scrollEventThrottle={16}
-          data={messages}
+          data={rows}
           extraData={listExtraData}
-          keyExtractor={(item) => item.info.id}
-          renderItem={({ item }) => (
-            <MessageBubble
-              message={item}
-              diffs={diffs[item.info.id]}
-              diffLoaded={Boolean(diffLoaded[item.info.id])}
-              diffLoading={Boolean(diffLoading[item.info.id])}
-              onLoadDiff={loadDiff}
-              isActive={activeMessageID === item.info.id}
-              onCopy={copyMessage}
-              onFork={reuseMessage}
-              onDismiss={dismissActiveMessage}
-              onActivate={activateMessage}
-              onOpenArtifact={openArtifact}
-              queued={item.info.role === "user" && pendingAssistantId ? item.info.id > pendingAssistantId : false}
-            />
-          )}
+          keyExtractor={(row) => row.id}
+          renderItem={({ item: row }) => {
+            if (row.kind === "time") return <TimeDivider label={row.label} />
+            if (row.kind === "system") return <ScaffoldingRow message={row.message} />
+            const item = row.message
+            return (
+              <MessageBubble
+                message={item}
+                diffs={diffs[item.info.id]}
+                diffLoaded={Boolean(diffLoaded[item.info.id])}
+                diffLoading={Boolean(diffLoading[item.info.id])}
+                onLoadDiff={loadDiff}
+                isActive={activeMessageID === item.info.id}
+                onCopy={copyMessage}
+                onFork={reuseMessage}
+                onDismiss={dismissActiveMessage}
+                onActivate={activateMessage}
+                onOpenArtifact={openArtifact}
+                queued={item.info.role === "user" && pendingAssistantId ? item.info.id > pendingAssistantId : false}
+              />
+            )
+          }}
           ListHeaderComponent={
             <>
               <SessionSummaryCard
@@ -1736,6 +1753,14 @@ export default function SessionScreen() {
           />
         </View>
       ) : null}
+
+      <View style={{ paddingHorizontal: 16 }}>
+        <SessionStatusLine
+          working={sessionBlocked}
+          runningCount={runningBackgroundTasks.length}
+          onOpenActivity={() => setActivityOpen(true)}
+        />
+      </View>
 
       <ComposerApprovalBar
         approvals={[...(detail?.permissions ?? []), ...(detail?.questions ?? [])]}
@@ -1841,6 +1866,23 @@ export default function SessionScreen() {
         onPublish={() => void publish()}
       />
 
+      <BackgroundActivitySheet
+        visible={activityOpen}
+        tasks={backgroundTasks}
+        onClose={() => setActivityOpen(false)}
+        onStop={(task: BackgroundTask) => {
+          // Each sub-agent owns a session, so a run is stopped precisely rather
+          // than by aborting the turn that spawned it.
+          if (!client || !task.childSessionID) return
+          void client.abortSession(task.childSessionID).catch((abortError: unknown) => {
+            setError(abortError instanceof Error ? abortError.message : String(abortError))
+          })
+        }}
+        onOpenTranscript={(task: BackgroundTask) => {
+          if (task.childSessionID) router.push(`/sessions/${task.childSessionID}`)
+        }}
+      />
+
       <SessionInspectorSheet
         visible={inspectorOpen}
         sessionID={sessionId ?? ""}
@@ -1855,6 +1897,10 @@ export default function SessionScreen() {
         onInspect={() => {
           actionsSheetRef.current?.dismiss(() => setInspectorOpen(true))
         }}
+        onOpenActivity={() => {
+          actionsSheetRef.current?.dismiss(() => setActivityOpen(true))
+        }}
+        activityCount={backgroundTasks.length}
         onRename={() => {
           actionsSheetRef.current?.dismiss(() => setRenameOpen(true))
         }}

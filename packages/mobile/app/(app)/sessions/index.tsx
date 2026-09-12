@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Pressable, RefreshControl, SectionList, Text, View } from "react-native"
+import { RefreshControl, SectionList, Text, View } from "react-native"
 import { router, useRootNavigationState, type Href } from "expo-router"
-import { ChevronDown, Folder } from "lucide-react-native"
+import { Folder } from "lucide-react-native"
 import { type ActionSheetRef } from "@/components/BottomSheet"
 import { WorkspaceSwitcherSheet } from "@/components/session/WorkspaceSwitcherSheet"
 import { SessionListItem } from "@/components/SessionListItem"
@@ -9,10 +9,13 @@ import { SessionListSkeleton } from "@/components/SessionListSkeleton"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { TextField } from "@/components/ui/TextField"
+import { FloatingDock } from "@/components/ui/FloatingDock"
+import { IconCircleButton } from "@/components/ui/IconCircleButton"
 import { TipsCard } from "@/components/ui/TipsCard"
 import { AppHeader } from "@/components/layout/AppHeader"
-import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
+import { CenteredScreenHeader } from "@/components/layout/CenteredScreenHeader"
+import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
+import { DeviceSection } from "@/components/session/DeviceSection"
 import { useServer } from "@/lib/server-context"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 import type { ProjectInfo, SessionSummary } from "@/lib/types"
@@ -176,34 +179,26 @@ export default function SessionsScreen() {
   )
 
   const hero = (
-    <AppHeader className="gap-3 pb-4">
-      <ScreenBrandHeader title="Sessions" right={<SettingsCircleButton />} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Change workspace. Current workspace: ${lastPathSegment(config?.directory)}`}
-        accessibilityState={{ disabled: projects.length === 0 }}
-        disabled={projects.length === 0}
-        onPress={() => workspaceSheetRef.current?.present()}
-        className="self-start flex-row items-center gap-2 rounded-full border border-border bg-panel px-3 py-2"
-        style={{ opacity: projects.length === 0 ? 0.5 : 1 }}
-      >
-        <Folder size={15} color={palette.muted} />
-        <Text className="max-w-[240px] text-[13px] font-medium text-ink" numberOfLines={1}>
-          {lastPathSegment(config?.directory)}
-        </Text>
-        <ChevronDown size={14} color={palette.muted} />
-      </Pressable>
-      <View className="flex-row items-center gap-3">
-        <View className="flex-1">
-          <TextField value={search} onChangeText={setSearch} placeholder="Search sessions" autoCapitalize="none" />
-        </View>
-        <ActionButton
-          label="New"
-          loading={creating}
-          onPress={() => void createSession()}
-          className="min-h-[44px] px-5 py-2.5"
-        />
-      </View>
+    <AppHeader className="gap-4 pb-2">
+      <CenteredScreenHeader
+        title="Sessions"
+        left={
+          // Dimming lives on a wrapper: IconCircleButton owns its own `style`.
+          <View style={{ opacity: projects.length === 0 ? 0.5 : 1 }}>
+            <IconCircleButton
+              size={36}
+              accessibilityLabel={`Change workspace. Current workspace: ${lastPathSegment(config?.directory)}`}
+              accessibilityHint="Opens the workspace switcher"
+              disabled={projects.length === 0}
+              onPress={() => workspaceSheetRef.current?.present()}
+            >
+              <Folder size={17} color={palette.ink} strokeWidth={2} />
+            </IconCircleButton>
+          </View>
+        }
+        right={<SettingsCircleButton />}
+      />
+      <DeviceSection url={config?.url} connected={Boolean(bootstrap)} version={bootstrap?.version} />
       {busyCount > 0 ? (
         <Text className="text-[13px] text-muted">
           {busyCount} {busyCount === 1 ? "agent" : "agents"} working
@@ -292,7 +287,17 @@ export default function SessionsScreen() {
           />
         }
         style={{ paddingHorizontal: 16 }}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 196 }}
+      />
+      <FloatingDock
+        actionLabel="New session"
+        onAction={() => void createSession()}
+        actionLoading={creating}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Filter sessions"
+        // Clears the native tab bar so the dock floats above it, not behind it.
+        bottomInset={54}
       />
       <WorkspaceSwitcherSheet
         sheetRef={workspaceSheetRef}

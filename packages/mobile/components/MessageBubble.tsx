@@ -30,7 +30,7 @@ import type {
 } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 import { highlightCode } from "@/lib/syntax"
-import { ToolCallView } from "@/components/ToolCallView"
+import { ToolRunGroup } from "@/components/session/ToolRunGroup"
 import { DiffViewer } from "@/components/DiffViewer"
 import { ArtifactMicroThumb, InlineArtifactCard } from "@/components/session/SessionPreviewStrip"
 import { useCopiedFeedback } from "@/hooks/use-copied-feedback"
@@ -1004,11 +1004,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
 
           {tools.length ? (
             <View className="border-t border-border/80 px-3.5 py-3">
-              <View className="gap-2">
-                {tools.map((part) => (
-                  <ToolCallView key={part.id} part={part} />
-                ))}
-              </View>
+              <ToolRunGroup tools={tools} />
             </View>
           ) : null}
 
