@@ -28,7 +28,6 @@ import type {
   TextPart,
   ToolPart,
 } from "@/lib/types"
-import { relativeTime } from "@/lib/types"
 import { highlightCode } from "@/lib/syntax"
 import { ToolRunGroup } from "@/components/session/ToolRunGroup"
 import { DiffViewer } from "@/components/DiffViewer"
@@ -39,6 +38,7 @@ import { extractMessageArtifacts, kindLabel, type SessionPreview } from "@/lib/s
 import { hasMathDelimiters, splitMathBlocks } from "@/lib/math-blocks"
 import { useUIStore } from "@/lib/store"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 // Synthetic text parts are the engine's own notes appended to a message (the
 // plan-mode `<system-reminder>`, the build-mode switch) — never something the
@@ -335,33 +335,42 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
               accessibilityRole="button"
               accessibilityLabel={`Open ${kindLabel(artifact.kind)} artifact`}
               style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                borderRadius: 8,
+                alignSelf: "stretch",
+                borderRadius: 12,
+                borderCurve: "continuous",
                 borderWidth: 1,
                 borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
                 backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
-                paddingHorizontal: 12,
-                paddingVertical: 11,
                 opacity: pressed ? 0.82 : 1,
+                transform: [{ scale: pressed ? 0.97 : 1 }],
               })}
             >
-              <ArtifactMicroThumb preview={artifact} />
-              <View className="min-w-0 flex-1">
-                <Text className="text-[10px] font-bold uppercase tracking-wide text-muted">
-                  {kindLabel(artifact.kind)}
-                </Text>
-                <Text numberOfLines={1} className="mt-0.5 text-[13px] font-semibold text-ink">
-                  {artifact.title}
-                </Text>
-              </View>
-              <View className="flex-row items-center gap-1">
-                <Text className="text-[12px] font-semibold" style={{ color: palette.accentLight }}>
-                  Open
-                </Text>
-                <ChevronRight size={14} color={palette.accentLight} strokeWidth={2.2} />
+              <View
+                style={{
+                  minHeight: 44,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                }}
+              >
+                <ArtifactMicroThumb preview={artifact} />
+                <View className="min-w-0 flex-1">
+                  <Text className="text-[10px] font-bold uppercase tracking-wide text-muted">
+                    {kindLabel(artifact.kind)}
+                  </Text>
+                  <Text numberOfLines={1} className="mt-0.5 text-[13px] font-semibold text-ink">
+                    {artifact.title}
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-[12px] font-semibold" style={{ color: palette.accentLight }}>
+                    Open
+                  </Text>
+                  <ChevronRight size={14} color={palette.accentLight} strokeWidth={2.2} />
+                </View>
               </View>
             </Pressable>
           ))}
@@ -384,26 +393,35 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
                   accessibilityLabel={`Open artifact link ${href}`}
                   accessibilityHint="Long press to copy the link"
                   style={({ pressed }) => ({
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                    borderRadius: 8,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
+                    alignSelf: "stretch",
+                    borderRadius: 12,
+                    borderCurve: "continuous",
                     backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
                     borderWidth: 1,
                     borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
                     opacity: pressed ? 0.82 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
                   })}
                 >
-                  <Link2 size={13} color={palette.accentLight} strokeWidth={2.2} />
-                  <Text
-                    numberOfLines={1}
-                    className="flex-1 text-[12px] font-medium underline"
-                    style={{ color: palette.accentLight }}
+                  <View
+                    style={{
+                      minHeight: 44,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                    }}
                   >
-                    {href}
-                  </Text>
+                    <Link2 size={13} color={palette.accentLight} strokeWidth={2.2} />
+                    <Text
+                      numberOfLines={1}
+                      className="flex-1 text-[12px] font-medium underline"
+                      style={{ color: palette.accentLight }}
+                    >
+                      {href}
+                    </Text>
+                  </View>
                 </Pressable>
               )
             })}
@@ -463,15 +481,21 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
           <Pressable
             onPress={handleCopy}
             hitSlop={8}
-            className="flex-row items-center gap-1.5 rounded-full px-2.5 py-1"
-            style={{
+            accessibilityRole="button"
+            accessibilityLabel={copied ? "Copied" : "Copy code"}
+            style={({ pressed }) => ({
+              borderRadius: 999,
               backgroundColor: copied ? `${palette.success}30` : `${palette.border}40`,
-            }}
+              opacity: pressed ? 0.82 : 1,
+              transform: [{ scale: pressed ? 0.97 : 1 }],
+            })}
           >
-            <Copy size={10} color={copied ? palette.success : palette.muted} strokeWidth={2} />
-            <Text className="text-[10px] font-semibold" style={{ color: copied ? palette.success : palette.muted }}>
-              {copied ? "Copied" : "Copy"}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6 }}>
+              <Copy size={10} color={copied ? palette.success : palette.muted} strokeWidth={2} />
+              <Text className="text-[10px] font-semibold" style={{ color: copied ? palette.success : palette.muted }}>
+                {copied ? "Copied" : "Copy"}
+              </Text>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -531,44 +555,36 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
 function ActionChip(props: { label: string; onPress(): void; icon: LucideIcon; muted?: boolean }) {
   const Icon = props.icon
   const { palette, isDark } = useAppTheme()
+  const color = props.muted ? palette.muted : palette.ink
 
   return (
     <Pressable
       onPress={props.onPress}
       accessibilityRole="button"
       accessibilityLabel={props.label}
+      hitSlop={4}
       style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
+        minHeight: 36,
         borderRadius: 18,
-        backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        transform: [{ scale: pressed ? 0.95 : 1 }],
+        borderCurve: "continuous",
+        backgroundColor: hexToRgba(palette.ink, isDark ? 0.1 : 0.06),
+        opacity: pressed ? 0.82 : 1,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
       })}
     >
-      <Icon
-        size={14}
-        color={
-          props.muted ? (isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)") : isDark ? "#FFFFFF" : palette.accent
-        }
-        strokeWidth={2}
-      />
-      <Text
-        className="text-[12px] font-medium"
+      <View
         style={{
-          color: props.muted
-            ? isDark
-              ? "rgba(255,255,255,0.4)"
-              : "rgba(0,0,0,0.4)"
-            : isDark
-              ? "#FFFFFF"
-              : palette.ink,
+          minHeight: 36,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingHorizontal: 14,
+          paddingVertical: 8,
         }}
       >
-        {props.label}
-      </Text>
+        <Icon size={14} color={color} strokeWidth={2} />
+        <Text style={{ color, ...typeStyle(12, { weight: "600" }) }}>{props.label}</Text>
+      </View>
     </Pressable>
   )
 }
@@ -609,8 +625,6 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
 
   const assistantInfo = !isUser ? (props.message.info as AssistantMessage) : null
   const assistantError = assistantInfo?.error?.data?.message
-  const cost = assistantInfo?.cost ?? 0
-  const tokens = assistantInfo ? assistantInfo.tokens.input + assistantInfo.tokens.output : 0
   const reasoningText = useMemo(
     () => reasoning.flatMap((part) => (part.text.trim() ? [part.text.trim()] : [])).join("\n\n"),
     [reasoning],
@@ -657,17 +671,6 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     }),
     [hasArtifactFences, palette.border, palette.codeBackground, props.message.info.id],
   )
-  const summaryLine = useMemo(() => {
-    const items = [] as string[]
-    if (tools.length) items.push(`${tools.length} tool${tools.length === 1 ? "" : "s"}`)
-    if (patch?.files.length) items.push(`${patch.files.length} file${patch.files.length === 1 ? "" : "s"}`)
-    if (files.length) items.push(`${files.length} attachment${files.length === 1 ? "" : "s"}`)
-    if (messageArtifacts.length)
-      items.push(`${messageArtifacts.length} artifact${messageArtifacts.length === 1 ? "" : "s"}`)
-    if (reasoning.length) items.push(`reasoning`)
-    return items.join(" · ")
-  }, [files.length, messageArtifacts.length, patch?.files.length, reasoning.length, tools.length])
-  const timeLabel = relativeTime(props.message.info.time.created)
 
   function toggleReasoning() {
     const next = !showReasoning
@@ -697,6 +700,15 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     setShowReasoning(next)
   }
 
+  const actionChips = canCopy || canFork || props.onDismiss
+  const userActions = actionChips ? (
+    <>
+      {canCopy ? <ActionChip label="Copy" onPress={() => props.onCopy?.(props.message)} icon={Copy} /> : null}
+      {canFork ? <ActionChip label="Reuse" onPress={() => props.onFork?.(props.message)} icon={GitBranch} /> : null}
+      {props.onDismiss ? <ActionChip label="Dismiss" onPress={props.onDismiss} icon={X} muted /> : null}
+    </>
+  ) : null
+
   const bubble = (
     <Pressable
       accessibilityRole="button"
@@ -710,69 +722,65 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
         void triggerHaptic("selection")
       }}
       delayLongPress={180}
+      style={{ width: "100%", alignSelf: "stretch" }}
     >
-      <View className={`mb-3 ${isUser ? "items-end" : "items-start"}`}>
-        <View
-          className={`max-w-[95%] min-w-0 overflow-hidden rounded-[8px] border ${isUser ? "border-accent/35 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
-          style={{
-            shadowColor: palette.shadow,
-            shadowOpacity: isDark ? 0.18 : 0.1,
-            shadowRadius: 10,
-            shadowOffset: { width: 0, height: 6 },
-          }}
-        >
-          <View className="min-w-0 flex-row items-start justify-between gap-3 px-3.5 py-3">
-            <View className="min-w-0 flex-1">
-              <View className="flex-row flex-wrap items-center gap-2">
-                <View
-                  style={{
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: isUser
-                      ? hexToRgba(palette.ink, isDark ? 0.12 : 0.18)
-                      : isDark
-                        ? hexToRgba(palette.ink, 0.08)
-                        : hexToRgba(palette.border, 0.72),
-                    backgroundColor: isUser
-                      ? hexToRgba(palette.ink, isDark ? 0.08 : 0.1)
-                      : isDark
-                        ? "rgba(255,255,255,0.04)"
-                        : "rgba(247,246,242,0.78)",
-                    paddingHorizontal: 10,
-                    paddingVertical: 5,
-                  }}
-                >
-                  <Text className="text-[12px] font-medium text-muted">{isUser ? "You" : "Nikcli"}</Text>
-                  {props.queued ? (
-                    <View
-                      style={{
-                        borderRadius: 999,
-                        paddingHorizontal: 7,
-                        paddingVertical: 2,
-                        backgroundColor: hexToRgba(palette.ink, 0.1),
-                      }}
-                    >
-                      <Text className="text-[10px] font-bold uppercase tracking-wide text-muted">Queued</Text>
-                    </View>
-                  ) : null}
-                </View>
-                {summaryLine ? <Text className="text-[11px] leading-4 text-soft">{summaryLine}</Text> : null}
-              </View>
-            </View>
-            <View className="items-end gap-1">
-              {assistantInfo && (cost > 0 || tokens > 0) ? (
-                <Text className="text-[10px] text-muted" style={{ fontVariant: ["tabular-nums"] }}>
-                  {cost > 0 ? `$${cost < 0.001 ? cost.toFixed(5) : cost.toFixed(4)}` : null}
-                  {cost > 0 && tokens > 0 ? " · " : null}
-                  {tokens > 0 ? `${tokens.toLocaleString()} tok` : null}
+      <View
+        style={{
+          marginBottom: 12,
+          paddingHorizontal: 2,
+          width: "100%",
+          alignItems: isUser ? "flex-end" : "flex-start",
+        }}
+      >
+        {isUser ? (
+          <>
+            <View
+              style={{
+                maxWidth: "82%",
+                alignSelf: "flex-end",
+                overflow: "hidden",
+                borderRadius: 18,
+                borderCurve: "continuous",
+                backgroundColor: hexToRgba(palette.ink, isDark ? 0.14 : 0.08),
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+            >
+              {props.queued ? (
+                <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "600", marginBottom: 6 }}>Queued</Text>
+              ) : null}
+              {text ? (
+                <Text selectable style={{ color: palette.ink, textAlign: "left", ...typeStyle(16) }}>
+                  {text}
                 </Text>
               ) : null}
-              <Text className="text-[10px] text-muted">{timeLabel}</Text>
+              {files.length ? (
+                <View className="mt-2 gap-2">
+                  {files.map((part) => (
+                    <MessageFileView key={part.id} part={part} />
+                  ))}
+                </View>
+              ) : null}
             </View>
-          </View>
-
+            {props.isActive && userActions ? (
+              <View
+                style={{
+                  width: "100%",
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
+                  gap: 8,
+                  paddingTop: 8,
+                }}
+              >
+                {userActions}
+              </View>
+            ) : null}
+          </>
+        ) : (
+        <View style={{ width: "100%" }}>
           {text || assistantError ? (
-            <View className="min-w-0 border-t border-border/80 px-3.5 pt-3 pb-2">
+            <View className="min-w-0 pb-2">
               {text ? (
                 <MessageBodyMarkdown
                   text={text}
@@ -782,8 +790,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                   style={{
                     body: {
                       color: palette.ink,
-                      fontSize: 14,
-                      lineHeight: 22,
+                      fontSize: 17,
+                      lineHeight: 24,
                       marginBottom: 0,
                     },
                     paragraph: { marginTop: 0, marginBottom: 8 },
@@ -933,8 +941,19 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
               ) : null}
 
               {assistantError ? (
-                <View className="rounded-[8px] border border-danger/25 bg-danger/10 px-3 py-2.5">
-                  <Text selectable className="text-sm leading-5" style={{ color: palette.danger }}>
+                <View
+                  style={{
+                    alignSelf: "stretch",
+                    borderRadius: 14,
+                    borderCurve: "continuous",
+                    borderWidth: 1,
+                    borderColor: hexToRgba(palette.danger, 0.2),
+                    backgroundColor: hexToRgba(palette.danger, 0.08),
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
+                >
+                  <Text selectable style={{ color: palette.danger, ...typeStyle(14) }}>
                     {assistantError}
                   </Text>
                 </View>
@@ -943,7 +962,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
           ) : null}
 
           {files.length ? (
-            <View className="gap-2 border-t border-border/80 px-3.5 py-3">
+            <View className="gap-2 py-3">
               {files.map((part) => (
                 <MessageFileView key={part.id} part={part} />
               ))}
@@ -961,32 +980,37 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
           ) : null}
 
           {reasoningVisible ? (
-            <View className="border-t border-border/80 px-3.5 py-3">
+            <View className="py-3">
               <View className="rounded-[8px] border border-border bg-background/55 p-3">
                 <Pressable
                   onPress={toggleReasoning}
                   accessibilityRole="button"
                   accessibilityState={{ expanded: reasoningExpanded }}
                   accessibilityLabel={reasoningExpanded ? "Collapse reasoning" : "Expand reasoning"}
-                  className="flex-row items-center gap-2"
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.82 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                  })}
                 >
-                  <Animated.View
-                    style={{
-                      transform: [
-                        {
-                          rotate: reasoningRotation.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ["0deg", "90deg"],
-                          }),
-                        },
-                      ],
-                    }}
-                  >
-                    <ChevronRight size={13} color={palette.accentLight} strokeWidth={2.1} />
-                  </Animated.View>
-                  <Text className="flex-1 text-[12px] font-medium text-muted">
-                    {wordCount > 0 ? `Reasoning · ${wordCount.toLocaleString()} words` : "Reasoning"}
-                  </Text>
+                  <View style={{ minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Animated.View
+                      style={{
+                        transform: [
+                          {
+                            rotate: reasoningRotation.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: ["0deg", "90deg"],
+                            }),
+                          },
+                        ],
+                      }}
+                    >
+                      <ChevronRight size={13} color={palette.accentLight} strokeWidth={2.1} />
+                    </Animated.View>
+                    <Text className="flex-1 text-[12px] font-medium text-muted">
+                      {wordCount > 0 ? `Reasoning · ${wordCount.toLocaleString()} words` : "Reasoning"}
+                    </Text>
+                  </View>
                 </Pressable>
                 {reasoningExpanded ? (
                   <Text selectable className="mt-2 text-sm leading-5 text-soft">
@@ -1003,13 +1027,13 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
           ) : null}
 
           {tools.length ? (
-            <View className="border-t border-border/80 px-3.5 py-3">
+            <View className="py-1">
               <ToolRunGroup tools={tools} />
             </View>
           ) : null}
 
           {patch ? (
-            <View className="border-t border-border/80 px-3.5 py-3">
+            <View className="py-3">
               <View className="rounded-[8px] border border-border bg-background/55 p-3">
                 <View className="flex-row items-center justify-between gap-3">
                   <Text className="flex-1 text-sm font-semibold text-ink">Patch preview</Text>
@@ -1043,34 +1067,45 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             </View>
           ) : null}
 
-          {props.isActive && (canCopy || canFork || props.onDismiss) ? (
-            <View className="flex-row flex-wrap gap-2 border-t border-border/80 px-3.5 py-3">
-              {canCopy ? <ActionChip label="Copy" onPress={() => props.onCopy?.(props.message)} icon={Copy} /> : null}
-              {canFork ? (
-                <ActionChip label="Reuse" onPress={() => props.onFork?.(props.message)} icon={GitBranch} />
-              ) : null}
-              {props.onDismiss ? <ActionChip label="Dismiss" onPress={props.onDismiss} icon={X} muted /> : null}
-            </View>
+          {props.isActive && userActions ? (
+            <View className="flex-row flex-wrap gap-2 py-3">{userActions}</View>
           ) : null}
         </View>
+        )}
       </View>
     </Pressable>
   )
 
-  if (!gestures.bubbleSwipeActions || (!canCopy && !canFork && !props.onDismiss)) {
+  if (!gestures.bubbleSwipeActions || !actionChips) {
     return bubble
   }
 
+  const swipeActions = (
+    <View
+      style={{
+        marginBottom: 12,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: isUser ? "flex-end" : "flex-start",
+        gap: 8,
+        paddingHorizontal: 4,
+        ...(isUser ? { marginRight: 10 } : { marginLeft: 10 }),
+      }}
+    >
+      {canCopy ? <ActionChip label="Copy" onPress={() => props.onCopy?.(props.message)} icon={Copy} /> : null}
+      {canFork ? <ActionChip label="Reuse" onPress={() => props.onFork?.(props.message)} icon={GitBranch} /> : null}
+      {props.onDismiss ? <ActionChip label="Hide" onPress={props.onDismiss} icon={X} muted /> : null}
+    </View>
+  )
+
   return (
     <Swipeable
+      containerStyle={{ width: "100%", alignSelf: "stretch" }}
+      childrenContainerStyle={{ width: "100%", alignSelf: "stretch" }}
+      overshootLeft={false}
       overshootRight={false}
-      renderRightActions={() => (
-        <View className="mb-3 ml-2 flex-row items-center gap-2 self-stretch">
-          {canCopy ? <ActionChip label="Copy" onPress={() => props.onCopy?.(props.message)} icon={Copy} /> : null}
-          {canFork ? <ActionChip label="Reuse" onPress={() => props.onFork?.(props.message)} icon={GitBranch} /> : null}
-          {props.onDismiss ? <ActionChip label="Hide" onPress={props.onDismiss} icon={X} muted /> : null}
-        </View>
-      )}
+      renderLeftActions={isUser ? () => swipeActions : undefined}
+      renderRightActions={isUser ? undefined : () => swipeActions}
       onSwipeableWillOpen={() => {
         props.onActivate?.(props.message.info.id)
         void triggerHaptic("selection")

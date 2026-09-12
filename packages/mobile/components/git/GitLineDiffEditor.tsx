@@ -71,30 +71,14 @@ function LineView({
   const isRemove = line.type === "remove"
 
   const backgroundColor = isHeader
-    ? isDark
-      ? "rgba(255,255,255,0.05)"
-      : "rgba(0,0,0,0.03)"
+    ? hexToRgba(palette.ink, 0.05)
     : isAdd
-      ? isDark
-        ? "rgba(31,138,101,0.15)"
-        : "rgba(31,138,101,0.08)"
+      ? hexToRgba(palette.success, isDark ? 0.15 : 0.08)
       : isRemove
-        ? isDark
-          ? "rgba(207,45,86,0.15)"
-          : "rgba(207,45,86,0.08)"
+        ? hexToRgba(palette.danger, isDark ? 0.15 : 0.08)
         : "transparent"
 
-  const textColor = isHeader
-    ? palette.accentLight
-    : isAdd
-      ? isDark
-        ? "#4ade80"
-        : "#16a34a"
-      : isRemove
-        ? isDark
-          ? "#f87171"
-          : "#dc2626"
-        : palette.ink
+  const textColor = isHeader ? palette.accentLight : isAdd ? palette.success : isRemove ? palette.danger : palette.ink
 
   const prefix = isHeader ? "" : isAdd ? "+" : isRemove ? "-" : " "
 
@@ -254,7 +238,7 @@ export function GitLineDiffEditor({
                     width: 6,
                     height: 6,
                     borderRadius: 999,
-                    backgroundColor: diff.stage === "staged" ? "#22c55e" : "#f59e0b",
+                    backgroundColor: diff.stage === "staged" ? palette.success : palette.warn,
                   }}
                 />
               ) : null}
@@ -289,15 +273,15 @@ export function GitLineDiffEditor({
         }}
       >
         <View style={{ flexDirection: "row", gap: 12 }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", color: "#22c55e" }}>+{stats.additions}</Text>
-          <Text style={{ fontSize: 11, fontWeight: "600", color: "#ef4444" }}>-{stats.deletions}</Text>
+          <Text style={{ fontSize: 11, fontWeight: "600", color: palette.success }}>+{stats.additions}</Text>
+          <Text style={{ fontSize: 11, fontWeight: "600", color: palette.danger }}>-{stats.deletions}</Text>
           <Text style={{ fontSize: 11, fontWeight: "600", color: palette.soft }}>{diffs.length} files</Text>
           {currentDiff.stage ? (
             <Text
               style={{
                 fontSize: 11,
                 fontWeight: "700",
-                color: currentDiff.stage === "staged" ? "#22c55e" : "#f59e0b",
+                color: currentDiff.stage === "staged" ? palette.success : palette.warn,
               }}
             >
               {currentDiff.stage === "staged" ? "staged" : "worktree"}
@@ -313,15 +297,15 @@ export function GitLineDiffEditor({
             paddingHorizontal: 8,
             paddingVertical: 4,
             borderRadius: 6,
-            backgroundColor: copied ? "rgba(31,138,101,0.15)" : "transparent",
+            backgroundColor: copied ? hexToRgba(palette.success, 0.15) : "transparent",
           }}
         >
-          <Copy size={12} color={copied ? "#22c55e" : palette.muted} />
+          <Copy size={12} color={copied ? palette.success : palette.muted} />
           <Text
             style={{
               fontSize: 10,
               fontWeight: "600",
-              color: copied ? "#22c55e" : palette.muted,
+              color: copied ? palette.success : palette.muted,
             }}
           >
             {copied ? "Copied" : "Copy"}

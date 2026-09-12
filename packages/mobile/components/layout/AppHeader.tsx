@@ -31,7 +31,7 @@ export function AppHeader({ chips, children, className = "gap-3 pb-5" }: AppHead
   return (
     <View className={className}>
       {visibleChips.length > 0 ? (
-        <View className="flex-row flex-wrap gap-2">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {visibleChips.map((chip, index) => (
             <InfoChip key={`${chip.label}-${index}`} label={chip.label} tone={chip.tone} />
           ))}
@@ -64,7 +64,13 @@ export function SettingsHeaderButton() {
         onPressIn={press.onPressIn}
         onPressOut={press.onPressOut}
         onPress={() => router.push("/more/settings")}
-        style={({ pressed }) => ({ opacity: pressed ? 0.68 : 1 })}
+        style={({ pressed }) => ({
+          minWidth: 44,
+          minHeight: 44,
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: pressed ? 0.68 : 1,
+        })}
       >
         <Settings size={20} color={palette.ink} strokeWidth={2} />
       </Pressable>

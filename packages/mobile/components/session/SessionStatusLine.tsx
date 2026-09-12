@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react"
-import { Animated, Pressable, Text, View } from "react-native"
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native"
 import { Sparkles } from "lucide-react-native"
 import { usePrefersReducedMotion } from "@/lib/animation"
 import { triggerHaptic } from "@/lib/haptics"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { type as typeStyle } from "@/lib/typography"
 
 type SessionStatusLineProps = {
@@ -20,7 +20,7 @@ type SessionStatusLineProps = {
  * background-activity sheet.
  */
 export function SessionStatusLine({ label, working, runningCount, onOpenActivity }: SessionStatusLineProps) {
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
   const prefersReducedMotion = usePrefersReducedMotion()
   const spinRef = useRef<Animated.Value | null>(null)
   if (spinRef.current === null) spinRef.current = new Animated.Value(0)
@@ -41,7 +41,23 @@ export function SessionStatusLine({ label, working, runningCount, onOpenActivity
   const countLabel = `${runningCount} ${runningCount === 1 ? "task" : "tasks"} running`
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10 }}>
+    <View
+      style={{
+        alignSelf: "stretch",
+        minHeight: 44,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 6,
+        borderRadius: 16,
+        borderCurve: "continuous",
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
+        backgroundColor: isDark ? hexToRgba(palette.ink, 0.04) : hexToRgba(palette.ink, 0.03),
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+      }}
+    >
       <Animated.View
         style={{
           transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }],
@@ -50,7 +66,7 @@ export function SessionStatusLine({ label, working, runningCount, onOpenActivity
         <Sparkles size={16} color={palette.warn} strokeWidth={2.2} />
       </Animated.View>
       {working ? (
-        <Text style={{ color: palette.warn, ...typeStyle(15, { weight: "500" }) }} numberOfLines={1}>
+        <Text style={{ flexShrink: 1, color: palette.warn, ...typeStyle(15, { weight: "500" }) }} numberOfLines={1}>
           {label ?? "Working"}…
         </Text>
       ) : null}
@@ -64,7 +80,12 @@ export function SessionStatusLine({ label, working, runningCount, onOpenActivity
               void triggerHaptic("selection")
               onOpenActivity()
             }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            style={({ pressed }) => ({
+              minHeight: 44,
+              justifyContent: "center",
+              opacity: pressed ? 0.6 : 1,
+              transform: [{ scale: pressed ? 0.97 : 1 }],
+            })}
           >
             <Text style={{ color: palette.accentLight, ...typeStyle(15, { weight: "500" }) }}>{countLabel}</Text>
           </Pressable>

@@ -3,6 +3,7 @@ import { AlertTriangle } from "lucide-react-native"
 import { Animated, Pressable, Text, View } from "react-native"
 import { DURATION_MS, Ease, usePrefersReducedMotion } from "@/lib/animation"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 export function ErrorBanner(props: { message: string; actionLabel?: string; onAction?(): void }) {
   const { palette } = useAppTheme()
@@ -24,8 +25,9 @@ export function ErrorBanner(props: { message: string; actionLabel?: string; onAc
 
   return (
     <Animated.View
-      className="overflow-hidden p-4"
       style={{
+        overflow: "hidden",
+        padding: 16,
         borderRadius: 16,
         borderCurve: "continuous",
         borderWidth: 1,
@@ -37,11 +39,16 @@ export function ErrorBanner(props: { message: string; actionLabel?: string; onAc
           : [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-4, 0] }) }],
       }}
     >
-      <View className="flex-row items-start gap-3">
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
         <AlertTriangle size={16} color={palette.danger} strokeWidth={2.1} style={{ marginTop: 2 }} />
-        <View className="flex-1 gap-1">
-          <Text style={{ fontSize: 13, fontWeight: "600", color: palette.danger }}>Needs attention</Text>
-          <Text selectable className="text-sm leading-5 text-soft">
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={{ color: palette.danger, ...typeStyle(13, { weight: "600" }) }}>Needs attention</Text>
+          <Text
+            selectable
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            style={{ color: palette.soft, ...typeStyle(14) }}
+          >
             {props.message}
           </Text>
           {props.actionLabel && props.onAction ? (
@@ -49,9 +56,15 @@ export function ErrorBanner(props: { message: string; actionLabel?: string; onAc
               onPress={props.onAction}
               accessibilityRole="button"
               accessibilityLabel={props.actionLabel}
-              style={({ pressed }) => ({ marginTop: 8, opacity: pressed ? 0.75 : 1, alignSelf: "flex-start" })}
+              style={({ pressed }) => ({
+                marginTop: 4,
+                minHeight: 44,
+                justifyContent: "center",
+                opacity: pressed ? 0.75 : 1,
+                alignSelf: "flex-start",
+              })}
             >
-              <Text style={{ fontSize: 13, fontWeight: "700", color: palette.danger }}>{props.actionLabel}</Text>
+              <Text style={{ color: palette.danger, ...typeStyle(13, { weight: "700" }) }}>{props.actionLabel}</Text>
             </Pressable>
           ) : null}
         </View>

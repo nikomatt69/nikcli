@@ -112,9 +112,12 @@ function toTask(part: ToolPart): BackgroundTask | null {
   const input = (state.input ?? {}) as Record<string, unknown>
   const status = statusOf(state)
 
-  // Every agent run belongs in the sheet; a shell command only earns a row while
-  // it is still going, otherwise the list fills up with finished one-liners.
-  if (kind === "shell" && status !== "running") return null
+  const detached = metadata["background"] === true
+
+  // Every agent run belongs in the sheet. A shell command earns a row while it
+  // is live, or after it finishes if the model detached it — otherwise the list
+  // fills up with ordinary one-liners.
+  if (kind === "shell" && status !== "running" && !detached) return null
 
   return {
     id: part.id,
@@ -127,7 +130,7 @@ function toTask(part: ToolPart): BackgroundTask | null {
     command: kind === "shell" ? stringField(input, "command") : undefined,
     ...timesOf(state),
     toolUses: toolUsesOf(state),
-    detached: metadata["background"] === true,
+    detached,
   }
 }
 
@@ -178,7 +181,8 @@ export function durationLabel(task: BackgroundTask, now: number): string {
 /** 118_412 → "118K". Token counts are read at a glance, never exactly. */
 export function formatTokenCount(total: number): string {
   if (total < 1000) return String(total)
-  if (total < 1_000_000) return `${Math.round(total / 100) / 10}K`.replace(".0K", "K")
+  if (total < 10_000) return `${Math.round(total / 100) / 10}K`.replace(".0K", "K")
+  if (total < 1_000_000) return `${Math.round(total / 1000)}K`
   return `${Math.round(total / 100_000) / 10}M`.replace(".0M", "M")
 }
 

@@ -11,6 +11,7 @@ import {
   type PermissionPreset,
 } from "@/lib/permission-presets"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 type Props = {
   sheetRef: RefObject<ActionSheetRef | null>
@@ -52,9 +53,11 @@ export function PermissionModeSheet({ sheetRef, mode, saving = false, onSelect, 
   return (
     <ActionSheet ref={sheetRef} snapPoints={[420]}>
       <View className="border-b border-border px-5 pb-4">
-        <Text className="text-[12px] font-medium text-muted">Permissions</Text>
-        <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink">{permissionModeTitle(mode)}</Text>
-        <Text className="mt-1 text-[12px] leading-4 text-muted">
+        <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Permissions</Text>
+        <Text className="mt-1.5" style={{ color: palette.ink, ...typeStyle(18, { weight: "700" }) }}>
+          {permissionModeTitle(mode)}
+        </Text>
+        <Text className="mt-1" style={{ color: palette.muted, ...typeStyle(12) }}>
           Choose how the host asks before tool actions. Changes apply to this server for all sessions.
         </Text>
       </View>

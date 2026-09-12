@@ -13,11 +13,12 @@ import {
   TextInput,
   View,
 } from "react-native"
-import { Clock, FileCode2, FolderSearch, Hash, Search, X } from "lucide-react-native"
+import { Clock, FileCode2, Hash, Search, X } from "lucide-react-native"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 import type { SearchMatch } from "@/lib/types"
 import { triggerHaptic } from "@/lib/haptics"
 import { AdaptiveBlur } from "@/components/GlassView"
+import { EmptyState } from "@/components/ui/EmptyState"
 import { SPRING_CONFIG, SPRING_SETTLE, usePrefersReducedMotion } from "@/lib/animation"
 import * as SecureStore from "expo-secure-store"
 
@@ -377,7 +378,7 @@ export function FileSearchSheet(props: {
               overflow: "hidden",
               borderWidth: 1,
               borderColor: isDark ? "rgba(255,255,255,0.11)" : "rgba(255,255,255,0.82)",
-              shadowColor: isDark ? "#000" : "#94a3b8",
+              shadowColor: isDark ? "#000" : hexToRgba(palette.ink, 0.28),
               shadowOpacity: isDark ? 0.5 : 0.18,
               shadowRadius: 24,
               shadowOffset: { width: 0, height: -8 },
@@ -422,8 +423,8 @@ export function FileSearchSheet(props: {
                   accessibilityLabel="Close file search"
                   hitSlop={8}
                   style={({ pressed }) => ({
-                    width: 34,
-                    height: 34,
+                    width: 44,
+                    height: 44,
                     borderRadius: 8,
                     alignItems: "center",
                     justifyContent: "center",
@@ -512,12 +513,11 @@ export function FileSearchSheet(props: {
                 }
                 ListEmptyComponent={
                   !loading && query.trim() ? (
-                    <View style={{ alignItems: "center", padding: 32, gap: 8 }}>
-                      <FolderSearch size={24} color={palette.muted} strokeWidth={1.8} />
-                      <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "700" }}>No matches</Text>
-                      <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center", lineHeight: 18 }}>
-                        Try a symbol, filename fragment, or exact error text.
-                      </Text>
+                    <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+                      <EmptyState
+                        title="No matches"
+                        description="Try a symbol, filename fragment, or exact error text."
+                      />
                     </View>
                   ) : null
                 }
@@ -591,14 +591,11 @@ export function FileSearchSheet(props: {
                 ))}
               </View>
             ) : (
-              <View style={{ alignItems: "center", padding: 32 }}>
-                <FolderSearch size={24} color={palette.muted} strokeWidth={1.8} />
-                <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "700", marginTop: 8 }}>
-                  Search every file
-                </Text>
-                <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center", lineHeight: 18, marginTop: 4 }}>
-                  Start typing to search code, docs, configs, and generated output indexed by the host.
-                </Text>
+              <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+                <EmptyState
+                  title="Search every file"
+                  description="Start typing to search code, docs, configs, and generated output indexed by the host."
+                />
               </View>
             )}
           </View>

@@ -1,6 +1,6 @@
 import { Text, View } from "react-native"
 import type { GitFileStatus } from "@/lib/types"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 type StatusType = GitFileStatus["status"]
 
@@ -11,72 +11,26 @@ interface GitFileStatusBadgeProps {
   compact?: boolean
 }
 
-const STATUS_CONFIG: Record<
-  StatusType,
-  {
-    label: string
-    lightBg: string
-    darkBg: string
-    lightBorder: string
-    darkBorder: string
-    lightText: string
-    darkText: string
-  }
-> = {
-  added: {
-    label: "A",
-    lightBg: "rgba(31,138,101,0.12)",
-    darkBg: "rgba(31,138,101,0.15)",
-    lightBorder: "rgba(31,138,101,0.25)",
-    darkBorder: "rgba(31,138,101,0.35)",
-    lightText: "#16a34a",
-    darkText: "#4ade80",
-  },
-  modified: {
-    label: "M",
-    lightBg: "rgba(20,20,19,0.12)",
-    darkBg: "rgba(20,20,19,0.15)",
-    lightBorder: "rgba(20,20,19,0.25)",
-    darkBorder: "rgba(20,20,19,0.35)",
-    lightText: "#141413",
-    darkText: "#3b82f6",
-  },
-  deleted: {
-    label: "D",
-    lightBg: "rgba(207,45,86,0.12)",
-    darkBg: "rgba(207,45,86,0.15)",
-    lightBorder: "rgba(207,45,86,0.25)",
-    darkBorder: "rgba(207,45,86,0.35)",
-    lightText: "#dc2626",
-    darkText: "#f87171",
-  },
-  renamed: {
-    label: "R",
-    lightBg: "rgba(168,85,247,0.12)",
-    darkBg: "rgba(168,85,247,0.15)",
-    lightBorder: "rgba(168,85,247,0.25)",
-    darkBorder: "rgba(168,85,247,0.35)",
-    lightText: "#a855f7",
-    darkText: "#c084fc",
-  },
-  untracked: {
-    label: "U",
-    lightBg: "rgba(107,114,128,0.12)",
-    darkBg: "rgba(107,114,128,0.15)",
-    lightBorder: "rgba(107,114,128,0.25)",
-    darkBorder: "rgba(107,114,128,0.35)",
-    lightText: "#6b7280",
-    darkText: "#9ca3af",
-  },
+const STATUS_LABEL: Record<StatusType, string> = {
+  added: "A",
+  modified: "M",
+  deleted: "D",
+  renamed: "R",
+  untracked: "U",
 }
 
 export function GitFileStatusBadge({ status, additions = 0, deletions = 0, compact = false }: GitFileStatusBadgeProps) {
-  const { isDark } = useAppTheme()
-  const config = STATUS_CONFIG[status]
-
-  const backgroundColor = isDark ? config.darkBg : config.lightBg
-  const borderColor = isDark ? config.darkBorder : config.lightBorder
-  const textColor = isDark ? config.darkText : config.lightText
+  const { palette } = useAppTheme()
+  const color =
+    status === "added"
+      ? palette.success
+      : status === "deleted"
+        ? palette.danger
+        : status === "modified"
+          ? palette.accent
+          : status === "renamed"
+            ? palette.warn
+            : palette.muted
 
   return (
     <View
@@ -91,9 +45,9 @@ export function GitFileStatusBadge({ status, additions = 0, deletions = 0, compa
           width: compact ? 18 : 22,
           height: compact ? 18 : 22,
           borderRadius: 5,
-          backgroundColor,
+          backgroundColor: hexToRgba(color, 0.14),
           borderWidth: 1,
-          borderColor,
+          borderColor: hexToRgba(color, 0.28),
           alignItems: "center",
           justifyContent: "center",
         }}
@@ -102,11 +56,11 @@ export function GitFileStatusBadge({ status, additions = 0, deletions = 0, compa
           style={{
             fontSize: compact ? 9 : 11,
             fontWeight: "800",
-            color: textColor,
+            color,
             letterSpacing: 0.5,
           }}
         >
-          {config.label}
+          {STATUS_LABEL[status]}
         </Text>
       </View>
       {!compact && (additions > 0 || deletions > 0) && (
@@ -116,7 +70,7 @@ export function GitFileStatusBadge({ status, additions = 0, deletions = 0, compa
               style={{
                 fontSize: 10,
                 fontWeight: "600",
-                color: "#22c55e",
+                color: palette.success,
                 fontVariant: ["tabular-nums"],
               }}
             >
@@ -128,7 +82,7 @@ export function GitFileStatusBadge({ status, additions = 0, deletions = 0, compa
               style={{
                 fontSize: 10,
                 fontWeight: "600",
-                color: "#ef4444",
+                color: palette.danger,
                 fontVariant: ["tabular-nums"],
               }}
             >

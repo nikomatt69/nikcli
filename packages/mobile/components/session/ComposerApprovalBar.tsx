@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react-native"
 import { triggerHaptic } from "@/lib/haptics"
-import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { contrastOn, hexToRgba, useAppTheme } from "@/lib/theme"
 import type { ApprovalRequest, PermissionRequest, QuestionInfo, QuestionOption, QuestionRequest } from "@/lib/types"
 
 export type ApprovalBarProps = {
@@ -38,13 +38,13 @@ function ApprovalItemIcon(props: { type: ApprovalType; permission?: string; isDa
         style={{
           borderRadius: 10,
           borderWidth: 1,
-          borderColor: props.isDark ? "rgba(96,165,250,0.28)" : "rgba(59,130,246,0.22)",
-          backgroundColor: props.isDark ? "rgba(96,165,250,0.12)" : "rgba(59,130,246,0.10)",
+          borderColor: hexToRgba(palette.accent, 0.28),
+          backgroundColor: hexToRgba(palette.accent, 0.12),
           padding: 5,
           flexShrink: 0,
         }}
       >
-        <HelpCircle size={13} color={props.isDark ? "#60a5fa" : "#3b82f6"} strokeWidth={2.1} />
+        <HelpCircle size={13} color={palette.accent} strokeWidth={2.1} />
       </View>
     )
   }
@@ -57,13 +57,13 @@ function ApprovalItemIcon(props: { type: ApprovalType; permission?: string; isDa
         style={{
           borderRadius: 10,
           borderWidth: 1,
-          borderColor: hexToRgba(palette.success, props.isDark ? 0.28 : 0.22),
+          borderColor: hexToRgba(palette.success, 0.28),
           backgroundColor: hexToRgba(palette.success, 0.1),
           padding: 5,
           flexShrink: 0,
         }}
       >
-        <MapPin size={13} color={props.isDark ? "#34d399" : "#059669"} strokeWidth={2.1} />
+        <MapPin size={13} color={palette.success} strokeWidth={2.1} />
       </View>
     )
   }
@@ -73,13 +73,13 @@ function ApprovalItemIcon(props: { type: ApprovalType; permission?: string; isDa
         style={{
           borderRadius: 10,
           borderWidth: 1,
-          borderColor: props.isDark ? "rgba(167,139,250,0.28)" : "rgba(139,92,246,0.22)",
-          backgroundColor: props.isDark ? "rgba(167,139,250,0.10)" : "rgba(139,92,246,0.10)",
+          borderColor: hexToRgba(palette.accent, 0.28),
+          backgroundColor: hexToRgba(palette.accent, 0.1),
           padding: 5,
           flexShrink: 0,
         }}
       >
-        <MapPin size={13} color={props.isDark ? "#a78bfa" : "#7c3aed"} strokeWidth={2.1} />
+        <MapPin size={13} color={palette.accent} strokeWidth={2.1} />
       </View>
     )
   }
@@ -95,7 +95,7 @@ function ApprovalItemIcon(props: { type: ApprovalType; permission?: string; isDa
         flexShrink: 0,
       }}
     >
-      <Shield size={13} color={props.isDark ? "#fbbf24" : "#d97706"} strokeWidth={2.1} />
+      <Shield size={13} color={palette.warn} strokeWidth={2.1} />
     </View>
   )
 }
@@ -125,7 +125,7 @@ function PermissionApprovalView(props: {
           fontSize: 13,
           lineHeight: 16,
           fontWeight: "500",
-          color: isDark ? "rgba(255,255,255,0.78)" : "#55534d",
+          color: palette.soft,
         }}
       >
         {command ? `${permissionName} wants to run ` : `${permissionName} needs your approval`}
@@ -133,7 +133,7 @@ function PermissionApprovalView(props: {
           <Text
             selectable
             style={{
-              color: isDark ? "#ececea" : "#141413",
+              color: palette.ink,
               fontFamily: "monospace",
               fontSize: 10.5,
               fontWeight: "600",
@@ -155,17 +155,17 @@ function PermissionApprovalView(props: {
             minHeight: 44,
             borderRadius: 999,
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.16)" : "#dad8d1",
-            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.60)",
+            borderColor: hexToRgba(palette.ink, 0.16),
+            backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.04),
             alignItems: "center",
             justifyContent: "center",
             opacity: pressed ? 0.7 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
+            transform: [{ scale: pressed ? 0.97 : 1 }],
           })}
         >
           <Text
             style={{
-              color: isDark ? "#8f8f8b" : "#75746e",
+              color: palette.muted,
               fontSize: 13,
               fontWeight: "700",
             }}
@@ -181,16 +181,16 @@ function PermissionApprovalView(props: {
             flex: 1,
             minHeight: 44,
             borderRadius: 999,
-            backgroundColor: isDark ? "#ececea" : "#141413",
+            backgroundColor: palette.accent,
             alignItems: "center",
             justifyContent: "center",
             opacity: pressed ? 0.76 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
+            transform: [{ scale: pressed ? 0.97 : 1 }],
           })}
         >
           <Text
             style={{
-              color: isDark ? "#141413" : "#f7f6f2",
+              color: contrastOn(palette.accent),
               fontSize: 13,
               fontWeight: "700",
             }}
@@ -223,10 +223,8 @@ function QuestionApprovalView(props: {
 
   if (!question) return null
 
-  // Determine colors based on permission type (plan_enter vs plan_exit)
-  const perm = props.request.sessionID // Using sessionID as a hint, though questions don't have permission field
-  const accentColor = isDark ? "#60a5fa" : "#3b82f6"
-  const optionBgSelected = isDark ? "rgba(96,165,250,0.15)" : "rgba(59,130,246,0.10)"
+  const accentColor = palette.accent
+  const optionBgSelected = hexToRgba(palette.accent, 0.15)
 
   return (
     <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 10 }}>
@@ -248,7 +246,7 @@ function QuestionApprovalView(props: {
           style={{
             fontSize: 12,
             fontWeight: "500",
-            color: isDark ? "rgba(255,255,255,0.82)" : "rgba(30,20,0,0.82)",
+            color: palette.ink,
           }}
           numberOfLines={2}
         >
@@ -274,60 +272,59 @@ function QuestionApprovalView(props: {
               key={option.label ?? `option-${optIdx}`}
               onPress={() => onSelectAnswer(currentQuestion, optIdx, isMultiple)}
               style={({ pressed }) => ({
-                borderRadius: 10,
+                borderRadius: 12,
+                borderCurve: "continuous",
                 borderWidth: 1,
                 borderColor: isSelected
-                  ? isDark
-                    ? "rgba(96,165,250,0.50)"
-                    : "rgba(59,130,246,0.40)"
-                  : isDark
-                    ? hexToRgba(palette.ink, 0.14)
-                    : hexToRgba(palette.border, 0.78),
+                  ? hexToRgba(palette.accent, 0.45)
+                  : hexToRgba(palette.ink, isDark ? 0.14 : 0.12),
                 backgroundColor: isSelected
                   ? optionBgSelected
                   : pressed
-                    ? isDark
-                      ? "rgba(255,255,255,0.05)"
-                      : "rgba(0,0,0,0.03)"
-                    : isDark
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(255,255,255,0.82)",
-                paddingHorizontal: 10,
-                paddingVertical: 6,
+                    ? hexToRgba(palette.ink, 0.05)
+                    : hexToRgba(palette.ink, isDark ? 0.06 : 0.04),
                 flexShrink: 0,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 6,
                 opacity: pressed ? 0.8 : 1,
                 transform: [{ scale: pressed ? 0.97 : 1 }],
               })}
             >
-              {isMultiple && (
-                <View
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 3,
-                    borderWidth: 1.5,
-                    borderColor: isSelected ? accentColor : isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.2)",
-                    backgroundColor: isSelected ? accentColor : "transparent",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {isSelected && <Check size={8} color="#fff" strokeWidth={3} />}
-                </View>
-              )}
-              <Text
+              <View
                 style={{
-                  fontSize: 11,
-                  fontWeight: "600",
-                  color: isSelected ? accentColor : isDark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.75)",
+                  minHeight: 44,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
                 }}
-                numberOfLines={1}
               >
-                {option.label}
-              </Text>
+                {isMultiple && (
+                  <View
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 4,
+                      borderWidth: 1.5,
+                      borderColor: isSelected ? accentColor : hexToRgba(palette.ink, 0.22),
+                      backgroundColor: isSelected ? accentColor : "transparent",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {isSelected && <Check size={10} color={contrastOn(accentColor)} strokeWidth={3} />}
+                  </View>
+                )}
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "600",
+                    color: isSelected ? accentColor : palette.ink,
+                  }}
+                  numberOfLines={1}
+                >
+                  {option.label}
+                </Text>
+              </View>
             </Pressable>
           )
         })}
@@ -348,12 +345,8 @@ function QuestionApprovalView(props: {
                   idx === currentQuestion
                     ? accentColor
                     : (selectedAnswers[idx]?.length ?? 0) > 0
-                      ? isDark
-                        ? "rgba(96,165,250,0.5)"
-                        : "rgba(59,130,246,0.5)"
-                      : isDark
-                        ? "rgba(255,255,255,0.2)"
-                        : "rgba(0,0,0,0.15)",
+                      ? hexToRgba(palette.accent, 0.5)
+                      : hexToRgba(palette.ink, 0.18),
               }}
             />
           ))}
@@ -480,23 +473,18 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
     setIndex((prev) => Math.max(0, Math.min(prev, count - 2)))
   }
 
-  // Determine border/accent colors based on type
-  const getBarColors = () => {
-    if (currentType === "question") {
-      return {
-        border: isDark ? "rgba(96,165,250,0.18)" : "rgba(59,130,246,0.22)",
-        background: isDark ? "rgba(30,40,60,0.92)" : "rgba(239,246,255,0.96)",
-        tint: isDark ? "rgba(96,165,250,0.04)" : "rgba(59,130,246,0.04)",
-      }
-    }
-    return {
-      border: isDark ? "rgba(217,161,74,0.24)" : "rgba(192,110,46,0.28)",
-      background: isDark ? "rgba(217,161,74,0.07)" : "rgba(192,110,46,0.07)",
-      tint: hexToRgba(palette.warn, 0.04),
-    }
-  }
-
-  const barColors = getBarColors()
+  const barColors =
+    currentType === "question"
+      ? {
+          border: hexToRgba(palette.accent, 0.22),
+          background: hexToRgba(palette.accent, isDark ? 0.12 : 0.08),
+          tint: hexToRgba(palette.accent, 0.04),
+        }
+      : {
+          border: hexToRgba(palette.warn, 0.28),
+          background: hexToRgba(palette.warn, 0.07),
+          tint: hexToRgba(palette.warn, 0.04),
+        }
 
   if (currentType === "permission") {
     return (
@@ -506,11 +494,11 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
             marginHorizontal: 14,
             borderRadius: 16,
             borderCurve: "continuous",
-            borderWidth: 1,
+            borderWidth: StyleSheet.hairlineWidth,
             borderColor: barColors.border,
             backgroundColor: barColors.background,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
+            paddingHorizontal: 14,
+            paddingVertical: 12,
           }}
         >
           <PermissionApprovalView
@@ -534,11 +522,12 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
         style={{
           marginHorizontal: 14,
           marginBottom: 6,
-          borderRadius: 18,
+          borderRadius: 16,
+          borderCurve: "continuous",
           overflow: "hidden",
-          borderWidth: 1,
-          padding: 5,
-          marginTop: 12,
+          borderWidth: StyleSheet.hairlineWidth,
+          padding: 6,
+          marginTop: 8,
           borderColor: barColors.border,
           backgroundColor: barColors.background,
         }}
@@ -576,12 +565,16 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
                 }}
                 hitSlop={6}
                 style={({ pressed }) => ({
+                  width: 44,
+                  height: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
                   opacity: pressed ? 0.5 : 1,
-                  padding: 4,
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
                 })}
               >
                 <ChevronLeft
-                  size={14}
+                  size={16}
                   color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"}
                   strokeWidth={2.2}
                 />
@@ -593,12 +586,16 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
                 }}
                 hitSlop={6}
                 style={({ pressed }) => ({
+                  width: 44,
+                  height: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
                   opacity: pressed ? 0.5 : 1,
-                  padding: 4,
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
                 })}
               >
                 <ChevronRight
-                  size={14}
+                  size={16}
                   color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"}
                   strokeWidth={2.2}
                 />
@@ -623,14 +620,18 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
               style={({ pressed }) => ({
                 borderRadius: 10,
                 borderWidth: 1,
-                borderColor: hexToRgba(palette.danger, isDark ? 0.3 : 0.22),
-                backgroundColor: isDark ? "rgba(80,28,28,0.80)" : "rgba(207,45,86,0.08)",
+                borderColor: hexToRgba(palette.danger, 0.28),
+                backgroundColor: hexToRgba(palette.danger, 0.12),
                 padding: 7,
+                minHeight: 44,
+                minWidth: 44,
+                alignItems: "center",
+                justifyContent: "center",
                 opacity: pressed ? 0.7 : 1,
-                transform: [{ scale: pressed ? 0.92 : 1 }],
+                transform: [{ scale: pressed ? 0.97 : 1 }],
               })}
             >
-              <X size={13} color={isDark ? "#f87171" : "#dc2626"} strokeWidth={2.4} />
+              <X size={13} color={palette.danger} strokeWidth={2.4} />
             </Pressable>
 
             {/* Submit answer (only if single-select answered or for explicit submit) */}
@@ -645,9 +646,13 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
               style={({ pressed }) => ({
                 borderRadius: 10,
                 borderWidth: 1,
-                borderColor: isDark ? "rgba(96,165,250,0.30)" : "rgba(59,130,246,0.22)",
-                backgroundColor: isDark ? "rgba(30,50,80,0.80)" : "rgba(59,130,246,0.08)",
+                borderColor: hexToRgba(palette.accent, 0.28),
+                backgroundColor: hexToRgba(palette.accent, 0.12),
                 padding: 7,
+                minHeight: 44,
+                minWidth: 44,
+                alignItems: "center",
+                justifyContent: "center",
                 opacity: (current as QuestionRequest).questions.some(
                   (_, questionIndex) => (selectedAnswers[questionIndex]?.length ?? 0) === 0,
                 )
@@ -655,10 +660,10 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
                   : pressed
                     ? 0.7
                     : 1,
-                transform: [{ scale: pressed ? 0.92 : 1 }],
+                transform: [{ scale: pressed ? 0.97 : 1 }],
               })}
             >
-              <ArrowRight size={13} color={isDark ? "#60a5fa" : "#3b82f6"} strokeWidth={2.4} />
+              <ArrowRight size={13} color={palette.accent} strokeWidth={2.4} />
             </Pressable>
           </View>
         </View>

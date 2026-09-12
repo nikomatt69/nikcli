@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native"
 import type { FileDiff } from "@/lib/types"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 function renderLines(before: string, after: string) {
   const beforeLines = before.split("\n")
@@ -23,10 +24,14 @@ function renderLines(before: string, after: string) {
   return result
 }
 
-function fileStatus(diff: FileDiff): { label: string; style: string } {
-  if (diff.before === "") return { label: "added", style: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" }
-  if (diff.after === "") return { label: "deleted", style: "border-rose-500/40 bg-rose-500/10 text-rose-300" }
-  return { label: "modified", style: "border-sky-500/40 bg-sky-500/10 text-sky-300" }
+function fileStatus(diff: FileDiff, palette: ReturnType<typeof useAppTheme>["palette"]) {
+  if (diff.before === "") {
+    return { label: "added", color: palette.success }
+  }
+  if (diff.after === "") {
+    return { label: "deleted", color: palette.danger }
+  }
+  return { label: "modified", color: palette.warn }
 }
 
 export function DiffViewer(props: { diffs: FileDiff[] }) {
@@ -49,41 +54,87 @@ export function DiffViewer(props: { diffs: FileDiff[] }) {
   }
 
   return (
-    <View className="mt-3 gap-2">
+    <View style={{ marginTop: 12, gap: 8 }}>
       {props.diffs.map((diff, diffIndex) => {
-        const status = fileStatus(diff)
+        const status = fileStatus(diff, palette)
         const isExpanded = expandedFiles.has(diff.file)
         return (
           <View
             key={`${diff.file}-${diffIndex}`}
-            className="overflow-hidden rounded-[18px] border border-border bg-surface"
+            style={{
+              overflow: "hidden",
+              borderRadius: 18,
+              borderCurve: "continuous",
+              borderWidth: 1,
+              borderColor: hexToRgba(palette.ink, 0.08),
+              backgroundColor: palette.surface,
+            }}
           >
             <Pressable
-              className="flex-row items-center justify-between gap-3 border-b border-border px-3 py-2.5"
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isExpanded }}
+              accessibilityLabel={`${diff.file} ${status.label}`}
               hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
               onPress={() => toggle(diff.file)}
+              style={{
+                minHeight: 44,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                borderBottomWidth: isExpanded ? 1 : 0,
+                borderBottomColor: hexToRgba(palette.ink, 0.08),
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+              }}
             >
-              <Text allowFontScaling={false} className="flex-1 text-sm font-semibold text-ink" numberOfLines={2}>
+              <Text
+                selectable
+                allowFontScaling={false}
+                numberOfLines={2}
+                style={{ flex: 1, color: palette.ink, ...typeStyle(14, { weight: "600" }) }}
+              >
                 {diff.file}
               </Text>
-              <View className="flex-row items-center gap-2">
-                <View className={`rounded-full border px-2 py-0.5 ${status.style}`}>
-                  <Text allowFontScaling={false} className="text-[10px] font-semibold">
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View
+                  style={{
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: hexToRgba(status.color, 0.28),
+                    backgroundColor: hexToRgba(status.color, 0.12),
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                  }}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={{ color: status.color, fontSize: 10, fontWeight: "700", letterSpacing: 0.3 }}
+                  >
                     {status.label}
                   </Text>
                 </View>
-                <Text allowFontScaling={false} className="text-xs text-soft">
-                  +{diff.additions} / -{diff.deletions}
+                <Text
+                  allowFontScaling={false}
+                  style={{
+                    color: palette.soft,
+                    fontSize: 12,
+                    fontWeight: "600",
+                    fontVariant: ["tabular-nums"],
+                  }}
+                >
+                  <Text style={{ color: palette.success }}>+{diff.additions}</Text>
+                  {" / "}
+                  <Text style={{ color: palette.danger }}>-{diff.deletions}</Text>
                 </Text>
               </View>
             </Pressable>
             {isExpanded ? (
               <ScrollView
-                className="max-h-72"
+                style={{ maxHeight: 288, flexGrow: 0 }}
                 nestedScrollEnabled
                 bounces={false}
                 scrollsToTop={false}
-                style={{ flexGrow: 0 }}
               >
                 <ScrollView
                   horizontal
@@ -91,17 +142,26 @@ export function DiffViewer(props: { diffs: FileDiff[] }) {
                   bounces={false}
                   scrollsToTop={false}
                   showsHorizontalScrollIndicator
-                  className="px-3 py-2.5"
                   style={{ flexGrow: 0 }}
-                  contentContainerStyle={{ alignSelf: "flex-start" }}
+                  contentContainerStyle={{ alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 10 }}
                 >
                   <View style={{ gap: 1 }}>
                     {renderLines(diff.before, diff.after).map((line, index) => (
                       <Text
-                        key={line.text}
+                        key={`${index}:${line.text}`}
                         selectable
                         selectionColor={palette.accent}
-                        className={`font-mono text-xs leading-5 ${line.kind === "add" ? "text-emerald-300" : line.kind === "remove" ? "text-rose-300" : "text-muted"}`}
+                        style={{
+                          fontFamily: "Menlo",
+                          fontSize: 12,
+                          lineHeight: 20,
+                          color:
+                            line.kind === "add"
+                              ? palette.success
+                              : line.kind === "remove"
+                                ? palette.danger
+                                : palette.muted,
+                        }}
                       >
                         {line.text || " "}
                       </Text>

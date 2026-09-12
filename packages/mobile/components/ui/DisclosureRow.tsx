@@ -34,25 +34,32 @@ export function DisclosureRow({ label, icon, emphasis, tone = "muted", onPress }
         onPress?.()
       }}
       style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        paddingVertical: 9,
+        alignSelf: "stretch",
         opacity: pressed ? 0.62 : 1,
       })}
     >
-      {icon}
-      <View style={{ flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 5 }}>
-        {emphasis ? (
-          <Text numberOfLines={1} style={{ color: palette.ink, ...typeStyle(15, { weight: "500" }) }}>
-            {emphasis}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          paddingVertical: 9,
+          minHeight: onPress ? 44 : undefined,
+        }}
+      >
+        {icon}
+        <View style={{ flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 5 }}>
+          {emphasis ? (
+            <Text numberOfLines={1} style={{ color: palette.ink, ...typeStyle(15, { weight: "500" }) }}>
+              {emphasis}
+            </Text>
+          ) : null}
+          <Text numberOfLines={1} style={{ color, flexShrink: 1, ...typeStyle(15) }}>
+            {label}
           </Text>
-        ) : null}
-        <Text numberOfLines={1} style={{ color, flexShrink: 1, ...typeStyle(15) }}>
-          {label}
-        </Text>
+        </View>
+        {onPress ? <ChevronRight size={16} color={palette.muted} strokeWidth={2} /> : null}
       </View>
-      {onPress ? <ChevronRight size={16} color={palette.muted} strokeWidth={2} /> : null}
     </Pressable>
   )
 }

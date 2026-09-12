@@ -120,38 +120,10 @@ export function ToolCallView(props: { part: ToolPart }) {
   const inputEntries = Object.entries(state.input ?? {})
   const statusLabel =
     status === "running" ? "Running" : status === "completed" ? "Completed" : status === "error" ? "Failed" : "Idle"
-  const statusBackground =
-    status === "running"
-      ? isDark
-        ? "rgba(183,183,183,0.08)"
-        : "rgba(245,158,11,0.10)"
-      : status === "completed"
-        ? isDark
-          ? "rgba(212,212,212,0.08)"
-          : "rgba(31,138,101,0.10)"
-        : status === "error"
-          ? isDark
-            ? "rgba(143,143,143,0.08)"
-            : "rgba(207,45,86,0.10)"
-          : isDark
-            ? "rgba(255,255,255,0.05)"
-            : "rgba(247,246,242,0.8)"
-  const statusBorder =
-    status === "running"
-      ? isDark
-        ? "rgba(183,183,183,0.16)"
-        : "rgba(245,158,11,0.22)"
-      : status === "completed"
-        ? isDark
-          ? "rgba(212,212,212,0.16)"
-          : "rgba(31,138,101,0.22)"
-        : status === "error"
-          ? isDark
-            ? "rgba(143,143,143,0.16)"
-            : "rgba(207,45,86,0.22)"
-          : isDark
-            ? hexToRgba(palette.ink, 0.08)
-            : hexToRgba(palette.border, 0.72)
+  const statusTone =
+    status === "running" ? palette.warn : status === "completed" ? palette.success : status === "error" ? palette.danger : palette.muted
+  const statusBackground = hexToRgba(statusTone, isDark ? 0.12 : 0.1)
+  const statusBorder = hexToRgba(statusTone, isDark ? 0.22 : 0.2)
 
   async function copyOutput() {
     if (!output) return
@@ -164,17 +136,33 @@ export function ToolCallView(props: { part: ToolPart }) {
       className="min-w-0 overflow-hidden rounded-[20px] border"
       style={{
         borderColor: isDark ? hexToRgba(palette.ink, 0.08) : hexToRgba(palette.border, 0.78),
-        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(247,246,242,0.78)",
+        backgroundColor: hexToRgba(palette.ink, isDark ? 0.04 : 0.03),
       }}
     >
       <Pressable
-        className="flex-row items-center justify-between gap-3 p-3"
+        hitSlop={4}
         onPress={toggle}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`${props.part.tool || "Tool"} ${open ? "details expanded" : "details collapsed"}`}
         accessibilityHint={open ? "Double tap to collapse tool details" : "Double tap to expand tool details"}
+        style={({ pressed }) => ({
+          alignSelf: "stretch",
+          opacity: pressed ? 0.82 : 1,
+          transform: [{ scale: pressed ? 0.97 : 1 }],
+        })}
       >
+        <View
+          style={{
+            minHeight: 52,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+          }}
+        >
         <View className="flex-1 flex-row items-center gap-2">
           <Animated.View
             style={{
@@ -219,7 +207,7 @@ export function ToolCallView(props: { part: ToolPart }) {
           >
             <Text
               style={{
-                color: status === "error" && !isDark ? palette.danger : palette.accentLight,
+                color: statusTone,
                 fontSize: 10,
                 fontWeight: "700",
                 letterSpacing: 0.8,
@@ -241,6 +229,7 @@ export function ToolCallView(props: { part: ToolPart }) {
           ) : (
             <ChevronRight size={14} color={palette.muted} strokeWidth={2.1} />
           )}
+        </View>
         </View>
       </Pressable>
       {open ? (
@@ -276,7 +265,16 @@ export function ToolCallView(props: { part: ToolPart }) {
                     onPress={copyOutput}
                     accessibilityRole="button"
                     accessibilityLabel="Copy tool output"
-                    className="rounded-full border border-border/70 px-2.5 py-1"
+                    hitSlop={8}
+                    style={{
+                      minHeight: 32,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: hexToRgba(palette.ink, 0.12),
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      justifyContent: "center",
+                    }}
                   >
                     <Text className="text-[10px] font-semibold text-soft">{copiedOutput ? "Copied" : "Copy"}</Text>
                   </Pressable>
@@ -296,7 +294,11 @@ export function ToolCallView(props: { part: ToolPart }) {
                 </ScrollView>
               </View>
               {output.length > 400 ? (
-                <Pressable onPress={() => setShowAllOutput((value) => !value)} className="mt-2">
+                <Pressable
+                  onPress={() => setShowAllOutput((value) => !value)}
+                  hitSlop={8}
+                  style={{ marginTop: 8, minHeight: 32, justifyContent: "center" }}
+                >
                   <Text className="text-[11px] font-semibold text-accent-light">
                     {showAllOutput ? "Show less" : `Show all (${output.length} chars)`}
                   </Text>

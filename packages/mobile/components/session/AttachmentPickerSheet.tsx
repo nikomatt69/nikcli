@@ -8,6 +8,7 @@ import { SheetShell, useSheetScrollProps } from "@/components/ui/SheetShell"
 import { usePressAnimation } from "@/lib/animation"
 import { triggerHaptic } from "@/lib/haptics"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { caps, type as typeStyle } from "@/lib/typography"
 
 export type AttachmentPickerSheetProps = {
   visible: boolean
@@ -145,24 +146,14 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
 
   return (
     <SheetShell visible={visible} onClose={onClose} variant="inset" accessibilityLabel="Attach">
-      <View style={{ padding: 16 }}>
+      <View style={{ alignSelf: "stretch", padding: 16 }}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontWeight: "700",
-                  color: palette.accentLight,
-                  letterSpacing: 1.8,
-                  textTransform: "uppercase",
-                }}
-              >
-                Attach
-              </Text>
+              <Text style={{ color: palette.accentLight, ...caps(11, { weight: "700" }) }}>Attach</Text>
             </View>
-            <Text style={{ fontSize: 18, fontWeight: "600", color: palette.ink }}>Choose a source</Text>
-            <Text style={{ fontSize: 14, lineHeight: 20, color: palette.soft }}>
+            <Text style={{ color: palette.ink, ...typeStyle(18, { weight: "600" }) }}>Choose a source</Text>
+            <Text style={{ color: palette.soft, ...typeStyle(14) }}>
               Attach files, photos, or documents to your message.
             </Text>
           </View>
@@ -188,7 +179,7 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
             selectionColor={palette.accent}
             keyboardAppearance={isDark ? "dark" : "light"}
             autoCapitalize="none"
-            style={{ flex: 1, fontSize: 15, color: palette.ink }}
+            style={{ flex: 1, color: palette.ink, ...typeStyle(15) }}
           />
         </View>
 
@@ -217,8 +208,8 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
                     </View>
 
                     <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                      <Text style={{ fontSize: 15, fontWeight: "600", color: palette.ink }}>{item.title}</Text>
-                      <Text style={{ fontSize: 12, lineHeight: 18, color: palette.soft }} numberOfLines={2}>
+                      <Text style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>{item.title}</Text>
+                      <Text style={{ color: palette.soft, ...typeStyle(13) }} numberOfLines={2}>
                         {item.description}
                       </Text>
                     </View>
@@ -239,8 +230,8 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
                   },
                 ]}
               >
-                <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>No attachments found</Text>
-                <Text style={{ marginTop: 4, fontSize: 12, lineHeight: 20, color: palette.soft }}>
+                <Text style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>No attachments found</Text>
+                <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(13) }}>
                   Try a different search term.
                 </Text>
               </View>
@@ -276,7 +267,7 @@ function CloseButton({ onPress }: { onPress: () => void }) {
           },
         ]}
       >
-        <X size={14} color={palette.soft} strokeWidth={2.5} />
+        <X size={16} color={palette.soft} strokeWidth={2.5} />
       </Animated.View>
     </Pressable>
   )
@@ -382,9 +373,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -400,7 +391,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   itemCard: {
+    alignSelf: "stretch",
     borderRadius: 20,
+    borderCurve: "continuous",
     borderWidth: 1,
     padding: 14,
   },

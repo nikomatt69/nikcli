@@ -3,21 +3,16 @@ import { ScrollView, Pressable, Text, View } from "react-native"
 import * as WebBrowser from "expo-web-browser"
 import { Stack, useFocusEffect } from "expo-router"
 import { ActionButton } from "@/components/ui/ActionButton"
+import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { InfoChip } from "@/components/ui/InfoChip"
+import { InfoChip, optionChipStyle, optionChipTextColor } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-context"
 import { writeConfig } from "@/lib/config-writer"
+import { useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import { type HostConfigSnapshot, type HostMcpConfig, type HostMcpStatus } from "@/lib/types"
-
-function optionChipClass(active: boolean) {
-  return active ? "border-accent/30 bg-accent/12" : "border-border bg-background/70"
-}
-
-function optionChipTextClass(active: boolean) {
-  return active ? "text-accent-light" : "text-ink"
-}
 
 function mcpTone(status?: HostMcpStatus): "accent" | "good" | "warn" | "neutral" {
   if (!status) return "neutral"
@@ -44,6 +39,7 @@ function mcpLabel(status?: HostMcpStatus) {
 }
 
 export default function McpSettingsScreen() {
+  const { palette } = useAppTheme()
   const { client } = useServer()
   const [hostConfig, setHostConfig] = useState<HostConfigSnapshot | null>(null)
   const [mcpStatus, setMcpStatus] = useState<Record<string, HostMcpStatus>>({})
@@ -220,17 +216,21 @@ export default function McpSettingsScreen() {
           <View className="flex-row gap-2">
             <Pressable
               onPress={() => setMcpType("remote")}
-              className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(mcpType === "remote")}`}
+              style={[optionChipStyle(palette, mcpType === "remote"), { flex: 1, minWidth: 0, borderRadius: 18, padding: 12 }]}
             >
-              <Text className={`text-sm font-semibold ${optionChipTextClass(mcpType === "remote")}`}>Remote</Text>
-              <Text className="mt-1 text-xs leading-5 text-soft">URL-based MCP endpoint</Text>
+              <Text style={{ color: optionChipTextColor(palette, mcpType === "remote"), ...typeStyle(14, { weight: "600" }) }}>
+                Remote
+              </Text>
+              <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(12) }}>URL-based MCP endpoint</Text>
             </Pressable>
             <Pressable
               onPress={() => setMcpType("local")}
-              className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(mcpType === "local")}`}
+              style={[optionChipStyle(palette, mcpType === "local"), { flex: 1, minWidth: 0, borderRadius: 18, padding: 12 }]}
             >
-              <Text className={`text-sm font-semibold ${optionChipTextClass(mcpType === "local")}`}>Local</Text>
-              <Text className="mt-1 text-xs leading-5 text-soft">Host command launched by Nikcli</Text>
+              <Text style={{ color: optionChipTextColor(palette, mcpType === "local"), ...typeStyle(14, { weight: "600" }) }}>
+                Local
+              </Text>
+              <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(12) }}>Host command launched by Nikcli</Text>
             </Pressable>
           </View>
           {mcpType === "remote" ? (
@@ -260,9 +260,7 @@ export default function McpSettingsScreen() {
         description="Inspect host MCP endpoints and take focused actions per integration."
       >
         {loading ? (
-          <View className="items-center rounded-[8px] border border-border bg-background/60 px-4 py-5">
-            <Text className="text-sm text-soft">Loading MCP control plane…</Text>
-          </View>
+          <Text style={{ color: palette.soft, ...typeStyle(14) }}>Loading MCP control plane…</Text>
         ) : (
           <View className="gap-3">
             {entries.length ? (
@@ -270,18 +268,21 @@ export default function McpSettingsScreen() {
                 const status = mcpStatus[name]
                 const enabled = entry.enabled !== false
                 return (
-                  <View key={name} className="rounded-[8px] border border-border bg-background/60 p-4">
+                  <SurfaceCard
+                    key={name}
+                    tone="background"
+                    title={name}
+                    description={entry.type === "remote" ? entry.url : entry.command.join(" ")}
+                  >
                     <View className="flex-row flex-wrap items-center gap-2">
-                      <Text className="text-base font-semibold text-ink">{name}</Text>
                       <InfoChip label={entry.type} tone="accent" />
                       <InfoChip label={mcpLabel(status)} tone={mcpTone(status)} />
                       <InfoChip label={enabled ? "Enabled" : "Disabled"} />
                     </View>
-                    <Text selectable className="mt-2 text-sm leading-5 text-soft">
-                      {entry.type === "remote" ? entry.url : entry.command.join(" ")}
-                    </Text>
                     {status && "error" in status ? (
-                      <Text className="mt-2 text-xs leading-5 text-soft">{status.error}</Text>
+                      <Text selectable style={{ marginTop: 8, color: palette.soft, ...typeStyle(12) }}>
+                        {status.error}
+                      </Text>
                     ) : null}
                     <View className="mt-3 flex-row flex-wrap gap-2">
                       <ActionButton
@@ -319,13 +320,14 @@ export default function McpSettingsScreen() {
                         />
                       ) : null}
                     </View>
-                  </View>
+                  </SurfaceCard>
                 )
               })
             ) : (
-              <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                <Text className="text-sm leading-6 text-soft">No MCP servers configured on this host yet.</Text>
-              </View>
+              <EmptyState
+                title="No MCP servers"
+                description="Register a remote URL or local command above to add the first endpoint."
+              />
             )}
           </View>
         )}

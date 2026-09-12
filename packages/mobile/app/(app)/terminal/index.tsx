@@ -10,15 +10,16 @@ import { File } from "expo-file-system"
 import * as Clipboard from "expo-clipboard"
 import { useServer } from "@/lib/server-context"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import { triggerHaptic } from "@/lib/haptics"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
+import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { BrandMark } from "@/components/layout/BrandMark"
 import { TerminalKeyBar } from "@/components/terminal/TerminalKeyBar"
 import { consumeTerminalLaunchIntent } from "@/lib/terminal-launch"
-import { ptyStatusColor, ptyStatusLabel, type PtyConnectionStatus } from "@/lib/terminal-keys"
+import { ptyStatusLabel, type PtyConnectionStatus } from "@/lib/terminal-keys"
 import type { PtyCreateInput, PtyInfo } from "@/lib/types"
 
 // require() returns a number (resource ID) in Metro — we load the content async
@@ -92,6 +93,7 @@ function TerminalWebView({
   command?: TerminalCommand
   onCopyText: (text: string) => void
 }) {
+  const { palette } = useAppTheme()
   const webviewRef = useRef<WebView>(null)
   const [wsStatus, setWsStatus] = useState<PtyConnectionStatus>("connecting")
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
@@ -202,29 +204,16 @@ function TerminalWebView({
             {
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: "rgba(13,17,23,0.72)",
+              backgroundColor: hexToRgba(palette.background, 0.88),
             },
           ]}
           pointerEvents="none"
         >
-          <ActivityIndicator color="#58a6ff" />
-          <Text
-            style={{
-              color: "#58a6ff",
-              fontSize: 12,
-              marginTop: 8,
-              fontWeight: "600",
-            }}
-          >
+          <ActivityIndicator color={palette.accent} />
+          <Text style={{ color: palette.accent, marginTop: 8, ...typeStyle(13, { weight: "600" }) }}>
             Connecting to terminal…
           </Text>
-          <Text
-            style={{
-              color: "rgba(88,166,255,0.5)",
-              fontSize: 10,
-              marginTop: 4,
-            }}
-          >
+          <Text style={{ color: hexToRgba(palette.accent, 0.55), marginTop: 4, ...typeStyle(12) }}>
             This may take a moment
           </Text>
         </View>
@@ -236,14 +225,14 @@ function TerminalWebView({
             {
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: "rgba(13,17,23,0.85)",
+              backgroundColor: hexToRgba(palette.background, 0.92),
             },
           ]}
           pointerEvents="none"
         >
           <Text
             style={{
-              color: "#ff7b72",
+              color: palette.danger,
               fontSize: 14,
               fontWeight: "600",
               marginBottom: 8,
@@ -253,7 +242,7 @@ function TerminalWebView({
           </Text>
           <Text
             style={{
-              color: "rgba(230,237,243,0.6)",
+              color: palette.muted,
               fontSize: 12,
               textAlign: "center",
               paddingHorizontal: 32,
@@ -274,30 +263,30 @@ const TAB_BAR_ITEM_BASE = {
   flexDirection: "row" as const,
   alignItems: "center" as const,
   gap: 6,
+  minHeight: 44,
   paddingHorizontal: 10,
-  paddingVertical: 5,
+  paddingVertical: 8,
   borderRadius: 8,
+  borderCurve: "continuous" as const,
   borderWidth: 1,
 }
 
 function TabBarItem({
   title,
   active,
-  isDark,
   palette,
   onSelect,
   onClose,
 }: {
   title: string
   active: boolean
-  isDark: boolean
   palette: ReturnType<typeof useAppTheme>["palette"]
   onSelect: () => void
   onClose: () => void
 }) {
-  const activeAccent = isDark ? "#58a6ff" : "#141413"
-  const activeBackground = isDark ? "rgba(88,166,255,0.15)" : "rgba(20,20,19,0.12)"
-  const activeBorder = isDark ? "rgba(88,166,255,0.3)" : "rgba(20,20,19,0.2)"
+  const activeAccent = palette.accent
+  const activeBackground = hexToRgba(palette.accent, 0.16)
+  const activeBorder = hexToRgba(palette.accent, 0.32)
   const containerStyle = useMemo(
     () => ({
       ...TAB_BAR_ITEM_BASE,
@@ -308,14 +297,16 @@ function TabBarItem({
   )
   const titleStyle = useMemo(
     () => ({
-      fontSize: 12,
-      fontWeight: active ? ("600" as const) : ("400" as const),
       color: active ? activeAccent : palette.soft,
       maxWidth: 100,
+      ...typeStyle(13, { weight: active ? "600" : "400" }),
     }),
     [active, activeAccent, palette.soft],
   )
-  const closeLabelStyle = useMemo(() => ({ fontSize: 13, color: palette.muted, lineHeight: 16 }), [palette.muted])
+  const closeLabelStyle = useMemo(
+    () => ({ color: palette.muted, ...typeStyle(13, { weight: "600" }) }),
+    [palette.muted],
+  )
   return (
     <Pressable
       onPress={onSelect}
@@ -330,10 +321,10 @@ function TabBarItem({
       </Text>
       <Pressable
         onPress={onClose}
-        hitSlop={8}
+        hitSlop={12}
         accessibilityRole="button"
         accessibilityLabel={`Close terminal tab ${title}`}
-        style={TAB_BAR_CLOSE_BUTTON_STYLE}
+        style={[TAB_BAR_CLOSE_BUTTON_STYLE, { minWidth: 28, minHeight: 44, alignItems: "center", justifyContent: "center" }]}
       >
         <Text style={closeLabelStyle}>✕</Text>
       </Pressable>
@@ -347,14 +338,12 @@ function TabBar({
   onSelect,
   onClose,
   palette,
-  isDark,
 }: {
   tabs: PtyTab[]
   activeIndex: number
   onSelect: (i: number) => void
   onClose: (i: number) => void
   palette: ReturnType<typeof useAppTheme>["palette"]
-  isDark: boolean
 }) {
   return (
     <FlatList
@@ -366,15 +355,14 @@ function TabBar({
       style={{
         flexShrink: 0,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.7),
-        backgroundColor: isDark ? "#0d1117" : "#f6f9fc",
+        borderBottomColor: hexToRgba(palette.ink, 0.1),
+        backgroundColor: palette.background,
         paddingVertical: 6,
       }}
       renderItem={({ item, index }) => (
         <TabBarItem
           title={item.title}
           active={index === activeIndex}
-          isDark={isDark}
           palette={palette}
           onSelect={() => onSelect(index)}
           onClose={() => onClose(index)}
@@ -383,10 +371,6 @@ function TabBar({
     />
   )
 }
-
-// ── Compact in-content header (bare wordmark, no native glass bubble) ─────────
-
-const TERMINAL_BRAND_HEIGHT = 12
 
 function TerminalScreenHeader() {
   const { palette } = useAppTheme()
@@ -401,24 +385,7 @@ function TerminalScreenHeader() {
         backgroundColor: palette.background,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
-        <BrandMark height={TERMINAL_BRAND_HEIGHT} />
-        <Text
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            textAlign: "center",
-            fontSize: 17,
-            fontWeight: "600",
-            color: palette.ink,
-          }}
-        >
-          Terminal
-        </Text>
-        <SettingsCircleButton />
-      </View>
+      <CenteredScreenHeader title="Terminal" right={<SettingsCircleButton />} />
     </View>
   )
 }
@@ -427,7 +394,8 @@ function TerminalScreenHeader() {
 
 export default function TerminalScreen() {
   const { client } = useServer()
-  const { palette, isDark, colorScheme } = useAppTheme()
+  const { palette, colorScheme } = useAppTheme()
+  const insets = useSafeAreaInsets()
 
   const [tabs, setTabs] = useState<PtyTab[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
@@ -667,8 +635,10 @@ export default function TerminalScreen() {
 
   if (tabs.length === 0) {
     return (
-      <View style={{ flex: 1, backgroundColor: isDark ? "#0d0d0d" : "#f6f9fc" }}>
-        <TerminalScreenHeader />
+      <View style={{ flex: 1, backgroundColor: palette.background }}>
+        <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 16 }}>
+          <ScreenBrandHeader title="Terminal" right={<SettingsCircleButton />} />
+        </View>
         <View
           style={{
             flex: 1,
@@ -702,9 +672,9 @@ export default function TerminalScreen() {
   // ── Terminal view ─────────────────────────────────────────────────────────
 
   return (
-    <View style={styles.screen}>
+    <View style={{ flex: 1, backgroundColor: palette.background }}>
       {/* Top chrome — fixed height, never scrolls or shifts */}
-      <View style={styles.chrome}>
+      <View style={[styles.chrome, { backgroundColor: palette.background }]}>
         <TerminalScreenHeader />
         <TabBar
           tabs={tabs}
@@ -712,9 +682,16 @@ export default function TerminalScreen() {
           onSelect={setActiveIndex}
           onClose={closeTab}
           palette={palette}
-          isDark={isDark}
         />
-        <View style={[styles.toolbar, isDark ? styles.toolbarDark : styles.toolbarLight]}>
+        <View
+          style={[
+            styles.toolbar,
+            {
+              backgroundColor: palette.background,
+              borderBottomColor: hexToRgba(palette.ink, 0.08),
+            },
+          ]}
+        >
           {/* Connection + cwd */}
           <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
@@ -723,59 +700,76 @@ export default function TerminalScreen() {
                   width: 7,
                   height: 7,
                   borderRadius: 999,
-                  backgroundColor: ptyStatusColor(activeConnectionStatus),
+                  backgroundColor:
+                    activeConnectionStatus === "connected"
+                      ? palette.success
+                      : activeConnectionStatus === "connecting"
+                        ? palette.warn
+                        : activeConnectionStatus === "disconnected"
+                          ? palette.accent
+                          : palette.danger,
                 }}
               />
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: "600",
-                  color: isDark ? "rgba(230,237,243,0.72)" : palette.soft,
-                }}
-              >
+              <Text style={{ color: palette.soft, ...typeStyle(12, { weight: "600" }) }}>
                 {ptyStatusLabel(activeConnectionStatus)}
               </Text>
               {canReconnect ? (
                 <Pressable
                   onPress={reconnectTerminal}
-                  hitSlop={8}
                   accessibilityRole="button"
                   accessibilityLabel="Reconnect terminal"
-                  style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}
+                  style={({ pressed }) => ({
+                    width: 44,
+                    height: 44,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: pressed ? 0.65 : 1,
+                  })}
                 >
-                  <RefreshCw size={14} color={isDark ? "#58a6ff" : palette.accentLight} strokeWidth={2.2} />
+                  <RefreshCw size={14} color={palette.accent} strokeWidth={2.2} />
                 </Pressable>
               ) : null}
             </View>
             <Text
+              selectable
               numberOfLines={1}
               style={{
-                fontSize: 12,
-                fontWeight: "500",
-                color: isDark ? "rgba(230,237,243,0.6)" : palette.muted,
+                color: palette.muted,
+                ...typeStyle(12, { weight: "500" }),
               }}
             >
               {activeTab?.pty.cwd ?? ""}
             </Text>
           </View>
 
-          {/* Toolbar actions */}
-          <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Pressable
               onPress={copyTerminal}
-              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="Copy terminal content"
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: pressed ? 0.65 : 1,
+              })}
             >
-              <Copy size={16} color={isDark ? "rgba(230,237,243,0.75)" : palette.soft} strokeWidth={2} />
+              <Copy size={16} color={palette.soft} strokeWidth={2} />
             </Pressable>
             <Pressable
               onPress={() => void pasteTerminal()}
-              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="Paste clipboard into terminal"
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: pressed ? 0.65 : 1,
+              })}
             >
-              <ClipboardPaste size={16} color={isDark ? "rgba(230,237,243,0.75)" : palette.soft} strokeWidth={2} />
+              <ClipboardPaste size={16} color={palette.soft} strokeWidth={2} />
             </Pressable>
             <Pressable
               onPress={() => void createTerminal()}
@@ -783,32 +777,42 @@ export default function TerminalScreen() {
               accessibilityRole="button"
               accessibilityLabel="Open new terminal tab"
               accessibilityState={{ disabled: creating || !client }}
-              style={{ opacity: creating || !client ? 0.4 : 1 }}
-              hitSlop={8}
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: creating || !client ? 0.4 : pressed ? 0.65 : 1,
+              })}
             >
               {creating ? (
-                <ActivityIndicator size="small" color={isDark ? "#58a6ff" : "#141413"} />
+                <ActivityIndicator size="small" color={palette.accent} />
               ) : (
-                <Plus size={18} color={isDark ? "#58a6ff" : "#141413"} strokeWidth={2} />
+                <Plus size={18} color={palette.accent} strokeWidth={2} />
               )}
             </Pressable>
             <Pressable
               onPress={closeAll}
-              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="Close all terminal tabs"
               accessibilityHint="Terminates every open shell session"
-              style={{ opacity: tabs.length === 0 ? 0.4 : 1 }}
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: tabs.length === 0 ? 0.4 : pressed ? 0.65 : 1,
+              })}
             >
-              <Trash2 size={16} color={isDark ? "rgba(255,123,114,0.85)" : palette.danger} strokeWidth={2} />
+              <Trash2 size={16} color={palette.danger} strokeWidth={2} />
             </Pressable>
           </View>
         </View>
       </View>
 
       {/* Terminal dock — fills remaining space, anchored to bottom; shrinks upward when keyboard opens */}
-      <View style={[styles.terminalDock, keyboardInset > 0 ? { paddingBottom: keyboardInset } : null]}>
-        <View style={styles.terminalViewport} collapsable={false}>
+      <View style={[styles.terminalDock, { backgroundColor: palette.codeBlockBackground }, keyboardInset > 0 ? { paddingBottom: keyboardInset } : null]}>
+        <View style={[styles.terminalViewport, { backgroundColor: palette.codeBlockBackground }]} collapsable={false}>
           {client
             ? tabs.map((tab, index) => (
                 <TerminalWebView
@@ -833,14 +837,9 @@ export default function TerminalScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#0d0d0d",
-  },
   chrome: {
     flexShrink: 0,
     zIndex: 2,
-    backgroundColor: "#0d0d0d",
   },
   toolbar: {
     flexDirection: "row",
@@ -850,25 +849,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  toolbarDark: {
-    backgroundColor: "#0d0d0d",
-    borderBottomColor: "rgba(255,255,255,0.08)",
-  },
-  toolbarLight: {
-    backgroundColor: "#f6f9fc",
-    borderBottomColor: "rgba(218,216,209,0.6)",
-  },
   terminalDock: {
     flex: 1,
     minHeight: 0,
     overflow: "hidden",
-    backgroundColor: "#0d0d0d",
   },
   terminalViewport: {
     flex: 1,
     minHeight: 0,
     overflow: "hidden",
     position: "relative",
-    backgroundColor: "#0d0d0d",
   },
 })

@@ -3,6 +3,7 @@ import { Animated, Pressable, Text, View } from "react-native"
 import { ChevronRight, type LucideIcon } from "lucide-react-native"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { usePressAnimation } from "@/lib/animation"
+import { type as typeStyle } from "@/lib/typography"
 
 type SettingsNavCardProps = {
   eyebrow: string
@@ -18,7 +19,7 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
   { eyebrow, title, description, badges = [], shimmer = false, icon: Icon, onPressIn, onPressOut, ...props },
   ref,
 ) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   const press = usePressAnimation()
   function handlePressIn(e: Parameters<NonNullable<ComponentProps<typeof Pressable>["onPressIn"]>>[0]) {
     press.onPressIn()
@@ -40,31 +41,39 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
         {...props}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        className="px-3 py-3.5"
         style={({ pressed }) => ({
+          paddingHorizontal: 12,
+          paddingVertical: 14,
+          minHeight: 44,
           borderRadius: 14,
           borderCurve: "continuous",
           opacity: pressed ? 0.9 : 1,
-          backgroundColor: pressed ? hexToRgba(palette.ink, isDark ? 0.05 : 0.04) : "transparent",
+          backgroundColor: pressed ? hexToRgba(palette.ink, 0.04) : "transparent",
         })}
       >
-        <View className="flex-row items-center justify-between gap-3">
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           {Icon ? (
             <View
-              className="h-10 w-10 items-center justify-center rounded-full bg-panel"
-              style={{ borderCurve: "continuous" }}
+              style={{
+                width: 40,
+                height: 40,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 20,
+                backgroundColor: hexToRgba(palette.accent, 0.14),
+              }}
             >
-              <Icon size={18} color={palette.ink} strokeWidth={2} />
+              <Icon size={18} color={palette.accent} strokeWidth={2} />
             </View>
           ) : null}
-          <View className="min-w-0 flex-1 gap-1">
-            <Text className="text-[12px] font-medium text-muted">{eyebrow}</Text>
-            <Text className="text-[15px] font-semibold text-ink">{title}</Text>
-            <Text className="text-[13px] leading-[18px] text-soft" numberOfLines={2}>
+          <View style={{ minWidth: 0, flex: 1, gap: 3 }}>
+            <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>{eyebrow}</Text>
+            <Text style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>{title}</Text>
+            <Text numberOfLines={2} style={{ color: palette.soft, ...typeStyle(13) }}>
               {description}
             </Text>
             {badges.length ? (
-              <Text className="mt-1 text-[12px] text-muted" numberOfLines={1}>
+              <Text numberOfLines={1} style={{ marginTop: 2, color: palette.muted, ...typeStyle(12) }}>
                 {badges.join(" · ")}
               </Text>
             ) : null}

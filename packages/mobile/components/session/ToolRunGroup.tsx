@@ -53,11 +53,12 @@ function AgentRunRow({ part }: { part: ToolPart }) {
   const { palette } = useAppTheme()
   const child = childSessionID(part)
   const running = part.state.status === "running"
+  const stopped = part.state.status === "error"
 
   return (
     <DisclosureRow
       icon={<AgentGlyph color={running ? palette.muted : palette.ink} />}
-      emphasis="Agent run"
+      emphasis={stopped ? "Background agent interrupted" : "Agent run"}
       label={agentTitle(part)}
       onPress={child ? () => router.push(`/sessions/${child}`) : undefined}
     />

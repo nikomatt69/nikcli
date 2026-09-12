@@ -14,7 +14,6 @@ import {
   FileText,
   Folder,
   FolderOpen,
-  FolderSearch,
   Image,
   Maximize2,
   Minimize2,
@@ -29,6 +28,7 @@ import { AdaptiveBlur } from "@/components/GlassView"
 import { EditorBreadcrumb } from "@/components/editor/EditorBreadcrumb"
 import { FileSearchSheet } from "@/components/editor/FileSearchSheet"
 import { ActionButton } from "@/components/ui/ActionButton"
+import { EmptyState } from "@/components/ui/EmptyState"
 import { triggerHaptic } from "@/lib/haptics"
 import { useServer } from "@/lib/server-context"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
@@ -122,9 +122,9 @@ function FileFilterRow({
   )
 }
 
-function filePresentation(node: FileNode, palette: ReturnType<typeof useAppTheme>["palette"], isDark: boolean) {
+function filePresentation(node: FileNode, palette: ReturnType<typeof useAppTheme>["palette"]) {
   if (node.type === "directory") {
-    return { Icon: Folder, color: isDark ? "#fbbf24" : "#d97706", label: "Directory" }
+    return { Icon: Folder, color: palette.warn, label: "Directory" }
   }
   const ext = node.name.split(".").pop()?.toLowerCase() ?? ""
   const codeExts = new Set([
@@ -145,15 +145,15 @@ function filePresentation(node: FileNode, palette: ReturnType<typeof useAppTheme
   ])
   const textExts = new Set(["md", "mdx", "txt", "log", "yml", "yaml", "toml", "ini", "env"])
   const imageExts = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"])
-  if (["json", "jsonc"].includes(ext)) return { Icon: FileJson, color: "#22c55e", label: "JSON" }
-  if (["css", "scss", "sass", "less"].includes(ext)) return { Icon: Braces, color: "#141413", label: ext.toUpperCase() }
-  if (["sql", "db", "sqlite"].includes(ext)) return { Icon: Database, color: "#a855f7", label: ext.toUpperCase() }
+  if (["json", "jsonc"].includes(ext)) return { Icon: FileJson, color: palette.success, label: "JSON" }
+  if (["css", "scss", "sass", "less"].includes(ext)) return { Icon: Braces, color: palette.ink, label: ext.toUpperCase() }
+  if (["sql", "db", "sqlite"].includes(ext)) return { Icon: Database, color: palette.accent, label: ext.toUpperCase() }
   if (["lock", "plist"].includes(ext) || node.name === "package.json")
-    return { Icon: Package, color: "#d97706", label: "Package" }
+    return { Icon: Package, color: palette.warn, label: "Package" }
   if (["config", "conf"].includes(ext) || node.name.includes("config")) {
     return { Icon: Settings, color: palette.muted, label: "Config" }
   }
-  if (imageExts.has(ext)) return { Icon: Image, color: "#ec4899", label: ext.toUpperCase() }
+  if (imageExts.has(ext)) return { Icon: Image, color: palette.accentLight, label: ext.toUpperCase() }
   if (codeExts.has(ext)) return { Icon: FileCode2, color: palette.accentLight, label: ext.toUpperCase() }
   if (textExts.has(ext)) return { Icon: FileText, color: palette.soft, label: ext.toUpperCase() }
   return { Icon: File, color: palette.soft, label: ext ? ext.toUpperCase() : "File" }
@@ -204,19 +204,9 @@ function ChromeIconButton({
 }
 
 function GitTreeMarker({ status, dot }: { status?: "added" | "modified" | "deleted"; dot?: boolean }) {
-  const { isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   const color =
-    status === "added"
-      ? isDark
-        ? "#74c69d"
-        : "#2f855a"
-      : status === "deleted"
-        ? isDark
-          ? "#f87171"
-          : "#dc2626"
-        : isDark
-          ? "#d6a85f"
-          : "#b7791f"
+    status === "added" ? palette.success : status === "deleted" ? palette.danger : palette.warn
 
   if (dot) {
     return <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: color, opacity: 0.78 }} />
@@ -284,9 +274,7 @@ function ExplorerStat({
         borderColor: active ? hexToRgba(palette.ink, isDark ? 0.34 : 0.22) : palette.border,
         backgroundColor: active
           ? hexToRgba(palette.ink, isDark ? 0.12 : 0.08)
-          : isDark
-            ? "rgba(255,255,255,0.045)"
-            : "rgba(255,255,255,0.65)",
+          : hexToRgba(palette.ink, isDark ? 0.05 : 0.04),
         paddingHorizontal: 10,
         paddingVertical: 6,
       }}
@@ -588,7 +576,7 @@ export default function ExplorerScreen() {
       Array.from(gitStatusMap.keys()).some(
         (key) => key.startsWith(`${item.path}/`) || key.startsWith(`${item.absolute}/`),
       )
-    const presentation = filePresentation(item, palette, isDark)
+    const presentation = filePresentation(item, palette)
     const Icon = isDir && isExpanded ? FolderOpen : presentation.Icon
 
     return (
@@ -657,7 +645,7 @@ export default function ExplorerScreen() {
 
             <Icon
               size={16}
-              color={isDir && isExpanded ? (isDark ? "#fde68a" : "#b45309") : presentation.color}
+              color={isDir && isExpanded ? palette.warn : presentation.color}
               strokeWidth={2}
             />
 
@@ -666,9 +654,8 @@ export default function ExplorerScreen() {
               style={{
                 flex: 1,
                 minWidth: 0,
-                fontSize: 13.5,
-                fontWeight: isDir ? "800" : "600",
-                color: isDir ? (isDark ? "#f8d48a" : "#b7791f") : palette.ink,
+                color: isDir ? palette.warn : palette.ink,
+                ...typeStyle(14, { weight: isDir ? "700" : "600" }),
               }}
             >
               {item.name}
@@ -687,9 +674,9 @@ export default function ExplorerScreen() {
                 accessibilityLabel={`Open folder ${item.name}`}
                 hitSlop={8}
                 style={({ pressed }) => ({
-                  width: 30,
-                  height: 30,
-                  borderRadius: 9,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 10,
                   alignItems: "center",
                   justifyContent: "center",
                   backgroundColor: pressed ? hexToRgba(palette.ink, isDark ? 0.12 : 0.08) : "transparent",
@@ -702,7 +689,7 @@ export default function ExplorerScreen() {
 
           {expandError ? (
             <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
-              <Text numberOfLines={1} style={{ color: palette.danger, fontSize: 11 }}>
+              <Text numberOfLines={1} style={{ color: palette.danger, ...typeStyle(11) }}>
                 {expandError} · tap to retry
               </Text>
             </View>
@@ -738,7 +725,7 @@ export default function ExplorerScreen() {
           <ChromeIconButton icon={ArrowLeft} label="Go back" onPress={() => router.back()} />
 
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{ color: palette.ink, fontSize: 17, fontWeight: "800" }}>Repository tree</Text>
+            <Text style={{ color: palette.ink, ...typeStyle(17, { weight: "700" }) }}>Repository tree</Text>
             <EditorBreadcrumb rootLabel={rootLabel} segments={breadcrumbSegments} onSegmentPress={navigateToSegment} />
           </View>
 
@@ -785,6 +772,7 @@ export default function ExplorerScreen() {
               accessibilityRole="button"
               accessibilityLabel="Clear filename filter"
               hitSlop={8}
+              style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
             >
               <X size={13} color={palette.muted} strokeWidth={2} />
             </Pressable>
@@ -818,14 +806,17 @@ export default function ExplorerScreen() {
           <ActivityIndicator color={palette.accent} />
         </View>
       ) : error ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 }}>
-          <Text selectable style={{ color: palette.danger, fontSize: 14, lineHeight: 20, textAlign: "center" }}>
-            {error}
-          </Text>
-          <ActionButton
-            label="Retry"
-            variant="secondary"
-            onPress={() => void load(currentDir, { preserveContent: true })}
+        <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24 }}>
+          <EmptyState
+            title="Couldn’t load files"
+            description={error}
+            action={
+              <ActionButton
+                label="Retry"
+                variant="secondary"
+                onPress={() => void load(currentDir, { preserveContent: true })}
+              />
+            }
           />
         </View>
       ) : showFileSearch ? (
@@ -842,12 +833,12 @@ export default function ExplorerScreen() {
           }
           ListEmptyComponent={
             !fileSearchLoading ? (
-              <View style={{ alignItems: "center", padding: 32, gap: 8 }}>
-                <FolderSearch size={24} color={palette.muted} strokeWidth={1.8} />
-                <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "700" }}>No files found</Text>
-                <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center", lineHeight: 18 }}>
-                  Try a shorter filename fragment or clear the filter to return to the full tree.
-                </Text>
+              <View style={{ paddingHorizontal: 16, paddingTop: 24 }}>
+                <EmptyState
+                  title="No files found"
+                  description="Try a shorter filename fragment or clear the filter to return to the full tree."
+                  action={<ActionButton label="Clear filter" variant="secondary" onPress={() => setFileQuery("")} />}
+                />
               </View>
             ) : null
           }
@@ -867,10 +858,8 @@ export default function ExplorerScreen() {
           }
           renderItem={renderNode}
           ListEmptyComponent={
-            <View style={{ alignItems: "center", padding: 32, gap: 8 }}>
-              <FolderSearch size={24} color={palette.muted} strokeWidth={1.8} />
-              <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "700" }}>Empty directory</Text>
-              <Text style={{ color: palette.muted, fontSize: 12 }}>No visible files in this workspace path.</Text>
+            <View style={{ paddingHorizontal: 16, paddingTop: 24 }}>
+              <EmptyState title="Empty directory" description="No visible files in this workspace path." />
             </View>
           }
         />

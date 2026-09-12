@@ -106,7 +106,7 @@ export const ActionSheet = React.forwardRef<
         callback?.()
       }}
     >
-      <View style={{ flex: 1, width: "100%", paddingBottom: 8 }}>{children}</View>
+      <View style={{ flex: 1, width: "100%", alignSelf: "stretch", paddingBottom: 8 }}>{children}</View>
     </SheetShell>
   )
 })
@@ -147,7 +147,7 @@ export function ActionSheetItem({
   const iconBorder = hexToRgba(wellSource, isDark ? 0.18 : 0.16)
 
   return (
-    <Animated.View style={{ width: "100%", transform: [{ scale: press.scale }] }}>
+    <Animated.View style={{ width: "100%", alignSelf: "stretch", transform: [{ scale: press.scale }] }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label || "Untitled action"}
@@ -157,48 +157,51 @@ export function ActionSheetItem({
         onPress={onPress}
         onPressIn={press.onPressIn}
         onPressOut={press.onPressOut}
-        style={({ pressed }) => ({
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 14,
-          paddingHorizontal: 20,
-          paddingVertical: 10,
-          minHeight: 64,
-          width: "100%",
-          opacity: disabled ? 0.48 : pressed ? 0.72 : 1,
-        })}
+        style={{ alignSelf: "stretch", opacity: disabled ? 0.48 : 1 }}
       >
         <View
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: 14,
-            borderCurve: "continuous",
-            backgroundColor: iconBackground,
-            borderWidth: 1,
-            borderColor: iconBorder,
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
+            alignSelf: "stretch",
+            gap: 14,
+            paddingHorizontal: 20,
+            paddingVertical: 10,
+            minHeight: 64,
           }}
         >
-          <Icon size={19} color={iconColor} strokeWidth={2.1} />
-        </View>
-        <View style={{ minWidth: 0, flex: 1 }}>
-          <Text
-            numberOfLines={1}
+          <View
             style={{
-              color: destructive ? palette.danger : palette.ink,
-              ...typeStyle(15, { weight: "600", leadingScale: 0.99 }),
+              width: 44,
+              height: 44,
+              borderRadius: 14,
+              borderCurve: "continuous",
+              backgroundColor: iconBackground,
+              borderWidth: 1,
+              borderColor: iconBorder,
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
             }}
           >
-            {label || "Untitled action"}
-          </Text>
-          {description ? (
-            <Text numberOfLines={1} style={{ marginTop: 2, color: palette.soft, ...typeStyle(12.5) }}>
-              {description}
+            <Icon size={19} color={iconColor} strokeWidth={2.1} />
+          </View>
+          <View style={{ minWidth: 0, flex: 1 }}>
+            <Text
+              numberOfLines={1}
+              style={{
+                color: destructive ? palette.danger : palette.ink,
+                ...typeStyle(15, { weight: "600", leadingScale: 0.99 }),
+              }}
+            >
+              {label || "Untitled action"}
             </Text>
-          ) : null}
+            {description ? (
+              <Text numberOfLines={1} style={{ marginTop: 2, color: palette.soft, ...typeStyle(13) }}>
+                {description}
+              </Text>
+            ) : null}
+          </View>
         </View>
       </Pressable>
     </Animated.View>

@@ -1,12 +1,13 @@
 import { Animated, Pressable, Text, View } from "react-native"
 import { router } from "expo-router"
-import { Plus, Server } from "lucide-react-native"
+import { Plus } from "lucide-react-native"
+import { ListRow, StatusDot } from "@/components/ui/ListRow"
 import { usePressAnimation } from "@/lib/animation"
 import { triggerHaptic } from "@/lib/haptics"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { type as typeStyle } from "@/lib/typography"
 
-function hostLabel(url?: string): string {
+export function formatHostLabel(url?: string): string {
   if (!url) return "No host connected"
   try {
     const parsed = new URL(url)
@@ -17,65 +18,36 @@ function hostLabel(url?: string): string {
 }
 
 type DeviceSectionProps = {
-  /** The host this app is pointed at, if any. */
   url?: string
   connected: boolean
   version?: string
 }
 
 /**
- * The hosts this app can drive. nikcli talks to one at a time, so the section
- * shows the current one and the way to point somewhere else — the same shape as
- * the session list below it.
+ * Hosts this app can drive. The current one is a quiet row; adding another is
+ * a bordered pill. Layout lives on an inner View so NativeWind cannot collapse
+ * Pressable into a column.
  */
 export function DeviceSection({ url, connected, version }: DeviceSectionProps) {
   const { palette } = useAppTheme()
   const press = usePressAnimation()
-
   const detail = connected ? [version ? `v${version}` : null, "Connected"].filter(Boolean).join(" · ") : "Disconnected"
 
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: 8 }}>
       <Text style={{ color: palette.muted, paddingHorizontal: 4, ...typeStyle(15, { weight: "500" }) }}>Devices</Text>
 
       {url ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Host ${hostLabel(url)}. ${detail}`}
+        <ListRow
+          leading={<StatusDot color={connected ? palette.success : hexToRgba(palette.ink, 0.25)} />}
+          title={formatHostLabel(url)}
+          subtitle={detail}
           accessibilityHint="Opens host settings"
           onPress={() => {
             void triggerHaptic("selection")
             router.push("/more/host")
           }}
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-            paddingVertical: 12,
-            paddingHorizontal: 4,
-            borderRadius: 12,
-            borderCurve: "continuous",
-            backgroundColor: pressed ? hexToRgba(palette.ink, 0.04) : "transparent",
-          })}
-        >
-          <Server size={18} color={palette.ink} strokeWidth={2} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>
-              {hostLabel(url)}
-            </Text>
-            <Text numberOfLines={1} style={{ color: palette.muted, ...typeStyle(13) }}>
-              {detail}
-            </Text>
-          </View>
-          <View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 999,
-              backgroundColor: connected ? palette.success : hexToRgba(palette.ink, 0.25),
-            }}
-          />
-        </Pressable>
+        />
       ) : null}
 
       <Animated.View style={{ alignSelf: "flex-start", transform: [{ scale: press.scale }] }}>
@@ -87,23 +59,26 @@ export function DeviceSection({ url, connected, version }: DeviceSectionProps) {
           onPressOut={press.onPressOut}
           onPress={() => {
             void triggerHaptic("selection")
-            router.push("/connect")
+            router.push({ pathname: "/connect", params: { intent: "add" } })
           }}
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 8,
-            minHeight: 48,
-            paddingHorizontal: 20,
-            borderRadius: 999,
-            borderCurve: "continuous",
-            borderWidth: 1,
-            borderColor: hexToRgba(palette.ink, 0.12),
-            backgroundColor: pressed ? hexToRgba(palette.ink, 0.05) : palette.surfaceRaised,
-          })}
         >
-          <Plus size={18} color={palette.ink} strokeWidth={2.2} />
-          <Text style={{ color: palette.ink, ...typeStyle(16, { weight: "600" }) }}>Add device</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              minHeight: 44,
+              paddingHorizontal: 16,
+              borderRadius: 999,
+              borderCurve: "continuous",
+              borderWidth: 1,
+              borderColor: hexToRgba(palette.ink, 0.16),
+              backgroundColor: palette.background,
+            }}
+          >
+            <Plus size={18} color={palette.ink} strokeWidth={2.2} />
+            <Text style={{ color: palette.ink, ...typeStyle(16, { weight: "600" }) }}>Add device</Text>
+          </View>
         </Pressable>
       </Animated.View>
     </View>

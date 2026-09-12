@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AppState, Pressable, Text, View } from "react-native"
 import { useServer } from "@/lib/server-context"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 export function NetworkBanner() {
+  const { palette } = useAppTheme()
   const { client, config } = useServer()
   const [isReachable, setIsReachable] = useState(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -40,21 +43,29 @@ export function NetworkBanner() {
 
   return (
     <View
-      className="flex-row items-center justify-between gap-3 bg-danger/10 px-4 py-2.5"
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        backgroundColor: hexToRgba(palette.danger, 0.12),
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+      }}
       accessibilityLiveRegion="polite"
     >
-      <View className="flex-row items-center gap-2">
-        <View className="h-2 w-2 rounded-full bg-danger" />
-        <Text className="text-sm font-medium text-danger">Server unreachable</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+        <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: palette.danger }} />
+        <Text style={{ color: palette.danger, ...typeStyle(14, { weight: "600" }) }}>Server unreachable</Text>
       </View>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Retry server connection"
         hitSlop={10}
         onPress={() => void checkReachability()}
-        style={({ pressed }) => ({ opacity: pressed ? 0.62 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
+        style={({ pressed }) => ({ minHeight: 44, justifyContent: "center", opacity: pressed ? 0.62 : 1 })}
       >
-        <Text className="text-sm font-semibold text-danger">Retry</Text>
+        <Text style={{ color: palette.danger, ...typeStyle(14, { weight: "700" }) }}>Retry</Text>
       </Pressable>
     </View>
   )

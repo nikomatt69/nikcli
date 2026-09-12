@@ -31,6 +31,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "Nikcli uses Face ID to unlock the app and confirm sensitive actions.",
+        "NSCameraUsageDescription": "Nikcli uses the camera to scan the pairing QR shown on your computer.",
         "NSLocalNetworkUsageDescription": "Nikcli connects to the local CLI server running on your computer.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
@@ -63,6 +64,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Nikcli uses the camera to scan the pairing QR shown on your computer.",
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-secure-store",
       "expo-local-authentication",
       "expo-font",

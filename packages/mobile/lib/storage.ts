@@ -25,6 +25,7 @@ const LIVE_ACTIVITY_REGISTRY_KEY = "nikcli_live_activity_registry"
 const THEME_ID_KEY = "nikcli_theme_id"
 const COLOR_SCHEME_KEY = "nikcli_color_scheme"
 const TELEPORT_TARGET_KEY = "nikcli_teleport_target"
+const SESSION_SEEN_KEY = "nikcli_session_seen"
 
 export type TeleportTarget = { url: string; token: string }
 
@@ -337,6 +338,33 @@ export async function getLiveActivityRegistry(): Promise<Record<string, string>>
   } catch {
     return {}
   }
+}
+
+/** Last time the user opened each session — drives unread dots and the "New" prefix. */
+export async function getSessionSeen(): Promise<Record<string, number>> {
+  const raw = await SecureStore.getItemAsync(SESSION_SEEN_KEY)
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, number] => typeof entry[0] === "string" && typeof entry[1] === "number",
+      ),
+    )
+  } catch {
+    return {}
+  }
+}
+
+export async function setSessionSeen(seen: Record<string, number>): Promise<void> {
+  await SecureStore.setItemAsync(SESSION_SEEN_KEY, JSON.stringify(seen))
+}
+
+export async function markSessionSeen(sessionID: string, at = Date.now()): Promise<Record<string, number>> {
+  const current = await getSessionSeen()
+  const next = { ...current, [sessionID]: at }
+  await setSessionSeen(next)
+  return next
 }
 
 export async function setLiveActivityRegistry(registry: Record<string, string>): Promise<void> {

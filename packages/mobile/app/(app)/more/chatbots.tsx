@@ -3,14 +3,18 @@ import { ScrollView, Text, View } from "react-native"
 import { useFocusEffect } from "expo-router"
 import * as Clipboard from "expo-clipboard"
 import { ActionButton } from "@/components/ui/ActionButton"
+import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { useServer } from "@/lib/server-context"
+import { useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import { triggerHaptic } from "@/lib/haptics"
 import type { ChatBotInfo } from "@/lib/types"
 
 export default function ChatbotsScreen() {
+  const { palette } = useAppTheme()
   const { client } = useServer()
   const [bots, setBots] = useState<ChatBotInfo[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -61,7 +65,7 @@ export default function ChatbotsScreen() {
     >
       {error ? <ErrorBanner message={error} /> : null}
       {!bots.length ? (
-        <SurfaceCard
+        <EmptyState
           title="No chat bots"
           description="Configure Discord, Slack, Teams, or other chat connectors on the host, then start them here."
         />
@@ -71,7 +75,7 @@ export default function ChatbotsScreen() {
             <View className="flex-row flex-wrap gap-2">
               <InfoChip label={bot.running ? "Running" : "Stopped"} tone={bot.running ? "good" : "neutral"} />
             </View>
-            <Text className="mt-3 text-[12px] text-soft" selectable>
+            <Text selectable style={{ marginTop: 12, color: palette.soft, ...typeStyle(12) }}>
               {bot.webhookPath}
             </Text>
             <View className="mt-4 flex-row gap-2">

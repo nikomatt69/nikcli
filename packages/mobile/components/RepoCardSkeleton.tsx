@@ -1,20 +1,35 @@
 import { View } from "react-native"
 import { SkeletonBox } from "@/components/Skeleton"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 export function RepoCardSkeleton({ count = 2 }: { count?: number }) {
+  const { palette } = useAppTheme()
+
   return (
-    <View className="gap-3">
+    <View style={{ gap: 12 }}>
       {Array.from({ length: count }).map((_, index) => (
-        <View key={index} className="overflow-hidden rounded-[8px] border border-line/60 p-4" style={{ gap: 12 }}>
-          <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
-            <View className="flex-1" style={{ gap: 8 }}>
+        <View
+          key={index}
+          style={{
+            overflow: "hidden",
+            gap: 12,
+            padding: 16,
+            borderRadius: 18,
+            borderCurve: "continuous",
+            borderWidth: 1,
+            borderColor: hexToRgba(palette.ink, 0.08),
+            backgroundColor: palette.surfaceRaised,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <View style={{ flex: 1, gap: 8 }}>
               <SkeletonBox width={120} height={10} borderRadius={6} />
               <SkeletonBox width="70%" height={16} borderRadius={6} />
               <SkeletonBox width="45%" height={12} borderRadius={6} />
             </View>
             <SkeletonBox width={64} height={28} borderRadius={8} />
           </View>
-          <View className="flex-row" style={{ gap: 8 }}>
+          <View style={{ flexDirection: "row", gap: 8 }}>
             <SkeletonBox width={72} height={22} borderRadius={11} />
             <SkeletonBox width={88} height={22} borderRadius={11} />
           </View>

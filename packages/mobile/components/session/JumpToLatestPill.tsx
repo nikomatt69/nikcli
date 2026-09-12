@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Animated, Pressable, Text, View } from "react-native"
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native"
 import { ArrowDown } from "lucide-react-native"
 import { SPRING_MICRO, usePrefersReducedMotion } from "@/lib/animation"
 import { triggerHaptic } from "@/lib/haptics"
@@ -80,59 +80,65 @@ export function JumpToLatestPill(props: { visible: boolean; count: number; onPre
           }
           hitSlop={8}
           style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            borderRadius: 999,
-            paddingVertical: 7,
-            paddingLeft: 11,
-            paddingRight: 13,
+            borderRadius: 16,
+            borderCurve: "continuous",
             backgroundColor: hexToRgba(palette.ink, 0.92),
-            borderWidth: 1,
+            borderWidth: StyleSheet.hairlineWidth,
             borderColor: hexToRgba(palette.background, 0.14),
             shadowColor: palette.shadow,
             shadowOffset: { width: 0, height: 6 },
             shadowOpacity: 0.22,
             shadowRadius: 12,
             opacity: pressed ? 0.8 : 1,
-            transform: [{ scale: pressed ? 0.95 : 1 }],
+            transform: [{ scale: pressed ? 0.97 : 1 }],
           })}
         >
-          <ArrowDown size={12} color={palette.background} strokeWidth={2.6} />
-          <Text
+          <View
             style={{
-              color: palette.background,
-              fontSize: 11.5,
-              fontWeight: "600",
+              minHeight: 44,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              paddingLeft: 14,
+              paddingRight: 16,
             }}
           >
-            Latest messages
-          </Text>
-          {props.count > 0 ? (
-            <View
+            <ArrowDown size={14} color={palette.background} strokeWidth={2.6} />
+            <Text
               style={{
-                minWidth: 22,
-                height: 18,
-                borderRadius: 999,
-                paddingHorizontal: 6,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: palette.background,
+                color: palette.background,
+                fontSize: 13,
+                fontWeight: "600",
               }}
             >
-              <Text
+              Latest messages
+            </Text>
+            {props.count > 0 ? (
+              <View
                 style={{
-                  color: palette.ink,
-                  fontSize: 10,
-                  lineHeight: 13,
-                  fontWeight: "800",
-                  fontVariant: ["tabular-nums"],
+                  minWidth: 22,
+                  height: 20,
+                  borderRadius: 999,
+                  paddingHorizontal: 6,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: palette.background,
                 }}
               >
-                {props.count}
-              </Text>
-            </View>
-          ) : null}
+                <Text
+                  style={{
+                    color: palette.ink,
+                    fontSize: 11,
+                    lineHeight: 14,
+                    fontWeight: "800",
+                    fontVariant: ["tabular-nums"],
+                  }}
+                >
+                  {props.count}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </Pressable>
       </Animated.View>
     </View>

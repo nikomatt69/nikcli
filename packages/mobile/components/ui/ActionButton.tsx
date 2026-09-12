@@ -3,6 +3,7 @@ import { ActivityIndicator, Animated, Pressable, Text, type PressableProps } fro
 import { cn } from "@/lib/cn"
 import { usePressAnimation } from "@/lib/animation"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 type ActionButtonProps = PressableProps & {
   label: string
@@ -70,7 +71,7 @@ export function ActionButton({
   }
 
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View style={{ alignSelf: "stretch", transform: [{ scale }] }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -78,29 +79,26 @@ export function ActionButton({
         disabled={disabled || loading}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        className={cn("min-h-[48px] items-center justify-center overflow-hidden px-5 py-3", className)}
+        className={cn("overflow-hidden", className)}
         style={{
+          minHeight: 48,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 20,
+          paddingVertical: 12,
           borderRadius: 999,
           borderCurve: "continuous",
           borderWidth: variant === "primary" ? 0 : 1,
           borderColor: tone.borderColor,
           backgroundColor: tone.backgroundColor,
-          opacity: inactive ? 0.5 : pressed ? 0.85 : 1,
+          opacity: inactive ? 0.5 : pressed ? 0.72 : 1,
         }}
         {...props}
       >
         {loading ? (
           <ActivityIndicator color={tone.textColor} />
         ) : (
-          <Text
-            style={{
-              color: tone.textColor,
-              textAlign: "center",
-              fontSize: 15,
-              fontWeight: "600",
-              letterSpacing: 0,
-            }}
-          >
+          <Text style={{ color: tone.textColor, textAlign: "center", ...typeStyle(15, { weight: "600" }) }}>
             {label}
           </Text>
         )}

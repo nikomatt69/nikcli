@@ -251,21 +251,14 @@ export function SessionComposer({
       easing: Easing.out(Easing.ease),
     }).start()
     if (prefersReducedMotion) {
-      sendScaleAnim.setValue(isReady ? 1 : 0.88)
+      sendScaleAnim.setValue(1)
       return
     }
 
-    if (isReady) {
-      Animated.spring(sendScaleAnim, {
-        toValue: 1,
-        ...SPRING_CONFIG,
-      }).start()
-    } else {
-      Animated.spring(sendScaleAnim, {
-        toValue: 0.88,
-        ...SPRING_CONFIG,
-      }).start()
-    }
+    Animated.spring(sendScaleAnim, {
+      toValue: 1,
+      ...SPRING_CONFIG,
+    }).start()
   }, [hasText, prefersReducedMotion, sendBlocked, sendColorAnim, sendScaleAnim])
 
   useEffect(() => {
@@ -434,6 +427,7 @@ export function SessionComposer({
         >
           <CircleAlert size={13} color={palette.danger} strokeWidth={2.4} />
           <Text
+            selectable
             numberOfLines={2}
             style={{
               flex: 1,
@@ -450,15 +444,17 @@ export function SessionComposer({
               onPress={onRetryError}
               accessibilityRole="button"
               accessibilityLabel="Retry failed action"
-              hitSlop={6}
+              hitSlop={8}
               style={({ pressed }) => ({
                 borderRadius: 999,
+                borderCurve: "continuous",
                 borderWidth: 1,
                 borderColor: hexToRgba(palette.danger, 0.35),
-                paddingHorizontal: 10,
-                paddingVertical: 3,
+                minHeight: 44,
+                justifyContent: "center",
+                paddingHorizontal: 12,
                 opacity: pressed ? 0.68 : 1,
-                transform: [{ scale: pressed ? 0.96 : 1 }],
+                transform: [{ scale: pressed ? 0.97 : 1 }],
               })}
             >
               <Text
@@ -478,8 +474,12 @@ export function SessionComposer({
               accessibilityLabel="Dismiss error"
               hitSlop={8}
               style={({ pressed }) => ({
-                padding: 6,
+                width: 44,
+                height: 44,
+                alignItems: "center",
+                justifyContent: "center",
                 opacity: pressed ? 0.55 : 1,
+                transform: [{ scale: pressed ? 0.97 : 1 }],
               })}
             >
               <X size={14} color={palette.danger} strokeWidth={2.2} />
@@ -896,43 +896,46 @@ export function SessionComposer({
                     accessibilityRole="button"
                     accessibilityLabel="Attach file"
                     accessibilityState={{ disabled: cleaned }}
-                    hitSlop={6}
+                    hitSlop={4}
                     style={({ pressed }) => ({
                       ...iconBtn,
-                      padding: 3,
+                      width: 44,
+                      height: 44,
                       opacity: cleaned ? 0.3 : pressed ? 0.68 : 1,
-                      transform: [{ scale: pressed ? 0.94 : 1 }],
+                      transform: [{ scale: pressed ? 0.97 : 1 }],
                     })}
                   >
-                    <Paperclip size={14} color={palette.soft} strokeWidth={2} />
-                    {pendingAttachments.length > 0 ? (
-                      <View
-                        style={{
-                          position: "absolute",
-                          top: -5,
-                          right: -5,
-                          minWidth: 16,
-                          height: 16,
-                          borderRadius: 999,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: palette.accent,
-                          borderWidth: 1,
-                          borderColor: palette.surface,
-                        }}
-                      >
-                        <Text
+                    <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+                      <Paperclip size={16} color={palette.soft} strokeWidth={2} />
+                      {pendingAttachments.length > 0 ? (
+                        <View
                           style={{
-                            color: palette.background,
-                            fontSize: 9,
-                            fontWeight: "800",
-                            fontVariant: ["tabular-nums"],
+                            position: "absolute",
+                            top: 4,
+                            right: 4,
+                            minWidth: 16,
+                            height: 16,
+                            borderRadius: 999,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: palette.accent,
+                            borderWidth: 1,
+                            borderColor: palette.surface,
                           }}
                         >
-                          {pendingAttachments.length}
-                        </Text>
-                      </View>
-                    ) : null}
+                          <Text
+                            style={{
+                              color: palette.background,
+                              fontSize: 9,
+                              fontWeight: "800",
+                              fontVariant: ["tabular-nums"],
+                            }}
+                          >
+                            {pendingAttachments.length}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </Pressable>
                 ) : null}
 
@@ -946,15 +949,18 @@ export function SessionComposer({
                   accessibilityRole="button"
                   accessibilityLabel="Open command palette"
                   accessibilityHint="Shows slash commands, prompt presets, tools, skills, and snippets"
-                  hitSlop={6}
+                  hitSlop={4}
                   style={({ pressed }) => ({
                     ...iconBtn,
-                    padding: 3,
+                    width: 44,
+                    height: 44,
                     opacity: pressed ? 0.68 : 1,
-                    transform: [{ scale: pressed ? 0.94 : 1 }],
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
                   })}
                 >
-                  <Terminal size={14} color={palette.soft} strokeWidth={2} />
+                  <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+                    <Terminal size={16} color={palette.soft} strokeWidth={2} />
+                  </View>
                 </Pressable>
 
                 {/* Git */}
@@ -968,15 +974,18 @@ export function SessionComposer({
                     accessibilityRole="button"
                     accessibilityLabel="Open Git panel"
                     accessibilityHint="Shows Git changes, commits, and review"
-                    hitSlop={6}
+                    hitSlop={4}
                     style={({ pressed }) => ({
                       ...iconBtn,
-                      padding: 3,
+                      width: 44,
+                      height: 44,
                       opacity: pressed ? 0.68 : 1,
-                      transform: [{ scale: pressed ? 0.94 : 1 }],
+                      transform: [{ scale: pressed ? 0.97 : 1 }],
                     })}
                   >
-                    <GitBranch size={14} color={palette.soft} strokeWidth={2} />
+                    <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+                      <GitBranch size={16} color={palette.soft} strokeWidth={2} />
+                    </View>
                   </Pressable>
                 ) : null}
 
@@ -991,15 +1000,18 @@ export function SessionComposer({
                     accessibilityRole="button"
                     accessibilityLabel={permissionModeLabel ? `Permissions: ${permissionModeLabel}` : "Permissions"}
                     accessibilityHint="Choose how the host asks before tool actions"
-                    hitSlop={6}
+                    hitSlop={4}
                     style={({ pressed }) => ({
                       ...iconBtn,
-                      padding: 3,
+                      width: 44,
+                      height: 44,
                       opacity: pressed ? 0.68 : 1,
-                      transform: [{ scale: pressed ? 0.94 : 1 }],
+                      transform: [{ scale: pressed ? 0.97 : 1 }],
                     })}
                   >
-                    <Shield size={14} color={palette.soft} strokeWidth={2.1} />
+                    <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+                      <Shield size={16} color={palette.soft} strokeWidth={2.1} />
+                    </View>
                   </Pressable>
                 ) : null}
 
@@ -1013,15 +1025,18 @@ export function SessionComposer({
                   accessibilityRole="button"
                   accessibilityLabel="Open tools"
                   accessibilityHint="Shows tools, skills, models, and MCP controls"
-                  hitSlop={6}
+                  hitSlop={4}
                   style={({ pressed }) => ({
                     ...iconBtn,
-                    padding: 3,
+                    width: 44,
+                    height: 44,
                     opacity: pressed ? 0.68 : 1,
-                    transform: [{ scale: pressed ? 0.94 : 1 }],
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
                   })}
                 >
-                  <Plus size={14} color={palette.soft} strokeWidth={2} />
+                  <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+                    <Plus size={16} color={palette.soft} strokeWidth={2} />
+                  </View>
                 </Pressable>
               </View>
 
@@ -1093,25 +1108,33 @@ export function SessionComposer({
                     }
                     style={({ pressed }) => ({
                       flexShrink: 0,
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: isDark ? hexToRgba(palette.ink, 0.12) : hexToRgba(palette.border, 0.7),
-                      backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.62)",
-                      paddingHorizontal: 14,
-                      paddingVertical: 7,
                       opacity: pressed ? 0.72 : 1,
+                      transform: [{ scale: pressed ? 0.97 : 1 }],
                     })}
                   >
-                    <Text
+                    <View
                       style={{
-                        color: palette.muted,
-                        fontSize: 12,
-                        fontWeight: "600",
+                        minHeight: 44,
+                        borderRadius: 999,
+                        borderCurve: "continuous",
+                        borderWidth: 1,
+                        borderColor: isDark ? hexToRgba(palette.ink, 0.12) : hexToRgba(palette.border, 0.7),
+                        backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.62)",
+                        paddingHorizontal: 14,
+                        justifyContent: "center",
                       }}
-                      numberOfLines={1}
                     >
-                      Model
-                    </Text>
+                      <Text
+                        style={{
+                          color: palette.muted,
+                          fontSize: 12,
+                          fontWeight: "600",
+                        }}
+                        numberOfLines={1}
+                      >
+                        Model
+                      </Text>
+                    </View>
                   </Pressable>
                 ) : null}
                 {/* Char count */}
@@ -1150,7 +1173,7 @@ export function SessionComposer({
                         alignItems: "center",
                         justifyContent: "center",
                         opacity: pressed ? 0.7 : 1,
-                        transform: [{ scale: pressed ? 0.93 : 1 }],
+                        transform: [{ scale: pressed ? 0.97 : 1 }],
                       })}
                     >
                       <Square size={14} color={palette.ink} strokeWidth={0} fill={palette.ink} />
@@ -1178,7 +1201,7 @@ export function SessionComposer({
                         justifyContent: "center",
                         overflow: "hidden",
                         opacity: pressed && !sendDisabled ? 0.7 : 1,
-                        transform: [{ scale: pressed && !sendDisabled ? 0.93 : 1 }],
+                        transform: [{ scale: pressed && !sendDisabled ? 0.97 : 1 }],
                       })}
                     >
                       <Animated.View
@@ -1238,17 +1261,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    paddingTop: 11,
+    gap: 8,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    paddingTop: 6,
   },
   segment: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 999,
+    borderCurve: "continuous",
     borderWidth: 1,
-    height: 26,
+    height: 44,
     // SEGMENT_W * 2 segments + 4px inner padding (2 each side)
     width: SEGMENT_W * 2 + 4,
     position: "relative",
@@ -1260,19 +1284,20 @@ const styles = StyleSheet.create({
     top: 2,
     // Pill fills one segment minus 2px (leaves 2px gap on connecting edge)
     width: SEGMENT_W - 2,
-    height: 22,
+    height: 40,
     borderRadius: 999,
     borderWidth: 1,
   },
   segmentItem: {
     width: SEGMENT_W,
+    height: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
   },
   segmentLabel: {
-    fontSize: 9.5,
+    fontSize: 12,
     fontWeight: "600",
     letterSpacing: 0.15,
   },

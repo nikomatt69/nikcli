@@ -138,7 +138,7 @@ export function PublishSheet({
               }}
             >
               <ActivityIndicator color={palette.accent} size="small" />
-              <Text style={{ fontSize: 14, color: palette.soft }}>Publishing changes to GitHub…</Text>
+              <Text style={{ color: palette.soft, ...typeStyle(14) }}>Publishing changes to GitHub…</Text>
             </Animated.View>
           ) : null}
         </View>

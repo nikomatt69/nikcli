@@ -2,6 +2,7 @@ import { Pressable, ScrollView, Text, View } from "react-native"
 import { triggerHaptic } from "@/lib/haptics"
 import { resolveTerminalKeyInput, type TerminalKeyAction } from "@/lib/terminal-keys"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 type Props = {
   keys: TerminalKeyAction[]
@@ -62,7 +63,8 @@ export function TerminalKeyStrip({
             }}
             style={({ pressed }) => ({
               minWidth: key.label.length > 4 ? 68 : 52,
-              height: compact ? 40 : 44,
+              minHeight: 44,
+              height: 44,
               paddingHorizontal: 12,
               borderRadius: 10,
               borderWidth: 1,
@@ -79,10 +81,9 @@ export function TerminalKeyStrip({
           >
             <Text
               style={{
-                fontSize: key.label.length === 1 ? 18 : 13,
-                fontWeight: stickyOn || key.accent ? "700" : "600",
                 color: stickyOn ? palette.accentLight : key.accent ? palette.danger : palette.soft,
                 fontVariant: ["tabular-nums"],
+                ...typeStyle(key.label.length === 1 ? 18 : 13, { weight: stickyOn || key.accent ? "700" : "600" }),
               }}
             >
               {key.label}
@@ -108,7 +109,7 @@ export function TerminalKeyStripContainer({
         flexShrink: 0,
         borderTopWidth: 1,
         borderTopColor: hexToRgba(palette.ink, 0.12),
-        backgroundColor: "#0d0d0d",
+        backgroundColor: palette.codeBlockBackground,
         zIndex: docked ? 1 : undefined,
       }}
     >

@@ -5,6 +5,7 @@ import { router } from "expo-router"
 import { BrandMark } from "@/components/layout/BrandMark"
 import { IconCircleButton } from "@/components/ui/IconCircleButton"
 import { useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 /**
  * Custom screen header used by the tab pages: bare NIKCLI brand image
@@ -20,27 +21,20 @@ export function ScreenBrandHeader({ title, right }: { title: string; right?: Rea
         <BrandMark />
         {right ? <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>{right}</View> : null}
       </View>
-      <Text
-        style={{
-          fontSize: 34,
-          fontWeight: "700",
-          letterSpacing: -0.5,
-          color: palette.ink,
-        }}
-      >
+      <Text accessibilityRole="header" style={{ color: palette.ink, ...typeStyle(34, { weight: "700" }) }}>
         {title}
       </Text>
     </View>
   )
 }
 
-/** Circular settings gear for ScreenBrandHeader `right` slots. */
+/** Circular settings gear for CenteredScreenHeader `right` slots. */
 export function SettingsCircleButton() {
   const { palette } = useAppTheme()
 
   return (
-    <IconCircleButton size={36} accessibilityLabel="Open settings" onPress={() => router.push("/more/settings")}>
-      <Settings size={17} color={palette.ink} strokeWidth={2} />
+    <IconCircleButton size={44} accessibilityLabel="Open settings" onPress={() => router.push("/more/settings")}>
+      <Settings size={20} color={palette.ink} strokeWidth={2} />
     </IconCircleButton>
   )
 }

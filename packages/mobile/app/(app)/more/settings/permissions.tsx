@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { Stack, useFocusEffect } from "expo-router"
 import { Check } from "lucide-react-native"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
+import { optionChipStyle, optionChipTextColor } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { useServer } from "@/lib/server-context"
 import {
@@ -21,6 +22,7 @@ import {
 } from "@/lib/permission-presets"
 import { triggerHaptic } from "@/lib/haptics"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import type { HostConfigSnapshot } from "@/lib/types"
 
 export default function PermissionsSettingsScreen() {
@@ -103,10 +105,11 @@ export default function PermissionsSettingsScreen() {
       >
         {message ? <ErrorBanner message={message} /> : null}
 
-        <SurfaceCard>
-          <Text className="text-[12px] font-medium text-muted">Presets</Text>
-          <Text className="mt-1 text-[15px] font-semibold text-ink">{permissionModeTitle(mode)}</Text>
-          <Text className="mt-1 text-[13px] leading-[18px] text-soft">{permissionModeDescription(mode)}</Text>
+        <SurfaceCard
+          eyebrow="Presets"
+          title={permissionModeTitle(mode)}
+          description={permissionModeDescription(mode)}
+        >
 
           <View className="mt-4 gap-2">
             {PERMISSION_PRESETS.map((preset) => {
@@ -119,6 +122,7 @@ export default function PermissionsSettingsScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
                   style={({ pressed }) => ({
+                    minHeight: 44,
                     borderRadius: 14,
                     borderWidth: 1,
                     paddingHorizontal: 14,
@@ -132,8 +136,12 @@ export default function PermissionsSettingsScreen() {
                 >
                   <View className="flex-row items-center justify-between gap-3">
                     <View className="min-w-0 flex-1">
-                      <Text className="text-[14px] font-semibold text-ink">{permissionModeTitle(preset)}</Text>
-                      <Text className="mt-1 text-[12px] leading-4 text-soft">{permissionModeDescription(preset)}</Text>
+                      <Text style={{ color: palette.ink, ...typeStyle(14, { weight: "600" }) }}>
+                        {permissionModeTitle(preset)}
+                      </Text>
+                      <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(12) }}>
+                        {permissionModeDescription(preset)}
+                      </Text>
                     </View>
                     {active ? <Check size={16} color={palette.accentLight} strokeWidth={2.4} /> : null}
                   </View>
@@ -143,13 +151,11 @@ export default function PermissionsSettingsScreen() {
           </View>
         </SurfaceCard>
 
-        <SurfaceCard>
-          <Text className="text-[12px] font-medium text-muted">Tools</Text>
-          <Text className="mt-1 text-[15px] font-semibold text-ink">Per-tool rules</Text>
-          <Text className="mt-1 text-[13px] leading-[18px] text-soft">
-            Override individual tools. Choosing Ask, Allow, or Deny here switches the host into Custom mode when it no
-            longer matches a preset.
-          </Text>
+        <SurfaceCard
+          eyebrow="Tools"
+          title="Per-tool rules"
+          description="Override individual tools. Choosing Ask, Allow, or Deny here switches the host into Custom mode when it no longer matches a preset."
+        >
 
           <View className="mt-4">
             {PERMISSION_ITEMS.map((item, index) => {
@@ -160,11 +166,11 @@ export default function PermissionsSettingsScreen() {
                   style={{
                     paddingVertical: 12,
                     borderTopWidth: index === 0 ? 0 : StyleSheet.hairlineWidth,
-                    borderTopColor: isDark ? "rgba(255,255,255,0.08)" : hexToRgba(palette.ink, 0.08),
+                    borderTopColor: hexToRgba(palette.ink, 0.08),
                   }}
                 >
-                  <Text className="text-[14px] font-semibold text-ink">{item.title}</Text>
-                  <Text className="mt-1 text-[12px] leading-4 text-soft">{item.description}</Text>
+                  <Text style={{ color: palette.ink, ...typeStyle(14, { weight: "600" }) }}>{item.title}</Text>
+                  <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(12) }}>{item.description}</Text>
                   <View className="mt-3 flex-row flex-wrap gap-2">
                     {PERMISSION_ACTIONS.map((action) => {
                       const active = current === action.value
@@ -176,22 +182,15 @@ export default function PermissionsSettingsScreen() {
                           accessibilityRole="button"
                           accessibilityState={{ selected: active }}
                           style={({ pressed }) => ({
+                            ...optionChipStyle(palette, active),
                             borderRadius: 999,
-                            borderWidth: 1,
-                            paddingHorizontal: 12,
-                            paddingVertical: 7,
                             opacity: pressed ? 0.72 : 1,
-                            backgroundColor: active
-                              ? hexToRgba(palette.accentLight, 0.16)
-                              : hexToRgba(palette.ink, 0.06),
-                            borderColor: active ? hexToRgba(palette.accentLight, 0.32) : hexToRgba(palette.ink, 0.12),
                           })}
                         >
                           <Text
                             style={{
-                              fontSize: 12,
-                              fontWeight: active ? "700" : "600",
-                              color: active ? palette.accentLight : palette.soft,
+                              color: optionChipTextColor(palette, active),
+                              ...typeStyle(12, { weight: active ? "700" : "600" }),
                             }}
                           >
                             {action.label}

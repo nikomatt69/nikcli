@@ -9,9 +9,11 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { IconCircleButton } from "@/components/ui/IconCircleButton"
 import { ListRow, StatusDot } from "@/components/ui/ListRow"
 import { AppHeader } from "@/components/layout/AppHeader"
-import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
+import { CenteredScreenHeader } from "@/components/layout/CenteredScreenHeader"
+import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { useServer } from "@/lib/server-context"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import type { Routine } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 
@@ -43,12 +45,12 @@ function RoutineRow({ item, onRun, running }: { item: Routine; onRun: (id: strin
       onPress={() => router.push(`/routines/${item.id}` as Href)}
       trailing={
         <IconCircleButton
-          size={34}
+          size={44}
           accessibilityLabel={`Run ${item.name} now`}
           onPress={() => onRun(item.id)}
           disabled={running}
         >
-          <Play size={14} color={running ? palette.muted : palette.ink} strokeWidth={2.2} />
+          <Play size={16} color={running ? palette.muted : palette.ink} strokeWidth={2.2} />
         </IconCircleButton>
       }
     />
@@ -84,8 +86,8 @@ export default function RoutinesScreen() {
   }, [load])
 
   const refreshControlElement = useMemo(
-    () => <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.muted} />,
-    [refreshing, load, palette.muted],
+    () => <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />,
+    [refreshing, load, palette.accent],
   )
 
   async function runRoutine(id: string) {
@@ -106,10 +108,10 @@ export default function RoutinesScreen() {
 
   const hero = (
     <AppHeader className="gap-3 pb-4">
-      <ScreenBrandHeader title="Routines" right={<SettingsCircleButton />} />
+      <CenteredScreenHeader title="Routines" right={<SettingsCircleButton />} />
       <ActionButton label="New routine" onPress={() => router.push("/routines/new" as Href)} />
       {routines.length > 0 ? (
-        <Text className="text-[13px] text-muted">
+        <Text style={{ color: palette.muted, ...typeStyle(13) }}>
           {routines.length} {routines.length === 1 ? "routine" : "routines"} · {activeCount} active
         </Text>
       ) : null}
@@ -118,7 +120,7 @@ export default function RoutinesScreen() {
   )
 
   return (
-    <View className="flex-1 bg-background px-4 pt-4">
+    <View style={{ flex: 1, backgroundColor: palette.background, paddingHorizontal: 16, paddingTop: 16 }}>
       <FlatList
         contentInsetAdjustmentBehavior="automatic"
         data={routines}

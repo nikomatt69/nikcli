@@ -244,6 +244,8 @@ export function SheetShell({
       accessibilityLabel={accessibilityLabel}
       style={[
         {
+          width: "100%",
+          alignSelf: "stretch",
           transform: [{ translateY }],
           opacity: scrim,
           backgroundColor: palette.surface,
@@ -279,7 +281,7 @@ export function SheetShell({
               borderWidth: 1,
               borderBottomWidth: inset ? 1 : 0,
               // A bright top edge reads as light catching the leading edge of the material.
-              borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba("#ffffff", 0.64),
+              borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.surfaceRaised, 0.86),
             },
           ]}
         />
@@ -290,7 +292,12 @@ export function SheetShell({
         accessibilityRole="adjustable"
         accessibilityLabel="Sheet handle"
         accessibilityHint="Drag down to dismiss"
-        style={{ paddingTop: showHandle ? 9 : 4, paddingBottom: showHandle ? 8 : 4, alignItems: "center" }}
+        style={{
+          minHeight: 44,
+          paddingTop: showHandle ? 12 : 4,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
       >
         {showHandle ? (
           <View
@@ -332,7 +339,14 @@ export function SheetShell({
   )
 
   return (
-    <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent>
+    <Modal
+      transparent
+      visible
+      animationType="none"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      presentationStyle={Platform.OS === "ios" ? "overFullScreen" : "fullScreen"}
+    >
       {avoidKeyboard ? (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           {body}

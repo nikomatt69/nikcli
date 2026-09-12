@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from "react"
 import { GitBranch, RefreshCw } from "lucide-react-native"
 import { SPRING_CONFIG, usePrefersReducedMotion } from "@/lib/animation"
 import type { GitState } from "@/lib/types"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 interface GitStatusBarProps {
   gitState: GitState | null
@@ -201,13 +201,14 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             style={{
+              minHeight: 44,
               flexDirection: "row",
               alignItems: "center",
               gap: 10,
               paddingHorizontal: 12,
               paddingVertical: 8,
               borderRadius: 12,
-              backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+              backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.04),
               borderWidth: 1,
               borderColor: palette.border,
             }}
@@ -243,13 +244,14 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={{
+          minHeight: 44,
           flexDirection: "row",
           alignItems: "center",
           gap: 10,
           paddingHorizontal: 12,
           paddingVertical: 8,
           borderRadius: 12,
-          backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+          backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.04),
           borderWidth: 1,
           borderColor: palette.border,
         }}
@@ -273,8 +275,8 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
                       transform: [{ scale: anims?.scale ?? 1 }],
                     }}
                   >
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#22c55e" }} />
-                    <Text style={{ fontSize: 10, fontWeight: "600", color: "#22c55e" }}>{stagedCount}</Text>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.success }} />
+                    <Text style={{ fontSize: 10, fontWeight: "600", color: palette.success }}>{stagedCount}</Text>
                   </Animated.View>
                 )
               })()}
@@ -291,15 +293,15 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
                       transform: [{ scale: anims?.scale ?? 1 }],
                     }}
                   >
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#f59e0b" }} />
-                    <Text style={{ fontSize: 10, fontWeight: "600", color: "#f59e0b" }}>{unstagedCount}</Text>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.warn }} />
+                    <Text style={{ fontSize: 10, fontWeight: "600", color: palette.warn }}>{unstagedCount}</Text>
                   </Animated.View>
                 )
               })()}
             {untrackedCount > 0 && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#6b7280" }} />
-                <Text style={{ fontSize: 10, fontWeight: "600", color: "#6b7280" }}>{untrackedCount}</Text>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.muted }} />
+                <Text style={{ fontSize: 10, fontWeight: "600", color: palette.muted }}>{untrackedCount}</Text>
               </View>
             )}
           </Animated.View>
@@ -315,7 +317,7 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
                   style={{
                     fontSize: 10,
                     fontWeight: "600",
-                    color: "#3b82f6",
+                    color: palette.accent,
                     opacity: anims?.opacity ?? 1,
                     transform: [{ scale: anims?.scale ?? 1 }],
                   }}
@@ -329,7 +331,7 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
         {behind > 0 && (
           <>
             <View style={{ width: 1, height: 12, backgroundColor: palette.border }} />
-            <Text style={{ fontSize: 10, fontWeight: "600", color: "#f59e0b" }}>↓{behind}</Text>
+            <Text style={{ fontSize: 10, fontWeight: "600", color: palette.warn }}>↓{behind}</Text>
           </>
         )}
 
@@ -341,11 +343,11 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
             }}
             onPressIn={handleRefreshPressIn}
             onPressOut={handleRefreshPressOut}
-            hitSlop={6}
+            hitSlop={10}
             style={{
-              width: 24,
-              height: 24,
-              borderRadius: 6,
+              width: 44,
+              height: 44,
+              borderRadius: 10,
               alignItems: "center",
               justifyContent: "center",
             }}

@@ -13,11 +13,13 @@ import {
   Target,
 } from "lucide-react-native"
 import { SettingsNavCard } from "@/components/settings/SettingsNavCard"
-import { ScreenBrandHeader } from "@/components/layout/ScreenBrandHeader"
+import { CenteredScreenHeader } from "@/components/layout/CenteredScreenHeader"
 import { Divider } from "@/components/ui/Divider"
+import { SectionHeader } from "@/components/ui/SectionHeader"
 import { TipsCard } from "@/components/ui/TipsCard"
 import { useServer } from "@/lib/server-context"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 function Group({ children }: { children: ReactNode }) {
   const { palette } = useAppTheme()
@@ -38,6 +40,7 @@ function Group({ children }: { children: ReactNode }) {
 
 export default function MoreScreen() {
   const { config } = useServer()
+  const { palette } = useAppTheme()
   const hostLabel = config?.url ? config.url.replace(/^https?:\/\//, "") : "No host linked"
 
   return (
@@ -47,13 +50,13 @@ export default function MoreScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <View className="gap-4">
-        <ScreenBrandHeader title="Tools" />
-        <Text className="px-1 text-[13px] leading-[19px] text-soft">
+        <CenteredScreenHeader title="Tools" />
+        <Text selectable style={{ paddingHorizontal: 4, color: palette.soft, ...typeStyle(13) }}>
           Automation, host controls, and appearance for this workspace.
         </Text>
         <TipsCard />
 
-        <Text className="px-1 text-[12px] font-semibold uppercase tracking-[0.6px] text-muted">Automation</Text>
+        <SectionHeader label="Automation" />
         <Group>
           <Link href={"/more/missions" as Href} asChild>
             <SettingsNavCard
@@ -86,7 +89,7 @@ export default function MoreScreen() {
           </Link>
         </Group>
 
-        <Text className="px-1 text-[12px] font-semibold uppercase tracking-[0.6px] text-muted">Host</Text>
+        <SectionHeader label="Host" />
         <Group>
           <Link href={"/more/chatbots" as Href} asChild>
             <SettingsNavCard
@@ -117,7 +120,7 @@ export default function MoreScreen() {
           </Link>
         </Group>
 
-        <Text className="px-1 text-[12px] font-semibold uppercase tracking-[0.6px] text-muted">Appearance</Text>
+        <SectionHeader label="Appearance" />
         <Group>
           <Link href={"/more/settings/appearance" as Href} asChild>
             <SettingsNavCard

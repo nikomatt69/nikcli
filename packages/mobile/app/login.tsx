@@ -17,13 +17,14 @@ import { useServer, userMe, userStatus } from "@/lib/server-context"
 import { loginWithOAuth } from "@/lib/oauth"
 import { router } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { KeyRound } from "lucide-react-native"
+import { Check, KeyRound } from "lucide-react-native"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
-import { useAppTheme } from "@/lib/theme"
+import { contrastOn, hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import { triggerHaptic } from "@/lib/haptics"
-import { usePrefersReducedMotion } from "@/lib/animation"
+import { SPRING_CONFIG, usePrefersReducedMotion } from "@/lib/animation"
 import { AdaptiveBlur } from "@/components/GlassView"
 
 function AnimatedLogo({ scale, opacity }: { scale: Animated.Value; opacity: Animated.Value }) {
@@ -62,9 +63,10 @@ function AnimatedFormCard({
 }
 
 function SuccessCheckmark({ visible }: { visible: boolean }) {
+  const { palette } = useAppTheme()
   const prefersReducedMotion = usePrefersReducedMotion()
   const scaleRef = useRef<Animated.Value | null>(null)
-  if (scaleRef.current === null) scaleRef.current = new Animated.Value(0)
+  if (scaleRef.current === null) scaleRef.current = new Animated.Value(0.92)
   const scale = scaleRef.current
   const opacityRef = useRef<Animated.Value | null>(null)
   if (opacityRef.current === null) opacityRef.current = new Animated.Value(0)
@@ -72,7 +74,7 @@ function SuccessCheckmark({ visible }: { visible: boolean }) {
 
   useEffect(() => {
     if (prefersReducedMotion) {
-      scale.setValue(visible ? 1 : 0)
+      scale.setValue(visible ? 1 : 0.92)
       opacity.setValue(visible ? 1 : 0)
       return
     }
@@ -81,10 +83,7 @@ function SuccessCheckmark({ visible }: { visible: boolean }) {
       Animated.parallel([
         Animated.spring(scale, {
           toValue: 1,
-          damping: 12,
-          stiffness: 200,
-          mass: 0.8,
-          useNativeDriver: true,
+          ...SPRING_CONFIG,
         }),
         Animated.timing(opacity, {
           toValue: 1,
@@ -95,10 +94,8 @@ function SuccessCheckmark({ visible }: { visible: boolean }) {
     } else {
       Animated.parallel([
         Animated.spring(scale, {
-          toValue: 0,
-          damping: 15,
-          stiffness: 300,
-          useNativeDriver: true,
+          toValue: 0.92,
+          ...SPRING_CONFIG,
         }),
         Animated.timing(opacity, {
           toValue: 0,
@@ -127,14 +124,14 @@ function SuccessCheckmark({ visible }: { visible: boolean }) {
           width: 80,
           height: 80,
           borderRadius: 40,
-          backgroundColor: "rgba(31,138,101,0.2)",
+          backgroundColor: hexToRgba(palette.success, 0.2),
           borderWidth: 3,
-          borderColor: "#22c55e",
+          borderColor: palette.success,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 40, color: "#22c55e" }}>✓</Text>
+        <Check size={40} color={palette.success} strokeWidth={2.5} />
       </View>
     </Animated.View>
   )
@@ -154,7 +151,7 @@ export default function LoginScreen() {
   const [success, setSuccess] = useState(false)
 
   const logoScaleRef = useRef<Animated.Value | null>(null)
-  if (logoScaleRef.current === null) logoScaleRef.current = new Animated.Value(0)
+  if (logoScaleRef.current === null) logoScaleRef.current = new Animated.Value(0.96)
   const logoScale = logoScaleRef.current
   const logoOpacityRef = useRef<Animated.Value | null>(null)
   if (logoOpacityRef.current === null) logoOpacityRef.current = new Animated.Value(0)
@@ -183,10 +180,7 @@ export default function LoginScreen() {
         Animated.parallel([
           Animated.spring(logoScale, {
             toValue: 1,
-            damping: 18,
-            stiffness: 200,
-            mass: 0.8,
-            useNativeDriver: true,
+            ...SPRING_CONFIG,
           }),
           Animated.timing(logoOpacity, {
             toValue: 1,
@@ -315,9 +309,8 @@ export default function LoginScreen() {
           >
             <Text
               style={{
-                color: isDark ? "#0a0a0a" : "#fff",
-                fontWeight: "800",
-                fontSize: 24,
+                color: contrastOn(palette.accent),
+                ...typeStyle(24, { weight: "800" }),
               }}
             >
               N
@@ -345,6 +338,7 @@ export default function LoginScreen() {
         />
 
         <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{
             flexGrow: 1,
             paddingTop: top + 24,
@@ -357,37 +351,22 @@ export default function LoginScreen() {
           <View style={{ alignItems: "center", marginBottom: 32 }}>
             <AnimatedLogo scale={logoScale} opacity={logoOpacity} />
             <Animated.View style={{ opacity: logoOpacity }}>
-              <Text
-                style={{
-                  color: palette.ink,
-                  fontSize: 26,
-                  fontWeight: "700",
-                  letterSpacing: -0.5,
-                }}
-              >
-                nikcli
-              </Text>
+              <Text style={{ color: palette.ink, ...typeStyle(26, { weight: "700" }) }}>nikcli</Text>
             </Animated.View>
             <Animated.View style={{ opacity: logoOpacity, marginTop: 4 }}>
-              <Text style={{ color: palette.muted, fontSize: 14 }}>
+              <Text style={{ color: palette.muted, ...typeStyle(14) }}>
                 {isSignup ? "Create your account to get started" : "Sign in to your account"}
               </Text>
             </Animated.View>
           </View>
 
           <AnimatedFormCard translateY={formTranslateY} opacity={formOpacity}>
-            <SurfaceCard className="p-5">
+            <SurfaceCard>
               <View style={{ gap: 12 }}>
-                <Text
-                  style={{
-                    color: palette.ink,
-                    fontSize: 16,
-                    fontWeight: "700",
-                  }}
-                >
+                <Text style={{ color: palette.ink, ...typeStyle(16, { weight: "700" }) }}>
                   {isSignup ? "Sign up with Nikcli" : "Sign in with Nikcli"}
                 </Text>
-                <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 18 }}>
+                <Text style={{ color: palette.muted, ...typeStyle(13) }}>
                   {isSignup
                     ? "Create your Nikcli account securely in your browser with GitHub or an email code."
                     : "Continue securely in your browser with GitHub or an email code."}
@@ -398,7 +377,7 @@ export default function LoginScreen() {
                 </Animated.View>
 
                 <ActionButton
-                  label={oauthLoading ? "" : isSignup ? "Sign up with Nikcli" : "Sign in with Nikcli"}
+                  label={isSignup ? "Sign up with Nikcli" : "Sign in with Nikcli"}
                   loading={oauthLoading}
                   onPress={handleOAuth}
                   disabled={oauthLoading || !config}
@@ -409,9 +388,15 @@ export default function LoginScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={isSignup ? "Switch to sign in" : "Switch to sign up"}
                   hitSlop={8}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, alignSelf: "center", paddingVertical: 4 })}
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.7 : 1,
+                    alignSelf: "center",
+                    minHeight: 44,
+                    justifyContent: "center",
+                    paddingVertical: 8,
+                  })}
                 >
-                  <Text style={{ color: palette.muted, fontSize: 12 }}>
+                  <Text style={{ color: palette.muted, textAlign: "center", ...typeStyle(13) }}>
                     {isSignup ? (
                       <>
                         Already have an account?{" "}
@@ -427,58 +412,63 @@ export default function LoginScreen() {
               </View>
             </SurfaceCard>
 
-            <SurfaceCard className="mt-4 p-5" tone="panel">
-              <Pressable
-                onPress={() => {
-                  void triggerHaptic("selection")
-                  // Login is reached from connect: go back along the same path when we can.
-                  if (router.canGoBack()) router.back()
-                  else router.replace("/connect")
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Connect with a host mobile token"
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-                    alignItems: "center",
-                    justifyContent: "center",
+            <View style={{ marginTop: 16 }}>
+              <SurfaceCard tone="panel">
+                <Pressable
+                  onPress={() => {
+                    void triggerHaptic("selection")
+                    router.push("/connect")
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Connect with a host mobile token"
+                  style={({ pressed }) => ({
+                    alignSelf: "stretch",
+                    minHeight: 44,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
                 >
-                  <KeyRound size={18} color={palette.accentLight} strokeWidth={2} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>Use a host mobile token</Text>
-                  <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}>
-                    Pair with your host using an nkm_ token instead of an account
-                  </Text>
-                </View>
-              </Pressable>
-            </SurfaceCard>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <View
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        borderCurve: "continuous",
+                        backgroundColor: hexToRgba(palette.ink, 0.08),
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <KeyRound size={18} color={palette.accentLight} strokeWidth={2} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>
+                        Use a host mobile token
+                      </Text>
+                      <Text style={{ color: palette.muted, marginTop: 2, ...typeStyle(12) }}>
+                        Pair with your host using an nkm_ token instead of an account
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              </SurfaceCard>
+            </View>
           </AnimatedFormCard>
 
-          {config && (
+          {config ? (
             <Animated.Text
+              selectable
               style={{
                 color: palette.muted,
-                fontSize: 11,
                 textAlign: "center",
                 marginTop: 16,
                 opacity: formOpacity,
+                ...typeStyle(12),
               }}
             >
               Connecting to {config.url}
             </Animated.Text>
-          )}
+          ) : null}
         </ScrollView>
 
         <SuccessCheckmark visible={success} />

@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from "react"
-import { Animated, Pressable, Text, View, type PressableProps } from "react-native"
+import { Animated, Pressable, Text, View, useWindowDimensions, type PressableProps } from "react-native"
 import { ChevronRight } from "lucide-react-native"
 import { usePressAnimation } from "@/lib/animation"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 type ListRowProps = Omit<PressableProps, "style"> & {
   /** Leading element: status dot, icon tile, avatar. */
@@ -31,14 +32,17 @@ export function ListRow({
   ...props
 }: ListRowProps) {
   const { palette } = useAppTheme()
+  const { fontScale } = useWindowDimensions()
   const [pressed, setPressed] = useState(false)
   const press = usePressAnimation()
 
   return (
-    <Animated.View style={{ transform: [{ scale: press.scale }] }}>
+    <Animated.View style={{ alignSelf: "stretch", transform: [{ scale: press.scale }] }}>
       <Pressable
+        {...props}
         accessibilityRole={props.onPress ? "button" : undefined}
-        accessibilityLabel={title}
+        accessibilityLabel={props.accessibilityLabel ?? (typeof subtitle === "string" ? `${title}, ${subtitle}` : title)}
+        accessibilityState={{ ...props.accessibilityState, disabled: Boolean(props.disabled) }}
         onPressIn={(event) => {
           setPressed(true)
           if (props.onPress) press.onPressIn()
@@ -49,34 +53,39 @@ export function ListRow({
           if (props.onPress) press.onPressOut()
           externalPressOut?.(event)
         }}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-          paddingVertical: 13,
-          paddingHorizontal: 4,
-          borderRadius: 12,
-          borderCurve: "continuous",
-          backgroundColor: pressed && props.onPress ? hexToRgba(palette.ink, 0.04) : "transparent",
-        }}
-        {...props}
+        style={{ alignSelf: "stretch" }}
       >
-        {leading ? <View style={{ alignSelf: "flex-start", marginTop: 5 }}>{leading}</View> : null}
-        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", lineHeight: 20, color: palette.ink }} numberOfLines={1}>
-            {title}
-          </Text>
-          {subtitle ? (
-            typeof subtitle === "string" ? (
-              <Text style={{ fontSize: 13, lineHeight: 18, color: palette.muted }} numberOfLines={1}>
-                {subtitle}
-              </Text>
-            ) : (
-              subtitle
-            )
-          ) : null}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            paddingVertical: 13,
+            paddingHorizontal: 4,
+            minHeight: 44,
+            opacity: props.disabled ? 0.5 : 1,
+            borderRadius: 12,
+            borderCurve: "continuous",
+            backgroundColor: pressed && props.onPress ? hexToRgba(palette.ink, 0.04) : "transparent",
+          }}
+        >
+          {leading ? <View style={{ alignSelf: "flex-start", marginTop: 5 }}>{leading}</View> : null}
+          <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+            <Text style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }} numberOfLines={fontScale > 1 ? undefined : 1}>
+              {title}
+            </Text>
+            {subtitle ? (
+              typeof subtitle === "string" ? (
+                <Text style={{ color: palette.muted, ...typeStyle(13) }} numberOfLines={fontScale > 1 ? undefined : 2}>
+                  {subtitle}
+                </Text>
+              ) : (
+                subtitle
+              )
+            ) : null}
+          </View>
+          {trailing ?? ((showChevron ?? Boolean(props.onPress)) ? <ChevronRight size={16} color={palette.muted} strokeWidth={2} /> : null)}
         </View>
-        {trailing ?? (showChevron ? <ChevronRight size={16} color={palette.muted} strokeWidth={2} /> : null)}
       </Pressable>
     </Animated.View>
   )

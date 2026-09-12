@@ -4,6 +4,7 @@ import { ActionButton } from "@/components/ui/ActionButton"
 import { InfoChip } from "@/components/ui/InfoChip"
 import type { PermissionRequest } from "@/lib/types"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 function permissionIcon(permission: string): LucideIcon {
   const value = permission.toLowerCase()
@@ -58,25 +59,40 @@ export function PermissionCard(props: {
 
   return (
     <View
-      className="mb-3 overflow-hidden rounded-[8px] border p-4"
+      className="mb-3 overflow-hidden p-4"
       style={{
+        borderRadius: 16,
+        borderCurve: "continuous",
+        borderWidth: 1,
         borderColor: hexToRgba(palette.warn, 0.2),
         backgroundColor: isDark ? palette.surfaceMuted : palette.panel,
       }}
     >
       <View className="flex-row items-start gap-3">
-        <View className="rounded-[8px] border border-accent/20 bg-accent/10 p-2.5">
-          <Icon size={15} color={palette.accentLight} strokeWidth={2.1} />
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            borderCurve: "continuous",
+            borderWidth: 1,
+            borderColor: hexToRgba(palette.accent, 0.2),
+            backgroundColor: hexToRgba(palette.accent, 0.1),
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon size={16} color={palette.accentLight} strokeWidth={2.1} />
         </View>
         <View className="min-w-0 flex-1 gap-1.5">
-          <Text selectable className="text-[12px] font-medium text-muted">
+          <Text selectable style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>
             Permission required
           </Text>
-          <Text selectable className="text-base font-semibold text-ink">
+          <Text selectable style={{ color: palette.ink, ...typeStyle(16, { weight: "600" }) }}>
             {props.item.permission || "Unknown permission"}
           </Text>
           {description ? (
-            <Text selectable className="text-sm leading-5 text-soft">
+            <Text selectable style={{ color: palette.soft, ...typeStyle(14) }}>
               {description}
             </Text>
           ) : null}

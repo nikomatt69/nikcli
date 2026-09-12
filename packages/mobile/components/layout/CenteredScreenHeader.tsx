@@ -12,15 +12,24 @@ export function CenteredScreenHeader({ title, left, right }: { title: string; le
   const { palette } = useAppTheme()
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 4 }}>
-      <View style={{ width: 44, alignItems: "flex-start" }}>{left}</View>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        minHeight: 44,
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+      }}
+    >
+      <View style={{ width: 44, height: 44, alignItems: "flex-start", justifyContent: "center" }}>{left}</View>
       <Text
+        accessibilityRole="header"
         numberOfLines={1}
-        style={{ flex: 1, textAlign: "center", color: palette.ink, ...typeStyle(20, { weight: "700" }) }}
+        style={{ flex: 1, marginHorizontal: 8, textAlign: "center", color: palette.ink, ...typeStyle(20, { weight: "700" }) }}
       >
         {title}
       </Text>
-      <View style={{ width: 44, alignItems: "flex-end" }}>{right}</View>
+      <View style={{ width: 44, height: 44, alignItems: "flex-end", justifyContent: "center" }}>{right}</View>
     </View>
   )
 }

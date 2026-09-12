@@ -6,6 +6,8 @@ import { InfoChip } from "@/components/ui/InfoChip"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { useServer } from "@/lib/server-context"
 import { relativeTime } from "@/lib/types"
+import { type as typeStyle } from "@/lib/typography"
+import { useAppTheme } from "@/lib/theme"
 import type { GitState, HostMcpStatus, LspServerStatus, SessionDetail, SessionTodo } from "@/lib/types"
 
 export function SessionInspectorSheet(props: {
@@ -16,6 +18,7 @@ export function SessionInspectorSheet(props: {
   onClose(): void
 }) {
   const { client } = useServer()
+  const { palette } = useAppTheme()
   const scrollProps = useSheetScrollProps()
   const [todos, setTodos] = useState<SessionTodo[]>([])
   const [mcp, setMcp] = useState<Record<string, HostMcpStatus>>({})
@@ -59,8 +62,8 @@ export function SessionInspectorSheet(props: {
   return (
     <SheetShell visible={props.visible} onClose={props.onClose} accessibilityLabel="Session inspector">
       <ScrollView {...scrollProps} contentContainerStyle={{ padding: 20, paddingBottom: 36, gap: 18 }}>
-        <Text className="text-[12px] font-medium text-muted">Session inspector</Text>
-        <Text className="text-[20px] font-bold tracking-[-0.4px] text-ink">{info?.title || "Session"}</Text>
+        <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Session inspector</Text>
+        <Text style={{ color: palette.ink, ...typeStyle(20, { weight: "700" }) }}>{info?.title || "Session"}</Text>
         {error ? <Text className="text-[13px] text-soft">{error}</Text> : null}
 
         <View className="gap-2">

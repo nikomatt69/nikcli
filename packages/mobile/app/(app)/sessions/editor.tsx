@@ -33,6 +33,7 @@ import { AdaptiveBlur } from "@/components/GlassView"
 import { ActionSheet, ActionSheetDivider, ActionSheetItem, useActionSheetRef } from "@/components/BottomSheet"
 import { SkeletonBox } from "@/components/Skeleton"
 import { ActionButton } from "@/components/ui/ActionButton"
+import { EmptyState } from "@/components/ui/EmptyState"
 import { EditorBreadcrumb } from "@/components/editor/EditorBreadcrumb"
 import { FileSearchSheet } from "@/components/editor/FileSearchSheet"
 import { GitFileStatusBadge } from "@/components/git/GitFileStatusBadge"
@@ -41,7 +42,8 @@ import { useServer } from "@/lib/server-context"
 import { hexToRgba, useAppTheme, type ThemeColors } from "@/lib/theme"
 import { triggerHaptic } from "@/lib/haptics"
 import { detectLanguage, highlightCode, DRACULA, type Segment } from "@/lib/syntax"
-import { PRESS_SPRING, useStaggeredAnimation, getAnimatedStyle } from "@/lib/animation"
+import { PRESS_SPRING } from "@/lib/animation"
+import { type as typeStyle } from "@/lib/typography"
 import { useEditorStore } from "@/lib/useEditorStore"
 import type { FileNode } from "@/lib/types"
 
@@ -53,16 +55,17 @@ const MAX_RECENT_SEARCHES = 5
 const LARGE_FILE_CHAR_LIMIT = 250_000
 const LARGE_FILE_LINE_LIMIT = 5_000
 
-// Light-mode syntax color overrides
-const LIGHT_SYNTAX: Record<string, string> = {
-  [DRACULA.keyword]: "#d946a8",
-  [DRACULA.string]: "#16a34a",
-  [DRACULA.comment]: "#8b9bb4",
-  [DRACULA.builtin]: "#c2410c",
-  [DRACULA.number]: "#7c3aed",
-  [DRACULA.operator]: "#0284c7",
-  [DRACULA.foreground]: "#1a1a1a",
-  [DRACULA.muted]: "#75746e",
+function lightSyntax(palette: ThemeColors): Record<string, string> {
+  return {
+    [DRACULA.keyword]: palette.accent,
+    [DRACULA.string]: palette.success,
+    [DRACULA.comment]: palette.muted,
+    [DRACULA.builtin]: palette.warn,
+    [DRACULA.number]: palette.accentLight,
+    [DRACULA.operator]: palette.soft,
+    [DRACULA.foreground]: palette.ink,
+    [DRACULA.muted]: palette.muted,
+  }
 }
 
 export default function EditorScreen() {
@@ -104,7 +107,6 @@ export default function EditorScreen() {
   // ── Animation refs ─────────────────────────────────────────────
   const unsavedSheetRef = useActionSheetRef()
   const toolsSheetRef = useActionSheetRef()
-  const contentAnims = useStaggeredAnimation(2, 80)
   const findBarAnimRef = useRef<Animated.Value | null>(null)
   if (findBarAnimRef.current === null) findBarAnimRef.current = new Animated.Value(0)
   const findBarAnim = findBarAnimRef.current
@@ -340,12 +342,13 @@ export default function EditorScreen() {
   const highlightedLines = useMemo(() => {
     if (mode !== "view" || !content || isLargeFile) return null
     const segments = highlightCode(content)
-    const mapped = isDark
-      ? segments
-      : segments.map((seg) => ({
+    const syntax = isDark ? null : lightSyntax(palette)
+    const mapped = syntax
+      ? segments.map((seg) => ({
           text: seg.text,
-          color: LIGHT_SYNTAX[seg.color] ?? seg.color,
+          color: syntax[seg.color] ?? seg.color,
         }))
+      : segments
     // Split into lines for performant rendering (avoids thousands of nested Text children)
     const lines: Array<Segment[]> = []
     let current: Segment[] = []
@@ -361,7 +364,7 @@ export default function EditorScreen() {
     }
     if (current.length || content.endsWith("\n")) lines.push(current)
     return lines
-  }, [mode, content, isDark, isLargeFile])
+  }, [mode, content, isDark, isLargeFile, palette])
 
   // Line numbers
   const lineNumbers = useMemo(() => Array.from({ length: lineCount }, (_, i) => i + 1), [lineCount])
@@ -423,11 +426,10 @@ export default function EditorScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? "#000000" : "#f7f6f2" }}>
+    <View style={{ flex: 1, backgroundColor: palette.background }}>
       {/* ── Header with glass treatment ── */}
-      <Animated.View style={getAnimatedStyle(contentAnims[0])}>
-        <View
-          style={{
+      <View
+        style={{
             paddingTop: top + 8,
             paddingBottom: 10,
             paddingHorizontal: 14,
@@ -746,10 +748,9 @@ export default function EditorScreen() {
             ) : null}
           </View>
         </View>
-      </Animated.View>
 
       {/* ── Body ── */}
-      <Animated.View style={[{ flex: 1 }, getAnimatedStyle(contentAnims[1])]}>
+      <View style={{ flex: 1 }}>
         {loading ? (
           <View style={{ flex: 1, flexDirection: "row" }}>
             <View
@@ -784,27 +785,12 @@ export default function EditorScreen() {
             </View>
           </View>
         ) : error ? (
-          <View
-            style={{
-              flex: 1,
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 16,
-              padding: 32,
-            }}
-          >
-            <Text
-              selectable
-              style={{
-                color: palette.danger,
-                fontSize: 14,
-                lineHeight: 20,
-                textAlign: "center",
-              }}
-            >
-              {error}
-            </Text>
-            <ActionButton label="Retry" variant="secondary" onPress={() => void load()} />
+          <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24 }}>
+            <EmptyState
+              title="Couldn’t open file"
+              description={error}
+              action={<ActionButton label="Retry" variant="secondary" onPress={() => void load()} />}
+            />
           </View>
         ) : mode === "view" ? (
           <ScrollView
@@ -819,21 +805,22 @@ export default function EditorScreen() {
                   margin: 12,
                   padding: 12,
                   borderRadius: 8,
+                  borderCurve: "continuous",
                   borderWidth: 1,
-                  borderColor: isDark ? "rgba(245,158,11,0.30)" : "rgba(192,110,46,0.24)",
-                  backgroundColor: isDark ? "rgba(245,158,11,0.10)" : "rgba(245,158,11,0.08)",
+                  borderColor: hexToRgba(palette.warn, 0.28),
+                  backgroundColor: hexToRgba(palette.warn, 0.1),
                 }}
               >
                 <Text
                   style={{
-                    color: isDark ? "#fbbf24" : "#b45309",
+                    color: palette.warn,
                     fontSize: 12,
                     fontWeight: "700",
                   }}
                 >
                   Large file mode
                 </Text>
-                <Text style={{ color: palette.muted, fontSize: 11, marginTop: 3 }}>
+                <Text selectable style={{ color: palette.muted, fontSize: 11, marginTop: 3 }}>
                   Syntax highlighting and editing are disabled for files over {LARGE_FILE_LINE_LIMIT.toLocaleString()}{" "}
                   lines or {LARGE_FILE_CHAR_LIMIT.toLocaleString()} characters.
                 </Text>
@@ -857,7 +844,7 @@ export default function EditorScreen() {
                         fontFamily: MONO,
                         fontSize: FONT_SIZE,
                         lineHeight: LINE_HEIGHT,
-                        color: isDark ? "#e5e5e5" : "#1a1a1a",
+                        color: palette.ink,
                       }}
                     >
                       {content}
@@ -912,7 +899,7 @@ export default function EditorScreen() {
                       fontFamily: MONO,
                       fontSize: FONT_SIZE,
                       lineHeight: LINE_HEIGHT,
-                      color: isDark ? "#e5e5e5" : "#1a1a1a",
+                      color: palette.ink,
                       textAlignVertical: "top",
                       minHeight: lineCount * LINE_HEIGHT + 28,
                     }}
@@ -982,7 +969,7 @@ export default function EditorScreen() {
                   width: 6,
                   height: 6,
                   borderRadius: 3,
-                  backgroundColor: "#f59e0b",
+                  backgroundColor: palette.warn,
                 }}
               />
             )}
@@ -1248,7 +1235,7 @@ function ChromeButton({
     <Animated.View style={{ transform: [{ scale }] }}>
       <Pressable
         onPress={onPress}
-        onPressIn={() => Animated.spring(scale, { toValue: 0.93, ...PRESS_SPRING }).start()}
+        onPressIn={() => Animated.spring(scale, { toValue: 0.97, ...PRESS_SPRING }).start()}
         onPressOut={() => Animated.spring(scale, { toValue: 1, ...PRESS_SPRING }).start()}
         accessibilityRole="button"
         accessibilityLabel={label}

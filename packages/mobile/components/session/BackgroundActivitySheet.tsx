@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native"
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native"
 import { Square, SquareTerminal, X } from "lucide-react-native"
 import { SheetShell, useSheetScrollProps } from "@/components/ui/SheetShell"
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection"
@@ -63,9 +63,17 @@ function BackgroundTaskCard({ task, now, tokens, onStop, onOpenTranscript }: Bac
   return (
     <View
       style={{
-        borderRadius: 18,
+        width: "100%",
+        alignSelf: "stretch",
+        borderRadius: 16,
         borderCurve: "continuous",
-        backgroundColor: isDark ? hexToRgba(palette.ink, 0.06) : hexToRgba(palette.ink, 0.04),
+        backgroundColor: running
+          ? isDark
+            ? hexToRgba(palette.ink, 0.035)
+            : hexToRgba(palette.ink, 0.03)
+          : isDark
+            ? hexToRgba(palette.ink, 0.07)
+            : hexToRgba(palette.ink, 0.045),
         paddingHorizontal: 16,
         paddingVertical: 14,
         gap: 6,
@@ -107,7 +115,12 @@ function BackgroundTaskCard({ task, now, tokens, onStop, onOpenTranscript }: Bac
                   void triggerHaptic("selection")
                   onOpenTranscript(task)
                 }}
-                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                style={({ pressed }) => ({
+                  minHeight: 44,
+                  justifyContent: "center",
+                  opacity: pressed ? 0.6 : 1,
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
+                })}
               >
                 <Text style={{ color: palette.accentLight, ...typeStyle(13, { weight: "500" }) }}>View transcript</Text>
               </Pressable>
@@ -116,14 +129,14 @@ function BackgroundTaskCard({ task, now, tokens, onStop, onOpenTranscript }: Bac
         </View>
         {running && onStop && task.childSessionID ? (
           <IconCircleButton
-            size={34}
+            size={44}
             accessibilityLabel={`Stop ${task.title}`}
             onPress={() => {
               void triggerHaptic("permission")
               onStop(task)
             }}
           >
-            <Square size={13} color={palette.ink} strokeWidth={2.4} fill={palette.ink} />
+            <Square size={14} color={palette.ink} strokeWidth={2.4} fill={palette.ink} />
           </IconCircleButton>
         ) : null}
       </View>
@@ -297,7 +310,7 @@ export function BackgroundActivitySheet({
           ) : null}
 
           {running.length > 0 ? (
-            <CollapsibleSection label="Running" accessory={<ActivityIndicator size="small" color={palette.muted} />}>
+            <CollapsibleSection label="Running">
               {running.map((task) => (
                 <BackgroundTaskCard
                   key={task.id}

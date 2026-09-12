@@ -12,10 +12,12 @@ import { SectionHeader } from "@/components/ui/SectionHeader"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { AppHeader } from "@/components/layout/AppHeader"
-import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
+import { CenteredScreenHeader } from "@/components/layout/CenteredScreenHeader"
+import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { projectDirectoryForWorktree } from "@/lib/client"
 import { useServer } from "@/lib/server-context"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import type { GitHubBranch, GitHubRepo, ProjectInfo } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 
@@ -313,7 +315,7 @@ export default function ReposScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background px-4 pt-4">
+    <View style={{ flex: 1, backgroundColor: palette.background, paddingHorizontal: 16, paddingTop: 16 }}>
       <FlatList
         contentInsetAdjustmentBehavior="automatic"
         data={EMPTY_ROWS}
@@ -328,9 +330,8 @@ export default function ReposScreen() {
         )}
         ListHeaderComponent={
           <View style={{ gap: 20 }}>
-            <ScreenBrandHeader title="Workspaces" right={<SettingsCircleButton />} />
+            <CenteredScreenHeader title="Workspaces" right={<SettingsCircleButton />} />
             <AppHeader
-              className=""
               chips={[
                 { label: `${projects.length} workspaces`, tone: "accent" },
                 { label: `${repos.length} GitHub sources` },
@@ -361,13 +362,17 @@ export default function ReposScreen() {
                 placeholder="Optional sandbox name"
                 label="Sandbox name"
               />
-              <View className="mt-3">
+              <View style={{ marginTop: 12 }}>
                 <ActionButton label="Create sandbox" loading={busy} onPress={() => void createSandbox()} />
               </View>
               {selectedProject ? (
-                <Text className="mt-3 text-xs text-soft">Parent workspace: {selectedProject.worktree}</Text>
+                <Text selectable style={{ marginTop: 12, color: palette.soft, ...typeStyle(12) }}>
+                  Parent workspace: {selectedProject.worktree}
+                </Text>
               ) : (
-                <Text className="mt-3 text-xs text-soft">Select a workspace below before creating a sandbox.</Text>
+                <Text style={{ marginTop: 12, color: palette.soft, ...typeStyle(12) }}>
+                  Select a workspace below before creating a sandbox.
+                </Text>
               )}
             </SurfaceCard>
 
@@ -443,7 +448,7 @@ export default function ReposScreen() {
               ))}
             </View>
 
-            <View className="gap-3 pb-10">
+            <View style={{ gap: 12, paddingBottom: 40 }}>
               <SectionHeader label="GitHub account" />
               {!bootstrap?.github?.connected ? (
                 <EmptyState
@@ -466,7 +471,7 @@ export default function ReposScreen() {
                     placeholder="Search repositories, languages, or descriptions"
                     autoCapitalize="none"
                   />
-                  <Text className="mt-3 text-xs leading-5 text-soft">
+                  <Text style={{ marginTop: 12, color: palette.soft, ...typeStyle(12) }}>
                     {executionTarget === "container"
                       ? containerReady
                         ? "New GitHub sessions will keep the same server worktree flow but execute inside a same-server container sandbox."
@@ -483,14 +488,14 @@ export default function ReposScreen() {
                   description="Lock the base branch, name the execution track, and launch a GitHub session with a dedicated worktree and publish path."
                   tone="panel"
                 >
-                  <View className="flex-row flex-wrap gap-2">
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                     <InfoChip label="1. Repo selected" tone="accent" />
                     <InfoChip label="2. Choose branch" />
                     <InfoChip label="3. Launch session" />
                     <InfoChip label={executionTarget === "container" ? "Container sandbox" : "Local worktree"} />
                   </View>
 
-                  <View className="mt-4 gap-3">
+                  <View style={{ marginTop: 16, gap: 12 }}>
                     <TextField
                       label="Session title"
                       value={
@@ -522,7 +527,7 @@ export default function ReposScreen() {
                   </View>
 
                   {branchOptions[selectedRepo.full_name]?.length ? (
-                    <View className="mt-3 flex-row flex-wrap gap-2">
+                    <View style={{ marginTop: 12, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                       {branchOptions[selectedRepo.full_name].slice(0, 10).map((branch) => {
                         const active =
                           (baseBranchByRepo[selectedRepo.full_name] ?? (selectedRepo.default_branch || "main")) ===
@@ -532,7 +537,6 @@ export default function ReposScreen() {
                             key={branch.name}
                             label={branch.name}
                             variant={active ? "primary" : "secondary"}
-                            className="px-3 py-2"
                             onPress={() =>
                               setBaseBranchByRepo((current) => ({
                                 ...current,
@@ -545,24 +549,34 @@ export default function ReposScreen() {
                     </View>
                   ) : null}
 
-                  <View className="mt-4 rounded-[8px] border border-border bg-background/70 p-4">
-                    <Text className="text-[12px] font-medium text-muted">Launch summary</Text>
-                    <Text className="mt-2 text-sm leading-6 text-soft">
+                  <View
+                    style={{
+                      marginTop: 16,
+                      padding: 16,
+                      borderRadius: 16,
+                      borderCurve: "continuous",
+                      borderWidth: 1,
+                      borderColor: hexToRgba(palette.ink, 0.08),
+                      backgroundColor: palette.background,
+                    }}
+                  >
+                    <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Launch summary</Text>
+                    <Text selectable style={{ marginTop: 8, color: palette.soft, ...typeStyle(14) }}>
                       {`Worktree source: ${selectedRepo.full_name} from ${baseBranchByRepo[selectedRepo.full_name] ?? (selectedRepo.default_branch || "main")}.`}
                     </Text>
-                    <Text className="mt-1 text-sm leading-6 text-soft">
+                    <Text selectable style={{ marginTop: 4, color: palette.soft, ...typeStyle(14) }}>
                       Session title:{" "}
                       {sessionTitleByRepo[selectedRepo.full_name] ??
                         `${selectedRepo.full_name} ${selectedRepo.default_branch || "main"}`}
                     </Text>
-                    <Text className="mt-1 text-sm leading-6 text-soft">
+                    <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(14) }}>
                       Execution target:{" "}
                       {executionTarget === "container" ? "same-server container sandbox" : "server worktree"}.
                     </Text>
                   </View>
 
-                  <View className="mt-4 flex-row gap-2">
-                    <View className="flex-1">
+                  <View style={{ marginTop: 16, flexDirection: "row", gap: 8 }}>
+                    <View style={{ flex: 1 }}>
                       <ActionButton
                         label={selectedRepo.imported ? "Refresh import" : "Import only"}
                         variant="secondary"
@@ -572,7 +586,7 @@ export default function ReposScreen() {
                       />
                     </View>
                     {selectedRepo.imported_directory ? (
-                      <View className="flex-1">
+                      <View style={{ flex: 1 }}>
                         <ActionButton
                           label="Use workspace"
                           variant="secondary"
@@ -582,14 +596,16 @@ export default function ReposScreen() {
                     ) : null}
                   </View>
                   {selectedRepo.imported_directory ? (
-                    <Text className="mt-2 text-xs text-soft">Imported at {selectedRepo.imported_directory}</Text>
+                    <Text selectable style={{ marginTop: 8, color: palette.soft, ...typeStyle(12) }}>
+                      Imported at {selectedRepo.imported_directory}
+                    </Text>
                   ) : null}
 
-                  <View className="mt-3 flex-row gap-2">
-                    <View className="flex-1">
+                  <View style={{ marginTop: 12, flexDirection: "row", gap: 8 }}>
+                    <View style={{ flex: 1 }}>
                       <ActionButton label="Close wizard" variant="secondary" onPress={() => setBranchRepo(null)} />
                     </View>
-                    <View className="flex-1">
+                    <View style={{ flex: 1 }}>
                       <ActionButton
                         label="Launch GitHub session"
                         loading={startingSessionRepo === selectedRepo.full_name}

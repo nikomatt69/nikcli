@@ -2,14 +2,18 @@ import { useCallback, useState } from "react"
 import { ScrollView, Text, View } from "react-native"
 import { useFocusEffect } from "expo-router"
 import { ActionButton } from "@/components/ui/ActionButton"
+import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { useServer } from "@/lib/server-context"
 import { triggerHaptic } from "@/lib/haptics"
+import { useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import type { FusionPreset, ObservabilityStatus } from "@/lib/types"
 
 export default function ObservabilityScreen() {
+  const { palette } = useAppTheme()
   const { client } = useServer()
   const [status, setStatus] = useState<ObservabilityStatus | null>(null)
   const [presets, setPresets] = useState<FusionPreset[]>([])
@@ -81,7 +85,7 @@ export default function ObservabilityScreen() {
           <InfoChip label={status?.otlpEndpoint ? "OTLP configured" : "No OTLP endpoint"} />
         </View>
         {status?.otlpEndpoint ? (
-          <Text className="mt-3 text-[12px] text-soft" selectable>
+          <Text selectable style={{ marginTop: 12, color: palette.soft, ...typeStyle(12) }}>
             {status.otlpEndpoint}
           </Text>
         ) : null}
@@ -99,8 +103,10 @@ export default function ObservabilityScreen() {
           {presets.map((preset) => (
             <View key={preset.name} className="flex-row items-center justify-between gap-3">
               <View className="min-w-0 flex-1">
-                <Text className="text-[14px] font-semibold text-ink">{preset.name}</Text>
-                <Text className="text-[12px] text-soft">{preset.builtin ? "Built-in" : "Custom"}</Text>
+                <Text selectable style={{ color: palette.ink, ...typeStyle(14, { weight: "600" }) }}>
+                  {preset.name}
+                </Text>
+                <Text style={{ color: palette.soft, ...typeStyle(12) }}>{preset.builtin ? "Built-in" : "Custom"}</Text>
               </View>
               <ActionButton
                 label={preset.enabled ? "On" : "Off"}
@@ -110,7 +116,9 @@ export default function ObservabilityScreen() {
               />
             </View>
           ))}
-          {!presets.length ? <Text className="text-[13px] text-soft">No Fusion presets on this host.</Text> : null}
+          {!presets.length ? (
+            <EmptyState title="No Fusion presets" description="This host has no OpenRouter Fusion presets yet." />
+          ) : null}
         </View>
       </SurfaceCard>
     </ScrollView>

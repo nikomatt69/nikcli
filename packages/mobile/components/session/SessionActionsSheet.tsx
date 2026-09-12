@@ -16,6 +16,7 @@ import {
 import { router } from "expo-router"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import { useRef } from "react"
 
 type Props = {
@@ -76,24 +77,16 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent", disabled
 
   const iconBg =
     tone === "success"
-      ? isDark
-        ? "rgba(255,255,255,0.06)"
-        : "rgba(22,163,74,0.09)"
+      ? hexToRgba(palette.success, isDark ? 0.12 : 0.09)
       : tone === "neutral"
-        ? isDark
-          ? "rgba(117,116,110,0.09)"
-          : "rgba(90,89,84,0.08)"
+        ? hexToRgba(palette.muted, isDark ? 0.14 : 0.09)
         : hexToRgba(palette.ink, isDark ? 0.08 : 0.09)
 
   const iconBorder =
     tone === "success"
-      ? isDark
-        ? "rgba(255,255,255,0.1)"
-        : "rgba(22,163,74,0.20)"
+      ? hexToRgba(palette.success, isDark ? 0.22 : 0.2)
       : tone === "neutral"
-        ? isDark
-          ? "rgba(117,116,110,0.18)"
-          : "rgba(90,89,84,0.16)"
+        ? hexToRgba(palette.muted, isDark ? 0.22 : 0.16)
         : hexToRgba(palette.ink, isDark ? 0.12 : 0.18)
 
   const iconColor = tone === "success" ? palette.success : tone === "neutral" ? palette.soft : palette.accentLight
@@ -182,8 +175,8 @@ export function SessionActionsSheet({
     <ActionSheet ref={sheetRef} snapPoints={["86%"]}>
       {/* Header */}
       <View className="border-b border-border px-5 pb-4">
-        <Text className="text-[12px] font-medium text-muted">Session actions</Text>
-        <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink" numberOfLines={2}>
+        <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Session actions</Text>
+        <Text className="mt-1.5" style={{ color: palette.ink, ...typeStyle(18, { weight: "700" }) }} numberOfLines={2}>
           {title || "Untitled session"}
         </Text>
         <View

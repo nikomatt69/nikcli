@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useServer } from "@/lib/server-context"
-import { ArrowLeft, Ellipsis, FolderOpen } from "lucide-react-native"
+import { ChevronLeft, Ellipsis } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import {
   ActivityIndicator,
@@ -9,14 +9,13 @@ import {
   Platform,
   Pressable,
   Share,
-  StyleSheet,
   Text,
   View,
 } from "react-native"
 import { FlashList, type FlashListRef } from "@shopify/flash-list"
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { AdaptiveBlur } from "@/components/GlassView"
+import { IconCircleButton } from "@/components/ui/IconCircleButton"
 import { MessageBubble } from "@/components/MessageBubble"
 import { PermissionCard } from "@/components/PermissionCard"
 import { useActionSheetRef } from "@/components/BottomSheet"
@@ -47,7 +46,8 @@ import {
   type PermissionPreset,
 } from "@/lib/permission-presets"
 import { SessionTeleportSheet } from "@/components/session/SessionTeleportSheet"
-import { setTeleportTarget } from "@/lib/storage"
+import { markSessionSeen, setTeleportTarget } from "@/lib/storage"
+import { type as typeStyle } from "@/lib/typography"
 import { setTerminalLaunchIntent } from "@/lib/terminal-launch"
 import {
   buildModelCatalog,
@@ -186,14 +186,14 @@ function formatAttachmentSize(base64: string) {
 }
 
 export default function SessionScreen() {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   const { sessionId, liveAction, requestID } = useLocalSearchParams<{
     sessionId: string
     liveAction?: "review" | "approveOnce" | "stop"
     requestID?: string
   }>()
   const { top } = useSafeAreaInsets()
-  const { client, config, save } = useServer()
+  const { client, config, save, currentUser } = useServer()
   const composerPreferences = useUIStore((state) => state.composer)
   const promptPresets = useUIStore((state) => state.promptPresets)
   const offlineQueueRevision = useUIStore((state) => state.offlineQueueRevision)
@@ -236,15 +236,6 @@ export default function SessionScreen() {
   const [commandsLoading, setCommandsLoading] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [commandQuery, setCommandQuery] = useState("")
-  const chromeButtonFill = isDark ? "rgba(22,22,22,0.88)" : "rgba(255,255,255,0.88)"
-  const chromeButtonOverlay = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.16)"
-  const chromeButtonStyle = {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: isDark ? hexToRgba(palette.ink, 0.16) : hexToRgba(palette.border, 0.82),
-    overflow: "hidden",
-    padding: 12,
-  } as const
   const [activeMessageID, setActiveMessageID] = useState<string | null>(null)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
@@ -413,7 +404,8 @@ export default function SessionScreen() {
       void loadGitState()
       void loadPlugins()
       void loadAvailableModels()
-    }, [load, loadCommands, loadMemories, loadGitState, loadPlugins, loadAvailableModels]),
+      if (sessionId) void markSessionSeen(sessionId)
+    }, [load, loadCommands, loadMemories, loadGitState, loadPlugins, loadAvailableModels, sessionId]),
   )
 
   useEffect(() => {
@@ -646,7 +638,12 @@ export default function SessionScreen() {
   const sessionBlocked = sessionIsProcessing(detail?.status)
   const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt ?? detail?.info.worktree?.cleanedAt)
   const hasCleanableWorktree = Boolean(detail?.info.github?.worktree ?? detail?.info.worktree)
-  const sessionLocation = detail?.info.github?.fullName || detail?.info.directory || "Unknown workspace"
+  const sessionProject =
+    detail?.info.github?.repo ||
+    detail?.info.directory?.split("/").filter(Boolean).pop() ||
+    "Workspace"
+  const sessionOwner = currentUser?.display_name || currentUser?.username
+  const sessionLocation = [sessionProject, sessionOwner].filter(Boolean).join(" · ")
 
   const openSessionExplorer = useCallback(() => {
     if (!sessionId || !detail) return
@@ -1539,26 +1536,12 @@ export default function SessionScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
     >
-      <View className="px-4 pb-3" style={{ paddingTop: top + 8 }}>
-        <View className="flex-row items-center gap-3">
+      <View className="px-4 pb-1" style={{ paddingTop: top + 6 }}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <IconCircleButton size={44} accessibilityLabel="Go back" onPress={() => router.back()}>
+            <ChevronLeft size={22} color={palette.ink} strokeWidth={2.2} />
+          </IconCircleButton>
           <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            style={chromeButtonStyle}
-          >
-            <AdaptiveBlur
-              tint={isDark ? "dark" : "light"}
-              intensity={44}
-              style={StyleSheet.absoluteFill}
-              fallbackColor={chromeButtonFill}
-              pointerEvents="none"
-            />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: chromeButtonOverlay }]} pointerEvents="none" />
-            <ArrowLeft size={18} color={palette.ink} strokeWidth={2.2} />
-          </Pressable>
-          <Pressable
-            className="flex-1"
             onPress={() => {
               void triggerHaptic("selection")
               setInspectorOpen(true)
@@ -1566,53 +1549,39 @@ export default function SessionScreen() {
             accessibilityRole="button"
             accessibilityLabel="Open session inspector"
             accessibilityHint="Shows todos, MCP, LSP, context, and files"
+            style={({ pressed }) => ({
+              flex: 1,
+              alignSelf: "stretch",
+              opacity: pressed ? 0.72 : 1,
+              transform: [{ scale: pressed ? 0.97 : 1 }],
+            })}
           >
-            <Text className="text-base font-semibold text-ink" numberOfLines={1}>
-              {detail?.info.title || "Session"}
-            </Text>
-            <Text className="mt-1 text-sm text-soft" numberOfLines={1}>
-              {sessionLocation}
-            </Text>
+            <View style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 10 }}>
+              <Text
+                numberOfLines={1}
+                style={{ textAlign: "center", color: palette.ink, ...typeStyle(17, { weight: "700" }) }}
+              >
+                {detail?.info.title || "Session"}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={{ textAlign: "center", color: palette.muted, marginTop: 1, ...typeStyle(13) }}
+              >
+                {sessionLocation}
+              </Text>
+            </View>
           </Pressable>
-          {/* File Explorer */}
-          <Pressable
-            onPress={openSessionExplorer}
-            accessibilityRole="button"
-            accessibilityLabel="Open session files"
-            accessibilityHint="Opens the file explorer for this session workspace"
-            style={chromeButtonStyle}
-          >
-            <AdaptiveBlur
-              tint={isDark ? "dark" : "light"}
-              intensity={44}
-              style={StyleSheet.absoluteFill}
-              fallbackColor={chromeButtonFill}
-              pointerEvents="none"
-            />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: chromeButtonOverlay }]} pointerEvents="none" />
-            <FolderOpen size={18} color={palette.ink} strokeWidth={2} />
-          </Pressable>
-
-          <Pressable
+          <IconCircleButton
+            size={44}
+            accessibilityLabel="Open session actions"
+            accessibilityHint="Shows rename, export, publish, and cleanup actions"
             onPress={() => {
               void triggerHaptic("selection")
               actionsSheetRef.current?.present()
             }}
-            accessibilityRole="button"
-            accessibilityLabel="Open session actions"
-            accessibilityHint="Shows rename, export, publish, and cleanup actions"
-            style={chromeButtonStyle}
           >
-            <AdaptiveBlur
-              tint={isDark ? "dark" : "light"}
-              intensity={44}
-              style={StyleSheet.absoluteFill}
-              fallbackColor={chromeButtonFill}
-              pointerEvents="none"
-            />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: chromeButtonOverlay }]} pointerEvents="none" />
-            <Ellipsis size={18} color={palette.ink} strokeWidth={2.2} />
-          </Pressable>
+            <Ellipsis size={20} color={palette.ink} strokeWidth={2.2} />
+          </IconCircleButton>
         </View>
       </View>
 
@@ -1657,20 +1626,22 @@ export default function SessionScreen() {
             if (row.kind === "system") return <ScaffoldingRow message={row.message} />
             const item = row.message
             return (
-              <MessageBubble
-                message={item}
-                diffs={diffs[item.info.id]}
-                diffLoaded={Boolean(diffLoaded[item.info.id])}
-                diffLoading={Boolean(diffLoading[item.info.id])}
-                onLoadDiff={loadDiff}
-                isActive={activeMessageID === item.info.id}
-                onCopy={copyMessage}
-                onFork={reuseMessage}
-                onDismiss={dismissActiveMessage}
-                onActivate={activateMessage}
-                onOpenArtifact={openArtifact}
-                queued={item.info.role === "user" && pendingAssistantId ? item.info.id > pendingAssistantId : false}
-              />
+              <View style={{ width: "100%", alignSelf: "stretch" }}>
+                <MessageBubble
+                  message={item}
+                  diffs={diffs[item.info.id]}
+                  diffLoaded={Boolean(diffLoaded[item.info.id])}
+                  diffLoading={Boolean(diffLoading[item.info.id])}
+                  onLoadDiff={loadDiff}
+                  isActive={activeMessageID === item.info.id}
+                  onCopy={copyMessage}
+                  onFork={reuseMessage}
+                  onDismiss={dismissActiveMessage}
+                  onActivate={activateMessage}
+                  onOpenArtifact={openArtifact}
+                  queued={item.info.role === "user" && pendingAssistantId ? item.info.id > pendingAssistantId : false}
+                />
+              </View>
             )
           }}
           ListHeaderComponent={
@@ -1714,19 +1685,31 @@ export default function SessionScreen() {
                         setInput(prompt)
                       }}
                       style={({ pressed }) => ({
-                        borderRadius: 999,
-                        borderWidth: 1,
-                        borderColor: hexToRgba(palette.ink, 0.12),
-                        paddingVertical: 10,
-                        paddingHorizontal: 16,
-                        alignItems: "center",
-                        backgroundColor: pressed ? hexToRgba(palette.ink, 0.06) : "transparent",
+                        alignSelf: "stretch",
                         opacity: pressed ? 0.85 : 1,
+                        transform: [{ scale: pressed ? 0.97 : 1 }],
                       })}
                     >
-                      <Text className="text-sm font-medium text-ink" numberOfLines={1}>
+                      <View
+                        style={{
+                          minHeight: 44,
+                          borderRadius: 999,
+                          borderCurve: "continuous",
+                          borderWidth: 1,
+                          borderColor: hexToRgba(palette.ink, 0.12),
+                          paddingHorizontal: 16,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: pressed ? hexToRgba(palette.ink, 0.06) : "transparent",
+                        }}
+                      >
+                      <Text
+                        numberOfLines={1}
+                        style={{ color: palette.ink, ...typeStyle(14, { weight: "500" }) }}
+                      >
                         {prompt}
                       </Text>
+                      </View>
                     </Pressable>
                   ))}
                 </View>
@@ -1757,6 +1740,7 @@ export default function SessionScreen() {
       <View style={{ paddingHorizontal: 16 }}>
         <SessionStatusLine
           working={sessionBlocked}
+          label="Thinking"
           runningCount={runningBackgroundTasks.length}
           onOpenActivity={() => setActivityOpen(true)}
         />

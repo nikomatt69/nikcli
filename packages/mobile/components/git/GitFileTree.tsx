@@ -3,7 +3,7 @@ import { LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native
 import { ChevronRight, Folder, FolderOpen } from "lucide-react-native"
 import type { GitFileStatus, ParsedFileDiff } from "@/lib/types"
 import { GitFileStatusBadge } from "./GitFileStatusBadge"
-import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { contrastOn, hexToRgba, useAppTheme } from "@/lib/theme"
 
 interface FileTreeItem {
   name: string
@@ -219,7 +219,9 @@ function TreeItem({
               justifyContent: "center",
             }}
           >
-            {isSelected && <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>✓</Text>}
+            {isSelected && (
+              <Text style={{ color: contrastOn(palette.accent), fontSize: 12, fontWeight: "700" }}>✓</Text>
+            )}
           </Pressable>
         )}
       </Pressable>

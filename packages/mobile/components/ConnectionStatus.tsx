@@ -1,27 +1,31 @@
 import { Text, View } from "react-native"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 export function ConnectionStatus(props: { connected: boolean; label: string }) {
   const { palette } = useAppTheme()
   const label = props.label || (props.connected ? "Online" : "Offline")
-  const tone = props.connected
-    ? {
-        border: "border-success/20",
-        background: "bg-success/10",
-        text: "text-emerald-200",
-        dot: palette.success,
-      }
-    : {
-        border: "border-danger/20",
-        background: "bg-danger/10",
-        text: "text-rose-200",
-        dot: palette.danger,
-      }
+  const color = props.connected ? palette.success : palette.danger
 
   return (
-    <View className={`flex-row items-center gap-3 rounded-full border px-4 py-2.5 ${tone.border} ${tone.background}`}>
-      <View className="size-2.5 rounded-full" style={{ backgroundColor: tone.dot }} />
-      <Text className={`text-[11px] font-semibold uppercase tracking-[2px] ${tone.text}`}>{label}</Text>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        borderRadius: 999,
+        borderCurve: "continuous",
+        borderWidth: 1,
+        borderColor: hexToRgba(color, 0.28),
+        backgroundColor: hexToRgba(color, 0.12),
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+      }}
+    >
+      <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: color }} />
+      <Text selectable style={{ color, fontWeight: "600", ...typeStyle(12) }}>
+        {label}
+      </Text>
     </View>
   )
 }

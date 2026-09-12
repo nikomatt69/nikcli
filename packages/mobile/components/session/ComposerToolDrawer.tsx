@@ -41,7 +41,7 @@ import {
 import { AdaptiveBlur } from "@/components/GlassView"
 import { triggerHaptic } from "@/lib/haptics"
 import { usePressAnimation } from "@/lib/animation"
-import { hexToRgba, useAppTheme, type ThemeColors } from "@/lib/theme"
+import { contrastOn, hexToRgba, useAppTheme, type ThemeColors } from "@/lib/theme"
 import { formatVariantLabel, type MobileModelOption } from "@/lib/model-catalog"
 
 const styles = StyleSheet.create({
@@ -344,10 +344,13 @@ export function ComposerToolDrawer({
                 </View>
                 <Pressable
                   onPress={onClose}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close tools"
                   style={({ pressed }) => ({
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    borderCurve: "continuous",
                     borderWidth: 1,
                     borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.80)",
                     backgroundColor: pressed
@@ -359,10 +362,10 @@ export function ComposerToolDrawer({
                         : "rgba(255,255,255,0.55)",
                     alignItems: "center",
                     justifyContent: "center",
-                    transform: [{ scale: pressed ? 0.92 : 1 }],
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
                   })}
                 >
-                  <X size={13} color={palette.soft} strokeWidth={2.5} />
+                  <X size={16} color={palette.soft} strokeWidth={2.5} />
                 </Pressable>
               </View>
 
@@ -390,12 +393,12 @@ export function ComposerToolDrawer({
                       palette={palette}
                       isDark={isDark}
                     >
-                      <Icon size={13} color={isActive ? "#fff" : palette.muted} strokeWidth={2.2} />
+                      <Icon size={13} color={isActive ? contrastOn(palette.accent) : palette.muted} strokeWidth={2.2} />
                       <Text
                         style={{
                           fontSize: 11.5,
                           fontWeight: "600",
-                          color: isActive ? "#fff" : palette.muted,
+                          color: isActive ? contrastOn(palette.accent) : palette.muted,
                         }}
                       >
                         {TAB_LABELS[tab]}
@@ -484,33 +487,41 @@ function AttachContent({
             row.action?.()
           }}
           style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 14,
-            paddingHorizontal: 20,
-            paddingVertical: 14,
+            alignSelf: "stretch",
             opacity: pressed ? 0.6 : 1,
+            transform: [{ scale: pressed ? 0.97 : 1 }],
             borderBottomWidth: i < rows.length - 1 ? StyleSheet.hairlineWidth : 0,
             borderBottomColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.08),
           })}
         >
           <View
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
+              minHeight: 64,
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.09),
+              gap: 14,
+              paddingHorizontal: 20,
+              paddingVertical: 14,
             }}
           >
-            <row.Icon size={20} color={palette.accentLight} strokeWidth={2} />
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.09),
+              }}
+            >
+              <row.Icon size={20} color={palette.accentLight} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: "600", color: palette.ink }}>{row.label}</Text>
+              <Text style={{ fontSize: 12, color: palette.muted, marginTop: 2 }}>{row.desc}</Text>
+            </View>
+            <ChevronRight size={16} color={palette.muted} strokeWidth={2} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontWeight: "600", color: palette.ink }}>{row.label}</Text>
-            <Text style={{ fontSize: 12, color: palette.muted, marginTop: 2 }}>{row.desc}</Text>
-          </View>
-          <ChevronRight size={16} color={palette.muted} strokeWidth={2} />
         </Pressable>
       ))}
     </ScrollView>
@@ -549,7 +560,7 @@ function AnimatedTabButton({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.94,
+      toValue: 0.97,
       damping: 20,
       stiffness: 280,
       mass: 0.8,
@@ -593,10 +604,13 @@ function AnimatedTabButton({
           style={{
             flexDirection: "row",
             alignItems: "center",
+            justifyContent: "center",
             gap: 6,
+            minHeight: 44,
             paddingHorizontal: 12,
             paddingVertical: 8,
             borderRadius: 16,
+            borderCurve: "continuous",
             borderColor,
             borderWidth: glowAnim.interpolate({
               inputRange: [0, 1],
@@ -633,6 +647,7 @@ function AnimatedItemCard({
       onPress={onPress}
       onPressIn={onPress ? press.onPressIn : undefined}
       onPressOut={onPress ? press.onPressOut : undefined}
+      style={{ alignSelf: "stretch" }}
     >
       <Animated.View
         style={{
@@ -640,6 +655,7 @@ function AnimatedItemCard({
           flexDirection: "row",
           alignItems: "center",
           gap: 12,
+          minHeight: 56,
           paddingHorizontal: 16,
           paddingVertical: 11,
           borderBottomWidth: borderBottom ? StyleSheet.hairlineWidth : 0,
@@ -708,8 +724,9 @@ function AnimatedToggleSwitch({
 }: {
   value: boolean
   onValueChange: (val: boolean) => void
-  palette: { accent: string; border: string }
+  palette: { accent: string; border: string; ink: string; background: string }
 }) {
+  const { isDark } = useAppTheme()
   const toggleAnimRef = useRef<Animated.Value | null>(null)
   if (toggleAnimRef.current === null) toggleAnimRef.current = new Animated.Value(value ? 1 : 0)
   const toggleAnim = toggleAnimRef.current
@@ -729,7 +746,7 @@ function AnimatedToggleSwitch({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.94,
+      toValue: 0.97,
       damping: 20,
       stiffness: 280,
       mass: 0.8,
@@ -760,7 +777,14 @@ function AnimatedToggleSwitch({
   const trackTransform = [{ scaleX: trackScaleX }, { scale: scaleAnim }]
 
   return (
-    <Pressable onPress={() => onValueChange(!value)} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+    <Pressable
+      onPress={() => onValueChange(!value)}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      hitSlop={8}
+    >
       <Animated.View
         style={{
           transform: trackTransform,
@@ -779,7 +803,7 @@ function AnimatedToggleSwitch({
             width: 26,
             height: 26,
             borderRadius: 13,
-            backgroundColor: "#fff",
+            backgroundColor: isDark ? palette.ink : palette.background,
             transform: [{ translateX: thumbTranslateX }],
             shadowColor: "#000",
             shadowOpacity: 0.15,
@@ -819,17 +843,26 @@ function ModelContent({
             onOpenModelPicker()
           }}
           style={({ pressed }) => ({
+            alignSelf: "stretch",
             marginHorizontal: 16,
             marginBottom: 12,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.16),
-            backgroundColor: hexToRgba(palette.ink, 0.05),
-            paddingHorizontal: 14,
-            paddingVertical: 12,
             opacity: pressed ? 0.72 : 1,
+            transform: [{ scale: pressed ? 0.97 : 1 }],
           })}
         >
+          <View
+            style={{
+              minHeight: 64,
+              borderRadius: 16,
+              borderCurve: "continuous",
+              borderWidth: 1,
+              borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.16),
+              backgroundColor: hexToRgba(palette.ink, 0.05),
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              justifyContent: "center",
+            }}
+          >
           <Text
             style={{
               fontSize: 12,
@@ -842,6 +875,7 @@ function ModelContent({
           <Text style={{ fontSize: 11, color: palette.muted, marginTop: 4 }}>
             Search models and choose thinking effort like the CLI.
           </Text>
+          </View>
         </Pressable>
       ) : null}
 
@@ -959,7 +993,7 @@ function ModelContent({
                       borderRadius: 6,
                       paddingHorizontal: 7,
                       paddingVertical: 2.5,
-                      backgroundColor: "rgba(52,199,89,0.15)",
+                      backgroundColor: hexToRgba(palette.success, 0.15),
                       alignSelf: "flex-start",
                     }}
                   >
@@ -967,7 +1001,7 @@ function ModelContent({
                       style={{
                         fontSize: 9,
                         fontWeight: "700",
-                        color: "#34C759",
+                        color: palette.success,
                       }}
                     >
                       Active
@@ -1042,19 +1076,17 @@ function McpContent({
         {servers.length > 0 ? (
           servers.map((server, i) => {
             const statusIcon = server.connected ? (
-              <Wifi size={15} color="#34C759" strokeWidth={2.2} />
+              <Wifi size={15} color={palette.success} strokeWidth={2.2} />
             ) : !server.enabled ? (
               <Lock size={15} color={palette.muted} strokeWidth={2.2} />
             ) : (
               <Server size={15} color={palette.muted} strokeWidth={2.2} />
             )
             const statusText = server.connected ? "Connected" : !server.enabled ? "Disabled" : "Disconnected"
-            const statusColor = server.connected ? "#34C759" : palette.muted
+            const statusColor = server.connected ? palette.success : palette.muted
             const iconBg = server.connected
-              ? "rgba(52,199,89,0.12)"
-              : isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(0,0,0,0.05)"
+              ? hexToRgba(palette.success, 0.12)
+              : hexToRgba(palette.ink, 0.06)
 
             return (
               <AnimatedItemCard
@@ -1332,11 +1364,9 @@ function GitContent({
             key={label}
             onPress={action}
             style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 14,
-              padding: 14,
+              alignSelf: "stretch",
               borderRadius: 16,
+              borderCurve: "continuous",
               backgroundColor: hexToRgba(palette.ink, 0.04),
               transform: [{ scale: pressed ? 0.97 : 1 }],
               opacity: pressed ? 0.7 : 1,
@@ -1344,19 +1374,29 @@ function GitContent({
           >
             <View
               style={{
-                width: 42,
-                height: 42,
-                borderRadius: 12,
-                backgroundColor: hexToRgba(palette.ink, 0.08),
+                minHeight: 64,
+                flexDirection: "row",
                 alignItems: "center",
-                justifyContent: "center",
+                gap: 14,
+                padding: 14,
               }}
             >
-              <Icon size={18} color={palette.accentLight} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{label}</Text>
-              <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}>{desc}</Text>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: hexToRgba(palette.ink, 0.08),
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon size={18} color={palette.accentLight} strokeWidth={2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{label}</Text>
+                <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}>{desc}</Text>
+              </View>
             </View>
           </Pressable>
         ))}
@@ -1524,7 +1564,7 @@ function AnimatedPressableText({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.96,
+      toValue: 0.97,
       damping: 20,
       stiffness: 280,
       mass: 0.8,
@@ -1547,16 +1587,21 @@ function AnimatedPressableText({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        paddingVertical: 16,
-        marginHorizontal: 20,
-      }}
+      style={{ alignSelf: "stretch", marginHorizontal: 20 }}
     >
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>{children}</Animated.View>
+      <Animated.View
+        style={{
+          transform: [{ scale: scaleAnim }],
+          minHeight: 44,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          paddingVertical: 16,
+        }}
+      >
+        {children}
+      </Animated.View>
     </Pressable>
   )
 }

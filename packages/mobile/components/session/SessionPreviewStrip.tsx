@@ -158,19 +158,26 @@ function ProjectWorkspaceCard(props: {
             accessibilityRole="button"
             accessibilityLabel="Open files for this session"
             style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              borderRadius: 8,
+              borderRadius: 12,
+              borderCurve: "continuous",
               borderWidth: 1,
               borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
-              paddingHorizontal: 12,
-              paddingVertical: 9,
               opacity: pressed ? 0.7 : 1,
+              transform: [{ scale: pressed ? 0.97 : 1 }],
             })}
           >
-            <FolderOpen size={14} color={palette.ink} strokeWidth={2.2} />
-            <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "700" }}>Files</Text>
+            <View
+              style={{
+                minHeight: 44,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                paddingHorizontal: 12,
+              }}
+            >
+              <FolderOpen size={14} color={palette.ink} strokeWidth={2.2} />
+              <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "700" }}>Files</Text>
+            </View>
           </Pressable>
         ) : null}
         {project.githubUrl ? (
@@ -179,18 +186,25 @@ function ProjectWorkspaceCard(props: {
             accessibilityRole="button"
             accessibilityLabel="Open repository on GitHub"
             style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              borderRadius: 8,
+              borderRadius: 12,
+              borderCurve: "continuous",
               backgroundColor: hexToRgba(palette.ink, 0.1),
-              paddingHorizontal: 12,
-              paddingVertical: 9,
               opacity: pressed ? 0.7 : 1,
+              transform: [{ scale: pressed ? 0.97 : 1 }],
             })}
           >
-            <Github size={14} color={palette.accentLight} strokeWidth={2.2} />
-            <Text style={{ color: palette.accentLight, fontSize: 12, fontWeight: "800" }}>GitHub</Text>
+            <View
+              style={{
+                minHeight: 44,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Github size={14} color={palette.accentLight} strokeWidth={2.2} />
+              <Text style={{ color: palette.accentLight, fontSize: 12, fontWeight: "800" }}>GitHub</Text>
+            </View>
           </Pressable>
         ) : null}
       </View>
@@ -323,7 +337,7 @@ export function ArtifactMicroThumb(props: { preview: SessionPreview }) {
         borderRadius: 6,
         borderWidth: 1,
         borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
-        backgroundColor: isDark ? "#101010" : "#f8fafc",
+        backgroundColor: palette.surfaceMuted,
       }}
     >
       <PreviewViewport
@@ -364,7 +378,7 @@ export function InlineArtifactCard(props: { preview: SessionPreview; onPress(): 
             style={{
               height: 168,
               overflow: "hidden",
-              backgroundColor: isDark ? "#101010" : "#f8fafc",
+              backgroundColor: palette.surfaceMuted,
               borderBottomWidth: StyleSheet.hairlineWidth,
               borderBottomColor: hexToRgba(palette.ink, 0.08),
             }}
@@ -630,13 +644,15 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                   accessibilityRole="button"
                   accessibilityLabel="Close artifact"
                   style={({ pressed }) => ({
-                    width: 28,
-                    height: 28,
-                    borderRadius: 14,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    borderCurve: "continuous",
                     alignItems: "center",
                     justifyContent: "center",
                     backgroundColor: hexToRgba(palette.ink, isDark ? 0.1 : 0.08),
                     opacity: pressed ? 0.65 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
                   })}
                 >
                   <X size={15} color={palette.soft} strokeWidth={2.4} />
@@ -658,23 +674,25 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                     accessibilityState={{ selected: active }}
                     style={({ pressed }) => ({
                       flex: 1,
-                      borderRadius: 6,
-                      paddingVertical: 8,
-                      alignItems: "center",
+                      borderRadius: 8,
+                      borderCurve: "continuous",
                       opacity: pressed ? 0.8 : 1,
                       backgroundColor: active ? hexToRgba(palette.ink, isDark ? 0.1 : 0.08) : "transparent",
+                      transform: [{ scale: pressed ? 0.97 : 1 }],
                     })}
                   >
-                    <Text
-                      style={{
-                        color: active ? palette.ink : palette.muted,
-                        fontSize: 12,
-                        fontWeight: active ? "800" : "600",
-                        textTransform: "capitalize",
-                      }}
-                    >
-                      {value === "source" && preview.artifact ? "link" : value}
-                    </Text>
+                    <View style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+                      <Text
+                        style={{
+                          color: active ? palette.ink : palette.muted,
+                          fontSize: 12,
+                          fontWeight: active ? "800" : "600",
+                          textTransform: "capitalize",
+                        }}
+                      >
+                        {value === "source" && preview.artifact ? "link" : value}
+                      </Text>
+                    </View>
                   </Pressable>
                 )
               })}
@@ -683,7 +701,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
 
           <View style={{ flex: 1, minHeight: 320 }}>
             {tab === "preview" ? (
-              <View style={{ flex: 1, backgroundColor: isDark ? "#101010" : "#f8fafc" }}>
+              <View style={{ flex: 1, backgroundColor: palette.surfaceMuted }}>
                 <PreviewViewport
                   preview={preview}
                   reloadKey={reloadKey}
@@ -783,11 +801,7 @@ function ActionChip(props: {
         accessibilityRole="button"
         accessibilityLabel={props.label}
         style={({ pressed }) => ({
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-          minHeight: 46,
+          alignSelf: "stretch",
           borderRadius: 12,
           borderCurve: "continuous",
           borderWidth: props.accent ? 0 : StyleSheet.hairlineWidth,
@@ -796,17 +810,28 @@ function ActionChip(props: {
           opacity: pressed ? 0.75 : 1,
         })}
       >
-        <Icon size={14} color={props.accent ? props.palette.background : props.palette.ink} strokeWidth={2.2} />
-        <Text
-          numberOfLines={1}
+        <View
           style={{
-            color: props.accent ? props.palette.background : props.palette.ink,
-            fontSize: 12.5,
-            fontWeight: props.accent ? "800" : "700",
+            minHeight: 44,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            paddingHorizontal: 8,
           }}
         >
-          {props.label}
-        </Text>
+          <Icon size={14} color={props.accent ? props.palette.background : props.palette.ink} strokeWidth={2.2} />
+          <Text
+            numberOfLines={1}
+            style={{
+              color: props.accent ? props.palette.background : props.palette.ink,
+              fontSize: 12.5,
+              fontWeight: props.accent ? "800" : "700",
+            }}
+          >
+            {props.label}
+          </Text>
+        </View>
       </Pressable>
     </Animated.View>
   )
@@ -860,7 +885,7 @@ function PreviewCard(props: {
             style={{
               height: 168,
               overflow: "hidden",
-              backgroundColor: props.isDark ? "#101010" : "#f8fafc",
+              backgroundColor: props.palette.surfaceMuted,
               borderBottomWidth: StyleSheet.hairlineWidth,
               borderBottomColor: hexToRgba(props.palette.ink, 0.08),
             }}
@@ -946,19 +971,25 @@ function PreviewCard(props: {
               accessibilityRole="button"
               accessibilityLabel="Reload this preview"
               style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                borderRadius: 8,
+                borderRadius: 12,
+                borderCurve: "continuous",
                 borderWidth: 1,
                 borderColor: props.isDark ? hexToRgba(props.palette.ink, 0.1) : hexToRgba(props.palette.border, 0.72),
-                paddingVertical: 9,
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <RefreshCw size={13} color={props.palette.ink} strokeWidth={2.2} />
-              <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "700" }}>Reload</Text>
+              <View
+                style={{
+                  minHeight: 44,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <RefreshCw size={13} color={props.palette.ink} strokeWidth={2.2} />
+                <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "700" }}>Reload</Text>
+              </View>
             </Pressable>
           </Animated.View>
           <Animated.View style={{ flex: 1, transform: [{ scale: browserPress.scale }] }}>
@@ -975,20 +1006,26 @@ function PreviewCard(props: {
               accessibilityRole="button"
               accessibilityLabel={browserUrl ? "Open in browser" : "Open full preview"}
               style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                borderRadius: 8,
+                borderRadius: 12,
+                borderCurve: "continuous",
                 backgroundColor: hexToRgba(props.palette.ink, 0.1),
-                paddingVertical: 9,
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <ExternalLink size={13} color={props.palette.accentLight} strokeWidth={2.2} />
-              <Text style={{ color: props.palette.accentLight, fontSize: 12, fontWeight: "800" }}>
-                {browserUrl ? "Browser" : "Open"}
-              </Text>
+              <View
+                style={{
+                  minHeight: 44,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <ExternalLink size={13} color={props.palette.accentLight} strokeWidth={2.2} />
+                <Text style={{ color: props.palette.accentLight, fontSize: 12, fontWeight: "800" }}>
+                  {browserUrl ? "Browser" : "Open"}
+                </Text>
+              </View>
             </Pressable>
           </Animated.View>
         </View>

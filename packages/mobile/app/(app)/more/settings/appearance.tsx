@@ -3,13 +3,14 @@ import { Pressable, ScrollView, Text, View } from "react-native"
 import * as ImagePicker from "expo-image-picker"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { InfoChip } from "@/components/ui/InfoChip"
+import { InfoChip, optionChipStyle, optionChipTextColor } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { useUIStore } from "@/lib/store"
 import { setAppPreferencesWith, normalizeWallpaper } from "@/lib/storage"
 import { triggerHaptic } from "@/lib/haptics"
 import { usePrefersReducedTransparency } from "@/lib/animation"
-import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 const OPACITY_STOPS = [0.12, 0.22, 0.34, 0.48]
 
@@ -76,7 +77,7 @@ export default function AppearanceScreen() {
           {reducedTransparency ? <InfoChip label="Reduced transparency" tone="warn" /> : null}
         </View>
         <View className="mt-4 gap-3">
-          <Text className="text-[12px] font-medium text-muted">Opacity</Text>
+          <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Opacity</Text>
           <View className="flex-row flex-wrap gap-2">
             {OPACITY_STOPS.map((opacity) => {
               const active = Math.abs(wallpaper.opacity - opacity) < 0.03
@@ -89,16 +90,11 @@ export default function AppearanceScreen() {
                     void persist({ wallpaper: next })
                     void triggerHaptic("selection")
                   }}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: hexToRgba(palette.ink, active ? 0.28 : 0.1),
-                    backgroundColor: hexToRgba(palette.ink, active ? 0.1 : 0.04),
-                  }}
+                  style={[optionChipStyle(palette, active), { borderRadius: 999, paddingHorizontal: 14 }]}
                 >
-                  <Text className="text-[12px] font-semibold text-ink">{Math.round(opacity * 100)}%</Text>
+                  <Text style={{ color: optionChipTextColor(palette, active), ...typeStyle(12, { weight: "600" }) }}>
+                    {Math.round(opacity * 100)}%
+                  </Text>
                 </Pressable>
               )
             })}

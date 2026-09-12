@@ -1,21 +1,33 @@
-import { Link } from "expo-router"
-import { Pressable, Text, View } from "react-native"
+import { router } from "expo-router"
+import { ScrollView, View } from "react-native"
+import { ActionButton } from "@/components/ui/ActionButton"
+import { EmptyState } from "@/components/ui/EmptyState"
+import { useAppTheme } from "@/lib/theme"
 
 export default function NotFoundScreen() {
+  const { palette } = useAppTheme()
+
   return (
-    <View className="flex-1 items-center justify-center bg-background px-6">
-      <View className="w-full rounded-[32px] border border-border bg-surface px-6 py-8">
-        <Text className="text-[12px] font-medium text-muted">Navigation</Text>
-        <Text className="mt-3 text-3xl font-semibold text-ink">Screen not found</Text>
-        <Text className="mt-3 text-sm leading-6 text-soft">
-          This route is unavailable in the current mobile workspace. Return to the connection screen to continue.
-        </Text>
-        <Link href="/" asChild>
-          <Pressable className="mt-5 self-start">
-            <Text className="text-sm font-semibold text-accent-light">Back to connect</Text>
-          </Pressable>
-        </Link>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: palette.background }}
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 24 }}
+    >
+      <View style={{ width: "100%", maxWidth: 480, alignSelf: "center" }}>
+        <EmptyState
+          title="Screen not found"
+          description="This screen is no longer available. Go back to continue where you left off."
+          action={
+            <ActionButton
+              label={router.canGoBack() ? "Go back" : "Back to connect"}
+              onPress={() => {
+                if (router.canGoBack()) router.back()
+                else router.replace("/")
+              }}
+            />
+          }
+        />
       </View>
-    </View>
+    </ScrollView>
   )
 }

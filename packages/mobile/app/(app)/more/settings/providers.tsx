@@ -3,21 +3,15 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-nati
 import { Stack, useFocusEffect } from "expo-router"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { InfoChip } from "@/components/ui/InfoChip"
+import { InfoChip, optionChipStyle, optionChipTextColor } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-context"
 import { formatVariantLabel, listEnabledVariants } from "@/lib/model-catalog"
 import { getModelVariant, setModelVariant } from "@/lib/model-preferences"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import { MOBILE_DEFAULT_MODEL_ID, MOBILE_DEFAULT_PROVIDER_ID, type ProviderCatalog } from "@/lib/types"
-
-function optionChipClass(active: boolean) {
-  return active ? "border-accent/30 bg-accent/12" : "border-border bg-background/70"
-}
-
-function optionChipTextClass(active: boolean) {
-  return active ? "text-accent-light" : "text-ink"
-}
 
 function providerFallback(catalog: ProviderCatalog | null) {
   if (!catalog?.all.length) return MOBILE_DEFAULT_PROVIDER_ID
@@ -37,6 +31,7 @@ function modelFallback(catalog: ProviderCatalog | null, providerID: string) {
 }
 
 export default function ProvidersSettingsScreen() {
+  const { palette } = useAppTheme()
   const { client, config, save } = useServer()
   const [providerCatalog, setProviderCatalog] = useState<ProviderCatalog | null>(null)
   const [providerSearch, setProviderSearch] = useState("")
@@ -242,9 +237,21 @@ export default function ProvidersSettingsScreen() {
       {message ? <ErrorBanner message={message} /> : null}
 
       {loading ? (
-        <View className="items-center rounded-[8px] border border-border bg-background/60 px-4 py-5">
-          <ActivityIndicator />
-          <Text className="mt-3 text-sm text-soft">Loading providers and model catalog…</Text>
+        <View
+          style={{
+            alignItems: "center",
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: hexToRgba(palette.ink, 0.08),
+            backgroundColor: hexToRgba(palette.background, 0.6),
+            paddingHorizontal: 16,
+            paddingVertical: 20,
+          }}
+        >
+          <ActivityIndicator color={palette.accent} />
+          <Text style={{ marginTop: 12, color: palette.soft, ...typeStyle(14) }}>
+            Loading providers and model catalog…
+          </Text>
         </View>
       ) : (
         <>
@@ -269,12 +276,15 @@ export default function ProvidersSettingsScreen() {
                     <Pressable
                       key={provider.id}
                       onPress={() => chooseProvider(provider.id)}
-                      className={`rounded-[18px] border px-3 py-2 ${optionChipClass(active)}`}
+                      style={optionChipStyle(palette, active)}
                     >
-                      <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>
+                      <Text style={{ color: optionChipTextColor(palette, active), ...typeStyle(12, { weight: "600" }) }}>
                         {provider.name}
                       </Text>
-                      <Text className={`mt-1 text-[10px] ${active ? "text-accent-light/85" : "text-soft"}`}>
+                      <Text
+                        selectable
+                        style={{ marginTop: 4, color: active ? palette.accentLight : palette.soft, ...typeStyle(11) }}
+                      >
                         {provider.id}
                         {connected ? " - connected" : ""}
                       </Text>
@@ -289,7 +299,9 @@ export default function ProvidersSettingsScreen() {
             <SurfaceCard eyebrow="Selected provider" title={selectedProvider.name} description={selectedProvider.id}>
               <View className="gap-3">
                 {selectedProvider.env.length ? (
-                  <Text className="text-sm leading-6 text-soft">Env hints: {selectedProvider.env.join(", ")}</Text>
+                  <Text selectable style={{ color: palette.soft, ...typeStyle(14) }}>
+                    Env hints: {selectedProvider.env.join(", ")}
+                  </Text>
                 ) : null}
                 <TextField
                   label="Models"
@@ -305,10 +317,19 @@ export default function ProvidersSettingsScreen() {
                       <Pressable
                         key={model.id}
                         onPress={() => chooseModel(model.id)}
-                        className={`rounded-[18px] border px-3 py-2 ${optionChipClass(active)}`}
+                        style={optionChipStyle(palette, active)}
                       >
-                        <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>{model.name}</Text>
-                        <Text className={`mt-1 text-[10px] uppercase ${active ? "text-accent-light/85" : "text-soft"}`}>
+                        <Text style={{ color: optionChipTextColor(palette, active), ...typeStyle(12, { weight: "600" }) }}>
+                          {model.name}
+                        </Text>
+                        <Text
+                          style={{
+                            marginTop: 4,
+                            color: active ? palette.accentLight : palette.soft,
+                            textTransform: "uppercase",
+                            ...typeStyle(11, { trackingBoost: 0.4 }),
+                          }}
+                        >
                           {model.status}
                         </Text>
                       </Pressable>
@@ -317,13 +338,18 @@ export default function ProvidersSettingsScreen() {
                 </View>
                 {modelVariants.length > 0 ? (
                   <View className="gap-2">
-                    <Text className="text-[12px] font-semibold text-ink">Thinking effort</Text>
+                    <Text style={{ color: palette.ink, ...typeStyle(12, { weight: "600" }) }}>Thinking effort</Text>
                     <View className="flex-row flex-wrap gap-2">
                       <Pressable
                         onPress={() => setSelectedVariant(undefined)}
-                        className={`rounded-[18px] border px-3 py-2 ${optionChipClass(!selectedVariant)}`}
+                        style={optionChipStyle(palette, !selectedVariant)}
                       >
-                        <Text className={`text-[12px] font-semibold ${optionChipTextClass(!selectedVariant)}`}>
+                        <Text
+                          style={{
+                            color: optionChipTextColor(palette, !selectedVariant),
+                            ...typeStyle(12, { weight: "600" }),
+                          }}
+                        >
                           Default
                         </Text>
                       </Pressable>
@@ -333,9 +359,11 @@ export default function ProvidersSettingsScreen() {
                           <Pressable
                             key={variant}
                             onPress={() => setSelectedVariant(variant)}
-                            className={`rounded-[18px] border px-3 py-2 ${optionChipClass(active)}`}
+                            style={optionChipStyle(palette, active)}
                           >
-                            <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>
+                            <Text
+                              style={{ color: optionChipTextColor(palette, active), ...typeStyle(12, { weight: "600" }) }}
+                            >
                               {formatVariantLabel(variant)}
                             </Text>
                           </Pressable>

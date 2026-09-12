@@ -2,22 +2,17 @@ import { useCallback, useMemo, useState } from "react"
 import { ScrollView, Pressable, Text, View } from "react-native"
 import { Stack, useFocusEffect } from "expo-router"
 import { ActionButton } from "@/components/ui/ActionButton"
+import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { InfoChip } from "@/components/ui/InfoChip"
+import { InfoChip, optionChipStyle, optionChipTextColor } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-context"
 import { getAppPreferences, setAppPreferencesWith } from "@/lib/storage"
 import { useUIStore } from "@/lib/store"
+import { useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import { type HostCommandConfig, type PromptPreset } from "@/lib/types"
-
-function optionChipClass(active: boolean) {
-  return active ? "border-accent/30 bg-accent/12" : "border-border bg-background/70"
-}
-
-function optionChipTextClass(active: boolean) {
-  return active ? "text-accent-light" : "text-ink"
-}
 
 function normalizeCommandName(value: string) {
   return value.trim().replace(/^\/+/, "").toLowerCase()
@@ -28,6 +23,7 @@ function isValidCommandName(value: string) {
 }
 
 export default function CommandsSettingsScreen() {
+  const { palette } = useAppTheme()
   const { client } = useServer()
   const promptPresets = useUIStore((state) => state.promptPresets)
   const setPromptPresets = useUIStore((state) => state.setPromptPresets)
@@ -263,10 +259,18 @@ export default function CommandsSettingsScreen() {
               <Pressable
                 key={mode}
                 onPress={() => void persistComposerPreference("defaultMode", mode)}
-                className={`rounded-[16px] border px-3 py-2 ${optionChipClass(active)}`}
+                style={optionChipStyle(palette, active)}
               >
-                <Text className={`text-[12px] font-semibold capitalize ${optionChipTextClass(active)}`}>{mode}</Text>
-                <Text className="mt-1 text-[10px] text-soft">Default mode</Text>
+                <Text
+                  style={{
+                    color: optionChipTextColor(palette, active),
+                    textTransform: "capitalize",
+                    ...typeStyle(12, { weight: "600" }),
+                  }}
+                >
+                  {mode}
+                </Text>
+                <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(11) }}>Default mode</Text>
               </Pressable>
             )
           })}
@@ -279,10 +283,12 @@ export default function CommandsSettingsScreen() {
               <Pressable
                 key={key}
                 onPress={() => void persistComposerPreference(key as keyof typeof composer, !active)}
-                className={`rounded-[16px] border px-3 py-2 ${optionChipClass(active)}`}
+                style={optionChipStyle(palette, active)}
               >
-                <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>{label}</Text>
-                <Text className="mt-1 text-[10px] text-soft">{active ? "On" : "Off"}</Text>
+                <Text style={{ color: optionChipTextColor(palette, active), ...typeStyle(12, { weight: "600" }) }}>
+                  {label}
+                </Text>
+                <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(11) }}>{active ? "On" : "Off"}</Text>
               </Pressable>
             )
           })}
@@ -315,10 +321,20 @@ export default function CommandsSettingsScreen() {
                 <Pressable
                   key={mode}
                   onPress={() => setPresetMode(mode)}
-                  className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(active)}`}
+                  style={[optionChipStyle(palette, active), { flex: 1, minWidth: 0, borderRadius: 18, padding: 12 }]}
                 >
-                  <Text className={`text-sm font-semibold capitalize ${optionChipTextClass(active)}`}>{mode}</Text>
-                  <Text className="mt-1 text-xs leading-5 text-soft">Insert as reusable {mode} preset</Text>
+                  <Text
+                    style={{
+                      color: optionChipTextColor(palette, active),
+                      textTransform: "capitalize",
+                      ...typeStyle(14, { weight: "600" }),
+                    }}
+                  >
+                    {mode}
+                  </Text>
+                  <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(12) }}>
+                    Insert as reusable {mode} preset
+                  </Text>
                 </Pressable>
               )
             })}
@@ -326,12 +342,10 @@ export default function CommandsSettingsScreen() {
           <ActionButton label="Save preset" loading={saving} onPress={() => void addPreset()} />
           <View className="gap-3">
             {promptPresets.map((preset) => (
-              <View key={preset.id} className="rounded-[8px] border border-border bg-background/60 p-4">
+              <SurfaceCard key={preset.id} tone="background" title={preset.title} description={preset.prompt}>
                 <View className="flex-row flex-wrap items-center gap-2">
-                  <Text className="text-base font-semibold text-ink">{preset.title}</Text>
                   <InfoChip label={preset.mode} tone="accent" />
                 </View>
-                <Text className="mt-2 text-sm leading-6 text-soft">{preset.prompt}</Text>
                 <View className="mt-3">
                   <ActionButton
                     label="Remove preset"
@@ -340,7 +354,7 @@ export default function CommandsSettingsScreen() {
                     onPress={() => void removePreset(preset.id)}
                   />
                 </View>
-              </View>
+              </SurfaceCard>
             ))}
           </View>
         </View>
@@ -352,9 +366,7 @@ export default function CommandsSettingsScreen() {
         description="Custom commands become available in the mobile command palette and slash autocomplete for every session on this host."
       >
         {loading ? (
-          <View className="items-center rounded-[8px] border border-border bg-background/60 px-4 py-5">
-            <Text className="text-sm text-soft">Loading host command catalog…</Text>
-          </View>
+          <Text style={{ color: palette.soft, ...typeStyle(14) }}>Loading host command catalog…</Text>
         ) : (
           <View className="gap-3">
             <TextField
@@ -399,10 +411,12 @@ export default function CommandsSettingsScreen() {
             </View>
             <Pressable
               onPress={() => setCommandSubtask((value) => !value)}
-              className={`rounded-[16px] border px-3 py-2 ${optionChipClass(commandSubtask)}`}
+              style={optionChipStyle(palette, commandSubtask)}
             >
-              <Text className={`text-[12px] font-semibold ${optionChipTextClass(commandSubtask)}`}>Run as subtask</Text>
-              <Text className="mt-1 text-[10px] text-soft">
+              <Text style={{ color: optionChipTextColor(palette, commandSubtask), ...typeStyle(12, { weight: "600" }) }}>
+                Run as subtask
+              </Text>
+              <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(11) }}>
                 Use background/subtask execution semantics when supported.
               </Text>
             </Pressable>
@@ -411,18 +425,21 @@ export default function CommandsSettingsScreen() {
             <View className="gap-3">
               {commandEntries.length ? (
                 commandEntries.map(([name, command]) => (
-                  <View key={name} className="rounded-[8px] border border-border bg-background/60 p-4">
+                  <SurfaceCard
+                    key={name}
+                    tone="background"
+                    title={`/${name}`}
+                    description={command.description ?? command.template}
+                  >
                     <View className="flex-row flex-wrap items-center gap-2">
-                      <Text className="text-base font-semibold text-ink">/{name}</Text>
                       {command.subtask ? <InfoChip label="Task" tone="accent" /> : null}
                       {command.agent ? <InfoChip label={`Agent ${command.agent}`} /> : null}
                     </View>
                     {command.description ? (
-                      <Text className="mt-2 text-sm leading-5 text-soft">{command.description}</Text>
+                      <Text selectable style={{ marginTop: 8, color: palette.soft, ...typeStyle(14) }}>
+                        {command.template}
+                      </Text>
                     ) : null}
-                    <Text selectable className="mt-2 text-sm leading-6 text-soft">
-                      {command.template}
-                    </Text>
                     <View className="mt-3">
                       <ActionButton
                         label="Remove host command"
@@ -431,14 +448,13 @@ export default function CommandsSettingsScreen() {
                         onPress={() => void removeCommand(name)}
                       />
                     </View>
-                  </View>
+                  </SurfaceCard>
                 ))
               ) : (
-                <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                  <Text className="text-sm leading-6 text-soft">
-                    No custom host commands yet. Add one above to extend the mobile palette.
-                  </Text>
-                </View>
+                <EmptyState
+                  title="No host commands"
+                  description="Add one above to extend the mobile command palette."
+                />
               )}
             </View>
           </View>
@@ -452,15 +468,14 @@ export default function CommandsSettingsScreen() {
       >
         <View className="gap-3">
           {catalog.map((command) => (
-            <View key={command.name} className="rounded-[20px] border border-border bg-background/60 px-4 py-3.5">
-              <View className="flex-row flex-wrap items-center gap-2">
-                <Text className="text-sm font-semibold text-ink">/{command.name}</Text>
-                {command.badge ? <InfoChip label={command.badge} tone="accent" /> : null}
-              </View>
-              {command.description ? (
-                <Text className="mt-1.5 text-xs leading-5 text-soft">{command.description}</Text>
-              ) : null}
-            </View>
+            <SurfaceCard
+              key={command.name}
+              tone="background"
+              title={`/${command.name}`}
+              description={command.description}
+            >
+              {command.badge ? <InfoChip label={command.badge} tone="accent" /> : null}
+            </SurfaceCard>
           ))}
         </View>
       </SurfaceCard>

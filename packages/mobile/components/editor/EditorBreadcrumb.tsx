@@ -87,7 +87,7 @@ export function EditorBreadcrumb(props: {
                   Animated.spring(scale, { toValue: 1, ...PRESS_SPRING }).start()
                 }}
                 disabled={isLast}
-                hitSlop={6}
+                hitSlop={10}
                 style={{
                   ...styles.segment,
                   backgroundColor: isLast ? hexToRgba(palette.ink, isDark ? 0.12 : 0.1) : "transparent",

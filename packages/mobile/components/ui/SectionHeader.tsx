@@ -1,5 +1,6 @@
 import { Text } from "react-native"
 import { useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 /** Quiet list section label ("Today", "Pinned", …). */
 export function SectionHeader({ label }: { label: string }) {
@@ -7,12 +8,11 @@ export function SectionHeader({ label }: { label: string }) {
   return (
     <Text
       style={{
-        fontSize: 13,
-        fontWeight: "500",
         color: palette.muted,
         paddingTop: 18,
         paddingBottom: 6,
         paddingHorizontal: 4,
+        ...typeStyle(13, { weight: "600" }),
       }}
     >
       {label}

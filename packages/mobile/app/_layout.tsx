@@ -34,7 +34,7 @@ function AuthGuard() {
     if (!ready || userLoading) return
     if (!config) return // no server — index.tsx (connect screen) handles this
     // Don't redirect if already on login or connect screen
-    if (pathname === "/login" || pathname === "/" || pathname === "") return
+    if (pathname === "/login" || pathname === "/" || pathname === "" || pathname === "/connect") return
     if (!userToken) {
       router.replace("/login")
     }
@@ -51,7 +51,8 @@ function AppLockCoordinator() {
   const didBackground = useRef(false)
   const hasBeenActive = useRef(AppState.currentState === "active")
 
-  const skipLock = pathname === "/" || pathname === "/login" || pathname === "" || !pathname
+  const skipLock =
+    pathname === "/" || pathname === "/login" || pathname === "/connect" || pathname === "" || !pathname
 
   useEffect(() => {
     if (!security.biometricsEnabled) setLocked(false)
@@ -238,6 +239,16 @@ function RootLayoutInner() {
               }}
             >
               <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="connect"
+                options={{
+                  headerShown: false,
+                  presentation: "fullScreenModal",
+                  animation: "slide_from_bottom",
+                  gestureEnabled: true,
+                  contentStyle: { flex: 1, backgroundColor: palette.background },
+                }}
+              />
               <Stack.Screen
                 name="login"
                 options={{

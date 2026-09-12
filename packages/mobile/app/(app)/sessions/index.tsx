@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { RefreshControl, SectionList, Text, View } from "react-native"
+import { Animated, Pressable, RefreshControl, SectionList, Text, View } from "react-native"
 import { router, useRootNavigationState, type Href } from "expo-router"
-import { Folder } from "lucide-react-native"
-import { type ActionSheetRef } from "@/components/BottomSheet"
+import { Check, Funnel, Menu } from "lucide-react-native"
+import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import { WorkspaceSwitcherSheet } from "@/components/session/WorkspaceSwitcherSheet"
 import { SessionListItem } from "@/components/SessionListItem"
 import { SessionListSkeleton } from "@/components/SessionListSkeleton"
@@ -11,62 +11,93 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { FloatingDock } from "@/components/ui/FloatingDock"
 import { IconCircleButton } from "@/components/ui/IconCircleButton"
-import { TipsCard } from "@/components/ui/TipsCard"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { CenteredScreenHeader } from "@/components/layout/CenteredScreenHeader"
-import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
-import { DeviceSection } from "@/components/session/DeviceSection"
+import { AppMenuSheet } from "@/components/layout/AppMenuSheet"
+import { DeviceSection, formatHostLabel } from "@/components/session/DeviceSection"
 import { useServer } from "@/lib/server-context"
+import { getSessionSeen, setSessionSeen } from "@/lib/storage"
+import { usePressAnimation } from "@/lib/animation"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
-import type { ProjectInfo, SessionSummary } from "@/lib/types"
+import { type as typeStyle } from "@/lib/typography"
+import type { SessionSummary } from "@/lib/types"
 
 type SessionSection = {
   title: string
   data: SessionSummary[]
 }
 
-const EMPTY_PROJECTS: ProjectInfo[] = []
+type SessionFilter = "all" | "running" | "interrupted" | "changes"
 
-function lastPathSegment(path?: string): string {
-  if (!path) return "Unknown workspace"
-  const segments = path.split("/").filter(Boolean)
-  return segments[segments.length - 1] || path
+const FILTERS: Array<{ id: SessionFilter; label: string; description: string }> = [
+  { id: "all", label: "All sessions", description: "Everything on this host" },
+  { id: "running", label: "Running", description: "Agents currently working" },
+  { id: "interrupted", label: "Interrupted", description: "Needs attention" },
+  { id: "changes", label: "With changes", description: "Sessions that touched files" },
+]
+
+function matchesFilter(item: SessionSummary, filter: SessionFilter): boolean {
+  if (filter === "all") return true
+  if (filter === "running") return item.status?.type === "busy"
+  if (filter === "interrupted") return item.status?.type === "retry"
+  const summary = item.info.summary
+  return (summary?.additions ?? 0) + (summary?.deletions ?? 0) > 0
 }
 
-function projectLabel(project: ProjectInfo): string {
-  return project.name || lastPathSegment(project.worktree)
-}
+function FilterRow({
+  label,
+  description,
+  selected,
+  onPress,
+}: {
+  label: string
+  description: string
+  selected: boolean
+  onPress(): void
+}) {
+  const { palette } = useAppTheme()
+  const [pressed, setPressed] = useState(false)
+  const press = usePressAnimation()
 
-function groupSessions(
-  sessions: SessionSummary[],
-  projects: ProjectInfo[],
-  selectedDirectory?: string,
-): SessionSection[] {
-  const projectsByID = new Map(projects.map((project) => [project.id, project]))
-  const buckets = new Map<string, { title: string; selected: boolean; data: SessionSummary[] }>()
-
-  for (const session of sessions) {
-    const project = projectsByID.get(session.info.projectID)
-    const key = project?.id || session.info.projectID || session.info.directory || "unknown"
-    const selected = project
-      ? project.worktree === selectedDirectory || project.sandboxes.includes(selectedDirectory || "")
-      : session.info.directory === selectedDirectory
-    const bucket = buckets.get(key) ?? {
-      title: project ? projectLabel(project) : lastPathSegment(session.info.directory),
-      selected,
-      data: [],
-    }
-    bucket.selected ||= selected
-    bucket.data.push(session)
-    buckets.set(key, bucket)
-  }
-
-  return [...buckets.values()]
-    .sort((a, b) => Number(b.selected) - Number(a.selected) || a.title.localeCompare(b.title))
-    .map(({ title, data }) => ({
-      title,
-      data: data.sort((a, b) => b.info.time.updated - a.info.time.updated),
-    }))
+  return (
+    <Animated.View style={{ alignSelf: "stretch", transform: [{ scale: press.scale }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
+        accessibilityLabel={label}
+        onPress={onPress}
+        onPressIn={() => {
+          setPressed(true)
+          press.onPressIn()
+        }}
+        onPressOut={() => {
+          setPressed(false)
+          press.onPressOut()
+        }}
+        style={{ alignSelf: "stretch" }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            alignSelf: "stretch",
+            gap: 14,
+            minHeight: 64,
+            paddingHorizontal: 20,
+            opacity: pressed ? 0.72 : 1,
+          }}
+        >
+          <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
+            <Text style={{ color: palette.ink, ...typeStyle(16, { weight: "600" }) }}>{label}</Text>
+            <Text style={{ color: palette.muted, marginTop: 2, ...typeStyle(13) }}>{description}</Text>
+          </View>
+          <View style={{ width: 22, alignItems: "flex-end", flexShrink: 0 }}>
+            {selected ? <Check size={18} color={palette.ink} strokeWidth={2.4} /> : null}
+          </View>
+        </View>
+      </Pressable>
+    </Animated.View>
+  )
 }
 
 export default function SessionsScreen() {
@@ -79,14 +110,27 @@ export default function SessionsScreen() {
   const [switchingDirectory, setSwitchingDirectory] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+  const [filter, setFilter] = useState<SessionFilter>("all")
+  const [seen, setSeen] = useState<Record<string, number>>({})
+  const [seenReady, setSeenReady] = useState(false)
   const searchRef = useRef(search)
   const workspaceSheetRef = useRef<ActionSheetRef>(null)
+  const menuSheetRef = useRef<ActionSheetRef>(null)
+  const filterSheetRef = useRef<ActionSheetRef>(null)
+  const seededSeen = useRef(false)
   useEffect(() => {
     searchRef.current = search
   }, [search])
 
+  useEffect(() => {
+    void getSessionSeen().then((value) => {
+      setSeen(value)
+      setSeenReady(true)
+    })
+  }, [])
+
   const load = useCallback(
-    async (term?: string) => {
+    async (term?: string, refresh = false) => {
       if (!client) {
         setSessions([])
         setError(null)
@@ -94,13 +138,13 @@ export default function SessionsScreen() {
       }
 
       try {
-        setRefreshing(true)
+        if (refresh) setRefreshing(true)
         setError(null)
         setSessions(await client.listSessions(term?.trim() || undefined))
       } catch (nextError) {
         setError(nextError instanceof Error ? nextError.message : String(nextError))
       } finally {
-        setRefreshing(false)
+        if (refresh) setRefreshing(false)
       }
     },
     [client],
@@ -121,12 +165,26 @@ export default function SessionsScreen() {
       router.replace("/")
       return
     }
-    // Use ref to avoid search being in deps (first effect handles search debounce)
     void load(searchRef.current)
   }, [config, loading, load, rootNavigationState?.key])
 
+  // First visit: treat whatever is already on the host as read, so historical
+  // sessions do not all light up as new.
+  useEffect(() => {
+    if (!seenReady || seededSeen.current || sessions.length === 0) return
+    if (Object.keys(seen).length > 0) {
+      seededSeen.current = true
+      return
+    }
+    seededSeen.current = true
+    const seed: Record<string, number> = {}
+    for (const session of sessions) seed[session.info.id] = session.info.time.updated
+    setSeen(seed)
+    void setSessionSeen(seed)
+  }, [seen, seenReady, sessions])
+
   const refreshControlElement = useMemo(
-    () => <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.muted} />,
+    () => <RefreshControl refreshing={refreshing} onRefresh={() => void load(searchRef.current, true)} tintColor={palette.muted} />,
     [refreshing, load, palette.muted],
   )
 
@@ -171,49 +229,66 @@ export default function SessionsScreen() {
     }
   }
 
-  const busyCount = useMemo(() => sessions.filter((item) => item.status?.type === "busy").length, [sessions])
-  const projects = bootstrap?.projects ?? EMPTY_PROJECTS
-  const sections = useMemo(
-    () => groupSessions(sessions, projects, config?.directory),
-    [config?.directory, projects, sessions],
+  const projects = bootstrap?.projects ?? []
+  const visibleSessions = useMemo(
+    () =>
+      sessions
+        .filter((item) => matchesFilter(item, filter))
+        .sort((a, b) => b.info.time.updated - a.info.time.updated),
+    [filter, sessions],
+  )
+  const sections: SessionSection[] = useMemo(
+    () => (visibleSessions.length === 0 ? [] : [{ title: "Sessions", data: visibleSessions }]),
+    [visibleSessions],
   )
 
   const hero = (
     <AppHeader className="gap-4 pb-2">
       <CenteredScreenHeader
-        title="Sessions"
+        title="Code"
         left={
-          // Dimming lives on a wrapper: IconCircleButton owns its own `style`.
-          <View style={{ opacity: projects.length === 0 ? 0.5 : 1 }}>
-            <IconCircleButton
-              size={36}
-              accessibilityLabel={`Change workspace. Current workspace: ${lastPathSegment(config?.directory)}`}
-              accessibilityHint="Opens the workspace switcher"
-              disabled={projects.length === 0}
-              onPress={() => workspaceSheetRef.current?.present()}
-            >
-              <Folder size={17} color={palette.ink} strokeWidth={2} />
-            </IconCircleButton>
-          </View>
+          <IconCircleButton
+            size={44}
+            accessibilityLabel="Open menu"
+            accessibilityHint="Workspaces, terminal, tools, and settings"
+            onPress={() => menuSheetRef.current?.present()}
+          >
+            <Menu size={20} color={palette.ink} strokeWidth={2} />
+          </IconCircleButton>
         }
-        right={<SettingsCircleButton />}
+        right={
+          <IconCircleButton
+            size={44}
+            tone="warm"
+            accessibilityLabel={filter === "all" ? "Filter sessions" : `Filter sessions, ${filter}`}
+            accessibilityHint="Shows running, interrupted, or changed sessions"
+            onPress={() => filterSheetRef.current?.present()}
+          >
+            <Funnel size={18} color={palette.ink} strokeWidth={2.2} fill={filter === "all" ? "none" : palette.ink} />
+          </IconCircleButton>
+        }
       />
       <DeviceSection url={config?.url} connected={Boolean(bootstrap)} version={bootstrap?.version} />
-      {busyCount > 0 ? (
-        <Text className="text-[13px] text-muted">
-          {busyCount} {busyCount === 1 ? "agent" : "agents"} working
-        </Text>
-      ) : null}
-      <TipsCard />
       {error ? <ErrorBanner message={error} /> : null}
     </AppHeader>
   )
 
   if ((loading || bootstrapLoading) && sessions.length === 0) {
     return (
-      <View className="flex-1 bg-background px-4 pt-4">
-        {hero}
-        <SessionListSkeleton />
+      <View className="flex-1 bg-background">
+        <View className="flex-1 px-4 pt-4">
+          {hero}
+          <SessionListSkeleton />
+        </View>
+        <FloatingDock
+          actionLabel="New session"
+          onAction={() => void createSession()}
+          actionLoading={creating}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Filter sessions"
+          bottomInset={54}
+        />
       </View>
     )
   }
@@ -226,68 +301,99 @@ export default function SessionsScreen() {
         keyExtractor={(item) => item.info.id}
         refreshControl={refreshControlElement}
         stickySectionHeadersEnabled={false}
-        renderSectionHeader={({ section }) => (
-          <Text
-            className="text-[13px] font-medium text-muted"
-            style={{ paddingTop: 18, paddingBottom: 6, paddingHorizontal: 4 }}
-          >
-            {section.title}
-          </Text>
-        )}
+        renderSectionHeader={({ section }) =>
+          section.data.length === 0 ? null : (
+            <Text
+              style={{
+                color: palette.muted,
+                paddingTop: 18,
+                paddingBottom: 6,
+                paddingHorizontal: 4,
+                ...typeStyle(15, { weight: "500" }),
+              }}
+            >
+              {section.title}
+            </Text>
+          )
+        }
         ItemSeparatorComponent={() => (
           <View
             style={{
               height: 1,
-              marginLeft: 24,
+              marginLeft: 32,
               backgroundColor: hexToRgba(palette.ink, 0.06),
             }}
           />
         )}
-        renderItem={({ item, index }) => (
-          <SessionListItem
-            item={item}
-            index={index}
-            onPress={() => router.push(`/sessions/${item.info.id}`)}
-            onStop={async () => {
-              if (!client) return
-              try {
-                await client.abortSession(item.info.id)
-                void load(searchRef.current)
-              } catch (e) {
-                setError(e instanceof Error ? e.message : String(e))
-              }
-            }}
-            onDelete={async () => {
-              if (!client) return
-              setSessions((prev) => prev.filter((s) => s.info.id !== item.info.id))
-              try {
-                await client.deleteSession(item.info.id)
-              } catch (e) {
-                setError(e instanceof Error ? e.message : String(e))
-                void load(searchRef.current)
-              }
-            }}
-          />
-        )}
+        renderItem={({ item }) => {
+          const lastSeen = seen[item.info.id]
+          const unread = lastSeen === undefined || item.info.time.updated > lastSeen
+          const isNew = lastSeen === undefined
+          return (
+            <SessionListItem
+              item={item}
+              unread={unread}
+              isNew={isNew}
+              locationFallback={config?.directory}
+              onPress={() => router.push(`/sessions/${item.info.id}`)}
+              onStop={async () => {
+                if (!client) return
+                try {
+                  await client.abortSession(item.info.id)
+                  void load(searchRef.current)
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : String(e))
+                }
+              }}
+              onDelete={async () => {
+                if (!client) return
+                setSessions((prev) => prev.filter((s) => s.info.id !== item.info.id))
+                try {
+                  await client.deleteSession(item.info.id)
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : String(e))
+                  void load(searchRef.current)
+                }
+              }}
+            />
+          )
+        }}
         ListHeaderComponent={hero}
+        extraData={{ seen, filter, search }}
         ListEmptyComponent={
-          <EmptyState
-            title="No sessions yet"
-            description="Start a session to run work, review diffs, and answer permission prompts."
-            action={
-              <View className="gap-2">
-                <ActionButton label="Start a session" loading={creating} onPress={() => void createSession()} />
-                <ActionButton
-                  label="New mission"
-                  variant="secondary"
-                  onPress={() => router.push("/more/missions/new" as Href)}
-                />
-              </View>
-            }
-          />
+          loading || bootstrapLoading ? (
+            <SessionListSkeleton />
+          ) : search.trim() ? (
+            <EmptyState
+              title="No matches"
+              description={`Nothing matches “${search.trim()}”.`}
+              action={<ActionButton label="Clear search" variant="secondary" onPress={() => setSearch("")} />}
+            />
+          ) : filter !== "all" ? (
+            <EmptyState
+              title={`No ${FILTERS.find((item) => item.id === filter)?.label.toLowerCase() ?? "matching sessions"}`}
+              description="Try another filter, or show everything on this host."
+              action={<ActionButton label="Show all" variant="secondary" onPress={() => setFilter("all")} />}
+            />
+          ) : (
+            <EmptyState
+              title="No sessions yet"
+              description="Start a session to run work, review diffs, and answer permission prompts."
+              action={
+                <View className="gap-2">
+                  <ActionButton label="Start a session" loading={creating} onPress={() => void createSession()} />
+                  <ActionButton
+                    label="New mission"
+                    variant="secondary"
+                    onPress={() => router.push("/more/missions/new" as Href)}
+                  />
+                </View>
+              }
+            />
+          )
         }
         style={{ paddingHorizontal: 16 }}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 196 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 196, flexGrow: 1 }}
       />
       <FloatingDock
         actionLabel="New session"
@@ -296,7 +402,6 @@ export default function SessionsScreen() {
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Filter sessions"
-        // Clears the native tab bar so the dock floats above it, not behind it.
         bottomInset={54}
       />
       <WorkspaceSwitcherSheet
@@ -306,6 +411,39 @@ export default function SessionsScreen() {
         switchingDirectory={switchingDirectory}
         onSelect={(directory) => void switchWorkspace(directory)}
       />
+      <AppMenuSheet
+        sheetRef={menuSheetRef}
+        hostLabel={formatHostLabel(config?.url)}
+        connected={Boolean(bootstrap)}
+        version={bootstrap?.version}
+        onChangeWorkspace={() => workspaceSheetRef.current?.present()}
+      />
+      <ActionSheet ref={filterSheetRef} snapPoints={[420]}>
+        <View style={{ alignSelf: "stretch", width: "100%", paddingBottom: 28 }}>
+          <Text
+            style={{
+              color: palette.muted,
+              paddingHorizontal: 20,
+              paddingBottom: 8,
+              ...typeStyle(12, { weight: "500" }),
+            }}
+          >
+            Filter
+          </Text>
+          {FILTERS.map((item) => (
+            <FilterRow
+              key={item.id}
+              label={item.label}
+              description={item.description}
+              selected={filter === item.id}
+              onPress={() => {
+                setFilter(item.id)
+                filterSheetRef.current?.dismiss()
+              }}
+            />
+          ))}
+        </View>
+      </ActionSheet>
     </View>
   )
 }

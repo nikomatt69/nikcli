@@ -7,6 +7,8 @@ import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { useServer } from "@/lib/server-context"
 import { triggerHaptic } from "@/lib/haptics"
+import { useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import type { HostCapability } from "@/lib/types"
 
 function bytes(value?: number) {
@@ -16,6 +18,7 @@ function bytes(value?: number) {
 }
 
 export default function HostStatusScreen() {
+  const { palette } = useAppTheme()
   const { client } = useServer()
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -88,7 +91,7 @@ export default function HostStatusScreen() {
       contentContainerStyle={{ paddingBottom: 36, gap: 16 }}
     >
       {error ? <ErrorBanner message={error} /> : null}
-      <Text className="px-1 text-[13px] leading-[19px] text-soft">
+      <Text selectable style={{ paddingHorizontal: 4, color: palette.soft, ...typeStyle(13) }}>
         These controls report the linked host. They do not drive this phone.
       </Text>
 
@@ -108,7 +111,11 @@ export default function HostStatusScreen() {
               tone={computer.screenshot ? "good" : "warn"}
             />
             <InfoChip label={computer.input ? "Input" : "No input"} tone={computer.input ? "good" : "warn"} />
-            {computer.detail ? <Text className="text-[12px] leading-[17px] text-soft">{computer.detail}</Text> : null}
+            {computer.detail ? (
+              <Text selectable style={{ color: palette.soft, ...typeStyle(12) }}>
+                {computer.detail}
+              </Text>
+            ) : null}
           </View>
         ) : (
           <InfoChip label={computer?.reason ?? "Unavailable"} />

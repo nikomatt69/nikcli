@@ -16,8 +16,8 @@ export default function AppLayout() {
       <NetworkBanner />
       <NativeTabs
         hidden={hideChrome}
-        minimizeBehavior="onScrollDown"
-        sidebarAdaptable
+        sidebarAdaptable={false}
+        disableTransparentOnScrollEdge
         tintColor={palette.accent}
         iconColor={{ default: palette.textMuted, selected: palette.accent }}
         // Terminal manages its own keyboard inset (dock paddingBottom). Leaving

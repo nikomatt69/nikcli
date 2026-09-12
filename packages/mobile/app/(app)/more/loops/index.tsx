@@ -8,7 +8,8 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { AppHeader } from "@/components/layout/AppHeader"
-import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
+import { CenteredScreenHeader } from "@/components/layout/CenteredScreenHeader"
+import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { useHostEvents } from "@/hooks/use-host-events"
 import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
@@ -66,7 +67,6 @@ const LoopRow = memo(function LoopRow({
             loading={running || runtime.status === "running"}
             disabled={!loop.enabled || runtime.status === "paused"}
             onPress={() => onRun(loop.id)}
-            variant="secondary"
           />
         </View>
         <View className="flex-1">
@@ -161,7 +161,7 @@ export default function LoopsScreen() {
 
   const hero = (
     <View style={{ gap: 12 }}>
-      <ScreenBrandHeader title="Loops" right={<SettingsCircleButton />} />
+      <CenteredScreenHeader title="Loops" right={<SettingsCircleButton />} />
       <AppHeader
         className="gap-3 pb-4"
         chips={[

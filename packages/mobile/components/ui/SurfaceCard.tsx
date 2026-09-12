@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactNode } from "react"
 import { Text, View, useWindowDimensions } from "react-native"
 import { cn } from "@/lib/cn"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 type SurfaceCardProps = PropsWithChildren<{
   eyebrow?: string
@@ -25,13 +26,16 @@ export function SurfaceCard({
   const { palette } = useAppTheme()
   const compact = width < 390
   const backgroundColor =
-    tone === "panel" ? palette.panel : tone === "background" ? `${palette.background}dd` : palette.surfaceRaised
+    tone === "panel" ? palette.panel : tone === "background" ? hexToRgba(palette.background, 0.72) : palette.surfaceRaised
   const borderColor = hexToRgba(palette.ink, 0.08)
 
   return (
     <View
-      className={cn(`overflow-hidden ${compact ? "px-4 py-4" : "px-5 py-5"}`, className)}
+      className={cn(className)}
       style={{
+        overflow: "hidden",
+        paddingHorizontal: compact ? 16 : 20,
+        paddingVertical: compact ? 16 : 20,
         borderRadius: 18,
         borderCurve: "continuous",
         borderWidth: 1,
@@ -40,25 +44,29 @@ export function SurfaceCard({
       }}
     >
       {eyebrow ? (
-        <Text selectable className="text-[12px] font-semibold text-accent-light/85">
+        <Text selectable style={{ color: palette.accentLight, ...typeStyle(12, { weight: "600" }) }}>
           {eyebrow}
         </Text>
       ) : null}
       {title ? (
         <Text
           selectable
-          className={`mt-1.5 font-semibold tracking-[-0.3px] text-ink ${compact ? "text-[18px] leading-[23px]" : "text-[19px] leading-[24px]"}`}
+          style={{
+            marginTop: eyebrow ? 6 : 0,
+            color: palette.ink,
+            ...typeStyle(compact ? 18 : 19, { weight: "600" }),
+          }}
         >
           {title}
         </Text>
       ) : null}
       {description ? (
-        <Text selectable className="mt-2 text-[14px] leading-[20px] text-soft">
+        <Text selectable style={{ marginTop: 8, color: palette.soft, ...typeStyle(14) }}>
           {description}
         </Text>
       ) : null}
-      {children ? <View className={cn(title || description || eyebrow ? "mt-3" : undefined)}>{children}</View> : null}
-      {footer ? <View className="mt-3">{footer}</View> : null}
+      {children ? <View style={{ marginTop: title || description || eyebrow ? 12 : 0 }}>{children}</View> : null}
+      {footer ? <View style={{ marginTop: 12 }}>{footer}</View> : null}
     </View>
   )
 }

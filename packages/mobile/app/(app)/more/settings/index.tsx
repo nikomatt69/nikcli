@@ -6,16 +6,18 @@ import { SettingsNavCard } from "@/components/settings/SettingsNavCard"
 import { useColorScheme } from "nativewind"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { InfoChip } from "@/components/ui/InfoChip"
+import { InfoChip, optionChipStyle, optionChipTextColor } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { ScreenBrandHeader } from "@/components/layout/ScreenBrandHeader"
+import { CenteredScreenHeader } from "@/components/layout/CenteredScreenHeader"
+import { SectionHeader } from "@/components/ui/SectionHeader"
 import { startGithubDeviceAuthWithHostDefault } from "@/lib/github"
 import { useServer } from "@/lib/server-context"
 import { setAppPreferencesWith } from "@/lib/storage"
 import { ensureNotificationPermissions } from "@/lib/notifications"
 import { useUIStore } from "@/lib/store"
-import { useAppTheme, useTheme, THEME_LIST } from "@/lib/theme"
+import { hexToRgba, useAppTheme, useTheme, THEME_LIST } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import {
   type HostConfigSnapshot,
   type HostMcpConfig,
@@ -38,14 +40,6 @@ function sleep(ms: number) {
 
 function maybeHandle(message: string | null) {
   return message ? <ErrorBanner message={message} /> : null
-}
-
-function optionChipClass(active: boolean) {
-  return active ? "border-accent/30 bg-accent/12" : "border-border bg-background/70"
-}
-
-function optionChipTextClass(active: boolean) {
-  return active ? "text-accent-light" : "text-ink"
 }
 
 function providerFallback(catalog: ProviderCatalog | null) {
@@ -856,7 +850,7 @@ export default function SettingsScreen() {
         contentContainerStyle={{ paddingBottom: 36 }}
         ListHeaderComponent={
           <View style={{ gap: 20 }}>
-            <ScreenBrandHeader title="Settings" />
+            <CenteredScreenHeader title="Settings" />
             <View className="flex-row flex-wrap gap-2">
               <InfoChip label={config ? "Host linked" : "Host offline"} tone={config ? "good" : "warn"} />
               <InfoChip
@@ -870,7 +864,7 @@ export default function SettingsScreen() {
             {maybeHandle(message)}
 
             <View className="gap-3">
-              <Text className="text-lg font-semibold text-ink">Manage</Text>
+              <SectionHeader label="Manage" />
               <View className="gap-3">
                 {visibleSettingsSections.profile ? (
                   <Link href="/user" asChild>
@@ -1029,38 +1023,27 @@ export default function SettingsScreen() {
                 </View>
 
                 <View className="mt-4 gap-3">
-                  <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">GitHub profile</Text>
-                    <Text className="mt-2 text-lg font-semibold text-ink">
-                      {bootstrap?.github?.user?.login ? `@${bootstrap.github.user.login}` : "Not connected"}
-                    </Text>
-                    {bootstrap?.github?.user?.name ? (
-                      <Text className="mt-1 text-sm text-soft">{bootstrap.github.user.name}</Text>
-                    ) : null}
-                    <Text className="mt-2 text-xs leading-5 text-soft">
-                      OAuth {oauthConfigured ? "Nikcli GitHub App · approve your account" : "not configured yet"}
-                    </Text>
-                  </View>
+                  <SurfaceCard
+                    tone="background"
+                    eyebrow="GitHub profile"
+                    title={bootstrap?.github?.user?.login ? `@${bootstrap.github.user.login}` : "Not connected"}
+                    description={
+                      bootstrap?.github?.user?.name
+                        ? `${bootstrap.github.user.name} · OAuth ${oauthConfigured ? "Nikcli GitHub App · approve your account" : "not configured yet"}`
+                        : `OAuth ${oauthConfigured ? "Nikcli GitHub App · approve your account" : "not configured yet"}`
+                    }
+                  />
 
-                  <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">Host profile</Text>
-                    <Text selectable className="mt-2 text-sm font-semibold text-ink">
-                      {workspaceLabel}
-                    </Text>
-                    <Text selectable className="mt-1 text-sm text-soft">
-                      {config?.directory || "No default directory selected"}
-                    </Text>
-                    {currentToken ? (
-                      <Text className="mt-2 text-xs leading-5 text-soft">
-                        Mobile token {currentToken.name} · created{" "}
-                        {new Date(currentToken.createdAt).toLocaleDateString()}
-                      </Text>
-                    ) : (
-                      <Text className="mt-2 text-xs leading-5 text-soft">
-                        No mobile bearer token metadata available.
-                      </Text>
-                    )}
-                  </View>
+                  <SurfaceCard
+                    tone="background"
+                    eyebrow="Host profile"
+                    title={workspaceLabel}
+                    description={
+                      currentToken
+                        ? `${config?.directory || "No default directory selected"} · Mobile token ${currentToken.name} · created ${new Date(currentToken.createdAt).toLocaleDateString()}`
+                        : `${config?.directory || "No default directory selected"} · No mobile bearer token metadata available.`
+                    }
+                  />
                 </View>
               </SurfaceCard>
             ) : null}
@@ -1079,24 +1062,42 @@ export default function SettingsScreen() {
                 <InfoChip label={visibleSettingsSections.skills ? "Skills visible" : "Skills hidden"} />
               </View>
 
-              {/* Theme Selector Dropdown */}
-              <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
-                <Text className="text-[12px] font-medium text-muted">Color Theme</Text>
+              <View
+                style={{
+                  marginTop: 16,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: hexToRgba(palette.ink, 0.08),
+                  backgroundColor: hexToRgba(palette.background, 0.6),
+                  padding: 16,
+                }}
+              >
+                <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Color theme</Text>
                 <Pressable
                   onPress={() => setThemePickerOpen(true)}
-                  className={`mt-3 flex-row items-center justify-between rounded-[12px] border px-4 py-3 ${optionChipClass(true)}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Current theme ${themeName}`}
+                  style={[
+                    optionChipStyle(palette, true),
+                    { marginTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+                  ]}
                 >
                   <View>
-                    <Text className="text-sm font-semibold text-ink">{themeName}</Text>
-                    <Text className="mt-1 text-xs text-soft">Tap to change theme</Text>
+                    <Text style={{ color: palette.ink, ...typeStyle(14, { weight: "600" }) }}>{themeName}</Text>
+                    <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(12) }}>Tap to change theme</Text>
                   </View>
-                  <View className="flex-row items-center gap-2">
-                    {/* Theme preview swatches */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                     <View
-                      className="size-6 rounded-full border-2 border-border"
-                      style={{ backgroundColor: palette?.accent ?? "#141413" }}
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 12,
+                        borderWidth: 2,
+                        borderColor: hexToRgba(palette.ink, 0.12),
+                        backgroundColor: palette.accent,
+                      }}
                     />
-                    <Text style={{ color: palette?.ink ?? "#141413", fontSize: 14 }}>▼</Text>
+                    <Text style={{ color: palette.ink, ...typeStyle(14) }}>▼</Text>
                   </View>
                 </Pressable>
               </View>
@@ -1108,10 +1109,18 @@ export default function SettingsScreen() {
                     <Pressable
                       key={mode}
                       onPress={() => void applyThemeMode(mode)}
-                      className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(active)}`}
+                      style={[optionChipStyle(palette, active), { flex: 1, minWidth: 0, borderRadius: 18, padding: 12 }]}
                     >
-                      <Text className={`text-sm font-semibold capitalize ${optionChipTextClass(active)}`}>{mode}</Text>
-                      <Text className="mt-1 text-xs leading-5 text-soft">
+                      <Text
+                        style={{
+                          color: optionChipTextColor(palette, active),
+                          textTransform: "capitalize",
+                          ...typeStyle(14, { weight: "600" }),
+                        }}
+                      >
+                        {mode}
+                      </Text>
+                      <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(12) }}>
                         {mode === "system"
                           ? "Follow the device appearance automatically."
                           : mode === "light"
@@ -1133,21 +1142,32 @@ export default function SettingsScreen() {
                 </Link>
               </View>
 
-              <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
-                <Text className="text-[12px] font-medium text-muted">Visible settings sections</Text>
-                <View className="mt-3 flex-row flex-wrap gap-2">
+              <View
+                style={{
+                  marginTop: 16,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: hexToRgba(palette.ink, 0.08),
+                  backgroundColor: hexToRgba(palette.background, 0.6),
+                  padding: 16,
+                }}
+              >
+                <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Visible settings sections</Text>
+                <View style={{ marginTop: 12, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {SETTINGS_SECTIONS.map((section) => {
                     const active = visibleSettingsSections[section.id]
                     return (
                       <Pressable
                         key={section.id}
                         onPress={() => void toggleSettingsSection(section.id)}
-                        className={`rounded-[16px] border px-3 py-2 ${optionChipClass(active)}`}
+                        style={optionChipStyle(palette, active)}
                       >
-                        <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>
+                        <Text style={{ color: optionChipTextColor(palette, active), ...typeStyle(12, { weight: "600" }) }}>
                           {section.label}
                         </Text>
-                        <Text className="mt-1 text-[10px] text-soft">{active ? "Visible" : "Hidden"}</Text>
+                        <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(11) }}>
+                          {active ? "Visible" : "Hidden"}
+                        </Text>
                       </Pressable>
                     )
                   })}
@@ -1176,79 +1196,60 @@ export default function SettingsScreen() {
                   />
                 </View>
 
-                <View className="mt-4 gap-3">
-                  <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">Notifications</Text>
-                    <View className="mt-3 flex-row flex-wrap gap-2">
-                      {[
+                <View style={{ marginTop: 16, gap: 12 }}>
+                  {(
+                    [
+                      ["Notifications", notifications, updateNotificationPreference, [
                         ["enabled", "Master switch"],
                         ["sessionReady", "Session ready"],
                         ["permissions", "Permission requests"],
                         ["failures", "Failures"],
-                      ].map(([key, label]) => {
-                        const active = notifications[key as keyof typeof notifications] as boolean
-                        return (
-                          <Pressable
-                            key={key}
-                            onPress={() =>
-                              void updateNotificationPreference(key as keyof typeof notifications, !active)
-                            }
-                            className={`rounded-[16px] border px-3 py-2 ${optionChipClass(active)}`}
-                          >
-                            <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>{label}</Text>
-                            <Text className="mt-1 text-[10px] text-soft">{active ? "On" : "Off"}</Text>
-                          </Pressable>
-                        )
-                      })}
-                    </View>
-                  </View>
-
-                  <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">Haptics</Text>
-                    <View className="mt-3 flex-row flex-wrap gap-2">
-                      {[
+                      ]],
+                      ["Haptics", haptics, updateHapticPreference, [
                         ["enabled", "Master switch"],
                         ["send", "Send"],
                         ["commands", "Commands"],
                         ["permissions", "Permissions"],
                         ["errors", "Errors"],
-                      ].map(([key, label]) => {
-                        const active = haptics[key as keyof typeof haptics] as boolean
-                        return (
-                          <Pressable
-                            key={key}
-                            onPress={() => void updateHapticPreference(key as keyof typeof haptics, !active)}
-                            className={`rounded-[16px] border px-3 py-2 ${optionChipClass(active)}`}
-                          >
-                            <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>{label}</Text>
-                            <Text className="mt-1 text-[10px] text-soft">{active ? "On" : "Off"}</Text>
-                          </Pressable>
-                        )
-                      })}
-                    </View>
-                  </View>
-
-                  <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">Message gestures</Text>
-                    <View className="mt-3 flex-row flex-wrap gap-2">
-                      {[
+                      ]],
+                      ["Message gestures", gestures, updateGesturePreference, [
                         ["bubbleSwipeActions", "Swipe actions"],
                         ["bubbleLongPressActions", "Long press actions"],
-                      ].map(([key, label]) => {
-                        const active = gestures[key as keyof typeof gestures] as boolean
-                        return (
-                          <Pressable
-                            key={key}
-                            onPress={() => void updateGesturePreference(key as keyof typeof gestures, !active)}
-                            className={`rounded-[16px] border px-3 py-2 ${optionChipClass(active)}`}
-                          >
-                            <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>{label}</Text>
-                            <Text className="mt-1 text-[10px] text-soft">{active ? "On" : "Off"}</Text>
-                          </Pressable>
-                        )
-                      })}
+                      ]],
+                    ] as const
+                  ).map(([title, values, update, rows]) => (
+                    <View
+                      key={title}
+                      style={{
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: hexToRgba(palette.ink, 0.08),
+                        backgroundColor: hexToRgba(palette.background, 0.6),
+                        padding: 16,
+                      }}
+                    >
+                      <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>{title}</Text>
+                      <View style={{ marginTop: 12, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                        {rows.map(([key, label]) => {
+                          const active = Boolean(values[key as keyof typeof values])
+                          return (
+                            <Pressable
+                              key={key}
+                              onPress={() => void (update as (nextKey: string, next: boolean) => unknown)(key, !active)}
+                              style={optionChipStyle(palette, active)}
+                            >
+                              <Text style={{ color: optionChipTextColor(palette, active), ...typeStyle(12, { weight: "600" }) }}>
+                                {label}
+                              </Text>
+                              <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(11) }}>
+                                {active ? "On" : "Off"}
+                              </Text>
+                            </Pressable>
+                          )
+                        })}
+                      </View>
                     </View>
-                  </View>
+                  ))}
                 </View>
               </SurfaceCard>
             ) : null}
@@ -1338,14 +1339,20 @@ export default function SettingsScreen() {
                 <View className="mt-4 flex-row gap-2">
                   <Pressable
                     onPress={() => setSelectedExecutionTarget("local")}
-                    className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(selectedExecutionTarget === "local")}`}
+                    style={[
+                      optionChipStyle(palette, selectedExecutionTarget === "local"),
+                      { flex: 1, minWidth: 0, borderRadius: 18, padding: 12 },
+                    ]}
                   >
                     <Text
-                      className={`text-sm font-semibold ${optionChipTextClass(selectedExecutionTarget === "local")}`}
+                      style={{
+                        color: optionChipTextColor(palette, selectedExecutionTarget === "local"),
+                        ...typeStyle(14, { weight: "600" }),
+                      }}
                     >
                       Local worktree
                     </Text>
-                    <Text className="mt-1 text-xs leading-5 text-soft">
+                    <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(12) }}>
                       Same behavior as now: server repo, server git, fastest path to publish.
                     </Text>
                   </Pressable>
@@ -1355,21 +1362,27 @@ export default function SettingsScreen() {
                       if (containerReady) setSelectedExecutionTarget("container")
                     }}
                     disabled={!containerReady}
-                    className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(selectedExecutionTarget === "container")}`}
+                    style={[
+                      optionChipStyle(palette, selectedExecutionTarget === "container"),
+                      { flex: 1, minWidth: 0, borderRadius: 18, padding: 12, opacity: containerReady ? 1 : 0.5 },
+                    ]}
                   >
                     <Text
-                      className={`text-sm font-semibold ${optionChipTextClass(selectedExecutionTarget === "container")}`}
+                      style={{
+                        color: optionChipTextColor(palette, selectedExecutionTarget === "container"),
+                        ...typeStyle(14, { weight: "600" }),
+                      }}
                     >
                       Container sandbox
                     </Text>
-                    <Text className="mt-1 text-xs leading-5 text-soft">
+                    <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(12) }}>
                       Runs GitHub session execution inside a same-server container while keeping the worktree publish
                       flow.
                     </Text>
                   </Pressable>
                 </View>
 
-                <Text className="mt-3 text-xs leading-5 text-soft">
+                <Text style={{ marginTop: 12, color: palette.soft, ...typeStyle(12) }}>
                   {containerReady
                     ? "Recommended when you want stronger execution isolation without changing how PRs and cleanup work."
                     : "Install Docker or Podman on the server to unlock container-backed GitHub sessions."}
@@ -1418,31 +1431,59 @@ export default function SettingsScreen() {
             ) : null}
 
             {bootstrapLoading ? (
-              <View className="items-center rounded-[8px] border border-border bg-surface p-4">
+              <View
+                style={{
+                  alignItems: "center",
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: hexToRgba(palette.ink, 0.08),
+                  backgroundColor: palette.surface,
+                  padding: 16,
+                }}
+              >
                 <ActivityIndicator color={palette.accent} />
-                <Text className="mt-3 text-sm text-soft">Refreshing host and GitHub posture…</Text>
+                <Text style={{ marginTop: 12, color: palette.soft, ...typeStyle(14) }}>
+                  Refreshing host and GitHub posture…
+                </Text>
               </View>
             ) : null}
 
-            {/* Theme Picker Modal */}
             <Modal
               visible={themePickerOpen}
               transparent
               animationType="slide"
               onRequestClose={() => setThemePickerOpen(false)}
             >
-              <View className="flex-1 justify-end bg-black/50">
-                <Pressable className="flex-1" onPress={() => setThemePickerOpen(false)} />
+              <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: hexToRgba(palette.ink, 0.46) }}>
+                <Pressable style={{ flex: 1 }} onPress={() => setThemePickerOpen(false)} accessibilityLabel="Dismiss theme picker" />
                 <View
-                  className="rounded-t-[24px] border-t border-border bg-surface px-4 pb-8 pt-3"
-                  style={{ backgroundColor: palette?.surface ?? "#ffffff" }}
+                  style={{
+                    borderTopLeftRadius: 24,
+                    borderTopRightRadius: 24,
+                    borderCurve: "continuous",
+                    borderTopWidth: 1,
+                    borderColor: hexToRgba(palette.ink, 0.08),
+                    backgroundColor: palette.surface,
+                    paddingHorizontal: 16,
+                    paddingTop: 12,
+                    paddingBottom: 32,
+                  }}
                 >
-                  <View className="mb-4 h-1 w-10 rounded-full bg-border self-center" />
-                  <Text className="mb-4 text-center text-lg font-semibold" style={{ color: palette?.ink ?? "#141413" }}>
-                    Choose Theme
+                  <View
+                    style={{
+                      alignSelf: "center",
+                      marginBottom: 16,
+                      height: 4,
+                      width: 40,
+                      borderRadius: 999,
+                      backgroundColor: hexToRgba(palette.ink, 0.16),
+                    }}
+                  />
+                  <Text style={{ marginBottom: 16, textAlign: "center", color: palette.ink, ...typeStyle(18, { weight: "600" }) }}>
+                    Choose theme
                   </Text>
                   <ScrollView
-                    className="max-h-[400px]"
+                    style={{ maxHeight: 400 }}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: 20 }}
                   >
@@ -1455,43 +1496,50 @@ export default function SettingsScreen() {
                             setTheme(theme.id)
                             setThemePickerOpen(false)
                           }}
-                          className={`mx-1 my-1 flex-row items-center justify-between rounded-[12px] px-4 py-3 ${isSelected ? "bg-accent/10" : ""}`}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: isSelected }}
                           style={{
-                            backgroundColor: isSelected ? `${palette?.accent ?? "#141413"}20` : "transparent",
+                            marginHorizontal: 4,
+                            marginVertical: 4,
+                            minHeight: 44,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            borderRadius: 12,
+                            paddingHorizontal: 16,
+                            paddingVertical: 12,
+                            backgroundColor: isSelected ? hexToRgba(palette.accent, 0.12) : "transparent",
                           }}
                         >
                           <View>
                             <Text
-                              className={`text-sm font-semibold ${isSelected ? "text-accent" : ""}`}
                               style={{
-                                color: isSelected ? (palette?.accent ?? "#141413") : (palette?.ink ?? "#141413"),
+                                color: isSelected ? palette.accent : palette.ink,
+                                ...typeStyle(14, { weight: "600" }),
                               }}
                             >
                               {theme.name}
                             </Text>
-                            {theme.author && (
-                              <Text className="mt-1 text-xs" style={{ color: palette?.muted ?? "#75746e" }}>
+                            {theme.author ? (
+                              <Text style={{ marginTop: 4, color: palette.muted, ...typeStyle(12) }}>
                                 by {theme.author}
                               </Text>
-                            )}
+                            ) : null}
                           </View>
-                          {isSelected && (
+                          {isSelected ? (
                             <View
-                              className="size-6 items-center justify-center rounded-full"
                               style={{
-                                backgroundColor: `${palette?.accent ?? "#141413"}30`,
+                                width: 24,
+                                height: 24,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderRadius: 12,
+                                backgroundColor: hexToRgba(palette.accent, 0.19),
                               }}
                             >
-                              <Text
-                                style={{
-                                  color: palette?.accent ?? "#141413",
-                                  fontWeight: "bold",
-                                }}
-                              >
-                                ✓
-                              </Text>
+                              <Text style={{ color: palette.accent, fontWeight: "700" }}>✓</Text>
                             </View>
-                          )}
+                          ) : null}
                         </Pressable>
                       )
                     })}

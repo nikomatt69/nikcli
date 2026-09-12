@@ -1,14 +1,18 @@
 import type { ReactNode } from "react"
 import { Text, View } from "react-native"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 export function EmptyState(props: { title: string; description: string; action?: ReactNode }) {
   const { palette } = useAppTheme()
 
   return (
     <View
-      className="items-center overflow-hidden px-6 py-10"
       style={{
+        alignItems: "center",
+        overflow: "hidden",
+        paddingHorizontal: 24,
+        paddingVertical: 36,
         borderRadius: 20,
         borderCurve: "continuous",
         borderWidth: 1,
@@ -16,9 +20,22 @@ export function EmptyState(props: { title: string; description: string; action?:
         backgroundColor: palette.surfaceRaised,
       }}
     >
-      <Text className="text-center text-[19px] font-semibold tracking-[-0.3px] text-ink">{props.title}</Text>
-      <Text className="mt-2 max-w-[280px] text-center text-sm leading-6 text-muted">{props.description}</Text>
-      {props.action ? <View className="mt-5 w-full">{props.action}</View> : null}
+      <Text selectable style={{ textAlign: "center", color: palette.ink, ...typeStyle(19, { weight: "600" }) }}>
+        {props.title}
+      </Text>
+      <Text
+        selectable
+        style={{
+          marginTop: 8,
+          maxWidth: 280,
+          textAlign: "center",
+          color: palette.muted,
+          ...typeStyle(15),
+        }}
+      >
+        {props.description}
+      </Text>
+      {props.action ? <View style={{ marginTop: 20, width: "100%" }}>{props.action}</View> : null}
     </View>
   )
 }

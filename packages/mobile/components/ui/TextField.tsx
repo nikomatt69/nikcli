@@ -1,19 +1,14 @@
 import { forwardRef, useState } from "react"
 import { Text, TextInput, type TextInputProps, View } from "react-native"
-import { cn } from "@/lib/cn"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 type TextFieldProps = TextInputProps & {
   label?: string
-  className?: string
 }
 
-/**
- * Soft pill input on surface with a hairline border. Focus is signalled by a
- * slightly stronger border, not a colored ring.
- */
 export const TextField = forwardRef<TextInput, TextFieldProps>(function TextField(
-  { label, className, placeholderTextColor, style, ...props },
+  { label, placeholderTextColor, style, onFocus, onBlur, accessibilityLabel, ...props },
   ref,
 ) {
   const [focused, setFocused] = useState(false)
@@ -25,7 +20,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
   return (
     <View style={{ gap: 8 }}>
       {label ? (
-        <Text selectable className="text-[12px] font-medium text-muted">
+        <Text selectable style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>
           {label}
         </Text>
       ) : null}
@@ -36,35 +31,35 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           borderWidth: 1,
           borderColor: focused ? borderFocused : borderIdle,
           backgroundColor: palette.surfaceRaised,
+          opacity: props.editable === false ? 0.6 : 1,
         }}
       >
         <TextInput
+          {...props}
           ref={ref}
           placeholderTextColor={placeholderTextColor || palette.muted}
           selectionColor={palette.ink}
           keyboardAppearance={colorScheme === "light" ? "light" : "dark"}
           onFocus={(event) => {
             setFocused(true)
-            props.onFocus?.(event)
+            onFocus?.(event)
           }}
           onBlur={(event) => {
             setFocused(false)
-            props.onBlur?.(event)
+            onBlur?.(event)
           }}
-          className={cn("text-base text-ink", props.multiline ? "min-h-[132px] leading-6" : undefined, className)}
-          accessibilityLabel={props.accessibilityLabel ?? label}
+          accessibilityLabel={accessibilityLabel ?? label ?? props.placeholder}
           style={[
             {
               minHeight: props.multiline ? 132 : 44,
               paddingHorizontal: 16,
               paddingVertical: props.multiline ? 14 : 12,
-              fontSize: 15,
-              lineHeight: props.multiline ? 24 : 20,
               color: palette.ink,
+              textAlignVertical: props.multiline ? "top" : "center",
+              ...typeStyle(15, { leadingScale: props.multiline ? 1.05 : 1 }),
             },
             style,
           ]}
-          {...props}
         />
       </View>
     </View>

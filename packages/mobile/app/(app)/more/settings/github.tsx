@@ -11,7 +11,8 @@ import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { startGithubDeviceAuthWithHostDefault } from "@/lib/github"
 import { useServer } from "@/lib/server-context"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import { type GitHubDeviceAuthStart, type HostConfigSnapshot } from "@/lib/types"
 
 function githubConnectorKey(snapshot: HostConfigSnapshot | null) {
@@ -283,9 +284,18 @@ export default function GithubSettingsScreen() {
       {message ? <ErrorBanner message={message} /> : null}
 
       {reconnectRequired ? (
-        <View className="rounded-[8px] border border-danger/30 bg-danger/10 p-4 gap-3">
-          <Text className="text-sm font-medium text-ink">GitHub session expired</Text>
-          <Text className="text-sm leading-6 text-soft">
+        <View
+          style={{
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: hexToRgba(palette.danger, 0.3),
+            backgroundColor: hexToRgba(palette.danger, 0.1),
+            padding: 16,
+            gap: 12,
+          }}
+        >
+          <Text style={{ color: palette.ink, ...typeStyle(14, { weight: "500" }) }}>GitHub session expired</Text>
+          <Text style={{ color: palette.soft, ...typeStyle(14) }}>
             Your stored GitHub access expired and couldn't refresh automatically. Reconnect to keep repo import,
             branches, and pull requests working.
           </Text>
@@ -306,7 +316,7 @@ export default function GithubSettingsScreen() {
               contentFit="cover"
               accessibilityLabel="nikcli"
             />
-            <Text className="text-sm text-soft">→</Text>
+            <Text style={{ color: palette.soft, ...typeStyle(14) }}>→</Text>
             <View className="size-8 items-center justify-center">
               <Github size={28} color={palette.ink} strokeWidth={1.8} />
             </View>
@@ -319,13 +329,33 @@ export default function GithubSettingsScreen() {
           />
 
           {oauthFlow ? (
-            <View className="rounded-[8px] border border-border bg-background/60 p-4">
-              <Text className="text-[12px] font-medium text-muted">Authorization in progress</Text>
-              <Text className="mt-2 text-sm leading-6 text-soft">
+            <View
+              style={{
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: hexToRgba(palette.ink, 0.08),
+                backgroundColor: hexToRgba(palette.background, 0.6),
+                padding: 16,
+              }}
+            >
+              <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Authorization in progress</Text>
+              <Text style={{ marginTop: 8, color: palette.soft, ...typeStyle(14) }}>
                 Enter this code in GitHub if the browser page asks for it.
               </Text>
-              <View className="mt-3 rounded-2xl border border-accent/20 bg-accent/10 p-4">
-                <Text className="text-center text-[28px] font-semibold tracking-[6px] text-ink">
+              <View
+                style={{
+                  marginTop: 12,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: hexToRgba(palette.accent, 0.2),
+                  backgroundColor: hexToRgba(palette.accent, 0.1),
+                  padding: 16,
+                }}
+              >
+                <Text
+                  selectable
+                  style={{ textAlign: "center", color: palette.ink, letterSpacing: 6, ...typeStyle(28, { weight: "600" }) }}
+                >
                   {oauthFlow.userCode}
                 </Text>
               </View>
@@ -350,15 +380,28 @@ export default function GithubSettingsScreen() {
             </View>
           ) : null}
 
-          <Pressable onPress={() => setAdvancedOauthOpen((value) => !value)} accessibilityRole="button">
-            <Text className="text-sm font-medium text-soft">
+          <Pressable
+            onPress={() => setAdvancedOauthOpen((value) => !value)}
+            accessibilityRole="button"
+            style={{ minHeight: 44, justifyContent: "center" }}
+          >
+            <Text style={{ color: palette.soft, ...typeStyle(14, { weight: "500" }) }}>
               {advancedOauthOpen ? "Hide custom OAuth client ID" : "Advanced: custom OAuth client ID"}
             </Text>
           </Pressable>
 
           {advancedOauthOpen ? (
-            <View className="gap-3 rounded-[8px] border border-border bg-background/60 p-4">
-              <Text className="text-sm leading-6 text-soft">
+            <View
+              style={{
+                gap: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: hexToRgba(palette.ink, 0.08),
+                backgroundColor: hexToRgba(palette.background, 0.6),
+                padding: 16,
+              }}
+            >
+              <Text style={{ color: palette.soft, ...typeStyle(14) }}>
                 Nikcli already ships the official GitHub App client ID. Override it only if this host must use a
                 different OAuth application.
               </Text>

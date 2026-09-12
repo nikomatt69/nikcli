@@ -578,6 +578,18 @@ function hexToRgba(hex: string, alpha: number = 1): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+/** Black or white type that stays readable on a solid `hex` fill. */
+function contrastOn(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  if (!result) return "#ffffff"
+  const r = parseInt(result[1], 16) / 255
+  const g = parseInt(result[2], 16) / 255
+  const b = parseInt(result[3], 16) / 255
+  const linear = (channel: number) => (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+  const luminance = 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+  return luminance > 0.55 ? "#111111" : "#ffffff"
+}
+
 function colorChannels(color: string): string {
   const hex = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color)
   if (hex) {
@@ -1072,4 +1084,4 @@ export function useAppTheme() {
 }
 
 // Export theme utilities
-export { resolveThemeColors, hexToRgba, adjustColor }
+export { resolveThemeColors, hexToRgba, adjustColor, contrastOn }

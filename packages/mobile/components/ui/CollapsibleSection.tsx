@@ -42,33 +42,42 @@ export function CollapsibleSection({ label, count, defaultOpen = true, accessory
 
   return (
     <View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        accessibilityLabel={count === undefined ? label : `${label} ${count}`}
-        onPress={toggle}
-        style={({ pressed }) => ({
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          paddingVertical: 10,
-          opacity: pressed ? 0.7 : 1,
-        })}
-      >
-        <Text style={{ color: palette.muted, ...typeStyle(15, { weight: "500" }) }}>
-          {label}
-          {count === undefined ? "" : ` ${count}`}
-        </Text>
-        <Animated.View
-          style={{
-            transform: [{ rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ["-90deg", "0deg"] }) }],
-          }}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={count === undefined ? label : `${label} ${count}`}
+          onPress={toggle}
+          style={({ pressed }) => ({
+            flex: 1,
+            alignSelf: "stretch",
+            opacity: pressed ? 0.7 : 1,
+          })}
         >
-          <ChevronDown size={17} color={palette.muted} strokeWidth={2} />
-        </Animated.View>
-        <View style={{ flex: 1 }} />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              minHeight: 44,
+              paddingVertical: 10,
+            }}
+          >
+            <Text style={{ flexShrink: 1, color: palette.muted, ...typeStyle(15, { weight: "500" }) }}>
+              {label}
+              {count ? ` ${count}` : ""}
+            </Text>
+            <Animated.View
+              style={{
+                transform: [{ rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ["-90deg", "0deg"] }) }],
+              }}
+            >
+              <ChevronDown size={17} color={palette.muted} strokeWidth={2} />
+            </Animated.View>
+          </View>
+        </Pressable>
         {accessory}
-      </Pressable>
+      </View>
       {open ? <View style={{ gap: 12, paddingBottom: 8 }}>{children}</View> : null}
     </View>
   )

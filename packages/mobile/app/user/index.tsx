@@ -19,20 +19,17 @@ import {
   ChevronDown,
   ChevronUp,
   Crown,
-  Edit3,
   Flame,
   LogOut,
   Shield,
-  Sparkles,
   Star,
-  Trash2,
-  TrendingUp,
   UserCircle2,
   Users,
 } from "lucide-react-native"
 import { useServer } from "@/lib/server-context"
 import { userDelete, userList, userUpdate, type UserProfile } from "@/lib/server-context"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { TextField } from "@/components/ui/TextField"
 import { InfoChip } from "@/components/ui/InfoChip"
@@ -180,11 +177,9 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
         />
         <Text
           style={{
-            fontSize: size * 0.32,
-            fontWeight: "800",
             color: palette.accentLight,
-            letterSpacing: 0.5,
             zIndex: 1,
+            ...typeStyle(size * 0.32, { weight: "800" }),
           }}
         >
           {initials(user)}
@@ -219,11 +214,9 @@ function Avatar({ user, size = 38 }: { user: UserProfile; size?: number }) {
       />
       <Text
         style={{
-          fontSize: size * 0.34,
-          fontWeight: "800",
           color: palette.accentLight,
-          letterSpacing: 0.5,
           zIndex: 1,
+          ...typeStyle(size * 0.34, { weight: "800" }),
         }}
       >
         {initials(user)}
@@ -283,9 +276,11 @@ function StatCard({ icon, label, value, trend, color, animation, index }: StatCa
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={{
-          backgroundColor: isDark ? "rgba(24,24,24,0.85)" : "rgba(255,255,255,0.88)",
+          backgroundColor: isDark ? hexToRgba(palette.surfaceRaised, 0.92) : hexToRgba(palette.surface, 0.92),
           borderRadius: 20,
+          borderCurve: "continuous",
           padding: 14,
+          minHeight: 44,
           borderWidth: 1,
           borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.8),
           shadowColor: isDark ? "#000" : palette.shadow,
@@ -300,38 +295,36 @@ function StatCard({ icon, label, value, trend, color, animation, index }: StatCa
               width: 32,
               height: 32,
               borderRadius: 10,
-              backgroundColor: isDark ? `${color}20` : `${color}15`,
+              backgroundColor: hexToRgba(color, isDark ? 0.2 : 0.12),
               alignItems: "center",
               justifyContent: "center",
             }}
           >
             {icon}
           </View>
-          {trend && (
+          {trend ? (
             <View
               style={{
-                backgroundColor: isDark ? "rgba(22,163,74,0.15)" : "rgba(22,163,74,0.10)",
+                backgroundColor: hexToRgba(palette.success, isDark ? 0.15 : 0.1),
                 paddingHorizontal: 6,
                 paddingVertical: 2,
                 borderRadius: 6,
               }}
             >
-              <Text style={{ fontSize: 9, fontWeight: "700", color: palette.success }}>{trend}</Text>
+              <Text style={{ color: palette.success, ...typeStyle(10, { weight: "700" }) }}>{trend}</Text>
             </View>
-          )}
+          ) : null}
         </View>
         <Text
           style={{
-            fontSize: 22,
-            fontWeight: "800",
             color: palette.ink,
             marginTop: 10,
-            letterSpacing: -0.5,
+            ...typeStyle(22, { weight: "800" }),
           }}
         >
           {value}
         </Text>
-        <Text style={{ fontSize: 11, color: palette.soft, marginTop: 2, fontWeight: "500" }}>{label}</Text>
+        <Text style={{ color: palette.soft, marginTop: 2, ...typeStyle(11, { weight: "500" }) }}>{label}</Text>
       </Pressable>
     </Animated.View>
   )
@@ -380,8 +373,8 @@ function AnimatedProgressBar({ label, value, max = 100, color, animation, delay 
       }}
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: palette.ink }}>{label}</Text>
-        <Text style={{ fontSize: 12, fontWeight: "700", color: palette.soft, fontVariant: ["tabular-nums"] }}>
+        <Text style={{ color: palette.ink, ...typeStyle(13, { weight: "600" }) }}>{label}</Text>
+        <Text style={{ color: palette.soft, fontVariant: ["tabular-nums"], ...typeStyle(12, { weight: "700" }) }}>
           {Math.round((value / max) * 100)}%
         </Text>
       </View>
@@ -417,7 +410,7 @@ interface AchievementBadgeProps {
 }
 
 function AchievementBadge({ icon, label, earned, animation, index }: AchievementBadgeProps) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   const scaleAnimRef = useRef<Animated.Value | null>(null)
   if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(earned ? 1 : 0.8)
   const scaleAnim = scaleAnimRef.current
@@ -464,15 +457,9 @@ function AchievementBadge({ icon, label, earned, animation, index }: Achievement
           gap: 6,
           padding: 12,
           borderRadius: 16,
-          backgroundColor: earned
-            ? isDark
-              ? "rgba(255,215,0,0.12)"
-              : "rgba(255,215,0,0.15)"
-            : isDark
-              ? hexToRgba(palette.ink, 0.04)
-              : hexToRgba(palette.border, 0.3),
+          backgroundColor: earned ? hexToRgba(palette.warn, 0.14) : hexToRgba(palette.ink, 0.04),
           borderWidth: 1,
-          borderColor: earned ? (isDark ? "rgba(255,215,0,0.30)" : "rgba(255,215,0,0.40)") : "transparent",
+          borderColor: earned ? hexToRgba(palette.warn, 0.3) : "transparent",
           minWidth: 80,
         }}
       >
@@ -481,13 +468,7 @@ function AchievementBadge({ icon, label, earned, animation, index }: Achievement
             width: 36,
             height: 36,
             borderRadius: 12,
-            backgroundColor: earned
-              ? isDark
-                ? "rgba(255,215,0,0.20)"
-                : "rgba(255,215,0,0.25)"
-              : isDark
-                ? hexToRgba(palette.ink, 0.06)
-                : hexToRgba(palette.border, 0.4),
+            backgroundColor: earned ? hexToRgba(palette.warn, 0.2) : hexToRgba(palette.ink, 0.06),
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -496,10 +477,9 @@ function AchievementBadge({ icon, label, earned, animation, index }: Achievement
         </View>
         <Text
           style={{
-            fontSize: 10,
-            fontWeight: "600",
-            color: earned ? (isDark ? "#FFD700" : "#B8860B") : palette.muted,
+            color: earned ? palette.warn : palette.muted,
             textAlign: "center",
+            ...typeStyle(10, { weight: "600" }),
           }}
         >
           {label}
@@ -561,6 +541,7 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
           borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.25),
           backgroundColor: hexToRgba(palette.surface, isDark ? 0.85 : 0.92),
           overflow: "hidden",
+          borderCurve: "continuous",
           shadowColor: isDark ? "#000" : palette.shadow,
           shadowOpacity: isDark ? 0.3 : 0.1,
           shadowRadius: 10,
@@ -587,7 +568,7 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
             left: 18,
             right: 18,
             height: 1,
-            backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.80)",
+            backgroundColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.06),
           }}
         />
         {children}
@@ -599,6 +580,7 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
 // ─── Section label ────────────────────────────────────────────────────────────
 
 function SectionLabel({ label, animation }: { label: string; animation: Animated.Value }) {
+  const { palette } = useAppTheme()
   return (
     <Animated.View
       style={{
@@ -606,7 +588,9 @@ function SectionLabel({ label, animation }: { label: string; animation: Animated
         transform: [{ translateY: animation.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
       }}
     >
-      <Text className="mb-2 ml-1 text-[12px] font-medium text-muted">{label}</Text>
+      <Text style={{ marginBottom: 8, marginLeft: 4, color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>
+        {label}
+      </Text>
     </Animated.View>
   )
 }
@@ -627,9 +611,10 @@ function GlassCard({ children, animation }: { children: React.ReactNode; animati
           borderRadius: 8,
           borderWidth: 1,
           borderColor: isDark ? hexToRgba(palette.ink, 0.08) : hexToRgba(palette.border, 0.9),
-          backgroundColor: isDark ? "rgba(17,17,17,0.72)" : palette.surface,
+          backgroundColor: isDark ? hexToRgba(palette.surface, 0.72) : palette.surface,
           overflow: "hidden",
           marginBottom: 16,
+          borderCurve: "continuous",
           shadowColor: isDark ? "#000" : palette.shadow,
           shadowOpacity: isDark ? 0.28 : 0.09,
           shadowRadius: isDark ? 10 : 12,
@@ -644,7 +629,7 @@ function GlassCard({ children, animation }: { children: React.ReactNode; animati
             left: 18,
             right: 18,
             height: 1,
-            backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.72)",
+            backgroundColor: hexToRgba(palette.ink, isDark ? 0.1 : 0.06),
           }}
         />
         {children}
@@ -656,12 +641,12 @@ function GlassCard({ children, animation }: { children: React.ReactNode; animati
 // ─── Divider ─────────────────────────────────────────────────────────────────
 
 function Divider() {
-  const { isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   return (
     <View
       style={{
         height: StyleSheet.hairlineWidth,
-        backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)",
+        backgroundColor: hexToRgba(palette.ink, 0.08),
       }}
     />
   )
@@ -737,16 +722,19 @@ function UserRow({
           gap: 12,
           paddingHorizontal: 18,
           paddingVertical: 12,
+          minHeight: 44,
           opacity: pressed ? 0.72 : 1,
         }}
       >
         <Avatar user={user} size={38} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: palette.ink, letterSpacing: -0.1 }}>
+          <Text selectable style={{ color: palette.ink, ...typeStyle(13, { weight: "600" }) }}>
             {user.display_name || user.username}
-            {isSelf ? <Text style={{ fontSize: 11, fontWeight: "500", color: palette.muted }}> · you</Text> : null}
+            {isSelf ? <Text style={{ color: palette.muted, ...typeStyle(11, { weight: "500" }) }}> · you</Text> : null}
           </Text>
-          <Text style={{ fontSize: 11, color: palette.soft }}>{user.email}</Text>
+          <Text selectable style={{ color: palette.soft, ...typeStyle(11) }}>
+            {user.email}
+          </Text>
         </View>
         <InfoChip label={user.role === "admin" ? "Admin" : "User"} tone={user.role === "admin" ? "warn" : "neutral"} />
         {!isSelf &&
@@ -897,6 +885,7 @@ export default function UserScreen() {
       keyboardVerticalOffset={90}
     >
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
         refreshControl={refreshControlElement}
         keyboardShouldPersistTaps="handled"
@@ -914,9 +903,10 @@ export default function UserScreen() {
               borderRadius: 8,
               borderWidth: 1,
               borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.9),
-              backgroundColor: isDark ? "rgba(17,17,17,0.72)" : palette.surface,
+              backgroundColor: isDark ? hexToRgba(palette.surface, 0.72) : palette.surface,
               overflow: "hidden",
               marginBottom: 16,
+              borderCurve: "continuous",
               shadowColor: isDark ? "#000" : (palette.shadow ?? "#000"),
               shadowOpacity: isDark ? 0.28 : 0.09,
               shadowRadius: isDark ? 10 : 12,
@@ -931,20 +921,25 @@ export default function UserScreen() {
                 left: 18,
                 right: 18,
                 height: 1,
-                backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.72)",
+                backgroundColor: hexToRgba(palette.ink, isDark ? 0.1 : 0.06),
               }}
             />
             <View style={{ padding: 20, flexDirection: "row", alignItems: "center", gap: 18 }}>
               <AnimatedAvatar user={currentUser} size={80} />
               <View style={{ flex: 1, gap: 6 }}>
                 <Text
-                  style={{ fontSize: 22, fontWeight: "800", color: palette.ink, letterSpacing: -0.4 }}
+                  selectable
+                  style={{ color: palette.ink, ...typeStyle(22, { weight: "800" }) }}
                   numberOfLines={1}
                 >
                   {currentUser.display_name || currentUser.username}
                 </Text>
-                <Text style={{ fontSize: 13, color: palette.soft }}>@{currentUser.username}</Text>
-                <Text style={{ fontSize: 12, color: palette.soft }}>{currentUser.email}</Text>
+                <Text selectable style={{ color: palette.soft, ...typeStyle(13) }}>
+                  @{currentUser.username}
+                </Text>
+                <Text selectable style={{ color: palette.soft, ...typeStyle(12) }}>
+                  {currentUser.email}
+                </Text>
                 <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
                   <InfoChip
                     label={currentUser.role === "admin" ? "Admin" : "User"}
@@ -966,26 +961,26 @@ export default function UserScreen() {
           }}
         >
           <StatCard
-            icon={<UserCircle2 size={16} color="#141413" strokeWidth={2.5} />}
+            icon={<UserCircle2 size={16} color={palette.ink} strokeWidth={2.5} />}
             label="Account age"
             value={`${Math.min(accountAgeDays, 999)}d`}
-            color="#141413"
+            color={palette.ink}
             animation={statsAnim}
             index={0}
           />
           <StatCard
-            icon={<Shield size={16} color="#16a34a" strokeWidth={2.5} />}
+            icon={<Shield size={16} color={palette.success} strokeWidth={2.5} />}
             label="Profile"
             value={`${profileCompletion}%`}
-            color="#16a34a"
+            color={palette.success}
             animation={statsAnim}
             index={1}
           />
           <StatCard
-            icon={<Crown size={16} color="#d97706" strokeWidth={2.5} />}
+            icon={<Crown size={16} color={palette.warn} strokeWidth={2.5} />}
             label="Role"
             value={currentUser.role === "admin" ? "Admin" : "User"}
-            color="#d97706"
+            color={palette.warn}
             animation={statsAnim}
             index={2}
           />
@@ -1031,18 +1026,17 @@ export default function UserScreen() {
                 returnKeyType="done"
               />
             )}
-            {saveMsg && (
+            {saveMsg ? (
               <Text
+                selectable
                 style={{
-                  fontSize: 13,
-                  fontWeight: "500",
                   color: saveMsg.ok ? palette.success : palette.danger,
-                  letterSpacing: 0.1,
+                  ...typeStyle(13, { weight: "500" }),
                 }}
               >
                 {saveMsg.text}
               </Text>
-            )}
+            ) : null}
             <ActionButton label="Save changes" loading={saving} onPress={handleSave} />
           </View>
         </GlassCard>
@@ -1053,28 +1047,28 @@ export default function UserScreen() {
           <View style={{ padding: 16 }}>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "space-between" }}>
               <AchievementBadge
-                icon={<Shield size={18} color="#FFD700" strokeWidth={2.5} />}
+                icon={<Shield size={18} color={palette.warn} strokeWidth={2.5} />}
                 label="Verified"
                 earned={true}
                 animation={new Animated.Value(1)}
                 index={0}
               />
               <AchievementBadge
-                icon={<Star size={18} color="#FFD700" strokeWidth={2.5} />}
+                icon={<Star size={18} color={palette.warn} strokeWidth={2.5} />}
                 label="Pro Member"
                 earned={currentUser.role === "admin"}
                 animation={new Animated.Value(1)}
                 index={1}
               />
               <AchievementBadge
-                icon={<Flame size={18} color="#FF6B35" strokeWidth={2.5} />}
+                icon={<Flame size={18} color={palette.danger} strokeWidth={2.5} />}
                 label="7-Day Account"
                 earned={accountAgeDays >= 7}
                 animation={new Animated.Value(1)}
                 index={2}
               />
               <AchievementBadge
-                icon={<Award size={18} color="#9333EA" strokeWidth={2.5} />}
+                icon={<Award size={18} color={palette.accent} strokeWidth={2.5} />}
                 label="Profile Ready"
                 earned={profileCompletion === 100}
                 animation={new Animated.Value(1)}
@@ -1084,27 +1078,27 @@ export default function UserScreen() {
 
             {/* Progress section */}
             <View style={{ marginTop: 20 }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: palette.ink, marginBottom: 12 }}>
+              <Text style={{ color: palette.ink, marginBottom: 12, ...typeStyle(13, { weight: "700" }) }}>
                 Profile Strength
               </Text>
               <AnimatedProgressBar
                 label="Profile completion"
                 value={profileCompletion}
-                color="#141413"
+                color={palette.ink}
                 animation={new Animated.Value(1)}
                 delay={300}
               />
               <AnimatedProgressBar
                 label="Security score"
                 value={securityScore}
-                color="#16a34a"
+                color={palette.success}
                 animation={new Animated.Value(1)}
                 delay={500}
               />
               <AnimatedProgressBar
                 label="Account history"
                 value={Math.min(accountAgeDays * 5, 100)}
-                color="#d97706"
+                color={palette.warn}
                 animation={new Animated.Value(1)}
                 delay={700}
               />
@@ -1127,7 +1121,7 @@ export default function UserScreen() {
                 }}
               >
                 <Users size={14} color={palette.accentLight} strokeWidth={2.2} />
-                <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: palette.ink }}>
+                <Text style={{ flex: 1, color: palette.ink, ...typeStyle(13, { weight: "600" }) }}>
                   {users.length} {users.length === 1 ? "user" : "users"}
                 </Text>
                 {usersLoading && <ActivityIndicator size="small" color={palette.muted} />}
@@ -1135,7 +1129,7 @@ export default function UserScreen() {
               <Divider />
               {users.length === 0 && !usersLoading ? (
                 <View style={{ padding: 18 }}>
-                  <Text style={{ fontSize: 13, color: palette.soft, textAlign: "center" }}>No users found.</Text>
+                  <Text style={{ color: palette.soft, textAlign: "center", ...typeStyle(13) }}>No users found.</Text>
                 </View>
               ) : (
                 users.map((u, i) => (
@@ -1159,31 +1153,38 @@ export default function UserScreen() {
         {/* ── Sign out ── */}
         <SectionLabel label="Session" animation={sessionAnim} />
         <GlassCard animation={sessionAnim}>
-          <Pressable onPress={handleSignOut} style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}>
+          <Pressable
+            onPress={handleSignOut}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+            style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1, minHeight: 44 })}
+          >
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 12,
+                minHeight: 44,
                 paddingHorizontal: 18,
                 paddingVertical: 16,
               }}
             >
               <View
                 style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 10,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  borderCurve: "continuous",
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: "rgba(207,45,86,0.14)",
+                  backgroundColor: hexToRgba(palette.danger, 0.14),
                   borderWidth: 1,
-                  borderColor: "rgba(207,45,86,0.28)",
+                  borderColor: hexToRgba(palette.danger, 0.28),
                 }}
               >
-                <LogOut size={15} color="#ef4444" strokeWidth={2.2} />
+                <LogOut size={16} color={palette.danger} strokeWidth={2.2} />
               </View>
-              <Text style={{ fontSize: 15, fontWeight: "600", color: "#ef4444", letterSpacing: -0.1 }}>Sign out</Text>
+              <Text style={{ color: palette.danger, ...typeStyle(15, { weight: "600" }) }}>Sign out</Text>
             </View>
           </Pressable>
         </GlassCard>

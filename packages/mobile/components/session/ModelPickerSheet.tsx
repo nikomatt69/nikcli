@@ -25,23 +25,25 @@ function VariantChip(props: { label: string; active: boolean; onPress(): void })
       accessibilityState={{ selected: props.active }}
       style={({ pressed }) => ({
         borderRadius: 999,
+        borderCurve: "continuous",
         borderWidth: 1,
-        paddingHorizontal: 12,
-        paddingVertical: 7,
         opacity: pressed ? 0.72 : 1,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
         backgroundColor: props.active ? hexToRgba(palette.accentLight, 0.16) : hexToRgba(palette.ink, 0.06),
         borderColor: props.active ? hexToRgba(palette.accentLight, 0.32) : hexToRgba(palette.ink, 0.12),
       })}
     >
-      <Text
-        style={{
-          fontSize: 12,
-          fontWeight: props.active ? "700" : "600",
-          color: props.active ? palette.accentLight : palette.soft,
-        }}
-      >
-        {props.label}
-      </Text>
+      <View style={{ minHeight: 36, paddingHorizontal: 12, justifyContent: "center" }}>
+        <Text
+          style={{
+            fontSize: 12,
+            fontWeight: props.active ? "700" : "600",
+            color: props.active ? palette.accentLight : palette.soft,
+          }}
+        >
+          {props.label}
+        </Text>
+      </View>
     </Pressable>
   )
 }
@@ -149,44 +151,51 @@ export function ModelPickerSheet({ sheetRef, models, activeModelKey, activeVaria
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-                minHeight: 58,
-                paddingVertical: 10,
+                alignSelf: "stretch",
                 opacity: pressed ? 0.72 : 1,
+                transform: [{ scale: pressed ? 0.97 : 1 }],
                 borderBottomWidth: index < filtered.length - 1 ? 1 : 0,
                 borderBottomColor: hexToRgba(palette.ink, 0.08),
               })}
             >
               <View
                 style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 10,
+                  minHeight: 58,
+                  flexDirection: "row",
                   alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: active ? hexToRgba(palette.accentLight, 0.14) : hexToRgba(palette.ink, 0.06),
-                  borderWidth: 1,
-                  borderColor: active ? hexToRgba(palette.accentLight, 0.24) : hexToRgba(palette.ink, 0.1),
+                  gap: 12,
+                  paddingVertical: 10,
                 }}
               >
-                <Brain size={15} color={active ? palette.accentLight : palette.muted} strokeWidth={2.1} />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text className="text-[13.5px] font-semibold text-ink" numberOfLines={1}>
-                  {model.title}
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                  {model.badge ? <Text className="text-[10px] font-semibold text-muted">{model.badge}</Text> : null}
-                  {model.variants.length > 0 ? (
-                    <Text className="text-[10px] font-semibold text-muted">
-                      {model.variants.length} thinking levels
-                    </Text>
-                  ) : null}
+                <View
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 10,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: active ? hexToRgba(palette.accentLight, 0.14) : hexToRgba(palette.ink, 0.06),
+                    borderWidth: 1,
+                    borderColor: active ? hexToRgba(palette.accentLight, 0.24) : hexToRgba(palette.ink, 0.1),
+                  }}
+                >
+                  <Brain size={15} color={active ? palette.accentLight : palette.muted} strokeWidth={2.1} />
                 </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text className="text-[13.5px] font-semibold text-ink" numberOfLines={1}>
+                    {model.title}
+                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    {model.badge ? <Text className="text-[10px] font-semibold text-muted">{model.badge}</Text> : null}
+                    {model.variants.length > 0 ? (
+                      <Text className="text-[10px] font-semibold text-muted">
+                        {model.variants.length} thinking levels
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+                {active ? <Check size={16} color={palette.accentLight} strokeWidth={2.4} /> : null}
               </View>
-              {active ? <Check size={16} color={palette.accentLight} strokeWidth={2.4} /> : null}
             </Pressable>
           )
         })}

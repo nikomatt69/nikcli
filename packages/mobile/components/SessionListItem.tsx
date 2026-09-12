@@ -1,23 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { Alert, Animated, Pressable, Text, View } from "react-native"
 import { ArrowRight, Cloud, Square, Trash2 } from "lucide-react-native"
 import { SessionGlyph, type SessionGlyphKind } from "@/components/session/SessionGlyph"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
-import { usePrefersReducedMotion, usePressAnimation } from "@/lib/animation"
+import { usePressAnimation } from "@/lib/animation"
 import type { SessionSummary } from "@/lib/types"
-import { relativeTime } from "@/lib/types"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
-function sessionLocation(item: SessionSummary): string {
+function lastPathSegment(path?: string | null): string | null {
+  if (!path) return null
+  const segments = path.split("/").filter((part) => part.length > 0 && part !== ".")
+  return segments[segments.length - 1] ?? null
+}
+
+export function sessionLocation(item: SessionSummary, fallback?: string): string {
   const github = item.info.github
-  if (github) {
-    return github.repo || github.fullName || "Unknown repo"
-  }
+  const fromGithub = github?.repo || github?.fullName
+  if (fromGithub) return fromGithub
 
-  const directory = item.info.directory?.trim()
-  if (!directory) return "Unknown workspace"
-  const segments = directory.split("/").filter(Boolean)
-  return segments[segments.length - 1] ?? directory
+  return lastPathSegment(item.info.directory) ?? lastPathSegment(fallback) ?? "Unknown workspace"
 }
 
 type SheetRowProps = {
@@ -55,40 +57,44 @@ function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetR
       onPressOut={press.onPressOut}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
+      style={{ alignSelf: "stretch" }}
     >
-      <Animated.View
-        style={{
-          transform: [{ scale: press.scale }],
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 14,
-          minHeight: 64,
-          paddingHorizontal: 20,
-          paddingVertical: 10,
-        }}
-      >
+      <Animated.View style={{ alignSelf: "stretch", transform: [{ scale: press.scale }] }}>
         <View
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: 14,
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: iconBg,
-            borderWidth: 1,
-            borderColor: iconBorder,
+            alignSelf: "stretch",
+            gap: 14,
+            minHeight: 64,
+            paddingHorizontal: 20,
+            paddingVertical: 10,
           }}
         >
-          {icon}
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: labelColor, lineHeight: 20 }} numberOfLines={1}>
-            {label}
-          </Text>
-          <Text style={{ fontSize: 12.5, color: palette.muted, marginTop: 2, lineHeight: 16 }} numberOfLines={1}>
-            {description}
-          </Text>
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 14,
+              borderCurve: "continuous",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              backgroundColor: iconBg,
+              borderWidth: 1,
+              borderColor: iconBorder,
+            }}
+          >
+            {icon}
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ color: labelColor, ...typeStyle(15, { weight: "600" }) }} numberOfLines={1}>
+              {label}
+            </Text>
+            <Text style={{ color: palette.muted, marginTop: 2, ...typeStyle(13) }} numberOfLines={1}>
+              {description}
+            </Text>
+          </View>
         </View>
       </Animated.View>
     </Pressable>
@@ -116,33 +122,23 @@ function SessionListActionsSheet({ sheetRef, title, isBusy, onStop, onDelete, on
 
   return (
     <ActionSheet ref={sheetRef} snapPoints={[340]}>
-      {/* Header */}
       <View
         style={{
+          alignSelf: "stretch",
+          width: "100%",
           borderBottomWidth: 1,
           borderBottomColor: hexToRgba(palette.ink, 0.08),
           paddingHorizontal: 20,
           paddingBottom: 16,
         }}
       >
-        <Text
-          style={{
-            fontSize: 12,
-            fontWeight: "500",
-            color: palette.muted,
-          }}
-        >
-          Session actions
-        </Text>
-        <Text
-          style={{ fontSize: 17, fontWeight: "700", color: palette.ink, marginTop: 6, lineHeight: 24 }}
-          numberOfLines={2}
-        >
+        <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Session actions</Text>
+        <Text style={{ color: palette.ink, marginTop: 6, ...typeStyle(17, { weight: "700" }) }} numberOfLines={2}>
           {title || "Untitled session"}
         </Text>
       </View>
 
-      <View>
+      <View style={{ alignSelf: "stretch", width: "100%" }}>
         <SheetRow
           icon={<ArrowRight size={19} color={palette.accentLight} strokeWidth={2.1} />}
           label="Open session"
@@ -189,12 +185,6 @@ function SessionListActionsSheet({ sheetRef, title, isBusy, onStop, onDelete, on
   )
 }
 
-function statusLabel(status: string, hasChanges: boolean): string {
-  if (status === "busy") return "Working"
-  if (status === "retry") return "Needs attention"
-  return hasChanges ? "Done" : "No changes"
-}
-
 function sessionBranch(item: SessionSummary): string | undefined {
   return item.info.github?.worktree.branch ?? item.info.worktree?.branch
 }
@@ -206,106 +196,115 @@ function glyphKind(status: string, branch: string | undefined): SessionGlyphKind
 }
 
 /**
- * A session row: a glyph that says what state the session is in, its title, and
- * one quiet meta line — "repo · branch · +N -M" — with the diff counts tinted
- * and a cloud mark for sessions that live on a remote repository. Actions live
- * behind long-press (unchanged sheet).
+ * A session row: glyph, title, and one quiet meta line in the Code-screen
+ * shape — "New · repo ☁" / "Interrupted · repo ☁" / "repo · +N -M ☁" — with
+ * an unread dot on the trailing edge. Actions live behind long-press.
  */
 export function SessionListItem(props: {
   item: SessionSummary
   onPress(): void
   onDelete?: () => void
   onStop?: () => void
-  index?: number
+  unread?: boolean
+  isNew?: boolean
+  locationFallback?: string
 }) {
   const { palette } = useAppTheme()
-  const prefersReducedMotion = usePrefersReducedMotion()
   const status = props.item.status?.type ?? "idle"
   const summary = props.item.info.summary
-  const opacityRef = useRef<Animated.Value | null>(null)
-  if (opacityRef.current === null) opacityRef.current = new Animated.Value(0)
-  const opacity = opacityRef.current
   const [pressed, setPressed] = useState(false)
+  const press = usePressAnimation()
   const sheetRef = useRef<ActionSheetRef>(null)
   const additions = summary?.additions ?? 0
   const deletions = summary?.deletions ?? 0
   const hasChanges = additions + deletions > 0
   const isBusy = status === "busy"
+  const interrupted = status === "retry"
 
   const branch = sessionBranch(props.item)
-  const remote = Boolean(props.item.info.github)
+  const prefix = interrupted ? "Interrupted" : props.isNew ? "New" : null
+  const location = sessionLocation(props.item, props.locationFallback)
 
   const openSheet = useCallback(() => {
     sheetRef.current?.present()
   }, [])
 
-  useEffect(() => {
-    if (prefersReducedMotion) {
-      opacity.setValue(1)
-      return undefined
-    }
-
-    opacity.setValue(0)
-    const delay = Math.min(props.index ?? 0, 8) * 25
-    const animation = Animated.timing(opacity, { toValue: 1, duration: 200, delay, useNativeDriver: true })
-    animation.start()
-    return () => animation.stop()
-  }, [opacity, prefersReducedMotion, props.index])
-
   return (
-    <Animated.View style={{ opacity }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={props.item.info.title || "Untitled session"}
-        accessibilityHint="Opens the session. Long press for session actions."
-        onPress={props.onPress}
-        onLongPress={openSheet}
-        delayLongPress={380}
-        onPressIn={() => setPressed(true)}
-        onPressOut={() => setPressed(false)}
-        style={{
-          flexDirection: "row",
-          alignItems: "flex-start",
-          gap: 12,
-          paddingVertical: 13,
-          paddingHorizontal: 4,
-          borderRadius: 12,
-          backgroundColor: pressed ? hexToRgba(palette.ink, 0.04) : "transparent",
-        }}
-      >
-        <View style={{ width: 16, alignItems: "center", marginTop: 3 }}>
-          <SessionGlyph kind={glyphKind(status, branch)} />
-        </View>
-        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-          <Text className="text-[15px] font-semibold leading-5 text-ink" numberOfLines={1}>
-            {props.item.info.title || "Untitled session"}
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
-            <Text className="text-[13px] text-muted" numberOfLines={1}>
-              {sessionLocation(props.item)}
-              {branch ? ` · ${branch}` : ""}
-              {" · "}
-              {statusLabel(status, hasChanges)}
-            </Text>
-            {hasChanges ? (
-              <Text className="text-[13px] text-muted" numberOfLines={1}>
-                {" · "}
-                <Text style={{ color: palette.success, fontVariant: ["tabular-nums"] }}>+{additions}</Text>{" "}
-                <Text style={{ color: palette.danger, fontVariant: ["tabular-nums"] }}>-{deletions}</Text>
+    <View>
+      <Animated.View style={{ alignSelf: "stretch", transform: [{ scale: press.scale }] }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={props.item.info.title || "Untitled session"}
+          accessibilityHint="Opens the session. Long press for session actions."
+          onPress={props.onPress}
+          onLongPress={openSheet}
+          delayLongPress={380}
+          onPressIn={() => {
+            setPressed(true)
+            press.onPressIn()
+          }}
+          onPressOut={() => {
+            setPressed(false)
+            press.onPressOut()
+          }}
+          style={{ alignSelf: "stretch" }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: 12,
+              paddingVertical: 13,
+              paddingHorizontal: 4,
+              minHeight: 44,
+              borderRadius: 12,
+              borderCurve: "continuous",
+              backgroundColor: pressed ? hexToRgba(palette.ink, 0.04) : "transparent",
+            }}
+          >
+            <View style={{ width: 16, alignItems: "center", marginTop: 3 }}>
+              <SessionGlyph kind={glyphKind(status, branch)} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+              <Text style={{ color: palette.ink, ...typeStyle(17, { weight: "600" }) }} numberOfLines={1}>
+                {props.item.info.title || "Untitled session"}
               </Text>
-            ) : null}
-            <Text className="text-[13px] text-muted" numberOfLines={1}>
-              {" · "}
-              {relativeTime(props.item.info.time.updated)}
-            </Text>
-            {remote ? (
-              <View style={{ marginLeft: 6 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: 6, rowGap: 2 }}>
+                {prefix ? (
+                  <Text style={{ color: palette.muted, ...typeStyle(13) }}>
+                    {prefix}
+                    {" · "}
+                  </Text>
+                ) : null}
+                <Text style={{ color: palette.muted, ...typeStyle(13) }} numberOfLines={1}>
+                  {location}
+                </Text>
+                {hasChanges ? (
+                  <Text style={{ color: palette.muted, ...typeStyle(13) }}>
+                    {"· "}
+                    <Text style={{ color: palette.success, fontVariant: ["tabular-nums"] }}>+{additions}</Text>
+                    {" "}
+                    <Text style={{ color: palette.danger, fontVariant: ["tabular-nums"] }}>-{deletions}</Text>
+                  </Text>
+                ) : null}
                 <Cloud size={13} color={palette.muted} strokeWidth={2} />
               </View>
+            </View>
+            {props.unread ? (
+              <View
+                accessibilityLabel="Unread"
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  marginTop: 8,
+                  backgroundColor: palette.accent,
+                }}
+              />
             ) : null}
           </View>
-        </View>
-      </Pressable>
+        </Pressable>
+      </Animated.View>
 
       <SessionListActionsSheet
         sheetRef={sheetRef}
@@ -315,6 +314,6 @@ export function SessionListItem(props: {
         onStop={props.onStop ?? (() => {})}
         onDelete={props.onDelete ?? (() => {})}
       />
-    </Animated.View>
+    </View>
   )
 }

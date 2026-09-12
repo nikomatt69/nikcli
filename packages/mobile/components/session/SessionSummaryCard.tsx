@@ -30,16 +30,10 @@ function MetricTile(props: { label: string; value: string; tone?: "neutral" | "a
     props.tone === "accent"
       ? hexToRgba(palette.ink, isDark ? 0.06 : 0.08)
       : props.tone === "good"
-        ? isDark
-          ? "rgba(212,212,212,0.06)"
-          : "rgba(31,138,101,0.08)"
+        ? hexToRgba(palette.success, isDark ? 0.12 : 0.08)
         : props.tone === "warn"
-          ? isDark
-            ? "rgba(143,143,143,0.06)"
-            : "rgba(207,45,86,0.08)"
-          : isDark
-            ? "rgba(255,255,255,0.04)"
-            : "rgba(247,246,242,0.78)"
+          ? hexToRgba(palette.warn, isDark ? 0.12 : 0.08)
+          : hexToRgba(palette.ink, isDark ? 0.04 : 0.03)
 
   return (
     <View

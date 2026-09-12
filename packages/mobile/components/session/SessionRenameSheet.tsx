@@ -59,9 +59,12 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
         </Text>
 
         <View
-          className="rounded-2xl px-4 py-3"
+          className="rounded-2xl px-4"
           style={{
+            minHeight: 52,
+            justifyContent: "center",
             borderWidth: 1.5,
+            borderCurve: "continuous",
             borderColor: hexToRgba(palette.ink, isDark ? 0.22 : 0.24),
             backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.04),
           }}

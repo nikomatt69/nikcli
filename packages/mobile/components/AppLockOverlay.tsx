@@ -6,6 +6,7 @@ import { BrandMark } from "@/components/layout/BrandMark"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { authenticate, biometricLabel, getBiometricCapability, type BiometricLabel } from "@/lib/biometrics"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 export function AppLockOverlay({ onUnlocked }: { onUnlocked: () => void }) {
   const { palette, isDark } = useAppTheme()
@@ -95,18 +96,10 @@ export function AppLockOverlay({ onUnlocked }: { onUnlocked: () => void }) {
       >
         <View style={{ alignItems: "center", gap: 20, paddingTop: 48 }}>
           <BrandMark height={28} />
-          <Text
-            style={{
-              color: palette.ink,
-              fontSize: 22,
-              fontWeight: "600",
-              letterSpacing: -0.4,
-              textAlign: "center",
-            }}
-          >
+          <Text style={{ color: palette.ink, textAlign: "center", ...typeStyle(22, { weight: "600" }) }}>
             nikcli is locked
           </Text>
-          <Text style={{ color: palette.soft, fontSize: 15, lineHeight: 21, textAlign: "center", maxWidth: 280 }}>
+          <Text style={{ color: palette.soft, textAlign: "center", maxWidth: 280, ...typeStyle(15) }}>
             Unlock with {label} or your device passcode to continue.
           </Text>
         </View>

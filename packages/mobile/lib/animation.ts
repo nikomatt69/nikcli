@@ -267,16 +267,14 @@ export function usePressAnimation() {
   const prefersReducedMotion = usePrefersReducedMotion()
 
   const onPressIn = () => {
-    scale.stopAnimation()
     if (prefersReducedMotion) {
-      scale.setValue(0.985)
+      scale.setValue(1)
       return
     }
-    Animated.spring(scale, { toValue: 0.976, ...PRESS_SPRING }).start()
+    Animated.spring(scale, { toValue: 0.97, ...PRESS_SPRING }).start()
   }
 
   const onPressOut = () => {
-    scale.stopAnimation()
     if (prefersReducedMotion) {
       scale.setValue(1)
       return
@@ -284,7 +282,10 @@ export function usePressAnimation() {
     Animated.spring(scale, { toValue: 1, ...PRESS_SPRING }).start()
   }
 
-  useEffect(() => () => scale.stopAnimation(), [scale])
+  useEffect(() => {
+    if (prefersReducedMotion) scale.setValue(1)
+    return () => scale.stopAnimation()
+  }, [prefersReducedMotion, scale])
 
   return { scale, onPressIn, onPressOut, prefersReducedMotion }
 }

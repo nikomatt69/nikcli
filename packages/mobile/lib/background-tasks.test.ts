@@ -83,12 +83,29 @@ const runningShell = toolMessage({
   },
 })
 
-describe("collectBackgroundTasks", () => {
-  test("keeps agent runs and only live shell runs", () => {
-    const tasks = collectBackgroundTasks([runningAgent, completedAgent, finishedShell, runningShell])
+const detachedShell = toolMessage({
+  id: "m7",
+  tool: "bash",
+  state: {
+    status: "completed",
+    input: { command: "git fetch --unshallow", description: "Unshallow repo fully" },
+    output: "",
+    title: "Unshallow repo fully",
+    metadata: { background: true },
+    time: { start: 1_000, end: 2_000 },
+  },
+})
 
-    // Live runs first, newest first within each group; the finished shell run drops out.
-    expect(tasks.map((task) => task.title)).toEqual(["Check roadmap coherence", "Run the suite", "Risk review"])
+describe("collectBackgroundTasks", () => {
+  test("keeps agent runs, live shells, and detached finished shells", () => {
+    const tasks = collectBackgroundTasks([runningAgent, completedAgent, finishedShell, runningShell, detachedShell])
+
+    expect(tasks.map((task) => task.title)).toEqual([
+      "Check roadmap coherence",
+      "Run the suite",
+      "Risk review",
+      "Unshallow repo fully",
+    ])
   })
 
   test("reads the child session, agent type and tool-use count off the task metadata", () => {
@@ -153,7 +170,7 @@ describe("durationLabel", () => {
 describe("formatTokenCount", () => {
   test("reads at a glance", () => {
     expect(formatTokenCount(940)).toBe("940")
-    expect(formatTokenCount(118_412)).toBe("118.4K")
+    expect(formatTokenCount(118_412)).toBe("118K")
     expect(formatTokenCount(45_000)).toBe("45K")
     expect(formatTokenCount(2_000_000)).toBe("2M")
   })

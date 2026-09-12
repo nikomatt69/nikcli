@@ -2,27 +2,35 @@ import { View } from "react-native"
 import { SkeletonBox } from "@/components/Skeleton"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 
-function BubbleSkeleton(props: { align: "left" | "right"; width: `${number}%` | number }) {
-  const { palette } = useAppTheme()
+function UserBubbleSkeleton(props: { width: `${number}%` }) {
+  const { palette, isDark } = useAppTheme()
   return (
-    <View style={{ marginBottom: 12, alignItems: props.align === "right" ? "flex-end" : "flex-start" }}>
+    <View style={{ marginBottom: 12, width: "100%", alignItems: "flex-end" }}>
       <View
         style={{
           width: props.width,
-          maxWidth: "92%",
-          borderRadius: 8,
-          borderWidth: 1,
-          borderColor: hexToRgba(palette.border, 0.8),
-          backgroundColor: hexToRgba(palette.surface, 0.55),
-          padding: 14,
+          maxWidth: "82%",
+          borderRadius: 18,
+          borderCurve: "continuous",
+          backgroundColor: hexToRgba(palette.ink, isDark ? 0.14 : 0.08),
+          paddingHorizontal: 16,
+          paddingVertical: 12,
           gap: 8,
         }}
       >
-        <SkeletonBox width="38%" height={10} borderRadius={6} />
         <SkeletonBox width="100%" height={12} borderRadius={6} />
-        <SkeletonBox width="88%" height={12} borderRadius={6} />
-        <SkeletonBox width="72%" height={12} borderRadius={6} />
+        <SkeletonBox width="62%" height={12} borderRadius={6} />
       </View>
+    </View>
+  )
+}
+
+function AssistantTextSkeleton() {
+  return (
+    <View style={{ marginBottom: 16, width: "100%", gap: 8, paddingHorizontal: 2 }}>
+      <SkeletonBox width="92%" height={12} borderRadius={6} />
+      <SkeletonBox width="78%" height={12} borderRadius={6} />
+      <SkeletonBox width="64%" height={12} borderRadius={6} />
     </View>
   )
 }
@@ -50,14 +58,10 @@ export function SessionDetailSkeleton() {
         </View>
       </View>
 
-      <View style={{ flexDirection: "row", gap: 12 }}>
-        <SkeletonBox width={286} height={168} borderRadius={8} />
-        <SkeletonBox width={286} height={168} borderRadius={8} />
-      </View>
-
-      <BubbleSkeleton align="right" width="68%" />
-      <BubbleSkeleton align="left" width="84%" />
-      <BubbleSkeleton align="left" width="76%" />
+      <UserBubbleSkeleton width="42%" />
+      <AssistantTextSkeleton />
+      <UserBubbleSkeleton width="28%" />
+      <AssistantTextSkeleton />
 
       <View style={{ marginTop: "auto", gap: 8, paddingBottom: 8 }}>
         <SkeletonBox width="100%" height={44} borderRadius={8} />

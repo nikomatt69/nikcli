@@ -8,9 +8,12 @@ import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { useServer } from "@/lib/server-context"
 import { triggerHaptic } from "@/lib/haptics"
 import type { BrainStatus } from "@/lib/types"
+import { useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import { relativeTime } from "@/lib/types"
 
 export default function BrainScreen() {
+  const { palette } = useAppTheme()
   const { client } = useServer()
   const [status, setStatus] = useState<BrainStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -74,7 +77,7 @@ export default function BrainScreen() {
           {status?.lastBrainAt ? <InfoChip label={`Last ${relativeTime(status.lastBrainAt)}`} /> : null}
         </View>
         {status ? (
-          <Text className="mt-3 text-[13px] leading-[18px] text-soft">
+          <Text selectable style={{ marginTop: 12, color: palette.soft, ...typeStyle(13) }}>
             {status.sessionsSinceLastBrain} sessions since last run. Threshold {status.minSessions} sessions or{" "}
             {status.minHours} hours.
           </Text>

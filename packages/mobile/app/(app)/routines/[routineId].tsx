@@ -8,6 +8,7 @@ import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import type { Routine, RoutineTrigger } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 
@@ -22,6 +23,7 @@ export default function RoutineDetailScreen() {
   const { routineId } = useLocalSearchParams<{ routineId: string }>()
   const isNew = routineId === "new"
   const { client } = useServer()
+  const { palette } = useAppTheme()
 
   const [routine, setRoutine] = useState<Routine | null>(null)
   const [name, setName] = useState("")
@@ -156,14 +158,18 @@ export default function RoutineDetailScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 bg-background px-4 pt-4">
-        <SurfaceCard eyebrow="Loading" title="Fetching routine…" description="" />
+      <View style={{ flex: 1, backgroundColor: palette.background, paddingHorizontal: 16, paddingTop: 16 }}>
+        <SurfaceCard eyebrow="Loading" title="Fetching routine…" description="Reading the routine from this host." />
       </View>
     )
   }
 
   return (
-    <ScrollView className="flex-1 bg-background" contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 48 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: palette.background }}
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 48 }}
+    >
       {error ? <ErrorBanner message={error} /> : null}
 
       {/* ── Basic info ──────────────────────────────────────────────────── */}
@@ -173,7 +179,7 @@ export default function RoutineDetailScreen() {
         description="Give your routine a name and the prompt it will run."
       >
         {routine && !routine.paused ? (
-          <View className="flex-row flex-wrap gap-2 mb-4">
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
             <InfoChip label="Active" tone="good" />
             {routine.lastRunAt ? (
               <InfoChip label={`Last run ${relativeTime(routine.lastRunAt)}`} tone="neutral" />
@@ -181,11 +187,11 @@ export default function RoutineDetailScreen() {
           </View>
         ) : null}
         {routine?.paused ? (
-          <View className="flex-row flex-wrap gap-2 mb-4">
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
             <InfoChip label="Paused" tone="warn" />
           </View>
         ) : null}
-        <View className="gap-3">
+        <View style={{ gap: 12 }}>
           <TextField
             label="Name"
             value={name}
@@ -209,9 +215,15 @@ export default function RoutineDetailScreen() {
         title="Run on a cron schedule"
         description="Pick a preset or enter a custom cron expression. Supports @hourly, @daily, */N (minutes), 0 */N * * * (hours)."
       >
-        <View className="flex-row flex-wrap gap-2 mb-3">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
           {CRON_PRESETS.map((p) => (
-            <Pressable key={p.cron} onPress={() => setScheduleCron(p.cron)}>
+            <Pressable
+              key={p.cron}
+              onPress={() => setScheduleCron(p.cron)}
+              accessibilityRole="button"
+              accessibilityLabel={`Use ${p.label} schedule`}
+              style={{ minHeight: 44, justifyContent: "center" }}
+            >
               <InfoChip label={p.label} tone={scheduleTrigger?.cron === p.cron ? "accent" : "neutral"} />
             </Pressable>
           ))}
@@ -224,7 +236,7 @@ export default function RoutineDetailScreen() {
           autoCapitalize="none"
         />
         {scheduleTrigger ? (
-          <View className="mt-3 flex-row gap-3">
+          <View style={{ marginTop: 12 }}>
             <ActionButton
               label={scheduleTrigger.enabled ? "Disable schedule" : "Enable schedule"}
               onPress={() => toggleSchedule(!scheduleTrigger.enabled)}
@@ -241,12 +253,15 @@ export default function RoutineDetailScreen() {
           title="Trigger via HTTP POST"
           description={`POST /mobile/routines/trigger/${apiTrigger.token} — no bearer token required.`}
         >
-          <View className="flex-row flex-wrap gap-2 mb-3">
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
             <InfoChip
               label={apiTrigger.enabled ? "Enabled" : "Disabled"}
               tone={apiTrigger.enabled ? "good" : "neutral"}
             />
           </View>
+          <Text selectable style={{ marginBottom: 12, color: palette.soft, ...typeStyle(13) }}>
+            {`/mobile/routines/trigger/${apiTrigger.token}`}
+          </Text>
           <ActionButton
             label={apiTrigger.enabled ? "Disable API trigger" : "Enable API trigger"}
             onPress={() => toggleApi(!apiTrigger.enabled)}
@@ -258,8 +273,13 @@ export default function RoutineDetailScreen() {
       {/* ── Last session ────────────────────────────────────────────────── */}
       {lastSession || routine?.lastSessionID ? (
         <SurfaceCard eyebrow="Last run" title="Session created" description="">
-          <View className="flex-row flex-wrap gap-2">
-            <Pressable onPress={() => router.push(`/sessions/${lastSession?.id ?? routine?.lastSessionID}` as Href)}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <Pressable
+              onPress={() => router.push(`/sessions/${lastSession?.id ?? routine?.lastSessionID}` as Href)}
+              accessibilityRole="button"
+              accessibilityLabel="View last session"
+              style={{ minHeight: 44, justifyContent: "center" }}
+            >
               <InfoChip label="View session" tone="accent" />
             </Pressable>
           </View>
@@ -267,7 +287,7 @@ export default function RoutineDetailScreen() {
       ) : null}
 
       {/* ── Actions ─────────────────────────────────────────────────────── */}
-      <View className="gap-3">
+      <View style={{ gap: 12 }}>
         <ActionButton label={isNew ? "Create routine" : "Save changes"} loading={saving} onPress={() => void save()} />
         {!isNew && routine ? (
           <>
@@ -282,7 +302,7 @@ export default function RoutineDetailScreen() {
               label="Delete routine"
               loading={deleting}
               onPress={() => void deleteRoutine()}
-              variant="ghost"
+              variant="danger"
             />
           </>
         ) : null}

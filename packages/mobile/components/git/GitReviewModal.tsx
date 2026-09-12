@@ -14,8 +14,10 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeft, Circle, GitBranch, GitCommit, History, Layers, RefreshCw } from "lucide-react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { contrastOn, hexToRgba, useAppTheme } from "@/lib/theme"
 import { usePressAnimation } from "@/lib/animation"
+import { type as typeStyle } from "@/lib/typography"
+import { IconCircleButton } from "@/components/ui/IconCircleButton"
 import { triggerHaptic } from "@/lib/haptics"
 import { GitFileTree } from "./GitFileTree"
 import { GitLineDiffEditor } from "./GitLineDiffEditor"
@@ -71,10 +73,10 @@ function MetricPill({ label, value, color }: { label: string; value: number; col
       }}
     >
       <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: color }} />
-      <Text style={{ color: palette.ink, fontSize: 11, fontWeight: "700", fontVariant: ["tabular-nums"] }}>
+      <Text style={{ color: palette.ink, fontVariant: ["tabular-nums"], ...typeStyle(11, { weight: "700" }) }}>
         {value}
       </Text>
-      <Text style={{ color: palette.soft, fontSize: 10, fontWeight: "600" }}>{label}</Text>
+      <Text style={{ color: palette.soft, ...typeStyle(10, { weight: "600" }) }}>{label}</Text>
     </View>
   )
 }
@@ -100,10 +102,11 @@ function MiniGitButton({
       accessibilityState={{ disabled: Boolean(disabled) }}
       style={({ pressed }) => ({
         flex: 1,
-        minHeight: 38,
+        minHeight: 44,
         alignItems: "center",
         justifyContent: "center",
         borderRadius: 14,
+        borderCurve: "continuous",
         borderWidth: 1,
         borderColor: disabled ? palette.border : isDark ? `${color}55` : `${color}35`,
         backgroundColor: disabled
@@ -117,7 +120,7 @@ function MiniGitButton({
         transform: [{ scale: pressed && !disabled ? 0.97 : 1 }],
       })}
     >
-      <Text style={{ color: disabled ? palette.muted : color, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>
+      <Text style={{ color: disabled ? palette.muted : color, ...typeStyle(12, { weight: "700" }) }} numberOfLines={1}>
         {label}
       </Text>
     </Pressable>
@@ -172,10 +175,9 @@ function BranchPill({ branch, onPress }: { branch: GitBranchInfo; onPress?: () =
       accessibilityRole="button"
       accessibilityLabel={`Switch to branch ${branch.name}`}
       style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 7,
+        minHeight: 44,
         borderRadius: 999,
+        borderCurve: "continuous",
         borderWidth: 1,
         borderColor: palette.border,
         backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.64)",
@@ -184,7 +186,7 @@ function BranchPill({ branch, onPress }: { branch: GitBranchInfo; onPress?: () =
         opacity: pressed ? 0.72 : 1,
       })}
     >
-      {content}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>{content}</View>
     </Pressable>
   )
 }
@@ -686,12 +688,12 @@ export function GitReviewModal({
                     })}
                   >
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
-                      <Icon size={15} color={isActive ? "#fff" : palette.soft} strokeWidth={2.2} />
+                      <Icon size={15} color={isActive ? contrastOn(palette.accent) : palette.soft} strokeWidth={2.2} />
                       <Text
                         style={{
                           fontSize: 12,
                           fontWeight: "700",
-                          color: isActive ? "#fff" : palette.soft,
+                          color: isActive ? contrastOn(palette.accent) : palette.soft,
                           marginLeft: 6,
                         }}
                       >
@@ -703,10 +705,8 @@ export function GitReviewModal({
                           height: 22,
                           borderRadius: 11,
                           backgroundColor: isActive
-                            ? "rgba(255,255,255,0.25)"
-                            : isDark
-                              ? "rgba(255,255,255,0.12)"
-                              : "rgba(0,0,0,0.1)",
+                            ? hexToRgba(contrastOn(palette.accent), 0.22)
+                            : hexToRgba(palette.ink, 0.1),
                           alignItems: "center",
                           justifyContent: "center",
                           marginLeft: 6,
@@ -717,7 +717,7 @@ export function GitReviewModal({
                           style={{
                             fontSize: 10,
                             fontWeight: "800",
-                            color: isActive ? "#fff" : palette.muted,
+                            color: isActive ? contrastOn(palette.accent) : palette.muted,
                             fontVariant: ["tabular-nums"],
                           }}
                         >
@@ -746,19 +746,19 @@ export function GitReviewModal({
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#22c55e" }} />
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.success }} />
                 <Text style={{ fontSize: 11, color: palette.soft, fontWeight: "600" }}>
                   {gitState?.staged.length ?? 0} staged
                 </Text>
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#f59e0b" }} />
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.warn }} />
                 <Text style={{ fontSize: 11, color: palette.soft, fontWeight: "600" }}>
                   {gitState?.unstaged.length ?? 0} changed
                 </Text>
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#64748b" }} />
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.muted }} />
                 <Text style={{ fontSize: 11, color: palette.soft, fontWeight: "600" }}>
                   {gitState?.untracked.length ?? 0} new
                 </Text>
@@ -812,9 +812,9 @@ export function GitReviewModal({
                   {gitAction ? <ActivityIndicator size="small" color={palette.accent} /> : null}
                 </View>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                  <MetricPill label="Staged" value={gitState?.staged.length ?? 0} color="#22c55e" />
-                  <MetricPill label="Changed" value={gitState?.unstaged.length ?? 0} color="#f59e0b" />
-                  <MetricPill label="Untracked" value={gitState?.untracked.length ?? 0} color="#64748b" />
+                  <MetricPill label="Staged" value={gitState?.staged.length ?? 0} color={palette.success} />
+                  <MetricPill label="Changed" value={gitState?.unstaged.length ?? 0} color={palette.warn} />
+                  <MetricPill label="Untracked" value={gitState?.untracked.length ?? 0} color={palette.muted} />
                 </View>
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <MiniGitButton
@@ -1081,10 +1081,10 @@ export function GitReviewModal({
                             <Text style={{ fontSize: 11, color: palette.muted }}>{commit.sha.slice(0, 7)}</Text>
                           </View>
                           <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-                            <Text style={{ fontSize: 10, color: "#22c55e", fontWeight: "600" }}>
+                            <Text style={{ fontSize: 10, color: palette.success, fontWeight: "600" }}>
                               +{commit.additions}
                             </Text>
-                            <Text style={{ fontSize: 10, color: "#ef4444", fontWeight: "600" }}>
+                            <Text style={{ fontSize: 10, color: palette.danger, fontWeight: "600" }}>
                               -{commit.deletions}
                             </Text>
                             <Text style={{ fontSize: 10, color: palette.muted }}>{commit.filesCount} files</Text>

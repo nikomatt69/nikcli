@@ -8,7 +8,8 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { AppHeader } from "@/components/layout/AppHeader"
-import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
+import { CenteredScreenHeader } from "@/components/layout/CenteredScreenHeader"
+import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { useHostEvents } from "@/hooks/use-host-events"
 import { useServer } from "@/lib/server-context"
 import { triggerHaptic } from "@/lib/haptics"
@@ -56,7 +57,6 @@ const MissionRow = memo(function MissionRow({
             loading={starting || runtime.status === "running"}
             disabled={runtime.status === "paused"}
             onPress={() => onStart(mission.id)}
-            variant="secondary"
           />
         </View>
         <View className="flex-1">
@@ -154,7 +154,7 @@ export default function MissionsScreen() {
 
   const hero = (
     <View style={{ gap: 12 }}>
-      <ScreenBrandHeader title="Missions" right={<SettingsCircleButton />} />
+      <CenteredScreenHeader title="Missions" right={<SettingsCircleButton />} />
       <AppHeader
         className="gap-3 pb-4"
         chips={[

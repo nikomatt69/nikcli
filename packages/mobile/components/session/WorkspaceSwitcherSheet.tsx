@@ -4,6 +4,7 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "
 import { Check, Folder, GitBranch, type LucideIcon } from "lucide-react-native"
 import { ActionSheet, ActionSheetDivider, type ActionSheetRef } from "@/components/BottomSheet"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 import type { ProjectInfo } from "@/lib/types"
 
 type Props = {
@@ -35,7 +36,12 @@ function projectLabel(project: ProjectInfo): string {
 }
 
 function SectionLabel({ label }: { label: string }) {
-  return <Text className="px-5 pb-1 pt-3.5 text-[12px] font-medium text-muted">{label}</Text>
+  const { palette } = useAppTheme()
+  return (
+    <Text style={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 4, color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>
+      {label}
+    </Text>
+  )
 }
 
 function SectionDivider() {
@@ -86,41 +92,48 @@ function WorkspaceRow({ Icon, label, description, selected, loading, disabled, o
     >
       <Animated.View
         style={{
+          alignSelf: "stretch",
           width: "100%",
           transform: [{ scale: scaleAnim }],
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 14,
-          minHeight: 64,
-          paddingHorizontal: 20,
-          paddingVertical: 10,
         }}
       >
         <View
-          className="shrink-0 items-center justify-center rounded-[14px]"
           style={{
-            width: 44,
-            height: 44,
-            backgroundColor: iconBg,
-            borderWidth: 1,
-            borderColor: iconBorder,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 14,
+            minHeight: 64,
+            paddingHorizontal: 20,
+            paddingVertical: 10,
           }}
         >
-          <Icon size={19} color={iconColor} strokeWidth={2.1} />
+          <View
+            className="shrink-0 items-center justify-center rounded-[14px]"
+            style={{
+              width: 44,
+              height: 44,
+              borderCurve: "continuous",
+              backgroundColor: iconBg,
+              borderWidth: 1,
+              borderColor: iconBorder,
+            }}
+          >
+            <Icon size={19} color={iconColor} strokeWidth={2.1} />
+          </View>
+          <View className="min-w-0 flex-1">
+            <Text numberOfLines={1} style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>
+              {label}
+            </Text>
+            <Text numberOfLines={1} style={{ marginTop: 2, color: palette.muted, ...typeStyle(13) }}>
+              {description}
+            </Text>
+          </View>
+          {loading ? (
+            <ActivityIndicator size="small" color={palette.accentLight} />
+          ) : selected ? (
+            <Check size={18} color={palette.accentLight} strokeWidth={2.4} />
+          ) : null}
         </View>
-        <View className="min-w-0 flex-1">
-          <Text className="text-[15px] font-semibold leading-5 tracking-tight text-ink" numberOfLines={1}>
-            {label}
-          </Text>
-          <Text className="mt-0.5 text-[12.5px] leading-4 text-muted" numberOfLines={1}>
-            {description}
-          </Text>
-        </View>
-        {loading ? (
-          <ActivityIndicator size="small" color={palette.accentLight} />
-        ) : selected ? (
-          <Check size={18} color={palette.accentLight} strokeWidth={2.4} />
-        ) : null}
       </Animated.View>
     </Pressable>
   )
@@ -131,13 +144,13 @@ export function WorkspaceSwitcherSheet({ sheetRef, projects, selectedDirectory, 
 
   return (
     <ActionSheet ref={sheetRef} snapPoints={["72%"]}>
-      <View className="border-b border-border px-5 pb-4">
-        <Text className="text-[12px] font-medium text-muted">Current workspace</Text>
-        <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink" numberOfLines={1}>
+      <View className="border-b border-border px-5 pb-4" style={{ alignSelf: "stretch" }}>
+        <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Current workspace</Text>
+        <Text numberOfLines={1} style={{ marginTop: 6, color: palette.ink, ...typeStyle(18, { weight: "700" }) }}>
           {lastPathSegment(selectedDirectory)}
         </Text>
         <View className="mt-2 self-start rounded-full border border-border bg-panel px-2.5 py-1">
-          <Text className="text-[10px] font-semibold tracking-wide" style={{ color: palette.accentLight }}>
+          <Text style={{ color: palette.accentLight, ...typeStyle(11, { weight: "600", trackingBoost: 0.4 }) }}>
             Switch workspace
           </Text>
         </View>

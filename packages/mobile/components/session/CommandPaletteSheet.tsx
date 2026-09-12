@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef } from "react"
 import { AdaptiveBlur } from "@/components/GlassView"
 import { Search, Slash, Sparkles } from "lucide-react-native"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { caps, type as typeStyle } from "@/lib/typography"
 
 export type CommandPaletteItem = {
   id: string
@@ -40,7 +41,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
   const { colorScheme, palette, isDark } = useAppTheme()
   const { height } = useWindowDimensions()
   const scaleAnimRef = useRef<Animated.Value | null>(null)
-  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(0)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(0.96)
   const scaleAnim = scaleAnimRef.current
   const opacityAnimRef = useRef<Animated.Value | null>(null)
   if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
@@ -68,7 +69,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
         }),
       ]).start()
     } else {
-      scaleAnim.setValue(0)
+      scaleAnim.setValue(0.96)
       opacityAnim.setValue(0)
     }
   }, [props.visible])
@@ -135,11 +136,13 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <Pressable style={{ flex: 1 }} onPress={props.onClose} />
 
-          <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+          <View style={{ alignSelf: "stretch", paddingHorizontal: 16, paddingBottom: 24 }}>
             <Animated.View
               style={{
+                alignSelf: "stretch",
                 overflow: "hidden",
                 borderRadius: 20,
+                borderCurve: "continuous",
                 borderWidth: 1,
                 borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.82)",
                 shadowColor: "#000",
@@ -186,32 +189,15 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                       }}
                     >
                       <Sparkles size={15} color={palette.accentLight} strokeWidth={2.1} />
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontWeight: "700",
-                          letterSpacing: 1.8,
-                          textTransform: "uppercase",
-                          color: palette.accentLight,
-                        }}
-                      >
-                        Commands
-                      </Text>
+                      <Text style={{ color: palette.accentLight, ...caps(11, { weight: "700" }) }}>Commands</Text>
                     </View>
-                    <Text
-                      style={{
-                        fontSize: 18,
-                        fontWeight: "600",
-                        color: palette.ink,
-                      }}
-                    >
+                    <Text style={{ color: palette.ink, ...typeStyle(18, { weight: "600" }) }}>
                       Session command palette
                     </Text>
                     <Text
                       style={{
-                        fontSize: 14,
-                        lineHeight: 20,
                         color: palette.soft,
+                        ...typeStyle(14),
                       }}
                     >
                       Search host commands and mobile quick actions, then prefill or trigger them from one place.
@@ -237,23 +223,23 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                       }).start()
                     }
                     style={({ pressed }) => ({
+                      minHeight: 44,
+                      minWidth: 44,
+                      alignItems: "center",
+                      justifyContent: "center",
                       borderRadius: 16,
+                      borderCurve: "continuous",
                       borderWidth: 1,
                       borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.80)",
                       backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)",
                       paddingHorizontal: 12,
-                      paddingVertical: 8,
-                      transform: [{ scale: pressed ? 0.94 : 1 }],
                       opacity: pressed ? 0.7 : 1,
                     })}
                   >
                     <Text
                       style={{
-                        fontSize: 11,
-                        fontWeight: "700",
-                        letterSpacing: 1.4,
-                        textTransform: "uppercase",
                         color: palette.soft,
+                        ...caps(11, { weight: "700" }),
                       }}
                     >
                       Close
@@ -286,7 +272,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                     keyboardAppearance={colorScheme === "light" ? "light" : "dark"}
                     autoCapitalize="none"
                     autoFocus
-                    style={{ flex: 1, fontSize: 15, color: palette.ink }}
+                    style={{ flex: 1, color: palette.ink, ...typeStyle(15) }}
                   />
                 </View>
 
@@ -310,7 +296,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                         paddingVertical: 20,
                       }}
                     >
-                      <Text style={{ fontSize: 14, color: palette.soft }}>Loading host commands…</Text>
+                      <Text style={{ color: palette.soft, ...typeStyle(14) }}>Loading host commands…</Text>
                     </View>
                   ) : sections.length ? (
                     <View style={{ gap: 16 }}>
@@ -318,11 +304,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                         <View key={section} style={{ gap: 8 }}>
                           <Text
                             style={{
-                              fontSize: 10,
-                              fontWeight: "700",
-                              letterSpacing: 1.6,
-                              textTransform: "uppercase",
                               color: palette.accentLight,
+                              ...caps(10, { weight: "700" }),
                             }}
                           >
                             {section}
@@ -355,7 +338,9 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                   }).start()
                                 }}
                                 style={({ pressed }) => ({
+                                  alignSelf: "stretch",
                                   borderRadius: 20,
+                                  borderCurve: "continuous",
                                   borderWidth: 1,
                                   borderColor: item.disabled
                                     ? isDark
@@ -385,21 +370,14 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                   }}
                                 >
                                   <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                                    <Text
-                                      style={{
-                                        fontSize: 14,
-                                        fontWeight: "600",
-                                        color: palette.ink,
-                                      }}
-                                    >
+                                    <Text style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>
                                       {item.title}
                                     </Text>
                                     {item.description ? (
                                       <Text
                                         style={{
-                                          fontSize: 12,
-                                          lineHeight: 20,
                                           color: palette.soft,
+                                          ...typeStyle(13),
                                         }}
                                         numberOfLines={2}
                                       >
@@ -420,11 +398,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                     >
                                       <Text
                                         style={{
-                                          fontSize: 10,
-                                          fontWeight: "700",
-                                          letterSpacing: 1.3,
-                                          textTransform: "uppercase",
                                           color: palette.accentLight,
+                                          ...caps(10, { weight: "700" }),
                                         }}
                                       >
                                         {item.badge}
@@ -454,9 +429,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                       <Text
                         style={{
                           marginTop: 8,
-                          fontSize: 14,
-                          fontWeight: "600",
                           color: palette.ink,
+                          ...typeStyle(15, { weight: "600" }),
                         }}
                       >
                         No commands found
@@ -465,9 +439,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                         style={{
                           marginTop: 4,
                           textAlign: "center",
-                          fontSize: 12,
-                          lineHeight: 20,
                           color: palette.soft,
+                          ...typeStyle(13),
                         }}
                       >
                         Try another keyword or start a slash command directly in the composer.
