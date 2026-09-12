@@ -143,7 +143,6 @@ describe("v2 tui plugin compatibility", () => {
   })
 })
 
-
 describe("v2 tui plugin manifest", () => {
   const manifest = { id: "acme:example", version: "1.2.3", kind: "user", capabilities: ["routes"] }
 
@@ -170,9 +169,7 @@ describe("v2 tui plugin manifest", () => {
   })
 
   it("refuses a manifest that declares nothing", () => {
-    expect(() => readV2TuiPlugin(withManifest({ capabilities: [] }), "file:///x.ts")).toThrow(
-      /at least one capability/,
-    )
+    expect(() => readV2TuiPlugin(withManifest({ capabilities: [] }), "file:///x.ts")).toThrow(/at least one capability/)
   })
 
   it("refuses an unknown capability", () => {

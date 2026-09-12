@@ -1,6 +1,6 @@
-import { describe, expect, it } from "bun:test";
-import { SessionEntry } from "@/session/v2/entry";
-import { tuiSource } from "./tui-source";
+import { describe, expect, it } from "bun:test"
+import { SessionEntry } from "@/session/v2/entry"
+import { tuiSource } from "./tui-source"
 
 /**
  * Every entry type reaches the screen.
@@ -19,29 +19,21 @@ import { tuiSource } from "./tui-source";
 
 /** Types the turn model absorbs as properties instead of rows. */
 async function absorbed() {
-  const text = await tuiSource("routes/session/view.ts");
-  return new Set(
-    [...text.matchAll(/entry\.type === "([a-z-]+)"/g)].map(
-      (match) => match[1]!,
-    ),
-  );
+  const text = await tuiSource("routes/session/view.ts")
+  return new Set([...text.matchAll(/entry\.type === "([a-z-]+)"/g)].map((match) => match[1]!))
 }
 
 /** Types with a component in `PART_MAPPING`. */
 async function drawn() {
-  const text = await tuiSource("routes/session/index.tsx");
-  const table = /const PART_MAPPING = \{([^}]*)\}/.exec(text);
-  expect(table).not.toBeNull();
-  return new Set(
-    [...table![1]!.matchAll(/^\s*([a-z-]+):/gm)].map((match) => match[1]!),
-  );
+  const text = await tuiSource("routes/session/index.tsx")
+  const table = /const PART_MAPPING = \{([^}]*)\}/.exec(text)
+  expect(table).not.toBeNull()
+  return new Set([...table![1]!.matchAll(/^\s*([a-z-]+):/gm)].map((match) => match[1]!))
 }
 
 describe("entry coverage", () => {
   it("the union is exactly the types the renderer was written against", () => {
-    const types = SessionEntry.Entry.options
-      .map((option) => option.shape.type.value as string)
-      .sort();
+    const types = SessionEntry.Entry.options.map((option) => option.shape.type.value as string).sort()
     expect(types).toEqual([
       "compaction",
       "complete",
@@ -57,35 +49,35 @@ describe("entry coverage", () => {
       "text",
       "tool",
       "user",
-    ]);
-  });
+    ])
+  })
 
   it("every type is either absorbed by the turn or drawn as a row", async () => {
-    const [byTurn, byRow] = await Promise.all([absorbed(), drawn()]);
+    const [byTurn, byRow] = await Promise.all([absorbed(), drawn()])
     const missing = SessionEntry.Entry.options
       .map((option) => option.shape.type.value as string)
-      .filter((type) => !byTurn.has(type) && !byRow.has(type));
+      .filter((type) => !byTurn.has(type) && !byRow.has(type))
 
     // A type here renders as nothing at all. Add a component to `PART_MAPPING`,
     // or fold it into the turn in `fromEntries`.
-    expect(missing).toEqual([]);
-  });
+    expect(missing).toEqual([])
+  })
 
   it("the three that regressed are drawn, not absorbed", async () => {
-    const byRow = await drawn();
+    const byRow = await drawn()
     for (const type of ["retry", "subtask", "synthetic"]) {
-      expect(byRow.has(type)).toBe(true);
+      expect(byRow.has(type)).toBe(true)
     }
-  });
+  })
 
   it("there is a fallback, so an unmapped type is visible rather than silent", async () => {
-    const text = await tuiSource("routes/session/index.tsx");
-    expect(text).toContain("fallback={<UnknownPart");
-  });
+    const text = await tuiSource("routes/session/index.tsx")
+    expect(text).toContain("fallback={<UnknownPart")
+  })
 
   it("subtask rows use SessionTaskCard so nested and background work do not share a ◆ line", async () => {
-    const text = await tuiSource("routes/session/index.tsx");
-    expect(text).toContain("<SessionTaskCard");
-    expect(text).toContain('kind={background() ? "background" : "subtask"}');
-  });
-});
+    const text = await tuiSource("routes/session/index.tsx")
+    expect(text).toContain("<SessionTaskCard")
+    expect(text).toContain('kind={background() ? "background" : "subtask"}')
+  })
+})
