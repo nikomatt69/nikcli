@@ -9,6 +9,7 @@ import {
   clearUserToken,
 } from "@/lib/storage"
 import { MobileClient } from "@/lib/client"
+import { rememberDevice } from "@/lib/devices-store"
 import { getValidOAuthTokens, revokeOAuthSession } from "@/lib/oauth"
 import type { OAuthTokenTriple } from "@/lib/oauth-core"
 import type { MobileBootstrap, ServerConfig } from "@/lib/types"
@@ -149,6 +150,10 @@ export function ServerProvider(props: PropsWithChildren) {
       async save(next: ServerConfig) {
         await setServerConfig(next)
         setConfig(next)
+        // Every connection funnels through here — the connect screen, a pairing
+        // link, a device switch — so this is the one place that can keep the
+        // list of hosts complete without any of them having to remember to.
+        await rememberDevice(next).catch(() => undefined)
       },
       async clear() {
         await clearServerConfig()

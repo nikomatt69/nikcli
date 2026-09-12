@@ -13,9 +13,28 @@ type Props = {
   saving: boolean
   onClose(): void
   onSave(title: string): void
+  /**
+   * What is being renamed. Defaults to a session; the device list passes its
+   * own wording so the sheet does not tell the user they are renaming a session.
+   */
+  subject?: { eyebrow: string; heading: string; placeholder: string; noun: string }
 }
 
-export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onSave }: Props) {
+const SESSION_SUBJECT = {
+  eyebrow: "Rename session",
+  heading: "Set a new title",
+  placeholder: "Enter a session title…",
+  noun: "session",
+}
+
+export function SessionRenameSheet({
+  visible,
+  currentTitle,
+  saving,
+  onClose,
+  onSave,
+  subject = SESSION_SUBJECT,
+}: Props) {
   const { palette, isDark } = useAppTheme()
   const [title, setTitle] = useState(currentTitle)
   const inputRef = useRef<TextInput>(null)
@@ -37,14 +56,14 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
       onClose={onClose}
       variant="inset"
       avoidKeyboard
-      accessibilityLabel="Rename session"
+      accessibilityLabel={subject.eyebrow}
       // Losing a half-typed title to a stray tap outside is not worth the convenience.
       dismissOnBackdropPress={false}
     >
       <View className="border-b border-border px-5 pb-4 pt-2">
-        <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Rename session</Text>
+        <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>{subject.eyebrow}</Text>
         <Text className="mt-2" style={{ color: palette.ink, ...typeStyle(22, { weight: "700" }) }}>
-          Set a new title
+          {subject.heading}
         </Text>
         {currentTitle ? (
           <Text className="mt-1.5" style={{ color: palette.soft, ...typeStyle(13) }} numberOfLines={1}>
@@ -70,7 +89,7 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
             ref={inputRef}
             value={title}
             onChangeText={(t) => setTitle(t.slice(0, MAX_LENGTH))}
-            placeholder="Enter a session title…"
+            placeholder={subject.placeholder}
             placeholderTextColor={palette.muted}
             autoCapitalize="sentences"
             returnKeyType="done"
@@ -88,7 +107,7 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
 
         <View className="mt-2 flex-row items-center justify-between">
           <Text style={{ color: palette.soft, ...typeStyle(12) }}>
-            {title.length > 0 ? `${trimmed.length} characters` : "Start typing a title"}
+            {title.length > 0 ? `${trimmed.length} characters` : `Start typing a ${subject.noun} name`}
           </Text>
           <Text style={{ color: overLimit ? palette.danger : palette.muted, ...typeStyle(12, { weight: "600" }) }}>
             {title.length}/{MAX_LENGTH}

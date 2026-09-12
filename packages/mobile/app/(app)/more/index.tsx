@@ -3,11 +3,12 @@ import { Link, type Href } from "expo-router"
 import type { ReactNode } from "react"
 import {
   Activity,
-  Brain,
   Bot,
+  Brain,
   ImageIcon,
   Monitor,
   Repeat,
+  Server,
   Settings as SettingsIcon,
   Sparkles,
   Target,
@@ -103,6 +104,15 @@ export default function MoreScreen() {
               eyebrow="Telemetry"
               title="Observability"
               description="Toggle OpenTelemetry and inspect OTLP export status."
+            />
+          </Link>
+          <Divider inset={65} />
+          <Link href={"/more/devices" as Href} asChild>
+            <SettingsNavCard
+              icon={Server}
+              eyebrow="Machine"
+              title="Devices"
+              description="Every host this app can drive: switch, rename, or add another."
             />
           </Link>
           <Divider inset={65} />
