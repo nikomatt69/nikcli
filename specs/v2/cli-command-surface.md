@@ -3,14 +3,12 @@
 | Field  | Value                                                                                                                                                                                          |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Status | **Accepted and implemented** (promoted 2026-09-10)                                                                                                                                             |
-| Scope  | `src/cli/commands.ts`, `src/cli/cmd/lazy.ts`, `src/cli-main.ts`, `src/cli/cmd/*.ts`, `packages/util/src/cli-error.ts`                                                                                                                        |
-| Tests  | `test/cli/command-surface.test.ts` (the table below is the gate), `test/cli/lazy-commands.test.ts` (table metadata matches each implementation; no static command import returns to `cli-main.ts`), `test/cli/bootstrap-exit.test.ts` (exit codes, both directions), `test/cli/index-help.e2e.test.ts`, `test/cli/error.test.ts` |
+| Scope  | `src/cli-main.ts`, `src/cli/cmd/*.ts`, `packages/util/src/cli-error.ts`                                                                                                                        |
+| Tests  | `test/cli/command-surface.test.ts` (the table below is the gate), `test/cli/bootstrap-exit.test.ts` (exit codes, both directions), `test/cli/index-help.e2e.test.ts`, `test/cli/error.test.ts` |
 
 The question this records: which `nikcli …` commands are actually registered, and what is shared across them.
 
-The answer is **the `Commands` table in `src/cli/commands.ts`**, which `cli-main.ts` hands to yargs whole. A file under `src/cli/cmd/` is not a command until it is listed there. Filename inference is not the contract.
-
-Registration used to be a `.command(X)` chain in `cli-main.ts` against 45 static imports. It moved into the table so the implementations can load on demand (`src/cli/cmd/lazy.ts`): evaluating all 45 module graphs up front cost ~400MB of retained RSS on every run, `nikcli --version` included. The invariant is unchanged — only the file that holds it.
+The answer is **the yargs tree in `cli-main.ts`**. A file under `src/cli/cmd/` is not a command until it is `.command()`-registered there. Filename inference is not the contract.
 
 ## The Surface
 
@@ -22,7 +20,7 @@ The default command is the TUI: `TuiThreadCommand` is registered as `$0 [project
 
 ## Registered Commands
 
-Source: the `Commands` table in `src/cli/commands.ts` plus `yargs.completion("completion", …)` in `cli-main.ts`. Subcommands are the nested `command:` strings in each file. **The command column is a gate**: `test/cli/command-surface.test.ts` reads the registrations out of the table — resolving each entry to its implementation and reading that module's own `command:` spec, so a table entry that lies about its module still fails — and fails if this table gains or loses a name. Subcommand cells and notes are not gated — they are read by people, not by the test.
+Source: the `.command(...)` list in `src/cli-main.ts` plus `yargs.completion("completion", …)`. Subcommands are the nested `command:` strings in each file. **The command column is a gate**: `test/cli/command-surface.test.ts` reads the registrations out of `cli-main.ts` and fails if this table gains or loses a name. Subcommand cells and notes are not gated — they are read by people, not by the test.
 
 | Command           | Subcommands (as registered)                                                                        | Notes                                     |
 | ----------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------- |
@@ -87,7 +85,7 @@ Not registered as top-level commands, despite files or earlier drafts: `config`,
 
 ## What this document is not
 
-It is not a CI check. Adding `src/cli/cmd/foo.ts` without registering it in `src/cli/commands.ts` does not fail a job today. A `script/check-cli-table.ts` would be a ROADMAP leftover **after** this table matches the parser — it is not one yet, and inventing the script in AGENTS.md would be a lie.
+It is not a CI check. Adding `src/cli/cmd/foo.ts` without registering it in `cli-main.ts` does not fail a job today. A `script/check-cli-table.ts` would be a ROADMAP leftover **after** this table matches the parser — it is not one yet, and inventing the script in AGENTS.md would be a lie.
 
 ## Alternatives Rejected
 
@@ -97,7 +95,7 @@ It is not a CI check. Adding `src/cli/cmd/foo.ts` without registering it in `src
 
 ## Invariants
 
-- A command exists if and only if the `Commands` table in `src/cli/commands.ts` (or the default `$0`) registers it.
+- A command exists if and only if `cli-main.ts` (or the default `$0`) registers it.
 - Fatal CLI failures set `process.exitCode = 1`.
 - The default invocation with no subcommand is the TUI.
 

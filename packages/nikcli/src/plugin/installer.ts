@@ -1,3 +1,4 @@
+import { BunProc } from "@/bun"
 import { configurePluginInstaller } from "@nikcli-ai/util/plugin-shared"
 
 /**
@@ -11,14 +12,5 @@ import { configurePluginInstaller } from "@nikcli-ai/util/plugin-shared"
  * matter of luck.
  */
 export function installPluginInstaller(): void {
-  // `@/bun` is imported inside the callback, not at module scope: this runs on
-  // every CLI invocation, while the callback only runs when a plugin actually
-  // has to be installed. Statically it cost ~16MB of RSS on every `nikcli
-  // --version` to register a function nearly no run ever calls (BunProc pulls
-  // in effect's Schema). Configuration still happens eagerly, so the ordering
-  // guarantee this function exists for is unchanged.
-  configurePluginInstaller(async (pkg, version) => {
-    const { BunProc } = await import("@/bun")
-    return BunProc.install(pkg, version)
-  })
+  configurePluginInstaller((pkg, version) => BunProc.install(pkg, version))
 }

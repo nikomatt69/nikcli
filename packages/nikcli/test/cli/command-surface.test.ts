@@ -5,12 +5,8 @@ import path from "path"
 /**
  * The registration invariant of the CLI surface
  * ([specs/v2/cli-command-surface.md](../../../../specs/v2/cli-command-surface.md)):
- * a file under `src/cli/cmd/` is not a command until `src/cli/commands.ts`
- * registers it, and the document's table is the list of what is registered.
- *
- * Registration moved out of `cli-main.ts` into that table when the commands
- * became lazily loaded (see `src/cli/cmd/lazy.ts`); the invariant is unchanged,
- * only the file that holds it.
+ * a file under `src/cli/cmd/` is not a command until `cli-main.ts` registers
+ * it, and the document's table is the list of what is registered.
  *
  * Read from source rather than by running `--help`: the help subprocess is
  * already known to time out under parallel load, and a coherence check that
@@ -19,7 +15,6 @@ import path from "path"
 
 const packageRoot = path.join(import.meta.dir, "../..")
 const mainPath = path.join(packageRoot, "src/cli-main.ts")
-const tablePath = path.join(packageRoot, "src/cli/commands.ts")
 const docPath = path.join(packageRoot, "../../specs/v2/cli-command-surface.md")
 
 /** `command: "mission <id>"` → `mission`; `$0 [project]` keeps its `$0`. */
@@ -36,18 +31,28 @@ async function readModule(relative: string): Promise<{ file: string; source: str
   throw new Error(`no module for ${relative}`)
 }
 
-/** Every top-level command yargs is given, read out of `src/cli/commands.ts`. */
+/** Every top-level command yargs is given, read out of `cli-main.ts`. */
 async function registeredCommands(): Promise<Map<string, string>> {
-  const table = await fs.readFile(tablePath, "utf8")
-  // Each entry ends in its loader: `async () => (await import("./cmd/x")).XCommand`.
-  const entries = [...table.matchAll(/await import\("([^"]+)"\)\)\.(\w+)/g)].map((match) => ({
-    relative: match[1]!.replace("./cmd/", "./cli/cmd/"),
-    identifier: match[2]!,
-  }))
-  expect(entries.length).toBeGreaterThan(20)
+  const main = await fs.readFile(mainPath, "utf8")
+  const identifiers = [...main.matchAll(/\.command\((\w+)\)/g)].map((match) => match[1])
+  expect(identifiers.length).toBeGreaterThan(20)
+
+  const modulePaths = new Map<string, string>()
+  for (const statement of main.matchAll(/import\s*\{([^}]+)\}\s*from\s*"([^"]+)"/g)) {
+    for (const clause of statement[1].split(",")) {
+      const local = clause
+        .trim()
+        .split(/\s+as\s+/)
+        .pop()
+        ?.trim()
+      if (local) modulePaths.set(local, statement[2])
+    }
+  }
 
   const commands = new Map<string, string>()
-  for (const { identifier, relative } of entries) {
+  for (const identifier of identifiers) {
+    const relative = modulePaths.get(identifier)
+    if (!relative) throw new Error(`${identifier} is registered but never imported`)
     const { source } = await readModule(relative)
     const declaration = source.indexOf(`export const ${identifier}`)
     if (declaration < 0) throw new Error(`${relative} does not export ${identifier}`)
