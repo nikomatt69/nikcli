@@ -6,6 +6,7 @@ import {
   FileText,
   ListChecks,
   MonitorPlay,
+  Activity,
   PencilLine,
   Rocket,
   Shrink,
@@ -32,6 +33,9 @@ type Props = {
   onOpenPreview?(): void
   previewCount?: number
   onInspect?(): void
+  onOpenActivity?(): void
+  /** Background runs in this session, shown on the activity row. */
+  activityCount?: number
 }
 
 type RowProps = {
@@ -169,6 +173,8 @@ export function SessionActionsSheet({
   onOpenPreview,
   previewCount = 0,
   onInspect,
+  onOpenActivity,
+  activityCount = 0,
 }: Props) {
   const { palette, isDark } = useAppTheme()
 
@@ -209,6 +215,20 @@ export function SessionActionsSheet({
             label="Inspect session"
             description="Todos, MCP, LSP, context, and modified files"
             onPress={onInspect}
+            tone="accent"
+          />
+        ) : null}
+
+        {onOpenActivity ? (
+          <SheetRow
+            Icon={Activity}
+            label="Background activity"
+            description={
+              activityCount > 0
+                ? `${activityCount} ${activityCount === 1 ? "run" : "runs"}, with transcripts`
+                : "Sub-agents and detached shell runs"
+            }
+            onPress={onOpenActivity}
             tone="accent"
           />
         ) : null}

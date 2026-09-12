@@ -843,7 +843,11 @@ export function SessionComposer({
               keyboardAppearance={isDark ? "dark" : "light"}
               returnKeyType="default"
               placeholder={
-                cleaned ? "Worktree cleaned up" : mode === "plan" ? "What would you like to plan?" : "Plan, ask, build…"
+                cleaned
+                  ? "Worktree cleaned up"
+                  : mode === "plan"
+                    ? "What would you like to plan?"
+                    : "Type / for commands"
               }
               placeholderTextColor={palette.muted}
               style={{
