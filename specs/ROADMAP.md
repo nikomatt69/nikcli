@@ -157,12 +157,32 @@ to P0. Leave any unpassed spec proposed/in-progress rather than claiming the arc
    `BASELINE_MAX_REGRESSION`). Collect the 30-warm / 10-cold baseline on a compiled binary
    and ratify candidate budgets before optimization. No production behavior changes.
 
-   **Not yet ratified.** A 12-warm / 3-cold run on 2026-09-12 (darwin/arm64, 8 cpu, load 4.1→4.8,
-   `71ac3bd2e` dirty) measured warm firstPaint median 4817ms / p95 5659ms and warm RSS median 570MB.
-   A 30-warm attempt on the same machine degraded from 3.9s to 14.7s after sample 24 under load 6.6
-   and a cold sample never painted, so neither run is the reviewed baseline this phase asks for.
-   One observation holds across both: `firstPaint` and `usablePrompt` differ by under a millisecond
-   in every sample, so on this binary the second metric carries no information the first does not.
+   **Not ratifiable yet, and the reason turned out to be a defect.** On 2026-09-12 the compiled
+   binary was observed to **intermittently never paint** — roughly one startup in three to eight,
+   reproduced repeatedly at the same load as runs that finished in 4.5-5.8s, so not contention.
+
+   A hung instance was sampled. Its last output before going silent is the terminal capability
+   negotiation `@opentui/core` performs at renderer creation: OSC 10/11 and OSC 4 colour queries,
+   XTGETTCAP, the OSC 99 notification probe, the iTerm2 OSC 1337 feature query, the Kitty graphics
+   query `ESC_Gi=31337`, and the OSC 66 text-sizing probes. Then nothing, for as long as it is left
+   running, with the main thread parked in `kevent64` — idle, waiting for an event, not spinning.
+
+   So the startup blocks on replies a terminal is supposed to send. Two things that look like
+   workarounds are not: `--print-logs` appears to fix it but only defeats the probe's
+   "has it painted" threshold, because the log text itself crosses it; and forcing
+   `OPENTUI_GRAPHICS` / `OPENTUI_NOTIFICATIONS` / `OTUI_PALETTE_IDLE_TIMEOUT_MS` still hangs, with
+   the same query block as the last output.
+
+   Fix the hang before ratifying anything. A budget averaged over the samples that _did_ paint
+   certifies a startup that sometimes does not happen. Two observations stand regardless: warm
+   firstPaint sits around 4.8-5.2s median with RSS around 500-620MB, and `firstPaint` and
+   `usablePrompt` differ by under a millisecond in every sample, so on this binary the second metric
+   carries no information the first does not.
+
+   Fix the hang first; the baseline is a measurement of it until then. Two observations stand
+   regardless: warm firstPaint sits around 4.8-5.2s median with RSS around 500-620MB, and
+   `firstPaint` and `usablePrompt` differ by under a millisecond in every sample, so on this binary
+   the second metric carries no information the first does not.
 
 2. EOT-02: type one `runService` caller chain without widening requirements; exercise finalizers and concurrent instances.
 3. EOT-10: characterize standalone TUI-config 401, malformed response, and offline failure; forbid empty-config success.
@@ -200,6 +220,7 @@ its release gate. Nothing here is marked complete.
 | ------ | --------------------------------------------------------------------------------------------- | ----------------------- |
 | EOT-01 | One probe-environment block shared by both probes; `loadavg1` added                           | `5aa643dc8`             |
 | EOT-01 | Probe progress moved to stderr; `BASELINE` comparison with an opt-in regression gate          | working tree            |
+| EOT-01 | `repro:startup-hang`: the intermittent never-paints startup, reproduced on demand             | working tree            |
 | EOT-02 | `runService` requirement typing; `any` and the cast removed                                   | `3ec56934`              |
 | EOT-02 | `runPromiseWithLayer` requires `R extends ROut`; four latent missing-service runs fixed       | working tree            |
 | EOT-03 | `useAttempts`: supersession guard for restartable dialog flows                                | `4495840e1`             |
@@ -226,6 +247,7 @@ its release gate. Nothing here is marked complete.
 | EOT-13 | `span-schema.ts`: fixed attribute schema, forbidden segments, redact-then-truncate            | `3ec56934`              |
 | EOT-13 | Span `statusMessage` redacted; `nku_` and opaque bearer tokens added to the redactor          | working tree            |
 | EOT-14 | v2 manifest is the v1/v2 discriminator; host-range and capability checks at load              | working tree            |
+| EOT-14 | Per-plugin activation budget: one wedged `setup` no longer holds the whole startup            | working tree            |
 | EOT-15 | `detectSequenceGap`: a replay resuming across a compacted range is now reported               | `34ed8b55a`             |
 | EOT-15 | A projection replayed across a hole is no longer persisted as a snapshot                      | working tree            |
 | EOT-16 | LSP and provider refreshes scoped to the active workspace                                     | `41b718d16`             |

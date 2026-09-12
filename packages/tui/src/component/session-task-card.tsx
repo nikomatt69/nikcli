@@ -57,10 +57,10 @@ export function SessionTaskCard(props: {
 }) {
   const { theme } = useTheme();
   const chrome = createMemo(() => sessionTaskChrome(props.kind));
-  const badgeFg = createMemo(() => selectedForeground(theme, badgeBg()));
   const badgeBg = createMemo(() =>
     props.kind === "background" ? theme.status.info.fg : props.color,
   );
+  const badgeFg = createMemo(() => selectedForeground(theme, badgeBg()));
   const railColor = createMemo(() =>
     props.kind === "background" ? theme.status.info.fg : props.color,
   );
