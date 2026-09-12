@@ -2,9 +2,13 @@ import { Option } from "effect"
 import { Runtime } from "../../framework/runtime"
 import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
+import { MobileAuth } from "@/mobile/auth"
+import {
+  normalizePublicUrl,
+} from "@nikcli-ai/util/mobile-pairing"
+import { printPairing } from "./shared"
 
 export default Runtime.handler(Commands.commands["mobile"].commands["pair"], async (input) => {
-  const { MobilePairCommand } = await import("@/cli/cmd/mobile")
   const args = {
     _: [],
     $0: "nikcli",
@@ -16,5 +20,16 @@ export default Runtime.handler(Commands.commands["mobile"].commands["pair"], asy
     "expiryDays": Option.getOrUndefined(input["expiry-days"]),
     "directory": Option.getOrUndefined(input["directory"]),
   }
-  await MobilePairCommand.handler(args)
+  const created = await MobileAuth.create({
+    name: String(args.name || "iphone"),
+    expiresInDays: args.expiryDays ? Number(args.expiryDays) : undefined,
+  })
+  const serverUrl = normalizePublicUrl(String(args.publicUrl))
+  if (!serverUrl) throw new Error("Invalid --public-url")
+  const qr = await printPairing({
+    serverUrl,
+    token: created.token,
+    directory: args.directory ? String(args.directory) : process.cwd(),
+  })
+  console.log(qr)
 })

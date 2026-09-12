@@ -1,13 +1,14 @@
 import { Runtime } from "../../framework/runtime"
-import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
+import { withInstanceAsync } from "@/effect"
+import { ensureRemoteService, shareSession } from "./shared"
 
-export default Runtime.handler(Commands.commands["remote"].commands["share"], async (input) => {
-  const { RemoteShareCommand } = await import("@/cli/cmd/remote")
-  const args = {
-    _: [],
-    $0: "nikcli",
-    "--": passthrough(),
-  }
-  await RemoteShareCommand.handler(args)
+export default Runtime.handler(Commands.commands["remote"].commands["share"], async (_input) => {
+  
+  await withInstanceAsync({ directory: process.cwd() }, async () => {
+    {
+      await ensureRemoteService()
+      await shareSession()
+    }
+  })
 })

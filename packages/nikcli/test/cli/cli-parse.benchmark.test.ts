@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test"
 import { Provider } from "@/provider/provider"
 import { FormatError, FormatUnknownError } from "@nikcli-ai/util/cli-error"
-import { parseGitHubRemote } from "@/cli/cmd/github"
+import { parseGitHubRemote } from "@/util/repository"
 import { flushBenchmarkRun, recordBenchmark } from "../benchmarks/runner"
 
 afterAll(async () => {

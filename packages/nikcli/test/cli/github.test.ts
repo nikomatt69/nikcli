@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import type { MessageV2 } from "@/session/message-v2"
-import { extractResponseText, parseGitHubRemote } from "@/cli/cmd/github"
+import { extractResponseText, parseGitHubRemote } from "@/cli/handlers/github/shared"
 
 describe("parseGitHubRemote", () => {
   it("parses https URL with and without .git", () => {

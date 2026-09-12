@@ -44,18 +44,14 @@ declarations and held to them by the parity harness.
 - `src/cli/framework/yargs-bridge.ts` — calls a yargs handler from an effect one.
   Leaves export their handler; a subcommand's lives inside the parent's `builder`
   closure and is reached by replaying that builder against a recorder.
-- `src/cli/commands.ts`, `src/cli/handlers/**`, `src/cli/handlers.generated.ts` —
-  **generated** by `script/generate-cli.ts`. That script runs every yargs builder
-  against a recording proxy and renders the result; regenerate after changing a
-  command, then run the parity test.
+- `src/cli/commands.ts` — the spec tree, and `src/cli/handlers.ts` — the loader
+  tree. Both began as generated output and are now the source: edit them directly.
+- `src/cli/handlers/**` — one file per command, holding that command's body. A
+  module's helpers sit in a `shared.ts` beside the handlers that use them.
 - `src/cli/global-flags.ts` — the flags every command accepts, plus `normalizeArgv`.
-- `src/cli/registry.ts` — every command module, as data. The list used to be
-  implicit in `cli-main.ts`'s chain of `.command(...)` calls, which the generator
-  and both parity tests had to parse with regexes.
 - `src/cli/main-effect.ts` — **the entrypoint**, including the bootstrap yargs ran
   in a root `.middleware()`.
-- `src/cli/framework/command-bridge.ts` — calls a command's body from its
-  generated handler.
+- `src/cli/framework/args.ts` — the `--` passthrough the bodies expect.
 
 **yargs is gone.** `cli-main.ts`, `cli/cmd/lazy.ts` and the dependency are
 deleted; it survives in `node_modules` only as a transitive dependency of
@@ -72,10 +68,24 @@ signature would otherwise widen every nested builder to `any`. Three sites neede
 a type annotation that yargs used to infer from its builder chain
 (`analytics`'s two range handlers, one `split` callback in `agent`).
 
-Effect owns parsing, help, routing and completion. The ~12,900 lines of command
-bodies stay where they are and run through the bridge, so parsing and
-implementation move in separate steps — otherwise the parity harness would be
-comparing a rewrite against the original instead of comparing two parsers.
+Effect owns parsing, help, routing and completion, and **`src/cli/cmd/**` is
+gone**: each handler holds the body it runs. What is left in that directory is
+`cmd.ts` and `argv.ts` (the command-module types, still used by two modules under
+`src/session/`) and `tui/worker.ts` plus `tui/plugin/host-local.ts`, which were
+never commands.
+
+Getting there needed every command object to be reachable as a named export, and
+only 42 of 100 subcommands were. The rest were module-level consts missing the
+`export` keyword (35, a one-word change each), objects defined inline inside a
+parent's `builder` (11, hoisted to exported consts), or declared through
+`.command(name, describe, builder, handler)` (2, in `analytics`, converted to
+command objects). A subcommand is also frequently exported from a *sibling*
+module — `debug/file.ts` under `debug/index.ts` — so the generator resolves
+owners by indexing every exported command object in `src/cli/cmd/**` by identity,
+not by looking only at the parent's module.
+
+The bodies themselves did not move. They are still ~12,900 lines under
+`cli/cmd/**`; what changed is that nothing discovers them at runtime any more.
 
 Verified by running it: 45 subcommands in `--help`; a leaf (`heap`); a group
 member (`service status`); and a nested multi-word path (`mobile token list`,
@@ -170,7 +180,7 @@ the machine running the suite. It now walks the builders itself to the leaf
 module and registers that leaf alone, with its own handler, in a fresh parser —
 there is nothing nested for yargs to dispatch into.
 
-## Three places effect and yargs disagree
+## Four places effect and yargs disagree
 
 Each was found by running the CLI, and each is handled explicitly rather than
 papered over.
@@ -191,23 +201,47 @@ folds the value before the parser sees it.
 
 **`--` is not populated.** yargs did it via
 `parserConfiguration({"populate--": true})`, and `run` and `goal` append those
-tokens to their message. The bridge reconstructs it from the real argv in one
-place rather than in each generated handler.
+tokens to their message. `framework/args.ts` reconstructs it from the real argv.
+
+**Nothing exits on its own.** yargs' entrypoint ended in
+`finally { process.exit() }` — "some subprocesses don't react properly to
+SIGTERM… explicitly exit to avoid any hanging subprocesses". Ported without it,
+`analytics show` printed its output and then hung forever on an open database
+handle. `main-effect.ts` exits after the command returns, as opencode's
+entrypoint does. Worth knowing because the symptom is not a failure: the command
+works, it just never gives the shell back.
+
+**Both spellings of every flag.** yargs filled `keep-config` *and* `keepConfig`,
+and the bodies read whichever the author preferred — `uninstall`'s args type
+requires the camelCase ones. Generated handlers emit both.
 
 ## Order of work
 
 1. ~~Framework, spec tree, handlers, parity harnesses.~~ Done.
 2. ~~Global flags, bootstrap, entrypoint flip.~~ Done.
 3. ~~Delete `cli-main.ts`, `cli/cmd/lazy.ts` and the yargs dependency.~~ Done.
-4. Move the command bodies from `src/cli/cmd/**` into `src/cli/handlers/**`, a
-   batch at a time, deleting each `delegate()` call as its body arrives, and with
-   it the need for `command-bridge.ts` and `script/generate-cli.ts`. The parity
-   harnesses stay useful throughout: they compare declarations and parsed values,
-   neither of which moves.
+4. ~~Remove the bridge: every handler imports its body directly.~~ Done.
+5. ~~Move the bodies into the handlers and delete `cli/cmd/**`.~~ Done.
 
-   The blocker is not the leaves — 27 top-level commands export their handler and
-   move mechanically. It is the 19 groups: their subcommand handlers are closures
-   inside the parent's `builder`, capturing module scope, which is why the bridge
-   reaches them by replaying that builder rather than importing them. Each group
-   has to be restructured so its subcommands are real exports; that is per-file
-   work, not a transform.
+The generator, `registry.ts` and both parity harnesses are deleted with it: they
+compared the effect tree against yargs declarations, and there are none left to
+compare against. That scaffolding was only ever correct while both systems stood.
+
+### What the move cost
+
+Three couplings had to be cut first, because `cli/cmd/**` was not a leaf
+directory: `server/httpapi/doctor.ts` borrowed `runDoctorChecks` (now
+`src/doctor/checks.ts`, its own module), `goal` called `RunCommand.handler` (now
+`runWithArgs`, exported from `handlers/run.ts`), and two dead modules under
+`src/session/` still import `cmd()`.
+
+Two parameters were found missing from the generated tree: `remote attach
+<sessionId>` and `remote [command]` declare their positionals **only in the yargs
+command string**, never through `.positional()`, so the generator — which read
+`.positional()` calls — never saw them. They are declared in `commands.ts` now.
+
+Two behaviours were preserved deliberately rather than inherited by accident:
+`locale` reads `args["auto-detect"]`, which only existed because yargs' negation
+rule turned `--no-auto-detect` into it, so the handler derives it; and `--models`
+had no yargs `type`, so a bare flag arrived as `true` — effect declares it a
+string, so "all models" is now any non-numeric value.

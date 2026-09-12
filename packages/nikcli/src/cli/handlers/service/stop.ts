@@ -1,13 +1,11 @@
 import { Runtime } from "../../framework/runtime"
-import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
+import { UI } from "@/cli/ui"
+import { service } from "./shared"
 
-export default Runtime.handler(Commands.commands["service"].commands["stop"], async (input) => {
-  const { StopCommand } = await import("@/cli/cmd/service")
-  const args = {
-    _: [],
-    $0: "nikcli",
-    "--": passthrough(),
-  }
-  await StopCommand.handler(args)
+export default Runtime.handler(Commands.commands["service"].commands["stop"], async (_input) => {
+  
+  const BackgroundService = await service()
+  const stopped = await BackgroundService.stop()
+  UI.println(stopped ? "nikcli service stopped" : "nikcli service was not running")
 })

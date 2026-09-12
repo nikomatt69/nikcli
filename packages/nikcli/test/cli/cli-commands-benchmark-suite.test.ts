@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { flushBenchmarkRun, recordBenchmark, recordVisualArtifact } from "../benchmarks/runner"
+import { Commands } from "@/cli/commands"
 
 type CommandLike = {
   command: string
@@ -22,100 +23,157 @@ type CommandExport = {
   command: CommandLike
 }
 
+/**
+ * Every command implementation, for the import-cost benchmark below.
+ *
+ * These used to be the `cli/cmd/**` modules. The bodies moved into their
+ * handlers, so this is the same measurement of the same code.
+ */
 const cliModulePaths = [
-  "@/cli/cmd/account",
-  "@/cli/cmd/ads",
-  "@/cli/cmd/agent",
-  "@/cli/cmd/acp",
-  "@/cli/cmd/auth",
-  "@/cli/cmd/connectors",
-  "@/cli/cmd/companion",
-  "@/cli/cmd/debug/agent",
-  "@/cli/cmd/debug/config",
-  "@/cli/cmd/debug/file",
-  "@/cli/cmd/debug/index",
-  "@/cli/cmd/debug/lsp",
-  "@/cli/cmd/debug/scrap",
-  "@/cli/cmd/debug/skill",
-  "@/cli/cmd/debug/snapshot",
-  "@/cli/cmd/export",
-  "@/cli/cmd/generate",
-  "@/cli/cmd/github",
-  "@/cli/cmd/image-model",
-  "@/cli/cmd/import",
-  "@/cli/cmd/lovable",
-  "@/cli/cmd/models",
-  "@/cli/cmd/mcp",
-  "@/cli/cmd/plug",
-  "@/cli/cmd/pr",
-  "@/cli/cmd/mobile",
-  "@/cli/cmd/rag-model",
-  "@/cli/cmd/remote",
-  "@/cli/cmd/routine",
-  "@/cli/cmd/run",
-  "@/cli/cmd/session",
-  "@/cli/cmd/speak-model",
-  "@/cli/cmd/stats",
-  "@tui/ui/spinner",
-  "@/cli/cmd/tui/attach",
-  "@tui/context/editor",
-  "@tui/context/directory",
-  "@tui/context/event",
-  "@tui/context/plugin-keybinds",
-  "@tui/feature-plugins/system/plugin-catalog",
-  "@tui/routes/changes/format-comments",
-  "@tui/routes/tree/session-activity-line",
-  "@tui/routes/tree/session-status",
-  "@tui/routes/tree/tree-rows",
-  "@tui/plugin/index",
-  "@tui/plugin/internal",
-  "@tui/plugin/runtime",
-  "@tui/component/mcp-catalog",
-  "@tui/component/textarea-keybindings",
-  "@tui/thread",
-  "@tui/worker",
-  "@tui/util/clipboard",
-  "@tui/util/editor",
-  "@tui/util/model",
-  "@tui/util/provider-origin",
-  "@tui/util/revert-diff",
-  "@tui/util/scroll",
-  "@tui/util/signal",
-  "@tui/util/sound",
-  "@tui/util/terminal",
-  "@tui/util/timeline-style-text",
-  "@tui/util/transcript",
-  "@tui/util/usage",
-  "@tui/util/selection",
-  "@/cli/cmd/uninstall",
-  "@/cli/cmd/upgrade",
-  "@/cli/cmd/web",
-  "@/cli/cmd/workspace-serve",
-  "@/cli/cmd/serve",
-  "@/cli/cmd/heap",
+  "@/cli/handlers/account/list",
+  "@/cli/handlers/account/login",
+  "@/cli/handlers/account/logout",
+  "@/cli/handlers/account/orgs",
+  "@/cli/handlers/account/shared",
+  "@/cli/handlers/account/switch",
+  "@/cli/handlers/acp",
+  "@/cli/handlers/ads/create",
+  "@/cli/handlers/ads/disable",
+  "@/cli/handlers/ads/enable",
+  "@/cli/handlers/ads/list",
+  "@/cli/handlers/ads/remove",
+  "@/cli/handlers/ads/shared",
+  "@/cli/handlers/ads/toggle",
+  "@/cli/handlers/agent/create",
+  "@/cli/handlers/agent/list",
+  "@/cli/handlers/agent/shared",
+  "@/cli/handlers/analytics/publish",
+  "@/cli/handlers/analytics/shared",
+  "@/cli/handlers/analytics/show",
+  "@/cli/handlers/api",
+  "@/cli/handlers/artifact/list",
+  "@/cli/handlers/artifact/login",
+  "@/cli/handlers/artifact/logout",
+  "@/cli/handlers/artifact/shared",
+  "@/cli/handlers/attach",
+  "@/cli/handlers/auth/list",
+  "@/cli/handlers/auth/login",
+  "@/cli/handlers/auth/logout",
+  "@/cli/handlers/auth/shared",
+  "@/cli/handlers/bot/add",
+  "@/cli/handlers/bot/list",
+  "@/cli/handlers/bot/shared",
+  "@/cli/handlers/bot/start",
+  "@/cli/handlers/bot/stop",
+  "@/cli/handlers/bot/webhook",
+  "@/cli/handlers/brain-model",
+  "@/cli/handlers/companion/open",
+  "@/cli/handlers/companion/serve",
+  "@/cli/handlers/connectors/add",
+  "@/cli/handlers/connectors/auth",
+  "@/cli/handlers/connectors/list",
+  "@/cli/handlers/connectors/logout",
+  "@/cli/handlers/connectors/shared",
+  "@/cli/handlers/debug/agent",
+  "@/cli/handlers/debug/config",
+  "@/cli/handlers/debug/file/list",
+  "@/cli/handlers/debug/file/read",
+  "@/cli/handlers/debug/file/search",
+  "@/cli/handlers/debug/file/shared",
+  "@/cli/handlers/debug/file/status",
+  "@/cli/handlers/debug/file/tree",
+  "@/cli/handlers/debug/lsp/diagnostics",
+  "@/cli/handlers/debug/lsp/document-symbols",
+  "@/cli/handlers/debug/lsp/shared",
+  "@/cli/handlers/debug/lsp/symbols",
+  "@/cli/handlers/debug/paths",
+  "@/cli/handlers/debug/scrap",
+  "@/cli/handlers/debug/search/content",
+  "@/cli/handlers/debug/search/files",
+  "@/cli/handlers/debug/search/tree",
+  "@/cli/handlers/debug/shared",
+  "@/cli/handlers/debug/skill",
+  "@/cli/handlers/debug/snapshot/diff",
+  "@/cli/handlers/debug/snapshot/patch",
+  "@/cli/handlers/debug/snapshot/shared",
+  "@/cli/handlers/debug/snapshot/track",
+  "@/cli/handlers/debug/wait",
+  "@/cli/handlers/default",
+  "@/cli/handlers/doctor",
+  "@/cli/handlers/export",
+  "@/cli/handlers/generate",
+  "@/cli/handlers/github/install",
+  "@/cli/handlers/github/run",
+  "@/cli/handlers/github/shared",
+  "@/cli/handlers/goal",
+  "@/cli/handlers/heap",
+  "@/cli/handlers/image-model",
+  "@/cli/handlers/import",
+  "@/cli/handlers/locale",
+  "@/cli/handlers/mcp/add",
+  "@/cli/handlers/mcp/auth/list",
+  "@/cli/handlers/mcp/debug",
+  "@/cli/handlers/mcp/list",
+  "@/cli/handlers/mcp/logout",
+  "@/cli/handlers/mcp/shared",
+  "@/cli/handlers/mission/cancel",
+  "@/cli/handlers/mission/delete",
+  "@/cli/handlers/mission/get",
+  "@/cli/handlers/mission/list",
+  "@/cli/handlers/mission/new",
+  "@/cli/handlers/mission/pause",
+  "@/cli/handlers/mission/resume",
+  "@/cli/handlers/mission/shared",
+  "@/cli/handlers/mission/start",
+  "@/cli/handlers/mobile/pair",
+  "@/cli/handlers/mobile/serve",
+  "@/cli/handlers/mobile/shared",
+  "@/cli/handlers/mobile/token/list",
+  "@/cli/handlers/mobile/token/revoke",
+  "@/cli/handlers/models",
+  "@/cli/handlers/plugin",
+  "@/cli/handlers/pr",
+  "@/cli/handlers/quickstart",
+  "@/cli/handlers/remote/attach",
+  "@/cli/handlers/remote/share",
+  "@/cli/handlers/remote/shared",
+  "@/cli/handlers/remote/start",
+  "@/cli/handlers/remote/status",
+  "@/cli/handlers/remote/stop",
+  "@/cli/handlers/routine/create",
+  "@/cli/handlers/routine/delete",
+  "@/cli/handlers/routine/get",
+  "@/cli/handlers/routine/list",
+  "@/cli/handlers/routine/pause",
+  "@/cli/handlers/routine/resume",
+  "@/cli/handlers/routine/run",
+  "@/cli/handlers/routine/shared",
+  "@/cli/handlers/run",
+  "@/cli/handlers/serve",
+  "@/cli/handlers/service/get",
+  "@/cli/handlers/service/restart",
+  "@/cli/handlers/service/set",
+  "@/cli/handlers/service/shared",
+  "@/cli/handlers/service/start",
+  "@/cli/handlers/service/status",
+  "@/cli/handlers/service/stop",
+  "@/cli/handlers/service/unset",
+  "@/cli/handlers/session/list",
+  "@/cli/handlers/session/shared",
+  "@/cli/handlers/speak-model",
+  "@/cli/handlers/stats",
+  "@/cli/handlers/sync/connect",
+  "@/cli/handlers/sync/disconnect",
+  "@/cli/handlers/sync/shared",
+  "@/cli/handlers/sync/status",
+  "@/cli/handlers/sync/token/create",
+  "@/cli/handlers/teleport",
+  "@/cli/handlers/uninstall",
+  "@/cli/handlers/upgrade",
+  "@/cli/handlers/usage",
+  "@/cli/handlers/web",
+  "@/cli/handlers/workspace-serve",
 ] as const
-
-function isCommandLike(value: unknown): value is CommandLike {
-  if (!value || typeof value !== "object") return false
-  const candidate = value as Record<string, unknown>
-  if (typeof candidate.command !== "string") return false
-  if (!candidate.command.trim()) return false
-  if (
-    candidate.describe !== undefined &&
-    typeof candidate.describe !== "string" &&
-    typeof candidate.describe !== "function"
-  )
-    return false
-  if (
-    candidate.builder !== undefined &&
-    typeof candidate.builder !== "object" &&
-    typeof candidate.builder !== "function"
-  )
-    return false
-  if (candidate.handler !== undefined && typeof candidate.handler !== "function") return false
-  if (candidate.aliases !== undefined && !Array.isArray(candidate.aliases)) return false
-  return true
-}
 
 type ModuleSummary = {
   modulePath: string
@@ -145,16 +203,20 @@ describe("CLI command suite", () => {
       }),
     )
 
-    commandExports = moduleImports.flatMap((entry) => {
-      if (!entry.module) return []
-      return Object.entries(entry.module)
-        .filter(([, value]) => isCommandLike(value))
-        .map(([exportName, value]) => ({
-          modulePath: entry.modulePath,
-          exportName,
-          command: value as CommandLike,
-        }))
-    })
+    // A command is a node in the spec tree, not an export that happens to look
+    // like one: `cli/commands.ts` is where a command's shape is declared.
+    const walk = (node: any, parents: string[]): CommandExport[] => {
+      const path = [...parents, node.name].filter(Boolean)
+      const self: CommandExport[] = path.length
+        ? [{
+            modulePath: "@/cli/commands",
+            exportName: path.join(" "),
+            command: { command: node.spec.name, describe: node.spec.description } as CommandLike,
+          }]
+        : []
+      return [...self, ...Object.values(node.commands ?? {}).flatMap((c) => walk(c, path))]
+    }
+    commandExports = walk(Commands, [])
 
     modulesSummary = moduleImports.map((entry) => {
       const commands = commandExports.filter((item) => item.modulePath === entry.modulePath)
@@ -212,7 +274,9 @@ describe("CLI command suite", () => {
       }
 
       expect(exportName).toBeTruthy()
-      expect(modulePath).toContain("cmd")
+      // Every contract now comes from the one spec tree rather than from a
+      // per-command module under `cli/cmd`.
+      expect(modulePath).toBe("@/cli/commands")
     }
   })
 

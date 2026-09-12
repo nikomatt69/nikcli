@@ -119,15 +119,17 @@ describe("Homebrew installation support", () => {
   })
 
   it("exits with code 1 when upgrade fails", async () => {
-    const upgradeSource = await readSrc("packages/nikcli/src/cli/cmd/upgrade.ts")
+    const upgradeSource = await readSrc("packages/nikcli/src/cli/handlers/upgrade.ts")
     expect(upgradeSource).toMatch(/if\s*\(\s*err\s*\)[\s\S]*process\.exit\(1\)/)
   })
 
   it("includes brew in the upgrade command choices", async () => {
-    const upgradeSource = await readSrc("packages/nikcli/src/cli/cmd/upgrade.ts")
+    // The `--method` choices are a declaration, and declarations are in the
+    // spec tree now rather than beside the body that reads them.
+    const upgradeSource = await readSrc("packages/nikcli/src/cli/commands.ts")
     expect(upgradeSource).toContain('"brew"')
 
-    const uninstallSource = await readSrc("packages/nikcli/src/cli/cmd/uninstall.ts")
+    const uninstallSource = await readSrc("packages/nikcli/src/cli/handlers/uninstall.ts")
     expect(uninstallSource).toContain("brew uninstall")
   })
 })
@@ -285,7 +287,7 @@ describe("Update dialog wiring (cross-platform)", () => {
     dispose()
 
     const [thread, app] = await Promise.all([
-      readSrc("packages/nikcli/src/cli/cmd/tui/thread.ts"),
+      readSrc("packages/nikcli/src/cli/handlers/default.ts"),
       readSrc("packages/tui/src/app.tsx"),
     ])
     expect(thread).toContain('client.call("checkUpgrade"')

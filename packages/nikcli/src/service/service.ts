@@ -327,7 +327,7 @@ export namespace BackgroundService {
         stdout: "ignore",
         stderr: "ignore",
         detached: true,
-        env: { ...process.env, ...(settings.env ?? {}) },
+        env: { ...process.env, ...settings.env },
       })
       child.unref()
 

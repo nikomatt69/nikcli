@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { runSyncConnect, type SyncConnectDeps } from "@/cli/cmd/sync"
+import { runSyncConnect, type SyncConnectDeps } from "@/cli/handlers/sync/shared"
 import type { InstanceContext } from "@/effect"
 
 /**

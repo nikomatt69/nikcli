@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { fillPath, resolveRoute, suggest } from "@/cli/cmd/api"
+import { fillPath, resolveRoute, suggest } from "@/cli/handlers/api"
 import { publicRoutes, type PublicRoute } from "@/server/httpapi/inventory"
 
 /**

@@ -9,7 +9,7 @@ import {
   shouldTerminateWorker,
   shutdownWorker,
   validateSession,
-} from "@/cli/cmd/tui/thread"
+} from "@/cli/handlers/default"
 import { Process } from "@nikcli-ai/util/process"
 
 describe("TUI thread bootstrap", () => {

@@ -1,14 +1,28 @@
 import { Runtime } from "../../../framework/runtime"
 import { passthrough } from "../../../framework/args"
 import { Commands } from "../../../commands"
+import { LSP } from "@/lsp"
+import { bootstrap } from "@/cli/bootstrap"
+import { Log } from "@nikcli-ai/util/log"
+import { EOL } from "os"
+import { Effect } from "effect"
+import { runLSP } from "./shared"
 
 export default Runtime.handler(Commands.commands["debug"].commands["lsp"].commands["document-symbols"], async (input) => {
-  const { DocumentSymbolsCommand } = await import("@/cli/cmd/debug/lsp")
   const args = {
     _: [],
     $0: "nikcli",
     "--": passthrough(),
     "uri": input["uri"],
   }
-  await DocumentSymbolsCommand.handler(args)
+  await bootstrap(process.cwd(), async () => {
+    using _ = Log.Default.time("document-symbols")
+    const results = await runLSP(
+      Effect.gen(function* () {
+        const lsp = yield* LSP.Service
+        return yield* lsp.documentSymbol(args.uri)
+      }),
+    )
+    process.stdout.write(JSON.stringify(results, null, 2) + EOL)
+  })
 })

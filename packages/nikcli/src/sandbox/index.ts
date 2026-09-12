@@ -4,7 +4,6 @@ import fs from "fs/promises"
 import { Log } from "@nikcli-ai/util/log"
 import { Flag } from "@nikcli-ai/util/flag"
 import { bunUtils } from "@/bun"
-import { Instance } from "../project/instance"
 import { InstanceState } from "@/effect"
 
 /**

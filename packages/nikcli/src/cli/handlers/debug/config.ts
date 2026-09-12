@@ -1,13 +1,27 @@
 import { Runtime } from "../../framework/runtime"
-import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
+import { EOL } from "os"
+import { Config } from "@/config/config"
+import { bootstrap } from "@/cli/bootstrap"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
-export default Runtime.handler(Commands.commands["debug"].commands["config"], async (input) => {
-  const { ConfigCommand } = await import("@/cli/cmd/debug/config")
-  const args = {
-    _: [],
-    $0: "nikcli",
-    "--": passthrough(),
-  }
-  await ConfigCommand.handler(args)
+export function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
+
+export default Runtime.handler(Commands.commands["debug"].commands["config"], async (_input) => {
+  
+  await bootstrap(process.cwd(), async () => {
+    const config = await configGet()
+    process.stdout.write(JSON.stringify(config, null, 2) + EOL)
+  })
 })

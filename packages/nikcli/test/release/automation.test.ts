@@ -11,7 +11,7 @@ async function readRoot(relative: string) {
 describe("release automation", () => {
   it("keeps the GitHub comment runner executable and mention filters exact", async () => {
     const action = await readRoot("github/action.yml")
-    const command = await readRoot("packages/nikcli/src/cli/cmd/github.ts")
+    const command = await readRoot("packages/nikcli/src/cli/handlers/github/install.ts")
 
     expect(action).toContain('bun "$GITHUB_ACTION_PATH/index.ts"')
     expect(action).not.toContain("nikcli github run")
@@ -154,7 +154,7 @@ describe("release automation", () => {
   it("clears leaked mouse reporting before the upgrade command prints", async () => {
     // An older build could exit leaving mouse tracking on, which turns every
     // mouse move during `nikcli upgrade` into escape-sequence noise.
-    const command = await readRoot("packages/nikcli/src/cli/cmd/upgrade.ts")
+    const command = await readRoot("packages/nikcli/src/cli/handlers/upgrade.ts")
 
     expect(command).toContain("TERMINAL_RESET_SEQUENCE")
     expect(command).toContain("process.stdout.isTTY")

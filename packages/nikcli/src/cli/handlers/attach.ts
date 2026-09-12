@@ -4,7 +4,6 @@ import { passthrough } from "../framework/args"
 import { Commands } from "../commands"
 
 export default Runtime.handler(Commands.commands["attach"], async (input) => {
-  const { AttachCommand } = await import("@/cli/cmd/tui/attach")
   const args = {
     _: [],
     $0: "nikcli",
@@ -13,5 +12,18 @@ export default Runtime.handler(Commands.commands["attach"], async (input) => {
     "dir": Option.getOrUndefined(input["dir"]),
     "session": Option.getOrUndefined(input["session"]),
   }
-  await AttachCommand.handler(args)
+  if (args.dir) process.chdir(args.dir)
+  // Lazy: ./app pulls in TuiPluginRuntime, whose OpenTUI runtime Bun plugin
+  // must not install during CLI startup (startup-graph rule; it also breaks
+  // require() of not-yet-cached CJS deps once installed).
+  const { tui } = await import("@nikcli-ai/tui/app")
+  const { localPluginHost } = await import("@/cli/cmd/tui/plugin/host-local")
+  const { TuiConfig } = await import("@/config/tui")
+  await tui({
+    url: args.url,
+    pluginHost: localPluginHost,
+    tuiConfig: await TuiConfig.get().catch(() => undefined),
+    args: { sessionID: args.session },
+    directory: args.dir ? process.cwd() : undefined,
+  })
 })

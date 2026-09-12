@@ -19,7 +19,7 @@ const { ConfigMarkdown } = await import("@/config/markdown")
 const { FormatError } = await import("@nikcli-ai/util/cli-error")
 const { MCP } = await import("@/mcp")
 const { Provider } = await import("@/provider/provider")
-const { extractResponseText, parseGitHubRemote } = await import("@/cli/cmd/github")
+const { extractResponseText, parseGitHubRemote } = await import("@/cli/handlers/github/shared")
 const { resolveNetworkOptions } = await import("@/cli/network")
 const { UI } = await import("@/cli/ui")
 

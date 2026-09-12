@@ -32,7 +32,6 @@ import { HerdrBridge } from "@nikcli-ai/util/herdr-bridge"
 import * as bridge from "@nikcli-ai/util/herdr-bridge"
 import { Global } from "@nikcli-ai/util/global"
 import { Log } from "@nikcli-ai/util/log"
-import { Instance } from "@/project/instance"
 import { InstanceState } from "@/effect"
 
 const log = Log.create({ service: "herdr-plugin" })

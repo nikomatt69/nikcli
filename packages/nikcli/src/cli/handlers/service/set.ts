@@ -2,9 +2,10 @@ import { Option } from "effect"
 import { Runtime } from "../../framework/runtime"
 import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
+import { UI } from "@/cli/ui"
+import { config } from "./shared"
 
 export default Runtime.handler(Commands.commands["service"].commands["set"], async (input) => {
-  const { SetCommand } = await import("@/cli/cmd/service")
   const args = {
     _: [],
     $0: "nikcli",
@@ -13,5 +14,7 @@ export default Runtime.handler(Commands.commands["service"].commands["set"], asy
     "value": input["value"],
     "nested": Option.getOrUndefined(input["nested"]),
   }
-  await SetCommand.handler(args)
+  const ServiceConfig = await config()
+  await ServiceConfig.set(args.key as string, args.value as string, args.nested as string | undefined)
+  UI.println(`set ${args.key}; the service will pick it up on its next start`)
 })

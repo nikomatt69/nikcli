@@ -4,10 +4,9 @@ import { Spec } from "./framework/spec"
 /**
  * The command tree — names, descriptions and parameters, and nothing else.
  *
- * **Generated** from the yargs declarations it replaces, then held to them by
- * `test/cli/effect-cli-parity.test.ts`. Hand-transcribing ~254 parameters was
- * the alternative, and its failure mode is a dropped alias or a flipped default
- * that nobody notices for weeks.
+ * It began as generated output — transcribed from the yargs declarations it
+ * replaced, and held to them by a parity harness while both existed. Those
+ * declarations are gone, so this is now the source: edit it directly.
  *
  * This module must stay free of application imports: it is what `--help`,
  * command matching and shell completion read, so anything imported here is
@@ -719,10 +718,22 @@ const SpecRemoteShare = Spec.make("share", {
 
 const SpecRemoteAttach = Spec.make("attach", {
   description: "attach to an existing session",
+  params: {
+    // Declared only in yargs' command string (`attach <sessionId>`), never via
+    // `.positional()`, so the generator never saw it.
+    sessionId: Argument.string("sessionId").pipe(Argument.withDescription("session to attach to")),
+  },
 })
 
 const SpecRemote = Spec.make("remote", {
   description: "manage terminal and mobile app remote control sessions",
+  params: {
+    // Same: `remote [command]` declared the positional in the command string.
+    command: Argument.string("command").pipe(
+      Argument.withDescription("subcommand to run"),
+      Argument.optional,
+    ),
+  },
   commands: [SpecRemoteStart, SpecRemoteStop, SpecRemoteStatus, SpecRemoteShare, SpecRemoteAttach],
 })
 

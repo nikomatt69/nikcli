@@ -1,13 +1,16 @@
 import { Runtime } from "../../framework/runtime"
-import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
+import * as prompts from "@clack/prompts"
+import { Artifact } from "@/artifact"
+import { UI } from "@/cli/ui"
 
-export default Runtime.handler(Commands.commands["artifact"].commands["logout"], async (input) => {
-  const { ArtifactLogoutCommand } = await import("@/cli/cmd/artifact")
-  const args = {
-    _: [],
-    $0: "nikcli",
-    "--": passthrough(),
-  }
-  await ArtifactLogoutCommand.handler(args)
+export default Runtime.handler(Commands.commands["artifact"].commands["logout"], async (_input) => {
+  
+  UI.empty()
+  prompts.intro("nikcli.store account")
+  await Artifact.logout()
+  prompts.log.info(
+    "Artifacts have no separate login. Sign out from the CLI/TUI account screen to end the shared session.",
+  )
+  prompts.outro("Done")
 })

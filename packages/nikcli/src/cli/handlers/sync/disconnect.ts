@@ -1,13 +1,8 @@
 import { Runtime } from "../../framework/runtime"
-import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
 
-export default Runtime.handler(Commands.commands["sync"].commands["disconnect"], async (input) => {
-  const { SyncDisconnectCommand } = await import("@/cli/cmd/sync")
-  const args = {
-    _: [],
-    $0: "nikcli",
-    "--": passthrough(),
-  }
-  await SyncDisconnectCommand.handler(args)
+export default Runtime.handler(Commands.commands["sync"].commands["disconnect"], async (_input) => {
+  
+  console.log("To end an active connection, stop the process that ran `nikcli sync connect` (e.g. Ctrl-C).")
+  console.log("Queued events in the outbox are sent on the next connect.")
 })

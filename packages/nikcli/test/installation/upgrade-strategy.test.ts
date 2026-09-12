@@ -52,7 +52,9 @@ describe("upgrade strategy routing", () => {
   })
 
   it("offers every supported method on the CLI --method flag", async () => {
-    const src = await readSrc("packages/nikcli/src/cli/cmd/upgrade.ts")
+    // A flag's choices are a declaration, and declarations live in the spec tree
+    // rather than beside the body that reads them.
+    const src = await readSrc("packages/nikcli/src/cli/commands.ts")
     for (const method of ["curl", "npm", "yarn", "pnpm", "bun", "brew", "choco", "scoop"]) {
       expect(src).toContain(`"${method}"`)
     }
@@ -88,7 +90,7 @@ describe("upgrade failure reporting", () => {
     expect(src).toContain('result.stderr.toString("utf8").trim() ||')
     expect(src).toContain('result.stdout.toString("utf8").trim() ||')
     // The CLI still recognises the genuine chocolatey message when it appears.
-    const cli = await readSrc("packages/nikcli/src/cli/cmd/upgrade.ts")
+    const cli = await readSrc("packages/nikcli/src/cli/handlers/upgrade.ts")
     expect(cli).toContain("not running from an elevated command shell")
   })
 })
@@ -109,7 +111,7 @@ describe("post-upgrade verification", () => {
   })
 
   it("does not claim completion while a Windows swap is still pending", async () => {
-    const cli = await readSrc("packages/nikcli/src/cli/cmd/upgrade.ts")
+    const cli = await readSrc("packages/nikcli/src/cli/handlers/upgrade.ts")
     expect(cli).toContain('Installation.resolveUpgradeStrategy(method).type === "windows-installer"')
     expect(cli).toContain("Upgrade staged")
   })

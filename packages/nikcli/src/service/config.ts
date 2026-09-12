@@ -98,7 +98,7 @@ export namespace ServiceConfig {
         break
       case "env": {
         if (nested === undefined) throw new Error("Usage: nikcli service set env <name> <value>")
-        info.env = { ...(info.env ?? {}), [value]: nested }
+        info.env = { ...info.env, [value]: nested }
         break
       }
     }

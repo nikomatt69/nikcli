@@ -1,13 +1,10 @@
 import { Runtime } from "../../framework/runtime"
-import { passthrough } from "../../framework/args"
 import { Commands } from "../../commands"
+import { bootstrap } from "@/cli/bootstrap"
 
-export default Runtime.handler(Commands.commands["debug"].commands["wait"], async (input) => {
-  const { WaitCommand } = await import("@/cli/cmd/debug/index")
-  const args = {
-    _: [],
-    $0: "nikcli",
-    "--": passthrough(),
-  }
-  await WaitCommand.handler(args)
+export default Runtime.handler(Commands.commands["debug"].commands["wait"], async (_input) => {
+  
+  await bootstrap(process.cwd(), async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1_000 * 60 * 60 * 24))
+  })
 })

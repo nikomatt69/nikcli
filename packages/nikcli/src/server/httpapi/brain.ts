@@ -44,7 +44,7 @@ export namespace BrainHttpApi {
     sessionID: Schema.optional(Schema.String),
   }).annotate({ identifier: "BrainResult" })
 
-  const fromPromise = <A>(fn: () => Promise<A>) => Effect.promise(fn).pipe(Effect.orDie)
+  
 
   /** `fromPromise` for a body that needs the request's instance. */
   const withInstance = <A>(fn: (instance: InstanceContext) => Promise<A>) =>

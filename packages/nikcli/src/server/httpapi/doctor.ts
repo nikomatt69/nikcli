@@ -1,6 +1,6 @@
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
-import { runDoctorChecks } from "@/cli/cmd/doctor"
+import { runDoctorChecks } from "@/doctor/checks"
 import { Installation } from "@/installation"
 
 export namespace DoctorHttpApi {
