@@ -9,7 +9,7 @@ import { setMainThreadDaemonHost } from "@nikcli-ai/browser-control/daemon-clien
 import { upgrade, upgradeNow } from "@/cli/upgrade"
 import { GlobalBus } from "@nikcli-ai/util/global-bus"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
-import { Flag } from "@nikcli-ai/util/flag"
+import { serverAuthorizationHeader as getAuthorizationHeader } from "@/cli/server-auth"
 import { Process } from "@nikcli-ai/util/process"
 import { IslandBridge } from "@nikcli-ai/util/island-bridge"
 import { MobileAuth } from "@/mobile/auth"
@@ -222,10 +222,3 @@ export const rpc = {
 }
 
 Rpc.listen(rpc)
-
-function getAuthorizationHeader(): string | undefined {
-  const password = Flag.NIKCLI_SERVER_PASSWORD
-  if (!password) return undefined
-  const username = Flag.NIKCLI_SERVER_USERNAME ?? "nikcli"
-  return `Basic ${btoa(`${username}:${password}`)}`
-}

@@ -15,6 +15,7 @@ import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
 import type { EventSource } from "@nikcli-ai/tui/context/sdk"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "@nikcli-ai/util/win32"
 import { errorMessage } from "@nikcli-ai/util/error-format"
+import { authorizedFetch } from "@/cli/server-auth"
 import { HerdrBridge } from "@nikcli-ai/util/herdr-bridge"
 import { Process } from "@nikcli-ai/util/process"
 import { SessionPrimitives } from "@nikcli-ai/util/session-primitives"
@@ -263,6 +264,11 @@ export default Runtime.handler(Commands, async (input) => {
 
       await tui({
         url: registration.url,
+        // The service inherits NIKCLI_SERVER_PASSWORD from this environment and
+        // authenticates accordingly, so the client it just started has to
+        // present the same credentials — without this every call, starting with
+        // GET /config/providers, comes back 401.
+        fetch: authorizedFetch(),
         pluginHost: localPluginHost,
         tuiConfig,
         directory: cwd,
