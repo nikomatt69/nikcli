@@ -910,7 +910,7 @@ export default function EditorScreen() {
             </ScrollView>
           </KeyboardAvoidingView>
         )}
-      </Animated.View>
+      </View>
 
       {/* ── Bottom bar with glass treatment ── */}
       <View

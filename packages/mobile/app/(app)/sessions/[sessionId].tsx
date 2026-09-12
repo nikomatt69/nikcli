@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useServer } from "@/lib/server-context"
-import { ChevronLeft, Ellipsis } from "lucide-react-native"
+import { ArrowLeft, Ellipsis, FolderOpen } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import {
   ActivityIndicator,
@@ -9,13 +9,14 @@ import {
   Platform,
   Pressable,
   Share,
+  StyleSheet,
   Text,
   View,
 } from "react-native"
 import { FlashList, type FlashListRef } from "@shopify/flash-list"
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { IconCircleButton } from "@/components/ui/IconCircleButton"
+import { AdaptiveBlur } from "@/components/GlassView"
 import { MessageBubble } from "@/components/MessageBubble"
 import { PermissionCard } from "@/components/PermissionCard"
 import { useActionSheetRef } from "@/components/BottomSheet"
@@ -186,7 +187,7 @@ function formatAttachmentSize(base64: string) {
 }
 
 export default function SessionScreen() {
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
   const { sessionId, liveAction, requestID } = useLocalSearchParams<{
     sessionId: string
     liveAction?: "review" | "approveOnce" | "stop"
@@ -236,6 +237,15 @@ export default function SessionScreen() {
   const [commandsLoading, setCommandsLoading] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [commandQuery, setCommandQuery] = useState("")
+  const chromeButtonFill = isDark ? "rgba(22,22,22,0.88)" : "rgba(255,255,255,0.88)"
+  const chromeButtonOverlay = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.16)"
+  const chromeButtonStyle = {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: isDark ? hexToRgba(palette.ink, 0.16) : hexToRgba(palette.border, 0.82),
+    overflow: "hidden" as const,
+    padding: 12,
+  }
   const [activeMessageID, setActiveMessageID] = useState<string | null>(null)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
@@ -1536,12 +1546,26 @@ export default function SessionScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
     >
-      <View className="px-4 pb-1" style={{ paddingTop: top + 6 }}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <IconCircleButton size={44} accessibilityLabel="Go back" onPress={() => router.back()}>
-            <ChevronLeft size={22} color={palette.ink} strokeWidth={2.2} />
-          </IconCircleButton>
+      <View className="px-4 pb-3" style={{ paddingTop: top + 8 }}>
+        <View className="flex-row items-center gap-3">
           <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={chromeButtonStyle}
+          >
+            <AdaptiveBlur
+              tint={isDark ? "dark" : "light"}
+              intensity={44}
+              style={StyleSheet.absoluteFill}
+              fallbackColor={chromeButtonFill}
+              pointerEvents="none"
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: chromeButtonOverlay }]} pointerEvents="none" />
+            <ArrowLeft size={18} color={palette.ink} strokeWidth={2.2} />
+          </Pressable>
+          <Pressable
+            className="flex-1"
             onPress={() => {
               void triggerHaptic("selection")
               setInspectorOpen(true)
@@ -1549,39 +1573,51 @@ export default function SessionScreen() {
             accessibilityRole="button"
             accessibilityLabel="Open session inspector"
             accessibilityHint="Shows todos, MCP, LSP, context, and files"
-            style={({ pressed }) => ({
-              flex: 1,
-              alignSelf: "stretch",
-              opacity: pressed ? 0.72 : 1,
-              transform: [{ scale: pressed ? 0.97 : 1 }],
-            })}
           >
-            <View style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 10 }}>
-              <Text
-                numberOfLines={1}
-                style={{ textAlign: "center", color: palette.ink, ...typeStyle(17, { weight: "700" }) }}
-              >
-                {detail?.info.title || "Session"}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={{ textAlign: "center", color: palette.muted, marginTop: 1, ...typeStyle(13) }}
-              >
-                {sessionLocation}
-              </Text>
-            </View>
+            <Text className="text-base font-semibold text-ink" numberOfLines={1}>
+              {detail?.info.title || "Session"}
+            </Text>
+            <Text className="mt-1 text-sm text-soft" numberOfLines={1}>
+              {sessionLocation}
+            </Text>
           </Pressable>
-          <IconCircleButton
-            size={44}
-            accessibilityLabel="Open session actions"
-            accessibilityHint="Shows rename, export, publish, and cleanup actions"
+          <Pressable
+            onPress={openSessionExplorer}
+            accessibilityRole="button"
+            accessibilityLabel="Open session files"
+            accessibilityHint="Opens the file explorer for this session workspace"
+            style={chromeButtonStyle}
+          >
+            <AdaptiveBlur
+              tint={isDark ? "dark" : "light"}
+              intensity={44}
+              style={StyleSheet.absoluteFill}
+              fallbackColor={chromeButtonFill}
+              pointerEvents="none"
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: chromeButtonOverlay }]} pointerEvents="none" />
+            <FolderOpen size={18} color={palette.ink} strokeWidth={2} />
+          </Pressable>
+          <Pressable
             onPress={() => {
               void triggerHaptic("selection")
               actionsSheetRef.current?.present()
             }}
+            accessibilityRole="button"
+            accessibilityLabel="Open session actions"
+            accessibilityHint="Shows rename, export, publish, and cleanup actions"
+            style={chromeButtonStyle}
           >
-            <Ellipsis size={20} color={palette.ink} strokeWidth={2.2} />
-          </IconCircleButton>
+            <AdaptiveBlur
+              tint={isDark ? "dark" : "light"}
+              intensity={44}
+              style={StyleSheet.absoluteFill}
+              fallbackColor={chromeButtonFill}
+              pointerEvents="none"
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: chromeButtonOverlay }]} pointerEvents="none" />
+            <Ellipsis size={18} color={palette.ink} strokeWidth={2.2} />
+          </Pressable>
         </View>
       </View>
 
@@ -1700,7 +1736,6 @@ export default function SessionScreen() {
                           paddingHorizontal: 16,
                           alignItems: "center",
                           justifyContent: "center",
-                          backgroundColor: pressed ? hexToRgba(palette.ink, 0.06) : "transparent",
                         }}
                       >
                       <Text
