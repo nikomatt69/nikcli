@@ -39,6 +39,15 @@ all layers, replace synchronous repositories, or apply newer/v3 Effect APIs with
    instance registry, with active-reference accounting and tested finalizers, rather than adding arbitrary cache TTLs.
 8. Preserve redacted logging and shared observability layers. Trace service operations at the existing boundary and avoid
    duplicate spans on every compatibility wrapper or high-cardinality labels.
+9. Per-token paths are the one exception to requirement 4's `Effect.gen`. `Bus.publish` runs once per streaming delta
+   (`session/processor.ts`, `updatePartCoalesced`), so a generator frame per call is a measured cost, not a style
+   preference: `Bus.publish`, the bus service's own `publish`, and `withCurrentInstance` use `Effect.flatMap` instead and
+   say so in a comment. Restoring `Effect.gen` there is a regression. Requirement 4 still governs everything that runs
+   once per request, per session, or per command.
+10. `InstanceState.get` reads through a synchronous mirror of already-resolved entries, not through `ScopedCache` on
+    every call. The cache stays the source of truth for creation, invalidation, and disposal; the mirror is written by the
+    cache's own `lookup` and removed by a finalizer on the **entry's** scope, so it cannot outlive the entry it mirrors.
+    A new cache-eviction path must run those finalizers — see requirement 7 before adding capacity or a TTL.
 
 ## Ownership Matrix
 
