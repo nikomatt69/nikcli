@@ -1,5 +1,6 @@
 import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { SheetShell } from "@/components/ui/SheetShell"
 import {
   AlertTriangle,
@@ -67,11 +68,17 @@ export const ActionSheet = React.forwardRef<
     snapPoints?: (string | number)[]
     onVisibilityChange?(visible: boolean): void
   }
->(function ActionSheet({ children, snapPoints = [280], onVisibilityChange }, ref) {
+>(function ActionSheet({ children, snapPoints, onVisibilityChange }, ref) {
   const { height: windowHeight } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
   const [visible, setVisible] = useState(false)
   const pendingDismissal = useRef<(() => void) | undefined>(undefined)
-  const contentHeight = useMemo(() => snapPointHeight(snapPoints[0], windowHeight), [snapPoints, windowHeight])
+  const sizedToContent = !snapPoints?.length
+  const bottomPad = Math.max(insets.bottom, 12)
+  const contentHeight = useMemo(() => {
+    if (sizedToContent) return undefined
+    return snapPointHeight(snapPoints?.[0], windowHeight)
+  }, [sizedToContent, snapPoints, windowHeight])
 
   const close = useCallback(
     (onDismissed?: () => void) => {
@@ -98,6 +105,7 @@ export const ActionSheet = React.forwardRef<
     <SheetShell
       visible={visible}
       height={contentHeight}
+      contentStyle={sizedToContent ? { maxHeight: windowHeight - 24 } : undefined}
       accessibilityLabel="Actions"
       onClose={() => close()}
       onDismissed={() => {
@@ -106,7 +114,16 @@ export const ActionSheet = React.forwardRef<
         callback?.()
       }}
     >
-      <View style={{ flex: 1, width: "100%", alignSelf: "stretch", paddingBottom: 8 }}>{children}</View>
+      <View
+        style={{
+          flex: sizedToContent ? undefined : 1,
+          width: "100%",
+          alignSelf: "stretch",
+          paddingBottom: bottomPad,
+        }}
+      >
+        {children}
+      </View>
     </SheetShell>
   )
 })

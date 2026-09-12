@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react"
-import { Alert, Animated, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
+import { useCallback } from "react"
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as DocumentPicker from "expo-document-picker"
 import { File } from "expo-file-system"
 import * as ImagePicker from "expo-image-picker"
-import { Camera, ChevronRight, FileText, FolderOpen, Image, Search, X } from "lucide-react-native"
-import { SheetShell, useSheetScrollProps } from "@/components/ui/SheetShell"
-import { usePressAnimation } from "@/lib/animation"
+import { Camera, FileText, FolderOpen, Image } from "lucide-react-native"
+import { SheetShell } from "@/components/ui/SheetShell"
 import { triggerHaptic } from "@/lib/haptics"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
-import { caps, type as typeStyle } from "@/lib/typography"
+import { type as typeStyle } from "@/lib/typography"
 
 export type AttachmentPickerSheetProps = {
   visible: boolean
@@ -17,14 +17,12 @@ export type AttachmentPickerSheetProps = {
 }
 
 type AttachmentItemDef = {
-  id: string
+  id: "photo-library" | "camera" | "document" | "folder"
   title: string
   description: string
   icon: typeof FileText
 }
 
-// Attachments travel as base64 data URIs inside the prompt payload, so large
-// videos would balloon memory and get rejected by the server anyway.
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 const MAX_VIDEO_DURATION_S = 60
 
@@ -32,39 +30,33 @@ const ATTACHMENT_ITEMS: AttachmentItemDef[] = [
   {
     id: "photo-library",
     title: "Photos & Videos",
-    description: "JPG, PNG, HEIC, GIF and videos from your library",
+    description: "JPG, PNG, HEIC, GIF, and short clips from your library",
     icon: Image,
   },
   {
     id: "camera",
     title: "Camera",
-    description: "Take a new photo with your camera",
+    description: "Take a new photo",
     icon: Camera,
   },
   {
     id: "document",
     title: "Document",
-    description: "PDF, TXT, code files, spreadsheets",
+    description: "PDF, text, code, and spreadsheets",
     icon: FileText,
   },
   {
     id: "folder",
     title: "Browse Files",
-    description: "Access files from folders",
+    description: "Pick any file from Files",
     icon: FolderOpen,
   },
 ]
 
 export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPickerSheetProps) {
-  const { palette, isDark } = useAppTheme()
-  const [searchQuery, setSearchQuery] = useState("")
-  const sheetScroll = useSheetScrollProps()
-
-  const filteredItems = ATTACHMENT_ITEMS.filter(
-    (item) =>
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  const { palette } = useAppTheme()
+  const insets = useSafeAreaInsets()
+  const items = ATTACHMENT_ITEMS.filter((item) => item.id !== "camera" || Platform.OS !== "web")
 
   const handleFileSelected = useCallback(
     (mime: string, filename: string, base64: string, previewUri?: string) => {
@@ -94,7 +86,6 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
     const isVideo = asset.type === "video"
-    // `base64` is only populated for images; videos are read from disk.
     const base64 = asset.base64 ?? (await new File(asset.uri).base64())
     if (!base64) return
     const mime = asset.mimeType ?? (isVideo ? "video/mp4" : "image/jpeg")
@@ -137,7 +128,7 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
     handleFileSelected(asset.mimeType ?? "application/octet-stream", asset.name, base64)
   }
 
-  const itemActions: Record<string, () => void> = {
+  const itemActions: Record<AttachmentItemDef["id"], () => void> = {
     "photo-library": handlePhotoLibrary,
     camera: handleCamera,
     document: handleDocument,
@@ -145,272 +136,109 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
   }
 
   return (
-    <SheetShell visible={visible} onClose={onClose} variant="inset" accessibilityLabel="Attach">
-      <View style={{ alignSelf: "stretch", padding: 16 }}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Text style={{ color: palette.accentLight, ...caps(11, { weight: "700" }) }}>Attach</Text>
-            </View>
-            <Text style={{ color: palette.ink, ...typeStyle(18, { weight: "600" }) }}>Choose a source</Text>
-            <Text style={{ color: palette.soft, ...typeStyle(14) }}>
-              Attach files, photos, or documents to your message.
-            </Text>
-          </View>
+    <SheetShell visible={visible} onClose={onClose} accessibilityLabel="Attach">
+      <View className="border-b border-border px-5 pb-4">
+        <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Attach</Text>
+        <Text className="mt-1.5" style={{ color: palette.ink, ...typeStyle(18, { weight: "700" }) }}>
+          Choose a source
+        </Text>
+        <Text className="mt-1" style={{ color: palette.muted, ...typeStyle(13) }}>
+          Photos, files, or documents for this message.
+        </Text>
+      </View>
 
-          <CloseButton onPress={onClose} />
-        </View>
-
-        <View
-          style={[
-            styles.searchBar,
-            {
-              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.80)",
-              backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.55)",
-            },
-          ]}
-        >
-          <Search size={16} color={palette.muted} strokeWidth={2.1} />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search attachment types..."
-            placeholderTextColor={palette.muted}
-            selectionColor={palette.accent}
-            keyboardAppearance={isDark ? "dark" : "light"}
-            autoCapitalize="none"
-            style={{ flex: 1, color: palette.ink, ...typeStyle(15) }}
+      <View style={{ paddingTop: 6, paddingBottom: Math.max(insets.bottom, 12) }}>
+        {items.map((item, index) => (
+          <SourceRow
+            key={item.id}
+            item={item}
+            bordered={index < items.length - 1}
+            onPress={() => {
+              void triggerHaptic("selection")
+              itemActions[item.id]()
+            }}
           />
-        </View>
-
-        <ScrollView style={{ marginTop: 16, maxHeight: 400 }} showsVerticalScrollIndicator={false} {...sheetScroll}>
-          <View style={{ gap: 10 }}>
-            {filteredItems.map((item) => {
-              const Icon = item.icon
-              return (
-                <AnimatedItemCard
-                  key={item.id}
-                  onPress={() => itemActions[item.id]?.()}
-                  isDark={isDark}
-                  palette={palette}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
-                    <View
-                      style={[
-                        styles.itemIcon,
-                        {
-                          backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.09),
-                          borderColor: hexToRgba(palette.ink, isDark ? 0.1 : 0.16),
-                        },
-                      ]}
-                    >
-                      <Icon size={22} color={palette.accentLight} strokeWidth={2} />
-                    </View>
-
-                    <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                      <Text style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>{item.title}</Text>
-                      <Text style={{ color: palette.soft, ...typeStyle(13) }} numberOfLines={2}>
-                        {item.description}
-                      </Text>
-                    </View>
-
-                    <ChevronRight size={18} color={palette.muted} strokeWidth={2} />
-                  </View>
-                </AnimatedItemCard>
-              )
-            })}
-
-            {filteredItems.length === 0 && (
-              <View
-                style={[
-                  styles.emptyCard,
-                  {
-                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
-                    backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.45)",
-                  },
-                ]}
-              >
-                <Text style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>No attachments found</Text>
-                <Text style={{ marginTop: 4, color: palette.soft, ...typeStyle(13) }}>
-                  Try a different search term.
-                </Text>
-              </View>
-            )}
-          </View>
-        </ScrollView>
+        ))}
       </View>
     </SheetShell>
   )
 }
 
-function CloseButton({ onPress }: { onPress: () => void }) {
+function SourceRow({
+  item,
+  bordered,
+  onPress,
+}: {
+  item: AttachmentItemDef
+  bordered: boolean
+  onPress(): void
+}) {
   const { palette, isDark } = useAppTheme()
-  const press = usePressAnimation()
+  const Icon = item.icon
 
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={press.onPressIn}
-      onPressOut={press.onPressOut}
       accessibilityRole="button"
-      accessibilityLabel="Close attachment picker"
-      // The glyph is 14px inside a 34px circle — the touch target has to be bigger than the paint.
-      hitSlop={10}
+      accessibilityLabel={item.title}
+      accessibilityHint={item.description}
+      style={({ pressed }) => ({
+        opacity: pressed ? 0.72 : 1,
+      })}
     >
-      <Animated.View
-        style={[
-          styles.closeBtn,
-          {
-            transform: [{ scale: press.scale }],
-            borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.16),
-            backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.05),
-          },
-        ]}
+      <View
+        style={{
+          width: "100%",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          minHeight: 72,
+          paddingHorizontal: 20,
+          paddingVertical: 12,
+          borderBottomWidth: bordered ? StyleSheet.hairlineWidth : 0,
+          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : hexToRgba(palette.ink, 0.08),
+        }}
       >
-        <X size={16} color={palette.soft} strokeWidth={2.5} />
-      </Animated.View>
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            flexShrink: 0,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: hexToRgba(palette.ink, 0.06),
+            borderWidth: 1,
+            borderColor: hexToRgba(palette.ink, 0.1),
+          }}
+        >
+          <Icon size={18} color={palette.muted} strokeWidth={2.1} />
+        </View>
+        <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
+          <Text
+            style={{
+              color: palette.ink,
+              fontSize: 15,
+              fontWeight: "600",
+              letterSpacing: -0.2,
+            }}
+            numberOfLines={1}
+          >
+            {item.title}
+          </Text>
+          <Text
+            style={{
+              marginTop: 3,
+              color: palette.soft,
+              fontSize: 12.5,
+              lineHeight: 17,
+            }}
+            numberOfLines={2}
+          >
+            {item.description}
+          </Text>
+        </View>
+      </View>
     </Pressable>
   )
 }
-
-function AnimatedItemCard({
-  children,
-  onPress,
-  isDark,
-  palette,
-}: {
-  children: React.ReactNode
-  onPress: () => void
-  isDark: boolean
-  palette: { accentLight: string; ink: string; soft: string; accent: string }
-}) {
-  const scaleAnimRef = useRef<Animated.Value | null>(null)
-  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
-  const scaleAnim = scaleAnimRef.current
-  const borderGlowAnimRef = useRef<Animated.Value | null>(null)
-  if (borderGlowAnimRef.current === null) borderGlowAnimRef.current = new Animated.Value(0)
-  const borderGlowAnim = borderGlowAnimRef.current
-
-  const handlePressIn = () => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 0.96,
-        damping: 20,
-        stiffness: 280,
-        mass: 0.8,
-        // Must match borderGlowAnim's JS driver: both animate the same
-        // Animated.View, and borderColor cannot run on the native driver.
-        useNativeDriver: false,
-      }),
-      Animated.spring(borderGlowAnim, {
-        toValue: 1,
-        damping: 22,
-        stiffness: 260,
-        mass: 0.7,
-        useNativeDriver: false,
-      }),
-    ]).start()
-  }
-
-  const handlePressOut = () => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        damping: 20,
-        stiffness: 280,
-        mass: 0.8,
-        // Must match borderGlowAnim's JS driver (see handlePressIn).
-        useNativeDriver: false,
-      }),
-      Animated.spring(borderGlowAnim, {
-        toValue: 0,
-        damping: 22,
-        stiffness: 260,
-        mass: 0.7,
-        useNativeDriver: false,
-      }),
-    ]).start()
-  }
-
-  const borderColor = borderGlowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.78)", palette.accent],
-  })
-
-  return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
-      <Animated.View
-        style={[
-          styles.itemCard,
-          {
-            transform: [{ scale: scaleAnim }],
-            borderColor,
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-  )
-}
-
-const styles = StyleSheet.create({
-  card: {
-    overflow: "hidden",
-    borderRadius: 30,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.10)",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 20,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  closeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  searchBar: {
-    marginTop: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  itemCard: {
-    alignSelf: "stretch",
-    borderRadius: 20,
-    borderCurve: "continuous",
-    borderWidth: 1,
-    padding: 14,
-  },
-  itemIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  emptyCard: {
-    alignItems: "center",
-    borderRadius: 22,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-  },
-})

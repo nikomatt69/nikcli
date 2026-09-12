@@ -51,13 +51,13 @@ export function PermissionModeSheet({ sheetRef, mode, saving = false, onSelect, 
   const { palette, isDark } = useAppTheme()
 
   return (
-    <ActionSheet ref={sheetRef} snapPoints={[420]}>
+    <ActionSheet ref={sheetRef}>
       <View className="border-b border-border px-5 pb-4">
         <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Permissions</Text>
         <Text className="mt-1.5" style={{ color: palette.ink, ...typeStyle(18, { weight: "700" }) }}>
           {permissionModeTitle(mode)}
         </Text>
-        <Text className="mt-1" style={{ color: palette.muted, ...typeStyle(12) }}>
+        <Text className="mt-1" style={{ color: palette.muted, ...typeStyle(13) }}>
           Choose how the host asks before tool actions. Changes apply to this server for all sessions.
         </Text>
       </View>

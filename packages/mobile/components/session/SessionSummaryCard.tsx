@@ -5,6 +5,7 @@ import { ActionButton } from "@/components/ui/ActionButton"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 type SessionSummaryCardProps = {
   detail: SessionDetail | null
@@ -18,50 +19,62 @@ type SessionSummaryCardProps = {
   onOpenGit?(): void
 }
 
-function currentStatusTone(status?: string) {
+function statusLabel(status?: string) {
+  if (status === "busy") return "Running"
+  if (status === "retry") return "Retrying"
+  if (status === "idle") return "Idle"
+  if (!status) return "Idle"
+  return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
+function statusTone(status?: string) {
   if (status === "busy") return "accent" as const
   if (status === "retry") return "warn" as const
   return "good" as const
 }
 
-function MetricTile(props: { label: string; value: string; tone?: "neutral" | "accent" | "good" | "warn" }) {
-  const { palette, isDark } = useAppTheme()
-  const backgroundColor =
-    props.tone === "accent"
-      ? hexToRgba(palette.ink, isDark ? 0.06 : 0.08)
-      : props.tone === "good"
-        ? hexToRgba(palette.success, isDark ? 0.12 : 0.08)
-        : props.tone === "warn"
-          ? hexToRgba(palette.warn, isDark ? 0.12 : 0.08)
-          : hexToRgba(palette.ink, isDark ? 0.04 : 0.03)
+function formatCompactCount(value: number) {
+  if (value < 1000) return String(value)
+  if (value < 1_000_000) {
+    const scaled = value / 1000
+    const text = scaled >= 100 ? String(Math.round(scaled)) : scaled.toFixed(1).replace(/\.0$/, "")
+    return `${text}k`
+  }
+  const scaled = value / 1_000_000
+  const text = scaled >= 100 ? String(Math.round(scaled)) : scaled.toFixed(1).replace(/\.0$/, "")
+  return `${text}M`
+}
 
+function workspaceLabel(detail: SessionDetail | null) {
+  const github = detail?.info.github
+  if (github?.fullName) return github.fullName
+  const directory = detail?.info.worktree?.directory || detail?.info.directory
+  if (!directory || directory === "/") return "Workspace root"
+  return directory.split("/").filter(Boolean).pop() || directory
+}
+
+function Metric(props: { label: string; value: string; warn?: boolean; last?: boolean }) {
+  const { palette } = useAppTheme()
   return (
     <View
       style={{
         flex: 1,
         minWidth: 0,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: isDark ? hexToRgba(palette.ink, 0.08) : hexToRgba(palette.border, 0.7),
-        backgroundColor,
-        paddingHorizontal: 12,
-        paddingVertical: 11,
+        paddingHorizontal: 4,
+        borderRightWidth: props.last ? 0 : 1,
+        borderRightColor: hexToRgba(palette.ink, 0.08),
       }}
     >
-      <Text
-        selectable
-        style={{ fontSize: 10, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", color: palette.soft }}
-      >
+      <Text selectable style={{ color: palette.muted, ...typeStyle(11, { weight: "600" }) }}>
         {props.label}
       </Text>
       <Text
         selectable
         style={{
-          marginTop: 4,
-          fontSize: 16,
-          fontWeight: "700",
-          color: palette.ink,
+          marginTop: 3,
+          color: props.warn ? palette.warn : palette.ink,
           fontVariant: ["tabular-nums"],
+          ...typeStyle(20, { weight: "700" }),
         }}
       >
         {props.value}
@@ -84,7 +97,7 @@ export function SessionSummaryCard({
   const title = detail?.info.title || "Session"
   const github = detail?.info.github
   const worktree = detail?.info.worktree
-  const location = github?.fullName || detail?.info.directory || "Unknown workspace"
+  const location = workspaceLabel(detail)
   const status = detail?.status?.type ?? "idle"
   const messageCount = detail?.messages.length ?? 0
   const approvalCount = detail?.permissions.length ?? 0
@@ -93,6 +106,8 @@ export function SessionSummaryCard({
   const deletions = detail?.info.summary?.deletions ?? 0
   const updatedAt = detail?.info.time.updated
   const executionLabel = detail?.info.workspaceID ? "Container sandbox" : "Local worktree"
+  const branch = github?.headBranch || worktree?.branch
+  const hasDiff = additions > 0 || deletions > 0
 
   const totalTokens =
     detail?.messages
@@ -109,38 +124,58 @@ export function SessionSummaryCard({
       .filter((m) => m.info.role === "assistant")
       .reduce((sum, m) => sum + ((m.info as { cost?: number }).cost ?? 0), 0) ?? 0
 
+  const meta = [executionLabel, updatedAt ? `Updated ${relativeTime(updatedAt)}` : null].filter(Boolean).join(" · ")
+
   return (
     <View className="pb-4">
-      <SurfaceCard eyebrow="Execution timeline" title={title} description={location} className="p-5">
-        <View className="flex-row flex-wrap gap-2">
-          <InfoChip label={status} tone={currentStatusTone(status)} />
-          <InfoChip label={`${messageCount} messages`} />
-          <InfoChip label={`${approvalCount} approvals`} tone={approvalCount ? "warn" : "neutral"} />
-          <InfoChip label={`${fileCount} files`} />
-          <InfoChip label={`+${additions} / -${deletions}`} tone={additions || deletions ? "accent" : "neutral"} />
-          <InfoChip label={executionLabel} tone={detail?.info.workspaceID ? "accent" : "neutral"} />
-          {github?.headBranch || worktree?.branch ? <InfoChip label={github?.headBranch ?? worktree!.branch} /> : null}
-          {updatedAt ? <InfoChip label={`Updated ${relativeTime(updatedAt)}`} /> : null}
-          {totalTokens > 0 ? <InfoChip label={`${totalTokens.toLocaleString()} ctx`} tone="neutral" /> : null}
-          {totalCost > 0 ? <InfoChip label={`$${totalCost.toFixed(4)}`} tone="neutral" /> : null}
+      <SurfaceCard>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <InfoChip label={statusLabel(status)} tone={statusTone(status)} />
+          {approvalCount > 0 ? <InfoChip label={`${approvalCount} pending`} tone="warn" /> : null}
         </View>
 
-        <View className="mt-4 flex-row flex-wrap gap-2">
-          <MetricTile label="Messages" value={messageCount.toLocaleString()} tone="neutral" />
-          <MetricTile label="Approvals" value={approvalCount.toLocaleString()} tone={approvalCount ? "warn" : "good"} />
-        </View>
-        <View className="mt-2 flex-row flex-wrap gap-2">
-          <MetricTile
-            label="Files touched"
-            value={fileCount.toLocaleString()}
-            tone={fileCount ? "accent" : "neutral"}
-          />
-          <MetricTile
+        <Text selectable style={{ marginTop: 12, color: palette.ink, ...typeStyle(22, { weight: "700" }) }}>
+          {title}
+        </Text>
+        <Text selectable style={{ marginTop: 4, color: palette.ink, ...typeStyle(15) }} numberOfLines={1}>
+          {location}
+        </Text>
+        {meta ? (
+          <Text selectable style={{ marginTop: 2, color: palette.muted, ...typeStyle(13) }} numberOfLines={1}>
+            {meta}
+          </Text>
+        ) : null}
+
+        <View
+          style={{
+            marginTop: 16,
+            flexDirection: "row",
+            paddingVertical: 12,
+            paddingHorizontal: 8,
+            borderRadius: 14,
+            borderCurve: "continuous",
+            backgroundColor: hexToRgba(palette.ink, 0.035),
+          }}
+        >
+          <Metric label="Messages" value={formatCompactCount(messageCount)} />
+          <Metric label="Approvals" value={formatCompactCount(approvalCount)} warn={approvalCount > 0} />
+          <Metric label="Files" value={formatCompactCount(fileCount)} />
+          <Metric
             label={totalCost > 0 ? "Cost" : "Context"}
-            value={totalCost > 0 ? `$${totalCost.toFixed(4)}` : totalTokens.toLocaleString()}
-            tone={totalCost > 0 || totalTokens > 0 ? "accent" : "neutral"}
+            value={totalCost > 0 ? `$${totalCost.toFixed(2)}` : formatCompactCount(totalTokens)}
+            last
           />
         </View>
+
+        {branch || hasDiff || totalCost > 0 ? (
+          <View style={{ marginTop: 12, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {branch ? <InfoChip label={branch} /> : null}
+            {hasDiff ? (
+              <InfoChip label={`+${additions} / −${deletions}`} tone="accent" />
+            ) : null}
+            {totalCost > 0 && totalTokens > 0 ? <InfoChip label={`${formatCompactCount(totalTokens)} ctx`} /> : null}
+          </View>
+        ) : null}
 
         {github ? (
           <View
@@ -153,7 +188,6 @@ export function SessionSummaryCard({
               backgroundColor: palette.surfaceRaised,
             }}
           >
-            {/* PR header row */}
             <View className="flex-row items-center gap-2">
               <GitPullRequest
                 size={15}
@@ -174,15 +208,13 @@ export function SessionSummaryCard({
               )}
             </View>
 
-            {/* Branch path */}
             <Text selectable className="mt-2 text-[13px] leading-5 text-muted" numberOfLines={1}>
               {github.headBranch} → {github.baseBranch}
-              {additions || deletions ? "  ·  " : ""}
+              {hasDiff ? "  ·  " : ""}
               {additions ? <Text style={{ color: palette.success }}>+{additions} </Text> : null}
-              {deletions ? <Text style={{ color: palette.danger }}>-{deletions}</Text> : null}
+              {deletions ? <Text style={{ color: palette.danger }}>−{deletions}</Text> : null}
             </Text>
 
-            {/* Primary: publish / update — the "Squash & Merge"-style ink pill */}
             <View className="mt-3 gap-2">
               <ActionButton
                 label={github.pullRequest ? "Update pull request" : "Publish pull request"}
@@ -213,22 +245,26 @@ export function SessionSummaryCard({
           {!github && onOpenGit ? (
             <ActionButton label="Review changes" variant="secondary" onPress={onOpenGit} />
           ) : null}
-          <View className="flex-row gap-2">
-            <View className="flex-1">
-              <ActionButton label="Abort session" variant="danger" onPress={onAbort} />
+          {sessionBlocked || github || worktree ? (
+            <View className="flex-row gap-2">
+              {sessionBlocked ? (
+                <View className="flex-1">
+                  <ActionButton label="Abort session" variant="danger" onPress={onAbort} />
+                </View>
+              ) : null}
+              {github || worktree ? (
+                <View className="flex-1">
+                  <ActionButton
+                    label={cleaning ? "Cleaning..." : cleaned ? "Cleaned" : "Cleanup"}
+                    variant="secondary"
+                    loading={cleaning}
+                    disabled={cleaning || sessionBlocked || cleaned}
+                    onPress={onCleanup}
+                  />
+                </View>
+              ) : null}
             </View>
-            {github || worktree ? (
-              <View className="flex-1">
-                <ActionButton
-                  label={cleaning ? "Cleaning..." : cleaned ? "Cleaned" : "Cleanup"}
-                  variant="secondary"
-                  loading={cleaning}
-                  disabled={cleaning || sessionBlocked || cleaned}
-                  onPress={onCleanup}
-                />
-              </View>
-            ) : null}
-          </View>
+          ) : null}
         </View>
       </SurfaceCard>
     </View>

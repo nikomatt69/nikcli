@@ -1,19 +1,10 @@
-import {
-  Animated,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  useWindowDimensions,
-} from "react-native"
-import { useEffect, useMemo, useRef } from "react"
-import { AdaptiveBlur } from "@/components/GlassView"
-import { Search, Slash, Sparkles } from "lucide-react-native"
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native"
+import { useMemo } from "react"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { Slash } from "lucide-react-native"
+import { SheetShell, useSheetScrollProps } from "@/components/ui/SheetShell"
+import { TextField } from "@/components/ui/TextField"
+import { triggerHaptic } from "@/lib/haptics"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { caps, type as typeStyle } from "@/lib/typography"
 
@@ -38,48 +29,25 @@ type CommandPaletteSheetProps = {
 }
 
 export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
-  const { colorScheme, palette, isDark } = useAppTheme()
-  const { height } = useWindowDimensions()
-  const scaleAnimRef = useRef<Animated.Value | null>(null)
-  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(0.96)
-  const scaleAnim = scaleAnimRef.current
-  const opacityAnimRef = useRef<Animated.Value | null>(null)
-  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
-  const opacityAnim = opacityAnimRef.current
-  const itemScalesRef = useRef<Map<string, Animated.Value> | null>(null)
-  if (itemScalesRef.current === null) itemScalesRef.current = new Map<string, Animated.Value>()
-  const itemScales = itemScalesRef.current
+  const { height: windowHeight } = useWindowDimensions()
 
-  useEffect(() => {
-    if (props.visible) {
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          damping: 20,
-          stiffness: 260,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-        Animated.spring(opacityAnim, {
-          toValue: 1,
-          damping: 18,
-          stiffness: 280,
-          mass: 0.85,
-          useNativeDriver: true,
-        }),
-      ]).start()
-    } else {
-      scaleAnim.setValue(0.96)
-      opacityAnim.setValue(0)
-    }
-  }, [props.visible])
+  return (
+    <SheetShell
+      visible={props.visible}
+      onClose={props.onClose}
+      avoidKeyboard
+      height={Math.round(windowHeight * 0.82)}
+      accessibilityLabel="Commands"
+    >
+      <CommandPaletteBody {...props} />
+    </SheetShell>
+  )
+}
 
-  const getItemScale = (id: string) => {
-    if (!itemScales.has(id)) {
-      itemScales.set(id, new Animated.Value(1))
-    }
-    return itemScales.get(id)!
-  }
+function CommandPaletteBody(props: CommandPaletteSheetProps) {
+  const { palette, isDark } = useAppTheme()
+  const insets = useSafeAreaInsets()
+  const sheetScroll = useSheetScrollProps()
 
   const sections = useMemo(() => {
     const grouped = new Map<string, CommandPaletteItem[]>()
@@ -91,368 +59,162 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
     return [...grouped.entries()]
   }, [props.items])
 
-  // Garbage-collect stale Animated.Value per-item: the getItemScale map
-  // grows monotonically otherwise, since each new id is added on first use
-  // and never evicted. After the items list changes we diff and drop keys
-  // that no longer appear.
-  //
-  // Memoised because it used to map + join every id on every render of the parent screen —
-  // which, during a streaming session, is every token.
-  const itemIdsSignature = useMemo(() => props.items.map((it) => it.id).join("|"), [props.items])
-  useEffect(() => {
-    const seen = new Set(props.items.map((it) => it.id))
-    for (const key of [...itemScales.keys()]) {
-      if (!seen.has(key)) itemScales.delete(key)
-    }
-    // itemIdsSignature changes whenever the set of items changes; the
-    // eslint disable covers the intentional read of props.items inside the
-    // callback for diffing.
-  }, [itemIdsSignature])
+  return (
+    <View style={{ flex: 1 }}>
+        <View className="border-b border-border px-5 pb-4">
+          <Text style={{ color: palette.muted, ...typeStyle(12, { weight: "500" }) }}>Commands</Text>
+          <Text className="mt-1.5" style={{ color: palette.ink, ...typeStyle(18, { weight: "700" }) }}>
+            Session command palette
+          </Text>
+          <Text className="mt-1" style={{ color: palette.muted, ...typeStyle(13) }}>
+            Search host commands and mobile quick actions, then prefill or trigger them from one place.
+          </Text>
+        </View>
 
-  // A `<Modal visible={false}>` still builds and reconciles its whole subtree — every section
-  // and every row — on each parent render. Bailing out here keeps the closed palette out of
-  // the streaming session's render path entirely.
-  if (!props.visible) return null
+        <View className="px-5 pt-3 pb-2">
+          <TextField
+            value={props.query}
+            onChangeText={props.onQueryChange}
+            placeholder="Search commands, actions, slash names"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoFocus
+            returnKeyType="search"
+          />
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}
+          {...sheetScroll}
+        >
+          {props.loading ? (
+            <Text style={{ paddingHorizontal: 20, paddingTop: 20, color: palette.muted, ...typeStyle(14) }}>
+              Loading host commands…
+            </Text>
+          ) : sections.length ? (
+            sections.map(([section, items]) => (
+              <View key={section} style={{ paddingTop: 10 }}>
+                <Text
+                  style={{
+                    paddingHorizontal: 20,
+                    paddingBottom: 4,
+                    color: palette.accentLight,
+                    ...caps(11, { weight: "700" }),
+                  }}
+                >
+                  {section}
+                </Text>
+                {items.map((item, index) => (
+                  <CommandRow
+                    key={item.id}
+                    item={item}
+                    bordered={index < items.length - 1}
+                    onPress={() => {
+                      if (item.disabled) return
+                      void triggerHaptic("selection")
+                      item.onPress()
+                    }}
+                  />
+                ))}
+              </View>
+            ))
+          ) : (
+            <View style={{ alignItems: "center", paddingHorizontal: 32, paddingTop: 36 }}>
+              <Slash size={18} color={palette.muted} strokeWidth={2.1} />
+              <Text style={{ marginTop: 10, color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>
+                No commands found
+              </Text>
+              <Text style={{ marginTop: 4, textAlign: "center", color: palette.muted, ...typeStyle(13) }}>
+                Try another keyword or start a slash command in the composer.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    )
+}
+
+function CommandRow({
+  item,
+  bordered,
+  onPress,
+}: {
+  item: CommandPaletteItem
+  bordered: boolean
+  onPress(): void
+}) {
+  const { palette, isDark } = useAppTheme()
 
   return (
-    <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
-      <View style={{ flex: 1 }}>
-        {/* Full-screen blur backdrop */}
-        <AdaptiveBlur
-          tint={isDark ? "dark" : "light"}
-          intensity={isDark ? 20 : 14}
-          style={StyleSheet.absoluteFill}
-          fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"}
-        />
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(20,20,19,0.16)",
-            },
-          ]}
-        />
-
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <Pressable style={{ flex: 1 }} onPress={props.onClose} />
-
-          <View style={{ alignSelf: "stretch", paddingHorizontal: 16, paddingBottom: 24 }}>
-            <Animated.View
+    <Pressable
+      onPress={onPress}
+      disabled={item.disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(item.disabled) }}
+      accessibilityLabel={item.badge ? `${item.title}, ${item.badge}` : item.title}
+      accessibilityHint={item.description}
+      style={({ pressed }) => ({
+        opacity: item.disabled ? 0.48 : pressed ? 0.72 : 1,
+      })}
+    >
+      <View
+        style={{
+          width: "100%",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          minHeight: 72,
+          paddingHorizontal: 20,
+          paddingVertical: 12,
+          borderBottomWidth: bordered ? StyleSheet.hairlineWidth : 0,
+          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : hexToRgba(palette.ink, 0.08),
+        }}
+      >
+        <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
+          <Text
+            style={{
+              color: palette.ink,
+              fontSize: 15,
+              fontWeight: "600",
+              letterSpacing: -0.2,
+            }}
+            numberOfLines={1}
+          >
+            {item.title}
+          </Text>
+          {item.description ? (
+            <Text
               style={{
-                alignSelf: "stretch",
-                overflow: "hidden",
-                borderRadius: 20,
-                borderCurve: "continuous",
-                borderWidth: 1,
-                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.82)",
-                shadowColor: "#000",
-                shadowOpacity: isDark ? 0.45 : 0.14,
-                shadowRadius: 28,
-                shadowOffset: { width: 0, height: 8 },
-                elevation: 20,
-                transform: [{ scale: scaleAnim }],
-                opacity: opacityAnim,
+                marginTop: 3,
+                color: palette.soft,
+                fontSize: 12.5,
+                lineHeight: 17,
               }}
+              numberOfLines={2}
             >
-              <AdaptiveBlur
-                tint={isDark ? "dark" : "light"}
-                intensity={isDark ? 92 : 80}
-                style={StyleSheet.absoluteFill}
-                fallbackColor={hexToRgba(palette.surface, isDark ? 0.85 : 0.82)}
-              />
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor: hexToRgba(palette.surface, isDark ? 0.68 : 0.62),
-                  },
-                ]}
-                pointerEvents="none"
-              />
-
-              <View style={{ padding: 16 }}>
-                {/* Header */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <Sparkles size={15} color={palette.accentLight} strokeWidth={2.1} />
-                      <Text style={{ color: palette.accentLight, ...caps(11, { weight: "700" }) }}>Commands</Text>
-                    </View>
-                    <Text style={{ color: palette.ink, ...typeStyle(18, { weight: "600" }) }}>
-                      Session command palette
-                    </Text>
-                    <Text
-                      style={{
-                        color: palette.soft,
-                        ...typeStyle(14),
-                      }}
-                    >
-                      Search host commands and mobile quick actions, then prefill or trigger them from one place.
-                    </Text>
-                  </View>
-
-                  <Pressable
-                    onPress={props.onClose}
-                    onPressIn={() =>
-                      Animated.spring(scaleAnim, {
-                        toValue: 0.94,
-                        damping: 20,
-                        stiffness: 300,
-                        useNativeDriver: true,
-                      }).start()
-                    }
-                    onPressOut={() =>
-                      Animated.spring(scaleAnim, {
-                        toValue: 1,
-                        damping: 20,
-                        stiffness: 300,
-                        useNativeDriver: true,
-                      }).start()
-                    }
-                    style={({ pressed }) => ({
-                      minHeight: 44,
-                      minWidth: 44,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderRadius: 16,
-                      borderCurve: "continuous",
-                      borderWidth: 1,
-                      borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.80)",
-                      backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)",
-                      paddingHorizontal: 12,
-                      opacity: pressed ? 0.7 : 1,
-                    })}
-                  >
-                    <Text
-                      style={{
-                        color: palette.soft,
-                        ...caps(11, { weight: "700" }),
-                      }}
-                    >
-                      Close
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {/* Search field */}
-                <View
-                  style={{
-                    marginTop: 16,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 12,
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.80)",
-                    backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.55)",
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                  }}
-                >
-                  <Search size={16} color={palette.muted} strokeWidth={2.1} />
-                  <TextInput
-                    value={props.query}
-                    onChangeText={props.onQueryChange}
-                    placeholder="Search commands, actions, slash names"
-                    placeholderTextColor={palette.muted}
-                    selectionColor={palette.accent}
-                    keyboardAppearance={colorScheme === "light" ? "light" : "dark"}
-                    autoCapitalize="none"
-                    autoFocus
-                    style={{ flex: 1, color: palette.ink, ...typeStyle(15) }}
-                  />
-                </View>
-
-                {/* Results */}
-                <ScrollView
-                  style={{
-                    marginTop: 16,
-                    maxHeight: Math.min(480, height * 0.6),
-                  }}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {props.loading ? (
-                    <View
-                      style={{
-                        alignItems: "center",
-                        borderRadius: 22,
-                        borderWidth: 1,
-                        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
-                        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.45)",
-                        paddingHorizontal: 16,
-                        paddingVertical: 20,
-                      }}
-                    >
-                      <Text style={{ color: palette.soft, ...typeStyle(14) }}>Loading host commands…</Text>
-                    </View>
-                  ) : sections.length ? (
-                    <View style={{ gap: 16 }}>
-                      {sections.map(([section, items]) => (
-                        <View key={section} style={{ gap: 8 }}>
-                          <Text
-                            style={{
-                              color: palette.accentLight,
-                              ...caps(10, { weight: "700" }),
-                            }}
-                          >
-                            {section}
-                          </Text>
-                          {items.map((item) => {
-                            const itemScale = getItemScale(item.id)
-                            return (
-                              <Pressable
-                                key={item.id}
-                                disabled={item.disabled}
-                                onPress={item.onPress}
-                                onPressIn={() => {
-                                  if (!item.disabled) {
-                                    Animated.spring(itemScale, {
-                                      toValue: 0.97,
-                                      damping: 20,
-                                      stiffness: 280,
-                                      mass: 0.85,
-                                      useNativeDriver: true,
-                                    }).start()
-                                  }
-                                }}
-                                onPressOut={() => {
-                                  Animated.spring(itemScale, {
-                                    toValue: 1,
-                                    damping: 18,
-                                    stiffness: 300,
-                                    mass: 0.8,
-                                    useNativeDriver: true,
-                                  }).start()
-                                }}
-                                style={({ pressed }) => ({
-                                  alignSelf: "stretch",
-                                  borderRadius: 20,
-                                  borderCurve: "continuous",
-                                  borderWidth: 1,
-                                  borderColor: item.disabled
-                                    ? isDark
-                                      ? hexToRgba(palette.ink, 0.06)
-                                      : hexToRgba(palette.border, 0.6)
-                                    : isDark
-                                      ? "rgba(255,255,255,0.08)"
-                                      : "rgba(255,255,255,0.78)",
-                                  backgroundColor: item.disabled
-                                    ? isDark
-                                      ? "rgba(255,255,255,0.02)"
-                                      : "rgba(247,246,242,0.45)"
-                                    : isDark
-                                      ? "rgba(255,255,255,0.04)"
-                                      : "rgba(255,255,255,0.52)",
-                                  padding: 12,
-                                  opacity: item.disabled ? 0.6 : pressed ? 0.7 : 1,
-                                  transform: [{ scale: pressed ? 0.97 : itemScale }],
-                                })}
-                              >
-                                <View
-                                  style={{
-                                    flexDirection: "row",
-                                    alignItems: "flex-start",
-                                    justifyContent: "space-between",
-                                    gap: 12,
-                                  }}
-                                >
-                                  <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                                    <Text style={{ color: palette.ink, ...typeStyle(15, { weight: "600" }) }}>
-                                      {item.title}
-                                    </Text>
-                                    {item.description ? (
-                                      <Text
-                                        style={{
-                                          color: palette.soft,
-                                          ...typeStyle(13),
-                                        }}
-                                        numberOfLines={2}
-                                      >
-                                        {item.description}
-                                      </Text>
-                                    ) : null}
-                                  </View>
-                                  {item.badge ? (
-                                    <View
-                                      style={{
-                                        borderRadius: 999,
-                                        borderWidth: 1,
-                                        borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.18),
-                                        backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.08),
-                                        paddingHorizontal: 10,
-                                        paddingVertical: 4,
-                                      }}
-                                    >
-                                      <Text
-                                        style={{
-                                          color: palette.accentLight,
-                                          ...caps(10, { weight: "700" }),
-                                        }}
-                                      >
-                                        {item.badge}
-                                      </Text>
-                                    </View>
-                                  ) : null}
-                                </View>
-                              </Pressable>
-                            )
-                          })}
-                        </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <View
-                      style={{
-                        alignItems: "center",
-                        borderRadius: 22,
-                        borderWidth: 1,
-                        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
-                        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.45)",
-                        paddingHorizontal: 16,
-                        paddingVertical: 20,
-                      }}
-                    >
-                      <Slash size={16} color={palette.muted} strokeWidth={2.1} />
-                      <Text
-                        style={{
-                          marginTop: 8,
-                          color: palette.ink,
-                          ...typeStyle(15, { weight: "600" }),
-                        }}
-                      >
-                        No commands found
-                      </Text>
-                      <Text
-                        style={{
-                          marginTop: 4,
-                          textAlign: "center",
-                          color: palette.soft,
-                          ...typeStyle(13),
-                        }}
-                      >
-                        Try another keyword or start a slash command directly in the composer.
-                      </Text>
-                    </View>
-                  )}
-                </ScrollView>
-              </View>
-            </Animated.View>
+              {item.description}
+            </Text>
+          ) : null}
+        </View>
+        {item.badge ? (
+          <View
+            style={{
+              flexShrink: 0,
+              borderRadius: 999,
+              borderCurve: "continuous",
+              backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.06),
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+            }}
+          >
+            <Text style={{ color: palette.accentLight, ...caps(10, { weight: "700" }) }}>{item.badge}</Text>
           </View>
-        </KeyboardAvoidingView>
+        ) : null}
       </View>
-    </Modal>
+    </Pressable>
   )
 }
