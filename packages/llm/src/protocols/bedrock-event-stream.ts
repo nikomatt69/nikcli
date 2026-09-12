@@ -1,5 +1,4 @@
-import { EventStreamCodec } from "@smithy/eventstream-codec"
-import { fromUtf8, toUtf8 } from "@smithy/util-utf8"
+import type { EventStreamCodec } from "@smithy/eventstream-codec"
 import { Effect, Stream } from "effect"
 import type { Framing } from "../route/framing"
 import { ProviderShared } from "./shared"
@@ -8,7 +7,19 @@ import { ProviderShared } from "./shared"
 // frame is `[length:4][headers-length:4][prelude-crc:4][headers][payload][crc:4]`.
 // We use `@smithy/eventstream-codec` to validate framing and CRCs, then
 // reconstruct the JSON wrapping by `:event-type` so the chunk schema can match.
-const eventCodec = new EventStreamCodec(toUtf8, fromUtf8)
+// Built on the first frame rather than at module scope: `@smithy/eventstream-codec`
+// is ~15ms of module evaluation that every process importing the provider barrel
+// used to pay, including every one that never talks to Bedrock. By the time a
+// frame arrives we are already mid-response, so the load is invisible.
+let codec: EventStreamCodec | undefined
+const eventCodec = (): EventStreamCodec => {
+  if (codec === undefined) {
+    const { EventStreamCodec: Codec } = require("@smithy/eventstream-codec") as typeof import("@smithy/eventstream-codec")
+    const { fromUtf8, toUtf8 } = require("@smithy/util-utf8") as typeof import("@smithy/util-utf8")
+    codec = new Codec(toUtf8, fromUtf8)
+  }
+  return codec
+}
 const utf8 = new TextDecoder()
 
 // Cursor-tracking buffer state. Bytes accumulate in `buffer`; `offset` is the
@@ -42,7 +53,7 @@ const consumeFrames = (route: string) => (state: FrameBufferState, chunk: Uint8A
       if (view.length < totalLength) break
 
       const decoded = yield* Effect.try({
-        try: () => eventCodec.decode(view.subarray(0, totalLength)),
+        try: () => eventCodec().decode(view.subarray(0, totalLength)),
         catch: (error) =>
           ProviderShared.eventError(
             route,

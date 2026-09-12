@@ -1,10 +1,7 @@
 import { cmd } from "./cmd"
-import { Client } from "@modelcontextprotocol/sdk/client/index.js"
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
-import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js"
 import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
-import { MCP } from "../../mcp"
+import { MCP, mcpSdk } from "../../mcp"
 import { McpAuth } from "../../mcp/auth"
 import { McpOAuthProvider } from "../../mcp/oauth-provider"
 import { Config } from "../../config/config"
@@ -752,12 +749,12 @@ export const McpDebugCommand = cmd({
 
             prompts.log.info("Testing OAuth flow (without completing authorization)...")
 
-            const transport = new StreamableHTTPClientTransport(new URL(serverConfig.url), {
+            const transport = new (mcpSdk().StreamableHTTPClientTransport)(new URL(serverConfig.url), {
               authProvider,
             })
 
             try {
-              const client = new Client({
+              const client = new (mcpSdk().Client)({
                 name: "nikcli-debug",
                 version: Installation.VERSION,
               })
@@ -765,7 +762,7 @@ export const McpDebugCommand = cmd({
               prompts.log.success("Connection successful (already authenticated)")
               await client.close()
             } catch (error) {
-              if (error instanceof UnauthorizedError) {
+              if (error instanceof mcpSdk().UnauthorizedError) {
                 prompts.log.info(`OAuth flow triggered: ${error.message}`)
 
                 const clientInfo = await authProvider.clientInformation()

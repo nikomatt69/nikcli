@@ -28,6 +28,7 @@ Source: the `.command(...)` list in `src/cli-main.ts` plus `yargs.completion("co
 | `attach`          | `<url>`                                                                                            | Attach to an existing server              |
 | `run`             | `[message..]`                                                                                      | One-shot prompt                           |
 | `serve`           | —                                                                                                  | HTTP server                               |
+| `service`         | `start`, `stop`, `restart`, `status`, `get`, `set`, `unset`                                        | Shared background server (specs/background-service.md) |
 | `workspace-serve` | —                                                                                                  | Standalone workspace host                 |
 | `web`             | —                                                                                                  | Web UI                                    |
 | `acp`             | —                                                                                                  | Agent Client Protocol                     |

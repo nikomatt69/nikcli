@@ -1,6 +1,5 @@
 import { parse } from "acorn"
 import { Cause, Effect, Scope } from "effect"
-import { DiagnosticCategory, ModuleKind, ScriptTarget, flattenDiagnosticMessageText, transpileModule } from "typescript"
 import type { DataValue, Diagnostic, ExecuteOptions, ResolvedExecutionLimits, Result } from "../codemode"
 import { copyIn, copyOut, ToolRuntime, type HostTools, type Services } from "../tool-runtime"
 import { normalizeError } from "./errors"
@@ -111,27 +110,63 @@ export const executeWithLimits = <const Tools extends Record<string, unknown>>(
   })
 }
 
-const parseProgram = (code: string): ProgramNode => {
-  const transpiled = transpileModule(`async function __codemode__() {\n${code}\n}`, {
-    reportDiagnostics: true,
-    compilerOptions: {
-      target: ScriptTarget.ESNext,
-      module: ModuleKind.ESNext,
-    },
-  })
-  const diagnostic = transpiled.diagnostics?.find((item) => item.category === DiagnosticCategory.Error)
+/**
+ * Bun's native transpiler instead of `typescript`'s `transpileModule`.
+ *
+ * Importing `typescript` for this one call pulled the whole 10MB compiler into
+ * every process that registers the tool registry — ~39MB RSS and ~130ms of
+ * module evaluation at boot, paid by `nikcli --version` as much as by a real
+ * codemode run. Bun ships the same type-stripping natively, so this deletes the
+ * dependency rather than deferring it: no first-use cost moves anywhere.
+ *
+ * Type stripping is all `parseProgram` ever wanted — the output is immediately
+ * re-parsed by acorn, so only the erased-JS shape matters, not TS semantics.
+ *
+ * `deadCodeElimination: false` is load-bearing: Bun drops side-effect-free
+ * expression statements by default, and codemode returns the value of the final
+ * top-level expression, so `1; 2` must survive transpilation as `1; 2`.
+ */
+const transpiler = new Bun.Transpiler({ loader: "ts", target: "bun", deadCodeElimination: false })
 
+/**
+ * Bun rejects a few programs that `transpileModule` emits happily, because it
+ * enforces early errors a syntax-only TS transpile never checks — `const c = 1;
+ * c = 2` is the one with parity consequences: real JS throws that as a *runtime*
+ * TypeError the program can catch, so refusing it at transpile time would change
+ * observable behaviour. Fall back to the real compiler whenever Bun disagrees.
+ *
+ * `require` rather than a static import so `typescript` is only evaluated if
+ * this path is actually taken; it must never re-enter the boot graph.
+ */
+const transpileWithTypescript = (source: string): string => {
+  const ts = require("typescript") as typeof import("typescript")
+  const transpiled = ts.transpileModule(source, {
+    reportDiagnostics: true,
+    compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext },
+  })
+  const diagnostic = transpiled.diagnostics?.find((item) => item.category === ts.DiagnosticCategory.Error)
   if (diagnostic) {
     throw new InterpreterRuntimeError(
-      `Failed to parse TypeScript: ${flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
+      `Failed to parse TypeScript: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
       undefined,
       "ParseError",
     )
   }
+  return transpiled.outputText
+}
 
-  const bodyStart = transpiled.outputText.indexOf("{") + 1
-  const bodyEnd = transpiled.outputText.lastIndexOf("}")
-  const executableCode = transpiled.outputText.slice(bodyStart, bodyEnd)
+const parseProgram = (code: string): ProgramNode => {
+  const source = `async function __codemode__() {\n${code}\n}`
+  let outputText: string
+  try {
+    outputText = transpiler.transformSync(source)
+  } catch {
+    outputText = transpileWithTypescript(source)
+  }
+
+  const bodyStart = outputText.indexOf("{") + 1
+  const bodyEnd = outputText.lastIndexOf("}")
+  const executableCode = outputText.slice(bodyStart, bodyEnd)
   const parsed = parse(executableCode, {
     ecmaVersion: "latest",
     sourceType: "script",

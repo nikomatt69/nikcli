@@ -1,14 +1,8 @@
 import { dynamicTool, type Tool, jsonSchema, type JSONSchema7 } from "ai"
-import { Client } from "@modelcontextprotocol/sdk/client/index.js"
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js"
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
-import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js"
-import {
-  CallToolResultSchema,
-  type Tool as MCPToolDef,
-  ToolListChangedNotificationSchema,
-} from "@modelcontextprotocol/sdk/types.js"
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import type { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
+import type { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js"
+import type { Tool as MCPToolDef } from "@modelcontextprotocol/sdk/types.js"
 import { Config } from "../config/config"
 import { Log } from "@nikcli-ai/util/log"
 import z from "zod/v4"
@@ -24,6 +18,48 @@ import open from "open"
 import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer } from "@/effect"
 import type { InstanceContext } from "@/effect"
+
+/**
+ * The MCP SDK, loaded on first use instead of at module scope.
+ *
+ * `MCP` is imported by seven core modules (session tools, prompt, command
+ * registry, three HTTP routes), so its imports were evaluated in every process —
+ * ~38ms and ~10MB of RSS, plus `cross-spawn` via the stdio transport, spent even
+ * when the user has no MCP servers configured at all. Every call site below runs
+ * while a server is being connected to or a tool is being called, so the load
+ * lands inside work that is already spawning processes or waiting on a socket.
+ *
+ * `require` rather than `await import` because `registerNotificationHandlers` is
+ * synchronous; by the time any of these run a client already exists, so the
+ * modules are warm and the call is a cache hit.
+ */
+type McpSdk = {
+  Client: typeof import("@modelcontextprotocol/sdk/client/index.js").Client
+  StreamableHTTPClientTransport: typeof import("@modelcontextprotocol/sdk/client/streamableHttp.js").StreamableHTTPClientTransport
+  SSEClientTransport: typeof import("@modelcontextprotocol/sdk/client/sse.js").SSEClientTransport
+  StdioClientTransport: typeof import("@modelcontextprotocol/sdk/client/stdio.js").StdioClientTransport
+  UnauthorizedError: typeof import("@modelcontextprotocol/sdk/client/auth.js").UnauthorizedError
+  CallToolResultSchema: typeof import("@modelcontextprotocol/sdk/types.js").CallToolResultSchema
+  ToolListChangedNotificationSchema: typeof import("@modelcontextprotocol/sdk/types.js").ToolListChangedNotificationSchema
+}
+
+let sdkCache: McpSdk | undefined
+export function mcpSdk(): McpSdk {
+  if (sdkCache === undefined) {
+    sdkCache = {
+      Client: require("@modelcontextprotocol/sdk/client/index.js").Client,
+      StreamableHTTPClientTransport: require("@modelcontextprotocol/sdk/client/streamableHttp.js")
+        .StreamableHTTPClientTransport,
+      SSEClientTransport: require("@modelcontextprotocol/sdk/client/sse.js").SSEClientTransport,
+      StdioClientTransport: require("@modelcontextprotocol/sdk/client/stdio.js").StdioClientTransport,
+      UnauthorizedError: require("@modelcontextprotocol/sdk/client/auth.js").UnauthorizedError,
+      CallToolResultSchema: require("@modelcontextprotocol/sdk/types.js").CallToolResultSchema,
+      ToolListChangedNotificationSchema: require("@modelcontextprotocol/sdk/types.js")
+        .ToolListChangedNotificationSchema,
+    }
+  }
+  return sdkCache
+}
 
 function runMcpAuth<A, E>(effect: Effect.Effect<A, E, McpAuth.Service>) {
   return runPromiseWithLayer(McpAuth.defaultLayer, effect)
@@ -129,7 +165,7 @@ export namespace MCP {
   export type Status = z.infer<typeof Status>
 
   function registerNotificationHandlers(client: MCPClient, serverName: string) {
-    client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
+    client.setNotificationHandler(mcpSdk().ToolListChangedNotificationSchema, async () => {
       log.info("tools list changed notification received", { server: serverName })
       Bus.publish(ToolsChanged, { server: serverName })
     })
@@ -159,7 +195,7 @@ export namespace MCP {
             name: mcpTool.name,
             arguments: args as Record<string, unknown>,
           },
-          CallToolResultSchema,
+          mcpSdk().CallToolResultSchema,
           {
             resetTimeoutOnProgress: true,
             timeout,
@@ -382,14 +418,14 @@ export namespace MCP {
       const transports: Array<{ name: string; transport: TransportWithAuth }> = [
         {
           name: "StreamableHTTP",
-          transport: new StreamableHTTPClientTransport(new URL(mcp.url), {
+          transport: new (mcpSdk().StreamableHTTPClientTransport)(new URL(mcp.url), {
             authProvider,
             requestInit: mcp.headers ? { headers: mcp.headers } : undefined,
           }),
         },
         {
           name: "SSE",
-          transport: new SSEClientTransport(new URL(mcp.url), {
+          transport: new (mcpSdk().SSEClientTransport)(new URL(mcp.url), {
             authProvider,
             requestInit: mcp.headers ? { headers: mcp.headers } : undefined,
           }),
@@ -400,7 +436,7 @@ export namespace MCP {
       const connectTimeout = mcp.timeout ?? DEFAULT_TIMEOUT
       for (const { name, transport } of transports) {
         try {
-          const client = new Client({
+          const client = new (mcpSdk().Client)({
             name: "nikcli",
             version: Installation.VERSION,
           })
@@ -413,7 +449,7 @@ export namespace MCP {
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error))
 
-          if (error instanceof UnauthorizedError) {
+          if (error instanceof mcpSdk().UnauthorizedError) {
             log.info("mcp server requires authentication", { key, transport: name })
 
             if (lastError.message.includes("registration") || lastError.message.includes("client_id")) {
@@ -457,7 +493,7 @@ export namespace MCP {
     if (mcp.type === "local") {
       const [cmd, ...args] = mcp.command
       const cwd = ctx.directory
-      const transport = new StdioClientTransport({
+      const transport = new (mcpSdk().StdioClientTransport)({
         stderr: "ignore",
         command: cmd,
         args,
@@ -471,7 +507,7 @@ export namespace MCP {
 
       const connectTimeout = mcp.timeout ?? DEFAULT_TIMEOUT
       try {
-        const client = new Client({
+        const client = new (mcpSdk().Client)({
           name: "nikcli",
           version: Installation.VERSION,
         })
@@ -792,19 +828,19 @@ export namespace MCP {
       },
     )
 
-    const transport = new StreamableHTTPClientTransport(new URL(mcpConfig.url), {
+    const transport = new (mcpSdk().StreamableHTTPClientTransport)(new URL(mcpConfig.url), {
       authProvider,
     })
 
     try {
-      const client = new Client({
+      const client = new (mcpSdk().Client)({
         name: "nikcli",
         version: Installation.VERSION,
       })
       await client.connect(transport)
       return { authorizationUrl: "" }
     } catch (error) {
-      if (error instanceof UnauthorizedError && capturedUrl) {
+      if (error instanceof mcpSdk().UnauthorizedError && capturedUrl) {
         pendingOAuthTransports.set(mcpName, transport)
         return { authorizationUrl: capturedUrl.toString() }
       }
@@ -909,7 +945,7 @@ export namespace MCP {
         }),
       )
 
-      client = new Client({
+      client = new (mcpSdk().Client)({
         name: "nikcli",
         version: Installation.VERSION,
       })

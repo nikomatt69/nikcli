@@ -1394,6 +1394,10 @@ export class Interpreter<R> {
     return Effect.map(this.evaluateExpression(argument), (value) => {
       if (operator === "typeof") return typeofValue(value)
       if (operator === "!") return !value
+      // `void` discards its operand, so it needs no data value — and the
+      // transpiler emits `void 0` for every `undefined` literal, which makes
+      // this the most common unary operator in transpiled codemode programs.
+      if (operator === "void") return undefined
       if (containsOpaqueReference(value)) {
         throw new InterpreterRuntimeError("Unary operators require data values in CodeMode.", node, "InvalidDataValue")
       }

@@ -10,60 +10,20 @@ import { hideBin } from "yargs/helpers"
 
 // Every CLI command that can install a plugin runs through this entry.
 installPluginInstaller()
-import { RunCommand } from "./cli/cmd/run"
 import { GenerateCommand } from "./cli/cmd/generate"
 import { Log } from "@nikcli-ai/util/log"
-import { AuthCommand } from "./cli/cmd/auth"
-import { AgentCommand } from "./cli/cmd/agent"
-import { UpgradeCommand } from "./cli/cmd/upgrade"
-import { QuickstartCommand } from "./cli/cmd/quickstart"
-import { DoctorCommand } from "./cli/cmd/doctor"
-import { UninstallCommand } from "./cli/cmd/uninstall"
-import { ModelsCommand } from "./cli/cmd/models"
-import { LocaleCommand } from "./cli/cmd/locale"
 import { UI } from "./cli/ui"
 import { Installation } from "./installation"
 import { initialize } from "@nikcli-ai/util/global"
+import { Diagnostics } from "./cli/diagnostics"
+import { exported, lazy } from "./cli/cmd/lazy"
 import { FormatError } from "@nikcli-ai/util/cli-error"
-import { ServeCommand } from "./cli/cmd/serve"
-import { WorkspaceServeCommand } from "./cli/cmd/workspace-serve"
-import { DebugCommand } from "./cli/cmd/debug"
-import { StatsCommand } from "./cli/cmd/stats"
-import { ApiCommand } from "./cli/cmd/api"
-import { McpCommand } from "./cli/cmd/mcp"
-import { GithubCommand } from "./cli/cmd/github"
-import { ExportCommand } from "./cli/cmd/export"
-import { ImportCommand } from "./cli/cmd/import"
 import { AttachCommand } from "./cli/cmd/tui/attach"
 import { TuiThreadCommand } from "./cli/cmd/tui/thread"
-import { AcpCommand } from "./cli/cmd/acp"
 import { EOL } from "os"
-import { WebCommand } from "./cli/cmd/web"
-import { PrCommand } from "./cli/cmd/pr"
-import { SessionCommand } from "./cli/cmd/session"
 
-import { ImageModelCommand } from "./cli/cmd/image-model"
-import { SpeakModelCommand } from "./cli/cmd/speak-model"
-import { BrainModelCommand } from "./cli/cmd/brain-model"
-import { RemoteCommand } from "./cli/cmd/remote"
-import { TeleportCommand } from "./cli/cmd/teleport"
 
-import { AdsCommand } from "./cli/cmd/ads"
 
-import { CompanionCommand } from "./cli/cmd/companion"
-import { MobileCommand } from "./cli/cmd/mobile"
-import { PluginCommand } from "./cli/cmd/plug"
-import { AccountCommand } from "./cli/cmd/account"
-import { ArtifactCommand } from "./cli/cmd/artifact"
-import { HeapCommand } from "./cli/cmd/heap"
-import { RoutineCommand } from "./cli/cmd/routine"
-import { UsageCommand } from "./cli/cmd/usage"
-import { GoalCommand } from "./cli/cmd/goal"
-import { AnalyticsCommand } from "./cli/cmd/analytics"
-import { MissionCommand } from "./cli/cmd/mission"
-import { SyncCommand } from "./cli/cmd/sync"
-import { ConnectorsCommand } from "./cli/cmd/connectors"
-import { BotCommand } from "./cli/cmd/chatbot"
 import { IslandBridge } from "@nikcli-ai/util/island-bridge"
 
 export async function runCli() {
@@ -126,6 +86,9 @@ export async function runCli() {
     })
     .middleware(async (opts) => {
       await initialize()
+      // Armed after `initialize()` because the capture paths write into
+      // `Global.Path.log`. See `cli/diagnostics.ts` for the two signals.
+      Diagnostics.listen()
       process.env.NIKCLI_ISLAND = opts.island ? "1" : "0"
       // Passed through the environment because the TUI runs the session in a worker thread, which
       // never sees this argv.
@@ -162,51 +125,267 @@ export async function runCli() {
     })
     .usage("\n" + UI.logo())
     .completion("completion", "generate shell completion script")
-    .command(AcpCommand)
-    .command(McpCommand)
-    .command(AdsCommand)
+    .command(
+      lazy(
+        { command: "acp", describe: "start ACP (Agent Client Protocol) server" },
+        exported(() => import("./cli/cmd/acp"), "AcpCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "mcp", describe: "manage MCP (Model Context Protocol) servers" },
+        exported(() => import("./cli/cmd/mcp"), "McpCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "ads", describe: "manage ads" },
+        exported(() => import("./cli/cmd/ads"), "AdsCommand"),
+      ),
+    )
     .command(TuiThreadCommand)
     .command(AttachCommand)
-    .command(RunCommand)
-    .command(GoalCommand)
-    .command(AnalyticsCommand)
+    .command(
+      lazy(
+        { command: "run [message..]", describe: "run nikcli with a message" },
+        exported(() => import("./cli/cmd/run"), "RunCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "goal [condition..]", describe: "work autonomously until a verifiable goal condition is met" },
+        exported(() => import("./cli/cmd/goal"), "GoalCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "analytics <subcommand>", describe: "inspect and publish local usage rollups" },
+        exported(() => import("./cli/cmd/analytics"), "AnalyticsCommand"),
+      ),
+    )
     .command(GenerateCommand)
-    .command(ApiCommand)
-    .command(DebugCommand)
-    .command(AuthCommand)
-    .command(AccountCommand)
-    .command(ArtifactCommand)
-    .command(AgentCommand)
-    .command(UpgradeCommand)
-    .command(QuickstartCommand)
-    .command(DoctorCommand)
-    .command(UninstallCommand)
-    .command(ServeCommand)
-    .command(WorkspaceServeCommand)
-    .command(WebCommand)
-    .command(HeapCommand)
-    .command(ModelsCommand)
-    .command(LocaleCommand)
-    .command(StatsCommand)
-    .command(ExportCommand)
-    .command(ImportCommand)
-    .command(GithubCommand)
-    .command(PrCommand)
-    .command(SessionCommand)
-    .command(ImageModelCommand)
-    .command(SpeakModelCommand)
-    .command(BrainModelCommand)
-    .command(RemoteCommand)
-    .command(TeleportCommand)
-    .command(CompanionCommand)
-    .command(MobileCommand)
-    .command(RoutineCommand)
-    .command(MissionCommand)
-    .command(UsageCommand)
-    .command(PluginCommand)
-    .command(SyncCommand)
-    .command(ConnectorsCommand)
-    .command(BotCommand)
+    .command(
+      lazy(
+        { command: "api [request..]", describe: "call one endpoint of the HTTP contract" },
+        exported(() => import("./cli/cmd/api"), "ApiCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "debug", describe: "debugging and troubleshooting tools" },
+        exported(() => import("./cli/cmd/debug"), "DebugCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "auth", describe: "manage credentials" },
+        exported(() => import("./cli/cmd/auth"), "AuthCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "account", describe: "manage accounts" },
+        exported(() => import("./cli/cmd/account"), "AccountCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "artifact", describe: "manage published artifacts (nikcli.store/artifact)" },
+        exported(() => import("./cli/cmd/artifact"), "ArtifactCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "agent", describe: "manage agents" },
+        exported(() => import("./cli/cmd/agent"), "AgentCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "upgrade [target]", describe: "upgrade nikcli to the latest or a specific version" },
+        exported(() => import("./cli/cmd/upgrade"), "UpgradeCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "quickstart", describe: "interactive walkthrough for first-time nikcli users" },
+        exported(() => import("./cli/cmd/quickstart"), "QuickstartCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "doctor", describe: "diagnose common nikcli setup issues" },
+        exported(() => import("./cli/cmd/doctor"), "DoctorCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "uninstall", describe: "uninstall nikcli and remove all related files" },
+        exported(() => import("./cli/cmd/uninstall"), "UninstallCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "serve", describe: "starts a headless nikcli server" },
+        exported(() => import("./cli/cmd/serve"), "ServeCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "service", describe: "manage the shared background nikcli service" },
+        exported(() => import("./cli/cmd/service"), "ServiceCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "workspace-serve", describe: "starts a remote workspace event server" },
+        exported(() => import("./cli/cmd/workspace-serve"), "WorkspaceServeCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "web", describe: "start nikcli server and open web interface" },
+        exported(() => import("./cli/cmd/web"), "WebCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "heap", describe: "show heap and process memory metrics" },
+        exported(() => import("./cli/cmd/heap"), "HeapCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "models [provider]", describe: "list all available models" },
+        exported(() => import("./cli/cmd/models"), "ModelsCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "locale [action]", describe: "show or set the CLI language, region, and the model's reply language" },
+        exported(() => import("./cli/cmd/locale"), "LocaleCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "stats", describe: "show token usage and cost statistics" },
+        exported(() => import("./cli/cmd/stats"), "StatsCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "export [sessionID]", describe: "export session data as JSON" },
+        exported(() => import("./cli/cmd/export"), "ExportCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "import <file>", describe: "import session data from JSON file or URL" },
+        exported(() => import("./cli/cmd/import"), "ImportCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "github", describe: "manage GitHub agent" },
+        exported(() => import("./cli/cmd/github"), "GithubCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "pr <number>", describe: "fetch and checkout a GitHub PR branch, then run nikcli" },
+        exported(() => import("./cli/cmd/pr"), "PrCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "session", describe: "manage sessions" },
+        exported(() => import("./cli/cmd/session"), "SessionCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "image-model [provider] [model]", describe: "list or set image generation models" },
+        exported(() => import("./cli/cmd/image-model"), "ImageModelCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "speak-model [provider] [model]", describe: "list or set TTS (speak) models" },
+        exported(() => import("./cli/cmd/speak-model"), "SpeakModelCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "brain-model [model]", describe: "list or set the model used by Brain memory consolidation" },
+        exported(() => import("./cli/cmd/brain-model"), "BrainModelCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "remote [command]", describe: "manage terminal and mobile app remote control sessions" },
+        exported(() => import("./cli/cmd/remote"), "RemoteCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "teleport [sessionID]", describe: "teleport a session to a remote nikcli server to continue it from mobile" },
+        exported(() => import("./cli/cmd/teleport"), "TeleportCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "companion", describe: "Web UI for nikcli sessions" },
+        exported(() => import("./cli/cmd/companion"), "CompanionCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "mobile", describe: "mobile app host and pairing tools" },
+        exported(() => import("./cli/cmd/mobile"), "MobileCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "routine", describe: "manage routines \u2014 scheduled and API-triggered AI workflows" },
+        exported(() => import("./cli/cmd/routine"), "RoutineCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "mission", describe: "manage Missions \u2014 multi-milestone autonomous workflows" },
+        exported(() => import("./cli/cmd/mission"), "MissionCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "usage", describe: "show token usage with charts and visual breakdowns" },
+        exported(() => import("./cli/cmd/usage"), "UsageCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "plugin <module>", describe: "install plugin and update config" },
+        exported(() => import("./cli/cmd/plug"), "PluginCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "sync", describe: "manage optional remote hub sync (e.g. https://s.nikcli.store)" },
+        exported(() => import("./cli/cmd/sync"), "SyncCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "connectors", describe: "manage external service connectors (Figma, Slack, GitHub, Lovable)" },
+        exported(() => import("./cli/cmd/connectors"), "ConnectorsCommand"),
+      ),
+    )
+    .command(
+      lazy(
+        { command: "bot", describe: "manage chat bots (Discord, Slack, Teams, Google Chat, Linear, GitHub)" },
+        exported(() => import("./cli/cmd/chatbot"), "BotCommand"),
+      ),
+    )
     .epilogue("nikcli is a fork of opencode (https://github.com/anomalyco/opencode) — credits to its authors.")
     .fail((msg, err) => {
       if (

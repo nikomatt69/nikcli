@@ -1,7 +1,6 @@
 import { Effect, Schema } from "effect"
 import { zod } from "@nikcli-ai/util/effect-zod"
 import { Tool } from "./tool"
-import TurndownService from "turndown"
 import DESCRIPTION from "./webfetch.txt"
 import { Identifier } from "@nikcli-ai/util/id"
 
@@ -119,7 +118,7 @@ export const WebFetchTool = Tool.define("webfetch", {
     switch (params.format) {
       case "markdown":
         if (contentType.includes("text/html")) {
-          const markdown = convertHTMLToMarkdown(content)
+          const markdown = await convertHTMLToMarkdown(content)
           return {
             output: markdown,
             title,
@@ -196,7 +195,15 @@ async function extractTextFromHTML(html: string) {
   return text.trim()
 }
 
-function convertHTMLToMarkdown(html: string): string {
+/**
+ * `turndown` (and its `domino` DOM) is imported here rather than at module
+ * scope: it is ~50ms of module evaluation and ~5.6MB of RSS that every process
+ * registering the tool registry used to pay, for a conversion that only runs
+ * after a webfetch has already gone out to the network. Deferring it hides the
+ * cost inside an HTTP round trip instead of putting it in front of the user.
+ */
+async function convertHTMLToMarkdown(html: string): Promise<string> {
+  const { default: TurndownService } = await import("turndown")
   const turndownService = new TurndownService({
     headingStyle: "atx",
     hr: "---",

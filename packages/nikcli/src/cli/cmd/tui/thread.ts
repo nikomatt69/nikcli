@@ -173,6 +173,11 @@ export const TuiThreadCommand = cmd({
         type: "string",
         describe: "path to start nikcli in",
       })
+      .option("standalone", {
+        type: "boolean",
+        describe: "run with a private in-process server instead of the shared background service",
+        default: false,
+      })
       .option("model", {
         type: "string",
         alias: ["m"],
@@ -214,6 +219,99 @@ export const TuiThreadCommand = cmd({
     } catch {
       UI.error("Failed to change directory to " + cwd)
       process.exit(1)
+    }
+
+    // Background-service path — the default.
+    //
+    // The engine graph — ~23K FunctionExecutable and ~125MB of JS heap — is
+    // evaluated once per machine in a long-lived server instead of once per
+    // invocation in this process *and* again in its worker isolate. There is no
+    // worker here at all: the client is a plain HTTP consumer, exactly the shape
+    // `nikcli attach <url>` has always run in.
+    //
+    // Kept as an early return rather than threaded through the worker setup
+    // below: the two paths share nothing but the `tui()` call itself, and
+    // conflating them is how the private path would quietly acquire a
+    // regression. See `specs/background-service.md`.
+    //
+    // Default on, as in opencode: `--standalone` (or `NIKCLI_SERVICE=0`) takes
+    // the private in-process path instead. Drive mode is always private — its
+    // deterministic mock lives in this process and the worker is routed to it.
+    // Explicit network options mean the caller wants their *own* listener, so
+    // they keep the path that starts one.
+    const wantsOwnServer = shouldStartHttpServer(
+      await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0]),
+    )
+    //
+    // A test home opts out unless asked for explicitly: the service outlives the
+    // client by design, so a suite that boots the TUI would leave one daemon per
+    // test home behind — and stray nikcli processes are already a documented
+    // source of bogus measurements and flaky runs.
+    const testHome = Boolean(process.env.NIKCLI_TEST_HOME) && process.env.NIKCLI_SERVICE !== "1"
+    const useService =
+      !args.standalone &&
+      process.env.NIKCLI_SERVICE !== "0" &&
+      !process.env.NIKCLI_DRIVE &&
+      !wantsOwnServer &&
+      !testHome
+
+    if (useService) {
+      const { BackgroundService } = await import("@/service/service")
+      const { localPluginHost } = await import("./plugin/host-local")
+      // A service that will not start must not take the TUI down with it: fall
+      // through to the private path, loudly. The failure modes here are
+      // environmental (a wedged port, a killed spawn), and a user who cannot
+      // open their editor has a worse problem than a cold engine.
+      const registration = await BackgroundService.ensure().catch((error) => {
+        Log.Default.warn("background service unavailable; falling back to a private in-process server", {
+          error: errorMessage(error),
+        })
+        return undefined
+      })
+      if (registration) {
+        Log.Default.info("using background service", { url: registration.url, pid: registration.pid })
+      const { tui } = await import("@nikcli-ai/tui/app")
+      const tuiConfig = await TuiConfig.get().catch(() => undefined)
+      // Upgrade runs in *this* process, not the service: it replaces the
+      // installed binary, and the service is a different (older) copy of it.
+      // Imported inside the callbacks so the upgrade chain — and the instance
+      // bootstrap it needs — stays out of the boot graph; both are rare,
+      // user-initiated, and already slow.
+      const withUpgradeInstance = async <T>(fn: () => Promise<T>): Promise<T> => {
+        const { InstanceBootstrap } = await import("@/project/bootstrap")
+        const { withInstanceAsync } = await import("@/effect")
+        return withInstanceAsync({ directory: cwd, init: InstanceBootstrap }, fn)
+      }
+
+      await tui({
+        url: registration.url,
+        pluginHost: localPluginHost,
+        tuiConfig,
+        directory: cwd,
+        args: {
+          continue: args.continue,
+          sessionID: args.session,
+          agent: args.agent,
+          model: args.model,
+          prompt: args.prompt,
+        },
+        checkUpgrade: async () => {
+          await withUpgradeInstance(async () => {
+            const { upgrade } = await import("@/cli/upgrade")
+            await upgrade()
+          }).catch((error) => {
+            Log.Default.debug("upgrade check failed", { error: errorMessage(error) })
+          })
+        },
+          upgradeNow: async (method: string, version: string) => {
+            await withUpgradeInstance(async () => {
+              const { upgradeNow } = await import("@/cli/upgrade")
+              await upgradeNow(method as import("@/installation").Installation.Method, version)
+            })
+          },
+        })
+        return
+      }
     }
 
     // Drive mode: the deterministic OpenAI mock and the driver control

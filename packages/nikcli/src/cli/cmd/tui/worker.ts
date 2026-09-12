@@ -15,8 +15,13 @@ import { IslandBridge } from "@nikcli-ai/util/island-bridge"
 import { MobileAuth } from "@/mobile/auth"
 import { BrowserControl } from "@/browser-control/browser-control"
 import { errorMessage } from "@nikcli-ai/util/error-format"
+import { Diagnostics } from "@/cli/diagnostics"
 
 Process.ensureMetadata("worker")
+
+// The session runs here, not on the main thread, so a CPU profile of the main
+// process would miss every token of streaming work. Arm the worker separately.
+Diagnostics.listen()
 
 await Log.init({
   print: process.argv.includes("--print-logs"),

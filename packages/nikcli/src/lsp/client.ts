@@ -2,7 +2,6 @@ import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import path from "path"
 import { pathToFileURL, fileURLToPath } from "url"
-import { createMessageConnection, StreamMessageReader, StreamMessageWriter } from "vscode-jsonrpc/node"
 import type { Diagnostic as VSCodeDiagnostic } from "vscode-languageserver-types"
 import { Log } from "@nikcli-ai/util/log"
 import { LANGUAGE_EXTENSIONS } from "@nikcli-ai/util/language"
@@ -54,6 +53,14 @@ export namespace LSPClient {
     const l = log.clone().tag("serverID", input.serverID)
     const directory = input.directory
     l.info("starting client")
+
+    // Imported here, not at module scope: `vscode-jsonrpc/node` costs ~21ms of
+    // module evaluation in every process that loads the LSP module, including
+    // the ones that never start a language server. By the time we get here the
+    // server process is already spawned, so the load is free in wall-clock terms.
+    const { createMessageConnection, StreamMessageReader, StreamMessageWriter } = await import(
+      "vscode-jsonrpc/node"
+    )
 
     const connection = createMessageConnection(
       new StreamMessageReader(input.server.process.stdout as any),

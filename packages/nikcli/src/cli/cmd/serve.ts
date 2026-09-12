@@ -139,11 +139,17 @@ function waitForShutdownSignal(): Promise<void> {
 export const ServeCommand = cmd({
   command: "serve",
   builder: (yargs) =>
-    withNetworkOptions(yargs).option("stdio", {
-      type: "boolean",
-      describe: "print the readiness handshake as a single JSON line on stdout (for parent processes)",
-      default: false,
-    }),
+    withNetworkOptions(yargs)
+      .option("stdio", {
+        type: "boolean",
+        describe: "print the readiness handshake as a single JSON line on stdout (for parent processes)",
+        default: false,
+      })
+      .option("service", {
+        type: "boolean",
+        describe: "run as the shared background service: publish a registration clients can discover",
+        default: false,
+      }),
   describe: "starts a headless nikcli server",
   handler: async (args) => {
     const opts = await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0])
@@ -181,6 +187,23 @@ export const ServeCommand = cmd({
       console.log(`nikcli server listening on http://${server.hostname}:${server.port}`)
     }
 
+    // Published only after the health probe above, so a client that discovers a
+    // registration can rely on the route stack already answering. The service
+    // owns this file rather than its spawner: it is the only party that knows
+    // which port it actually got, and the only one that can remove the file on
+    // a clean exit. See `specs/background-service.md`.
+    let releaseRegistration: (() => Promise<void>) | undefined
+    if (args.service) {
+      const { BackgroundService } = await import("@/service/service")
+      // The watchdog's callback is how two services for one channel stop
+      // coexisting: whoever loses the registration stands down instead of
+      // lingering as a second engine nobody talks to.
+      releaseRegistration = await BackgroundService.register(server.url.origin, () => {
+        warn("another nikcli service took over this channel; shutting down")
+        process.kill(process.pid, "SIGTERM")
+      })
+    }
+
     let workspaceSync: Array<ReturnType<typeof Workspace.startSyncing>> = []
     if (Installation.isLocal()) {
       const projects = await runProject(
@@ -213,6 +236,11 @@ export const ServeCommand = cmd({
     // services. Force-exit if any of this hangs for more than 5s.
     log.info("shutting down")
     warn("shutting down...")
+    // Before the drain, not after: a client probing during a slow shutdown must
+    // see "gone" rather than connect to a server that is closing. Ownership is
+    // checked inside, so an instance that was already replaced does not delete
+    // its successor's entry on the way out.
+    if (releaseRegistration) await releaseRegistration()
     const force = setTimeout(() => {
       console.error("graceful shutdown timed out, forcing exit")
       process.exit(1)

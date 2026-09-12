@@ -31,11 +31,27 @@ async function readModule(relative: string): Promise<{ file: string; source: str
   throw new Error(`no module for ${relative}`)
 }
 
-/** Every top-level command yargs is given, read out of `cli-main.ts`. */
+/**
+ * Every top-level command yargs is given, read out of `cli-main.ts`.
+ *
+ * Two registration forms, and both count. `.command(FooCommand)` names a
+ * statically imported module, so the spec has to be read out of that module.
+ * `.command(lazy({ command, describe }, exported(() => import("..."), "Foo")))`
+ * carries the spec at the registration site precisely so `--help` never loads
+ * the handler — there the spec is already here. `lazy-commands.test.ts` is what
+ * holds the duplicated spec to the module it points at; this file only needs the
+ * names.
+ */
 async function registeredCommands(): Promise<Map<string, string>> {
   const main = await fs.readFile(mainPath, "utf8")
+  const commands = new Map<string, string>()
+
+  for (const match of main.matchAll(/lazy\(\s*\{\s*command:\s*"([^"]+)"/g)) {
+    commands.set(nameOf(match[1]), match[1])
+  }
+
   const identifiers = [...main.matchAll(/\.command\((\w+)\)/g)].map((match) => match[1])
-  expect(identifiers.length).toBeGreaterThan(20)
+  expect(identifiers.length + commands.size).toBeGreaterThan(20)
 
   const modulePaths = new Map<string, string>()
   for (const statement of main.matchAll(/import\s*\{([^}]+)\}\s*from\s*"([^"]+)"/g)) {
@@ -49,7 +65,6 @@ async function registeredCommands(): Promise<Map<string, string>> {
     }
   }
 
-  const commands = new Map<string, string>()
   for (const identifier of identifiers) {
     const relative = modulePaths.get(identifier)
     if (!relative) throw new Error(`${identifier} is registered but never imported`)
