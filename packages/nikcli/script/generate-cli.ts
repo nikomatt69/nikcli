@@ -75,6 +75,16 @@ function record(module: any): Cmd {
         return proxy
       }
       if (prop === "demandCommand") return () => { demandCommand = true; return proxy }
+      // `.default(name, value)` overrides a default declared earlier by
+      // `.options()`. Two commands use it (`remote start`, `mobile serve`) to bind
+      // 0.0.0.0 instead of loopback; ignoring it silently changes what they bind.
+      if (prop === "default") return (name: any, value: any) => {
+        if (typeof name === "string") {
+          const target = params.find((entry) => entry.name === name)
+          if (target) target.default = value
+        }
+        return proxy
+      }
       return () => proxy
     },
   })

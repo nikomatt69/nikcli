@@ -36,6 +36,13 @@ preserveTestEnv([
  * builders are functions and can compute their options; a regex cannot see that,
  * and a comparison that can be fooled is worse than none because it makes an
  * unverified migration look verified.
+ *
+ * Scope: names, aliases, kind and optionality. **Values are compared by
+ * `effect-cli-parse-parity.test.ts`**, which parses real argv — and it earns its
+ * keep: `remote start` and `mobile serve` override `--hostname` to `0.0.0.0`
+ * through yargs' `.default()` *method*, which the generator ignored. This file
+ * passed 150/150 throughout, because the flag was declared identically. Only the
+ * parsed value differed.
  */
 const { Commands } = await import("@/cli/commands")
 

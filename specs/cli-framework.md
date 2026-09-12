@@ -102,22 +102,51 @@ all of it except one gap.
 - **Global middleware.** `cli-main`'s middleware (`initialize()`, the env flags,
   `Diagnostics.listen()`) maps onto global flags plus a wrapper around `run`.
 
-## Parity harness
+## Parity harnesses
 
-`test/cli/effect-cli-parity.test.ts` walks the whole effect tree and compares
-every command against the yargs command at the same path: parameter names,
-aliases, kind and optionality. **150 assertions, one per command**, plus a check
-that no yargs command is missing from the effect tree and that the tree is not
-trivially empty.
+Two, because they catch different things — and the second one is the reason the
+first is not enough.
 
-Both sides are read by **running the declarations**, not parsing them. A yargs
-builder is a function and can compute its options; a regex cannot see that, and a
-comparison that can be fooled is worse than none, because it makes an unverified
-migration look verified.
+**`test/cli/effect-cli-parity.test.ts` — declarations.** Walks the whole effect
+tree and compares every command against the yargs command at the same path:
+names, aliases, kind, optionality. 150 assertions, plus a check that no yargs
+command is missing and that the tree is not trivially empty. Validated by
+breaking it on purpose (removing `-s` from the default command's `--session`).
 
-It was checked by breaking it on purpose — removing the `-s` alias from the
-default command's `--session` turns the suite red. A parity test that cannot fail
-is not a test.
+**`test/cli/effect-cli-parse-parity.test.ts` — parsed values.** Parses the same
+argv with both and compares what the handler would receive: 304 vectors, one per
+command plus one per flag, with sample values taken from each parameter's own
+declared type and choices.
+
+It earned its place immediately. `remote start` and `mobile serve` override
+`--hostname` to `0.0.0.0` through yargs' `.default()` **method**, which the
+generator's recorder ignored — so the generated spec bound loopback instead. The
+declaration harness passed 150/150 the whole time, because the flag is *declared*
+identically. Only the parsed value differed.
+
+### A pre-existing bug it surfaced
+
+`--no-tunnel` (`remote start`), `--no-chart` (`usage`) and `--no-auto-detect`
+(`locale`) are declared as flags literally named `no-…`. yargs reserves that
+prefix for boolean negation, so `--no-tunnel` sets `tunnel: false` and leaves
+`no-tunnel` at its default. `remote start`'s handler reads `!args.noTunnel`,
+which stays `false` — **the flag does nothing today**. Verified directly against
+yargs, not inferred.
+
+Effect has no such rule and sets the flag, so it behaves the way the flag is
+documented. The parse harness excludes `no-`-prefixed names with that reasoning
+recorded at the exclusion, because the two parsers genuinely differ and effect is
+the correct one. Fixing the yargs side is a behaviour change and belongs in its
+own change.
+
+### Why the yargs side never routes
+
+The first version of the parse harness wrapped the top-level handler and let
+yargs dispatch to subcommands. It did not wrap deeply enough: for nested
+commands yargs ran the **real** handler, and `companion`'s opened browser tabs on
+the machine running the suite. It now walks the builders itself to the leaf
+module and registers that leaf alone, with its own handler, in a fresh parser —
+there is nothing nested for yargs to dispatch into.
 
 ## Order of work
 

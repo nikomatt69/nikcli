@@ -680,7 +680,7 @@ const SpecRemoteStart = Spec.make("start", {
   description: "start a new remote control session",
   params: {
     "port": Flag.float("port").pipe(Flag.withDescription("port to listen on"), Flag.withDefault(0)),
-    "hostname": Flag.string("hostname").pipe(Flag.withDescription("hostname to listen on"), Flag.withDefault("127.0.0.1")),
+    "hostname": Flag.string("hostname").pipe(Flag.withDescription("hostname to listen on"), Flag.withDefault("0.0.0.0")),
     "mdns": Flag.boolean("mdns").pipe(Flag.withDescription("enable mDNS service discovery (defaults hostname to 0.0.0.0)"), Flag.withDefault(false)),
     "cors": Flag.string("cors").pipe(Flag.withDescription("additional domains to allow for CORS"), Flag.atLeast(0)),
     "name": Flag.string("name").pipe(Flag.withAlias("n"), Flag.withDescription("terminal remote session name"), Flag.optional),
@@ -763,7 +763,7 @@ const SpecMobileServe = Spec.make("serve", {
   description: "start nikcli with mobile-friendly defaults",
   params: {
     "port": Flag.float("port").pipe(Flag.withDescription("port to listen on"), Flag.withDefault(0)),
-    "hostname": Flag.string("hostname").pipe(Flag.withDescription("hostname to listen on"), Flag.withDefault("127.0.0.1")),
+    "hostname": Flag.string("hostname").pipe(Flag.withDescription("hostname to listen on"), Flag.withDefault("0.0.0.0")),
     "mdns": Flag.boolean("mdns").pipe(Flag.withDescription("enable mDNS service discovery (defaults hostname to 0.0.0.0)"), Flag.withDefault(false)),
     "cors": Flag.string("cors").pipe(Flag.withDescription("additional domains to allow for CORS"), Flag.atLeast(0)),
     "public-url": Flag.string("public-url").pipe(Flag.withDescription("public HTTPS URL used by the mobile app outside your tailnet"), Flag.optional),

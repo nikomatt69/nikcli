@@ -1,5 +1,6 @@
 import { Effect } from "effect"
 import { Command } from "effect/unstable/cli"
+import { GlobalFlags } from "../global-flags"
 import type { Spec } from "./spec"
 
 /**
@@ -99,12 +100,32 @@ function provide(node: Spec.Any, handlers: ReadonlyArray<LazyHandler>): Command.
   ) as Command.Command.Any
 }
 
+/** The root, with every command bound and the global flags attached. */
+function rootCommand(root: Spec.Any, handlers: ReadonlyArray<LazyHandler>) {
+  return provide(root, handlers).pipe(Command.withGlobalFlags(GlobalFlags as never))
+}
+
 export function run(
   root: Spec.Any,
   handlers: ReadonlyArray<LazyHandler>,
   options: { readonly version: string },
 ) {
-  return Command.run(provide(root, handlers) as never, options)
+  return Command.run(rootCommand(root, handlers) as never, options)
+}
+
+/**
+ * Same wiring, but parsing an argv passed in rather than read from stdio.
+ *
+ * This is what lets a test parse the same argv with both CLIs and compare the
+ * results — the declaration-level parity harness cannot see a difference in how
+ * a value is *parsed*, only in how it is declared.
+ */
+export function runWith(
+  root: Spec.Any,
+  handlers: ReadonlyArray<LazyHandler>,
+  options: { readonly version: string; readonly renderErrors?: boolean },
+) {
+  return Command.runWith(rootCommand(root, handlers) as never, options)
 }
 
 export * as Runtime from "./runtime"
