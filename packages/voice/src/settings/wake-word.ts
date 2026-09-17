@@ -66,7 +66,9 @@ const WEAK_OPENERS: ReadonlySet<string> = new Set(["e", "eh"])
 /** Whether «e nik …» has no pause after the name, and so may be about Nick. */
 function noPauseAfterName(utterance: string): boolean {
   // «ehnik,»: the recogniser may glue the greeting to the name.
-  return !/(?:\b|(?<=\beh?))ni(?:c?k|c)\s*[,.;:!?…]/iu.test(utterance)
+  // Inspect the first name only; punctuation after a later mention is not its pause.
+  const name = /(?:\b|(?<=\beh?))ni(?:c?k|c)\b(\s*[,.;:!?…])?/iu.exec(utterance)
+  return !name?.[1]
 }
 
 /*

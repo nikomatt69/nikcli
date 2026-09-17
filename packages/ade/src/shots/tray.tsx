@@ -30,6 +30,11 @@ export interface ShotTrayProps {
   onDismiss: (path: string) => void
   /** Removes the file from disk. */
   onDelete?: (path: string) => void
+  /**
+   * True when this machine has no screenshots folder, so none will ever
+   * arrive. The strip then says so in one line instead of staying blank.
+   */
+  unavailable?: boolean
 }
 
 /** A thumbnail, loaded once and revoked when it leaves the tray. */
@@ -81,7 +86,16 @@ export function ShotTray(props: ShotTrayProps) {
   const [opened, setOpened] = createSignal<Shot>()
 
   return (
-    <Show when={props.shots.length > 0}>
+    <Show
+      when={props.shots.length > 0}
+      fallback={
+        <Show when={props.unavailable}>
+          <aside data-component="shot-tray" data-empty="true">
+            <span data-slot="shot-tray-empty">{t("shots.noFolder")}</span>
+          </aside>
+        </Show>
+      }
+    >
       <aside
         data-component="shot-tray"
         data-collapsed={collapsed() ? "true" : undefined}

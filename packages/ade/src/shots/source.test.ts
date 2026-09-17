@@ -17,6 +17,25 @@ describe("createShotSource without a host", () => {
     })
   })
 
+  /*
+   * The difference the tray needs: with no host, and with a host that says
+   * this machine has no screenshots folder, nothing can ever arrive — so the
+   * strip says so instead of staying blank, which is what a Mac was left with.
+   */
+  test("says outright that there is no folder to watch", () => {
+    createRoot((dispose) => {
+      expect(createShotSource(false).state()).toBe("none")
+      dispose()
+    })
+  })
+
+  test("with a host it waits for the answer before saying anything", () => {
+    createRoot((dispose) => {
+      expect(createShotSource(true).state()).toBe("asking")
+      dispose()
+    })
+  })
+
   test("loading an image resolves to nothing rather than throwing", async () => {
     await createRoot(async (dispose) => {
       const source = createShotSource(false)

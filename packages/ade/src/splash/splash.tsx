@@ -2,6 +2,7 @@ import { Show, createEffect, createSignal, onCleanup, onMount } from "solid-js"
 // Types only. The library itself is loaded inside `startScene`, so a launch
 // that never shows the splash never parses three.js either.
 import type * as THREE from "three"
+import { t } from "../i18n"
 import "./splash.css"
 
 export interface SplashProps {
@@ -104,7 +105,7 @@ function SplashView(props: { visible: boolean; onDismiss?: () => void }) {
       data-leaving={!props.visible ? "" : undefined}
       onClick={dismiss}
       role="dialog"
-      aria-label="ADE Onboarding — 3D ASCII Typography"
+      aria-label={t("splash.aria")}
       aria-modal="true"
     >
       {/* Three.js Canvas Container (Offscreen WebGL source) */}

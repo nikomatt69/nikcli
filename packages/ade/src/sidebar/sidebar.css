@@ -130,8 +130,17 @@
 
 /* ── sections ─────────────────────────────────────────────────────────────── */
 
+/*
+ * As tall as the sections it holds, and never taller.
+ *
+ * It used to be `flex: 1`, which handed it the whole column: with "File" shut
+ * — three headers and nothing else — the box ran to the foot of the sidebar
+ * and half the column was an empty card. `0 1 auto` keeps the shrink that
+ * lets the scrolling section give way when the content is taller than the
+ * column, and drops the growth that was filling the sidebar with nothing.
+ */
 [data-slot="sidebar-sections"] {
-  flex: 1;
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;

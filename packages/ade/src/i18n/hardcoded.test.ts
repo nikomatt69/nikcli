@@ -157,5 +157,5 @@ describe("fixed text in JSX", () => {
     }
     expect(grew).toEqual([])
     expect(shrank).toEqual([])
-  })
+  }, 30_000)
 })

@@ -23,11 +23,22 @@ export interface ShotSource {
   load: (path: string) => Promise<Uint8Array | null>
   /** Where the host is watching, once it has answered. Undefined in the browser. */
   folder: () => string | undefined
+  /**
+   * Whether this machine has a screenshots folder at all.
+   *
+   * `"asking"` until the host answers, and `"none"` when it says there is no
+   * such folder. The tray needs the difference: with no folder no screenshot
+   * can ever arrive, and a strip that stays blank forever says nothing about
+   * why — which is what a Mac showed, since the folders looked for were the
+   * Windows ones.
+   */
+  state: () => "asking" | "watching" | "none"
 }
 
 export function createShotSource(inTauri: boolean): ShotSource {
   const [shots, setShots] = createSignal<Shot[]>([])
   const [folder, setFolder] = createSignal<string>()
+  const [state, setState] = createSignal<"asking" | "watching" | "none">(inTauri ? "asking" : "none")
   /*
    * Dismissed paths are remembered, because the folder watcher has no idea a
    * screenshot was put away: the file is still there, and the next `shots_recent`
@@ -76,8 +87,13 @@ export function createShotSource(inTauri: boolean): ShotSource {
       if (disposed) return
 
       const dir = await invoke<string | null>("shots_dir").catch(() => null)
-      if (!dir || disposed) return
+      if (disposed) return
+      if (!dir) {
+        setState("none")
+        return
+      }
       setFolder(dir)
+      setState("watching")
 
       // What is already there first: the screenshot taken a moment before
       // switching to ADE is the one the user came here to use, and it arrived
@@ -100,6 +116,7 @@ export function createShotSource(inTauri: boolean): ShotSource {
   return {
     shots,
     folder,
+    state,
     dismiss: (path) => {
       dismissed.add(path)
       setShots((current) => current.filter((shot) => shot.path !== path))

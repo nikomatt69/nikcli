@@ -73,6 +73,25 @@ describe("open/closed state", () => {
   test("junk in storage is ignored rather than trusted", () => {
     expect([...deserializeSections("file,qualcosa,__proto__")]).toEqual(["file"])
   })
+
+  test("the names earlier builds used are still read", () => {
+    expect([...deserializeSections("projects,agents,files")].sort()).toEqual(["agenti", "file", "progetti"])
+    expect([...deserializeSections("SPACES, FileTree")].sort()).toEqual(["file", "progetti"])
+  })
+
+  /*
+   * A store written by a build that named its sections differently used to
+   * shut every section it could not recognise: three headers with nothing
+   * under them, and nothing saying a click brings them back.
+   */
+  test("a value that names nothing this build knows opens everything", () => {
+    expect([...deserializeSections("sezioni,boh")].sort()).toEqual(["agenti", "file", "progetti"])
+  })
+
+  test("but an empty string still means they were all closed", () => {
+    expect(deserializeSections("").size).toBe(0)
+    expect(deserializeSections("  ,  ").size).toBe(0)
+  })
 })
 
 describe("countSessions", () => {

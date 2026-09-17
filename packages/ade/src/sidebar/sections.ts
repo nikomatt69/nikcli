@@ -62,18 +62,38 @@ export function serializeSections(open: ReadonlySet<SectionId>): string {
   return SECTION_IDS.filter((id) => open.has(id)).join(",")
 }
 
+/** What earlier builds called these sections. A store written by one of them is still an answer. */
+const ALIASES: Record<string, SectionId> = {
+  spaces: "progetti",
+  projects: "progetti",
+  agents: "agenti",
+  sessions: "agenti",
+  files: "file",
+  filetree: "file",
+}
+
 /**
  * Reads the stored set, tolerating anything.
  *
- * A missing value means a first run and opens both. An empty *string*, though,
- * is a real answer — the user closed both — and must not be mistaken for
+ * A missing value means a first run and opens all. An empty *string*, though,
+ * is a real answer — the user closed them all — and must not be mistaken for
  * "nothing stored", or the sidebar reopens itself on every reload.
+ *
+ * A value that names something, but nothing this build knows, is neither: it
+ * was written by another build, and honouring it shuts sections the user
+ * never shut — a sidebar of three headers with nothing under them and no
+ * hint that a click reopens it. That opens everything, as a first run does.
  */
 export function deserializeSections(raw: string | null | undefined): Set<SectionId> {
   if (raw === null || raw === undefined) return defaultOpenSections()
-  const parts = raw.split(",").map((part) => part.trim())
-  const wanted = parts.map((p) => (p === "spaces" ? "progetti" : p))
-  return new Set(SECTION_IDS.filter((id) => wanted.includes(id)))
+  const parts = raw
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+  const wanted = parts.map((part) => ALIASES[part] ?? part)
+  const known = SECTION_IDS.filter((id) => wanted.includes(id))
+  if (parts.length > 0 && known.length === 0) return defaultOpenSections()
+  return new Set(known)
 }
 
 // ---------------------------------------------------------------------------

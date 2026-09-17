@@ -20,6 +20,7 @@ import {
 import { awaitPaneReply } from "./await-reply"
 import { createVoiceAgent, type VoiceAgent } from "./agent"
 import { listProjectsFrom, resolveAgentId, resolveProject } from "./resolve"
+import { t } from "../i18n"
 
 /**
  * External dependencies provided by Workbench to avoid direct global state coupling.
@@ -372,7 +373,7 @@ export function createAdeVoiceHost(deps: AdeVoiceHostDeps): VoiceHost {
       if (answer === "deny") {
         deps.appendLine(
           paneId,
-          "Nessuna delle risposte proposte è un rifiuto: rispondi tu, non scelgo al posto tuo.",
+          t("voice.permission.notRefusal"),
           "note",
         )
       }

@@ -100,11 +100,10 @@ export function BotSection(props: BotSectionProps) {
     <>
       <div data-slot="section-head">
         <h3 data-slot="section-title" tabIndex={-1}>
-          Bot
+          {t("settings.bots.title")}
         </h3>
         <p data-slot="section-desc">
-          Gli agenti di nikcli che questa macchina conosce: con quale modello girano, e se
-          appartengono al progetto o a tutti. Si creano e si modificano nella vista Bot.
+          {t("settings.bots.desc")}
         </p>
       </div>
 
@@ -113,8 +112,8 @@ export function BotSection(props: BotSectionProps) {
         fallback={
           <p data-slot="settings-empty">
             {ready()
-              ? "Nessun agente nikcli. Se ne crea uno dalla vista Bot."
-              : "Lettura delle cartelle di nikcli…"}
+              ? t("settings.bots.empty")
+              : t("settings.bots.reading")}
           </p>
         }
       >
@@ -126,9 +125,9 @@ export function BotSection(props: BotSectionProps) {
                   {bot.identifier.slice(0, 1).toUpperCase()}
                 </span>
                 <span data-slot="settings-name">{bot.identifier}</span>
-                <span data-slot="settings-meta">{bot.model ?? "modello di nikcli"}</span>
+                <span data-slot="settings-meta">{bot.model ?? t("settings.bots.defaultModel")}</span>
                 <span data-slot="settings-meta">
-                  {bot.scope === "project" ? "progetto" : "globale"}
+                  {bot.scope === "project" ? t("settings.bots.scopeProject") : t("settings.bots.scopeGlobal")}
                 </span>
               </li>
             )}
@@ -164,11 +163,10 @@ export function SkillsSection(props: SkillsSectionProps) {
     <>
       <div data-slot="section-head">
         <h3 data-slot="section-title" tabIndex={-1}>
-          Strumenti
+          {t("settings.skills.title")}
         </h3>
         <p data-slot="section-desc">
-          Quali strumenti sono stati tolti a un bot. Chi non compare qui li ha tutti: nikcli
-          registra nel file solo le rinunce.
+          {t("settings.skills.desc")}
         </p>
       </div>
 
@@ -176,7 +174,7 @@ export function SkillsSection(props: SkillsSectionProps) {
         when={restricted().length > 0}
         fallback={
           <p data-slot="settings-empty">
-            Nessun bot ha limitazioni: tutti possono usare ogni strumento di nikcli.
+            {t("settings.skills.empty")}
           </p>
         }
       >
@@ -185,7 +183,7 @@ export function SkillsSection(props: SkillsSectionProps) {
             {(bot) => (
               <li data-slot="settings-row">
                 <span data-slot="settings-name">{bot.identifier}</span>
-                <span data-slot="settings-meta">senza {bot.disabledTools.join(", ")}</span>
+                <span data-slot="settings-meta">{t("settings.skills.without", bot.disabledTools.join(", "))}</span>
               </li>
             )}
           </For>
@@ -327,30 +325,26 @@ export function ProviderSection(props: ProviderSectionProps) {
   onMount(check)
 
   const label = (state: ProviderState | undefined) => {
-    if (!state) return "Controllo…"
-    if (!state.installed) return "Non installato"
-    if (state.login.state === "in") return "Collegato"
-    if (state.login.state === "out") return "Non collegato"
-    return "Da verificare"
+    if (!state) return t("settings.providers.checking")
+    if (!state.installed) return t("settings.providers.notInstalled")
+    if (state.login.state === "in") return t("settings.providers.connected")
+    if (state.login.state === "out") return t("settings.providers.notConnected")
+    return t("settings.providers.unverified")
   }
 
   return (
     <>
       <div data-slot="section-head">
         <h3 data-slot="section-title" tabIndex={-1}>
-          Provider
+          {t("settings.providers.title")}
         </h3>
         <p data-slot="section-desc">
-          I programmi su cui può girare un bot, ognuno con l'account della propria CLI: l'abbonamento
-          Anthropic passa da Claude Code, quello ChatGPT da Codex, le chiavi e gli altri abbonamenti
-          da nikcli. Il motore, il modello e lo sforzo si scelgono nella scheda di ogni bot.
+          {t("settings.providers.desc1")}
         </p>
         <p data-slot="section-desc">
-          ADE non chiede né legge le credenziali: l'accesso si fa nel flusso ufficiale di ogni CLI. Gli
-          abbonamenti sono per uso personale e ADE tiene al massimo {MAX_PARALLEL_TURNS} turni insieme
-          per ognuno; per automazioni intensive o non presidiate accedi alla CLI con una chiave API
-          (Claude Code accetta la chiave della Console Anthropic, Codex la chiave OpenAI con{" "}
-          <code>codex login --with-api-key</code>).
+          {t("settings.providers.desc2Before", MAX_PARALLEL_TURNS)}
+          <code>{"codex login --with-api-key"}</code>
+          {t("settings.providers.desc2After")}
         </p>
       </div>
 
@@ -370,7 +364,7 @@ export function ProviderSection(props: ProviderSectionProps) {
                       onClick={() => props.onLogin?.(runner)}
                       title={`${runner.command} ${runner.login.join(" ")}`}
                     >
-                      {state()?.login.state === "in" ? "Cambia account" : "Accedi"}
+                      {state()?.login.state === "in" ? t("settings.providers.switchAccount") : t("settings.providers.login")}
                     </button>
                   </Show>
                 </div>
@@ -386,7 +380,7 @@ export function ProviderSection(props: ProviderSectionProps) {
 
       <div data-slot="settings-choices">
         <button type="button" data-slot="settings-choice" disabled={checking()} onClick={check}>
-          {checking() ? "Controllo…" : "Controlla di nuovo"}
+          {checking() ? t("settings.providers.checking") : t("settings.providers.checkAgain")}
         </button>
       </div>
     </>

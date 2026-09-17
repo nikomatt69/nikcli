@@ -143,6 +143,12 @@ describe("«e nik» and «eh nik» from a television", () => {
     }
   })
 
+  test("punctuation after a later name is not a pause after the opening name", () => {
+    for (const heard of ["E Nick parla di Nick, domani", "eh Nik parla di Nick!", "ehnik parla di Nic."]) {
+      expect(matchesWakeWord(heard, "nik")).toEqual({ matched: false, remainder: "" })
+    }
+  })
+
   test("with a pause, or the name alone, it calls; «nik» and «ei nik» are unchanged", () => {
     expect(matchesWakeWord("e nik, che ore sono", "nik")).toEqual({ matched: true, remainder: "che ore sono" })
     expect(matchesWakeWord("E Nick. Apri il browser", "nik").matched).toBe(true)

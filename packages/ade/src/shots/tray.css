@@ -18,6 +18,16 @@
   border-top: 1px solid var(--ade-border-subtle);
 }
 
+/* One line, the height of the text and no more: an explanation must not cost
+   more of the column than the thumbnails it stands in for. */
+[data-slot="shot-tray-empty"] {
+  display: block;
+  padding: var(--ade-space-2) var(--ade-space-6);
+  color: var(--ade-text-weak);
+  font-family: var(--ade-sans);
+  font-size: var(--ade-font-xs);
+}
+
 [data-slot="shot-tray-head"] {
   display: flex;
   align-items: center;

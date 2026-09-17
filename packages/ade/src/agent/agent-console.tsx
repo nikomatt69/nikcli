@@ -133,10 +133,10 @@ export function AgentConsole(props: AgentConsoleProps) {
               <p data-slot="agent-empty-body">
                 {t("agent.empty.body")}
               </p>
-              <ul data-slot="agent-examples" lang="it">
-                <li>«avvia quattro sessioni claude su questo progetto»</li>
-                <li>«apri il pannello due»</li>
-                <li>«cosa sta succedendo»</li>
+              <ul data-slot="agent-examples">
+                <li>{t("agent.empty.example1")}</li>
+                <li>{t("agent.empty.example2")}</li>
+                <li>{t("agent.empty.example3")}</li>
               </ul>
             </div>
           }

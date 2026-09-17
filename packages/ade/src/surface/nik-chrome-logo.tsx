@@ -1,4 +1,5 @@
 import { onMount, onCleanup, createSignal, type JSX } from "solid-js"
+import { t } from "../i18n"
 
 export interface NikChromeLogoProps {
   /** Logo size in pixels (both width and height square bounding box). Defaults to 30. */
@@ -273,8 +274,8 @@ export function NikChromeLogo(props: NikChromeLogoProps): JSX.Element {
         perspective: "500px",
         cursor: "pointer",
       }}
-      title="ADE — Molten Chrome Mercury with Physics (Click for liquid splash)"
-      aria-label="ADE Logo — Concept 3 Molten Chrome"
+      title={t("logo.title")}
+      aria-label={t("logo.aria")}
     >
       <style>{`
         @keyframes chromeSheenFlow {

@@ -5322,6 +5322,7 @@ export function Workbench() {
           bottom={
             <ShotTray
               shots={shotSource.shots()}
+              unavailable={shotSource.state() === "none"}
               load={shotSource.load}
               onDismiss={shotSource.dismiss}
               onDelete={(path) => void shotSource.remove(path)}
